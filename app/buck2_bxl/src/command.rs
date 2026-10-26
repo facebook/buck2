@@ -33,12 +33,10 @@ use buck2_common::target_aliases::HasTargetAliasResolver;
 use buck2_core::bxl::BxlFilePath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
-use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedRelativeDir;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::package::PackageLabel;
-use buck2_core::soft_error;
 use buck2_data::BxlEnsureArtifactsEnd;
 use buck2_data::BxlEnsureArtifactsStart;
 use buck2_error::BuckErrorContext;
@@ -541,10 +539,6 @@ enum BxlLabelError {
         "bxl label should be of format `<cell>//path/to/file.bxl:function_name`, but got `{0}`"
     )]
     Format(String),
-    #[error(
-        "The bxl function path `{got}` should use the canonical name `{wanted}`. If your bxl changes aren't being detected, this is probably why"
-    )]
-    WrongCell { got: String, wanted: CellPath },
 }
 
 /// Parse the bxl function label out of cli pattern
@@ -571,20 +565,8 @@ pub(crate) fn parse_bxl_label_from_cli(
     };
     let import_path = parse_import_with_config(cell_alias_resolver, bxl_path, &opts)?;
 
-    let project_path = cell_resolver.resolve_path(import_path)?;
-    let reformed_path = cell_resolver.get_cell_path(&project_path);
-    if reformed_path.cell() != import_path.cell() {
-        soft_error!(
-            "bxl_label_wrong_cell",
-            BxlLabelError::WrongCell {
-                got: bxl_path.to_owned(),
-                wanted: reformed_path,
-            }
-            .into(),
-            error_on_oss: true
-        )?;
-    }
-
+    // FIXME(JakobDegen): A bxl path that resolves into a cell other than the one it names should
+    // be an error; as it is, changes to the file may go unnoticed.
     Ok(BxlFunctionLabel {
         bxl_path: BxlFilePath::new(import_path)?,
         name: bxl_fn.to_owned(),
