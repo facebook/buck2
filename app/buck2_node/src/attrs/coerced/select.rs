@@ -837,6 +837,20 @@ impl Kind for kinds::SelectorKeys {
     type Fields = Keys;
 }
 
+impl<'a> CoercedAttrRef<'a> {
+    /// Whether evaluating this value can ever yield `None`, directly or
+    /// through a `select()` branch.
+    pub fn may_return_none(&self) -> bool {
+        self.downcast::<kinds::None>().is_some()
+            || self
+                .downcast::<kinds::Selector>()
+                .is_some_and(|(entries, default)| {
+                    entries.iter().any(|(_, v)| v.may_return_none())
+                        || default.is_some_and(|d| d.may_return_none())
+                })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use dupe::Dupe;
@@ -868,19 +882,5 @@ mod tests {
         assert!(check_select_keys_unique(&long).is_ok());
         long[10].0 = long[0].0.dupe();
         assert!(check_select_keys_unique(&long).is_err());
-    }
-}
-
-impl<'a> CoercedAttrRef<'a> {
-    /// Whether evaluating this value can ever yield `None`, directly or
-    /// through a `select()` branch.
-    pub fn may_return_none(&self) -> bool {
-        self.downcast::<kinds::None>().is_some()
-            || self
-                .downcast::<kinds::Selector>()
-                .is_some_and(|(entries, default)| {
-                    entries.iter().any(|(_, v)| v.may_return_none())
-                        || default.is_some_and(|d| d.may_return_none())
-                })
     }
 }
