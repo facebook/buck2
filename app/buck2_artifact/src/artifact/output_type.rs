@@ -11,7 +11,6 @@
 use std::fmt::Display;
 
 use allocative::Allocative;
-use buck2_core::soft_error;
 use dupe::Dupe;
 use pagable::Pagable;
 
@@ -53,22 +52,9 @@ impl OutputType {
         path_for_error_message: impl Display,
         output_type: OutputType,
     ) -> buck2_error::Result<()> {
-        if self == OutputType::Directory && output_type == OutputType::FileOrDirectory {
-            // If we treat paths whose declared type is FileOrDirectory like files, then that's incompatible with directory
-            soft_error!(
-                "declare_wrong_type",
-                OutputTypeError::CheckPath(
-                    path_for_error_message.to_string(),
-                    self,
-                    OutputType::File
-                )
-                .into(),
-                deprecation: true,
-                quiet: true,
-                error_on_oss: true
-            )?;
-            Ok(())
-        } else if self == output_type
+        // FIXME(JakobDegen): A path declared `FileOrDirectory` is treated as a file, so asking for
+        // it as a directory should fail.
+        if self == output_type
             || self == OutputType::FileOrDirectory
             || output_type == OutputType::FileOrDirectory
         {
