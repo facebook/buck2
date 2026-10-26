@@ -97,7 +97,6 @@ pub(crate) fn build_coercion_ctx(package_listing: PackageListing) -> BuildAttrCo
         cell_resolver,
         cell_alias_resolver,
         (package, package_listing),
-        false,
         CellPathWithAllowedRelativeDir::backwards_relative_not_supported(
             package.as_cell_path().to_owned(),
         ),

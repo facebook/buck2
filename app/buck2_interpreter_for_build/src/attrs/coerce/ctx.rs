@@ -85,8 +85,6 @@ pub struct BuildAttrCoercionContext {
     enclosing_package: Option<(PackageLabel, PackageListing)>,
     /// This defines the limited scope in which we allow parsing patterns beginning with `../`
     current_dir_with_allowed_relative_dirs: CellPathWithAllowedRelativeDir,
-    /// Does this package (if present) have a package boundary exception on it.
-    package_boundary_exception: bool,
     /// Whether to infer a target name when a pattern does not provide one,
     /// making `//foo/bar` equivalent to `//foo/bar:bar`. Controlled by the
     /// `buck2.infer_target_names` buckconfig.
@@ -122,7 +120,6 @@ impl BuildAttrCoercionContext {
         cell_name: CellName,
         cell_alias_resolver: CellAliasResolver,
         enclosing_package: Option<(PackageLabel, PackageListing)>,
-        package_boundary_exception: bool,
         current_dir_with_allowed_relative_dirs: CellPathWithAllowedRelativeDir,
         infer_target_names: InferTargetNames,
     ) -> Self {
@@ -132,7 +129,6 @@ impl BuildAttrCoercionContext {
             cell_alias_resolver,
             enclosing_package,
             current_dir_with_allowed_relative_dirs,
-            package_boundary_exception,
             infer_target_names,
             alloc: Bump::new(),
             label_cache: RefCell::new(HashTable::new()),
@@ -170,7 +166,6 @@ impl BuildAttrCoercionContext {
             cell_name,
             cell_alias_resolver,
             None,
-            false,
             CellPathWithAllowedRelativeDir::backwards_relative_not_supported(CellPath::empty(
                 cell_name,
             )),
@@ -182,7 +177,6 @@ impl BuildAttrCoercionContext {
         cell_resolver: CellResolver,
         cell_alias_resolver: CellAliasResolver,
         enclosing_package: (PackageLabel, PackageListing),
-        package_boundary_exception: bool,
         current_dir_with_allowed_relative_dirs: CellPathWithAllowedRelativeDir,
         infer_target_names: InferTargetNames,
     ) -> Self {
@@ -191,7 +185,6 @@ impl BuildAttrCoercionContext {
             enclosing_package.0.cell_name(),
             cell_alias_resolver,
             Some(enclosing_package),
-            package_boundary_exception,
             current_dir_with_allowed_relative_dirs,
             infer_target_names,
         )
