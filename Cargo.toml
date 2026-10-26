@@ -382,7 +382,7 @@ fxhash = "0.2.1"
 games = { path = "games" }
 glob = "0.3.4"
 globset = { version = "0.4.20", features = ["serde1"] }
-h2 = "0.4.19"
+h2 = "0.4.20"
 hashbrown = "0.17.1"
 hex = { version = "0.4.3", features = ["alloc"] }
 hmap = { version = "0.1.0", path = "gazebo/hmap" }
