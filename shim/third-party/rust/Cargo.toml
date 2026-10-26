@@ -75,7 +75,7 @@ digest = "0.11.3"
 digest-010 = { package = "digest", version = "0.10", features = ["rand_core"] }
 dirs = "7.0"
 dunce = "1.0.5"
-either = "1.18.0"
+either = "1.19.0"
 elf = "0.8"
 enum-iterator = "2.3.0"
 enum-map = "3.1.0"
