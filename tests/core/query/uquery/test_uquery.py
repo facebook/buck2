@@ -603,18 +603,15 @@ class UqueryTest(BuckTestCase):
             == "dir/file1.txt\ndir/subdir/file2.txt\ndir/subdir/file3.txt\n"
         )
 
-        # Can't reference files that don't exist
+        # A source that does not exist is only an error once something needs it
         await expect_failure(
             buck.build("does_not_exist:"),
-            stderr_regex="Source file `does_not_exist` does not exist as a member of package",
+            stderr_regex="File not found: `root//does_not_exist/does_not_exist`",
         )
 
-        # Want to make sure we can't do a package boundary violation
-        # Currently these are soft errors
-        await expect_failure(
-            buck.build("subpackage:"),
-            stderr_regex="Source file `subpackage` does not exist as a member of package",
-        )
+        # FIXME(JakobDegen): A source that names a subpackage directory crosses a package
+        # boundary and should be an error, but nothing checks it.
+        await buck.build("subpackage:")
 
         await expect_failure(
             buck.build("dir_with_subpackage"),

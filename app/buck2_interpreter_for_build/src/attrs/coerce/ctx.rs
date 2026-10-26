@@ -19,6 +19,7 @@ use buck2_core::cells::CellResolver;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedRelativeDir;
 use buck2_core::cells::name::CellName;
+use buck2_core::is_open_source;
 use buck2_core::package::PackageLabel;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::package_relative_path::PackageRelativePathBuf;
@@ -313,14 +314,16 @@ impl<'v> AttrCoercionContext<'v> for BuildAttrCoercionContext {
                 files,
             })))
         } else {
-            let e =
-                BuildAttrCoercionContextError::SourceFileMissing(package.dupe(), value.to_owned());
-            if self.package_boundary_exception {
-                info!("{} (could be due to a package boundary violation)", e);
-            } else {
-                soft_error!("source_file_missing", e.into(), quiet: true, error_on_oss: true)?;
+            // FIXME(JakobDegen): A source file that is not in the package listing should be an
+            // error here, not only once something reads it. Internally it is tolerated because
+            // of misconfigured sparse checkouts; open source has no such excuse.
+            if is_open_source() {
+                return Err(BuildAttrCoercionContextError::SourceFileMissing(
+                    package.dupe(),
+                    value.to_owned(),
+                )
+                .into());
             }
-
             Ok(CoercedPath::File(path.to_arc()))
         }
     }
