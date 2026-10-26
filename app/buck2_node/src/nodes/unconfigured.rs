@@ -19,6 +19,7 @@ use allocative::Allocative;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::configuration::transition::id::TransitionId;
+use buck2_core::execution_types::execution_group::NamedExecutionGroup;
 use buck2_core::package::source_path::SourcePathRef;
 use buck2_core::plugins::PluginKind;
 use buck2_core::provider::label::ProvidersLabel;
@@ -319,6 +320,10 @@ impl TargetNode {
 
     pub fn uses_plugins(&self) -> &[PluginKind] {
         self.as_ref().uses_plugins()
+    }
+
+    pub fn execution_groups(&self) -> &[NamedExecutionGroup] {
+        self.as_ref().execution_groups()
     }
 
     pub fn get_default_target_platform(&self) -> buck2_error::Result<Option<&TargetLabel>> {
@@ -827,6 +832,10 @@ impl<'a> TargetNodeRef<'a> {
         &self.0.get().rule.uses_plugins
     }
 
+    pub fn execution_groups(self) -> &'a [NamedExecutionGroup] {
+        &self.0.get().rule.execution_groups
+    }
+
     pub fn inputs(self) -> impl Iterator<Item = CellPath> + 'a {
         struct InputsCollector {
             inputs: Vec<CellPath>,
@@ -917,6 +926,8 @@ pub mod testing {
                     rule_kind: RuleKind::Normal,
                     cfg: RuleIncomingTransition::None,
                     uses_plugins: Vec::new(),
+                    execution_groups: Vec::new(),
+                    default_execution_group: true,
                 }),
                 Arc::new(Package {
                     buildfile_path,

@@ -46,8 +46,8 @@ impl<'a> From<&'a BzlGlobalIdInner> for BzlGlobalIdInner {
 }
 
 /// The identity of a value that is named by the `.bzl` global it is assigned to, such as a
-/// `plugins.kind()`. Each call that creates such a value gets a distinct identity, even when two
-/// values share a name.
+/// `plugins.kind()` or an `exec_group()`. Each call that creates such a value gets a distinct
+/// identity, even when two values share a name.
 #[derive(
     Clone,
     Dupe,

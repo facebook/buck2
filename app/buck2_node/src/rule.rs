@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::configuration::transition::id::TransitionId;
+use buck2_core::execution_types::execution_group::NamedExecutionGroup;
 use buck2_core::plugins::PluginKind;
 #[allow(unused_imports)]
 use buck2_hash::BuckHasher;
@@ -44,6 +45,10 @@ pub struct Rule {
     pub cfg: RuleIncomingTransition,
     /// The plugin kinds that are used by the target
     pub uses_plugins: Vec<PluginKind>,
+    /// The named execution groups the rule declares, in declaration order.
+    pub execution_groups: Vec<NamedExecutionGroup>,
+    /// Whether the rule lists `DefaultExecGroup` or declares no named execution groups.
+    pub default_execution_group: bool,
 }
 
 interner!(INTERNER, BuckHasher, Rule);

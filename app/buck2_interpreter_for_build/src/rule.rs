@@ -14,9 +14,12 @@ use std::fmt::Display;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_core::execution_types::execution_group::ExecutionGroup;
+use buck2_core::execution_types::execution_group::NamedExecutionGroup;
 use buck2_core::plugins::PluginKind;
 use buck2_error::BuckErrorOptionContext;
 use buck2_hash::BuckMutInsertionMap;
+use buck2_interpreter::execution_group::ExecutionGroupArg;
 use buck2_interpreter::late_binding_ty::AnalysisContextReprLate;
 use buck2_interpreter::late_binding_ty::ProviderReprLate;
 use buck2_interpreter::late_binding_ty::TransitionReprLate;
@@ -111,6 +114,10 @@ pub struct StarlarkRuleCallable<'v> {
     cfg: RuleIncomingTransition,
     /// The plugins that are used by these targets
     uses_plugins: Vec<PluginKind>,
+    /// The named execution groups these targets use
+    execution_groups: Vec<NamedExecutionGroup>,
+    /// Whether these targets list `DefaultExecGroup` or declare no named execution groups
+    default_execution_group: bool,
     /// This kind of the rule, e.g. whether it can be used in configuration context.
     rule_kind: RuleKind,
     /// The raw docstring for this rule
@@ -163,6 +170,18 @@ enum RuleError {
     CfgAndSupportsIncomingTransition,
     #[error("{0} rules do not support incoming transitions")]
     RuleDoesNotSupportIncomingTransition(&'static str),
+    #[error(
+        "Execution groups of a rule must have distinct names; `{name}` is listed more than once"
+    )]
+    DuplicateExecutionGroup { name: String },
+    #[error(
+        "Toolchain rules cannot use execution groups; their exec deps belong to the execution group of the rule depending on the toolchain"
+    )]
+    ExecutionGroupsOnToolchainRule,
+    #[error(
+        "Configuration rules cannot use execution groups; their targets are configured without an execution platform"
+    )]
+    ExecutionGroupsOnConfigurationRule,
 }
 
 impl<'v> AllocValue<'v> for StarlarkRuleCallable<'v> {
@@ -181,6 +200,7 @@ impl<'v> StarlarkRuleCallable<'v> {
         is_configuration_rule: bool,
         is_toolchain_rule: bool,
         uses_plugins: Vec<PluginKind>,
+        execution_groups: Vec<ExecutionGroup>,
         artifact_promise_mappings: Option<ArtifactPromiseMappings<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> buck2_error::Result<StarlarkRuleCallable<'v>> {
@@ -243,6 +263,9 @@ impl<'v> StarlarkRuleCallable<'v> {
             }
         }
 
+        let (execution_groups, default_execution_group) =
+            validate_execution_groups(execution_groups, rule_kind)?;
+
         let attributes = AttributeSpec::from(
             sorted_validated_attrs,
             artifact_promise_mappings.is_some(),
@@ -259,6 +282,8 @@ impl<'v> StarlarkRuleCallable<'v> {
             cfg,
             rule_kind,
             uses_plugins,
+            execution_groups,
+            default_execution_group,
             docs: Some(doc.to_owned()),
             ignore_attrs_for_profiling: build_context.ignore_attrs_for_profiling,
             artifact_promise_mappings,
@@ -283,6 +308,7 @@ impl<'v> StarlarkRuleCallable<'v> {
             doc,
             false,
             false,
+            Vec::new(),
             Vec::new(),
             Some(ArtifactPromiseMappings {
                 mappings: artifact_promise_mappings
@@ -360,6 +386,51 @@ impl<'v> StarlarkRuleCallable<'v> {
 
         DocItem::Member(DocMember::Function(function_docs))
     }
+}
+
+/// Checks the `exec_groups` a rule declares. Returns the named groups, and whether the rule
+/// lists `DefaultExecGroup` or declares no named groups.
+fn validate_execution_groups(
+    execution_groups: Vec<ExecutionGroup>,
+    rule_kind: RuleKind,
+) -> buck2_error::Result<(Vec<NamedExecutionGroup>, bool)> {
+    if !execution_groups.is_empty() {
+        match rule_kind {
+            RuleKind::Normal => {}
+            RuleKind::Toolchain => return Err(RuleError::ExecutionGroupsOnToolchainRule.into()),
+            RuleKind::Configuration => {
+                return Err(RuleError::ExecutionGroupsOnConfigurationRule.into());
+            }
+        }
+    }
+
+    let mut declared: Vec<NamedExecutionGroup> = Vec::with_capacity(execution_groups.len());
+    let mut default_listed = false;
+    for group in execution_groups {
+        let group = match group {
+            ExecutionGroup::Default if default_listed => {
+                return Err(RuleError::DuplicateExecutionGroup {
+                    name: group.to_string(),
+                }
+                .into());
+            }
+            ExecutionGroup::Default => {
+                default_listed = true;
+                continue;
+            }
+            ExecutionGroup::Named(group) => group,
+        };
+        // Names, not `(name, .bzl file)`, must be distinct: users see a target's groups by name.
+        if declared.iter().any(|g| g.name() == group.name()) {
+            return Err(RuleError::DuplicateExecutionGroup {
+                name: group.name().to_owned(),
+            }
+            .into());
+        }
+        declared.push(group);
+    }
+    let default_execution_group = declared.is_empty() || default_listed;
+    Ok((declared, default_execution_group))
 }
 
 #[starlark_value(type = "Rule")]
@@ -460,6 +531,8 @@ impl<'v> Freeze<'v> for StarlarkRuleCallable<'v> {
                 cfg: self.cfg,
                 rule_kind: self.rule_kind,
                 uses_plugins: self.uses_plugins,
+                execution_groups: self.execution_groups,
+                default_execution_group: self.default_execution_group,
             }),
             rule_type,
             implementation: frozen_impl,
@@ -625,6 +698,8 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
         #[starlark(require = named, default = false)] is_toolchain_rule: bool,
         #[starlark(require = named, default = UnpackListOrTuple::default())]
         uses_plugins: UnpackListOrTuple<PluginKindArg>,
+        #[starlark(require = named, default = UnpackListOrTuple::default())]
+        exec_groups: UnpackListOrTuple<ExecutionGroupArg>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkRuleCallable<'v>> {
         Ok(StarlarkRuleCallable::new(
@@ -639,6 +714,11 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
                 .items
                 .into_iter()
                 .map(|PluginKindArg { plugin_kind }| plugin_kind)
+                .collect(),
+            exec_groups
+                .items
+                .into_iter()
+                .map(|ExecutionGroupArg { group }| group)
                 .collect(),
             None,
             eval,
