@@ -126,6 +126,9 @@ enum ErrorTag {
   SERVER_SIGABRT = 402;
   // Server received SIGBUS
   SERVER_SIGBUS = 403;
+  // Server received SIGBUS for an address in its own executable's loaded
+  // segments
+  SERVER_SIGBUS_EXECUTABLE = 405;
   // Server disconnect with no error but memory pressure was detected.
   SERVER_MEMORY_PRESSURE = 401;
   DAEMON_OOM_KILLED = 404;
