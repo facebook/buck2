@@ -210,8 +210,20 @@ def strip_jemalloc_invalid_conf(s: str) -> str:
     return _JEMALLOC_INVALID_CONF_RE.sub("", s)
 
 
+# A submitted remote action reports whether the remote execution service ran it, served it
+# from its own cache, or merged it with an identical execution already in flight. The last two
+# depend on what other builds are doing with the same action digest at the same time.
+_RE_SUBMITTED_ORIGIN_RE = re.compile(
+    r"Remote action (?:served from the remote execution cache|deduplicated by remote execution),"
+)
+
+
+def sanitize_remote_action_origin(s: str) -> str:
+    return _RE_SUBMITTED_ORIGIN_RE.sub("Remote action,", s)
+
+
 def sanitize_stderr(s: str) -> str:
-    s = strip_jemalloc_invalid_conf(strip_glog_lines(s))
+    s = sanitize_remote_action_origin(strip_jemalloc_invalid_conf(strip_glog_lines(s)))
     # Remove all timestamps
     s = re.sub(r"\[.{29}\]", "[<TIMESTAMP>]", s)
     # Remove all UUIDs
@@ -334,7 +346,7 @@ def sanitize_build_report_error(s: str) -> str:
 def sanitize_build_report(report: dict) -> None:
     def sanitize_value(value: object) -> object:
         if isinstance(value, str):
-            return strip_jemalloc_invalid_conf(value)
+            return sanitize_remote_action_origin(strip_jemalloc_invalid_conf(value))
         if isinstance(value, list):
             return [sanitize_value(item) for item in value]
         if isinstance(value, dict):
