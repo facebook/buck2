@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use buck2_core::execution_types::execution_group::NamedExecutionGroup;
 use buck2_core::package::source_path::SourcePathRef;
 use buck2_core::plugins::PluginKind;
 use buck2_core::plugins::PluginKindSet;
@@ -37,6 +38,14 @@ pub trait ConfiguredAttrTraversal {
     fn toolchain_dep(&mut self, dep: &ConfiguredProvidersLabel) -> buck2_error::Result<()> {
         // By default, just treat it as a dep. Most things don't care about the distinction.
         self.dep(dep)
+    }
+
+    fn exec_dep_in_group(
+        &mut self,
+        dep: &ConfiguredProvidersLabel,
+        _group: &NamedExecutionGroup,
+    ) -> buck2_error::Result<()> {
+        self.exec_dep(dep)
     }
 
     fn configuration_dep(&mut self, _dep: &ProvidersLabel) -> buck2_error::Result<()> {

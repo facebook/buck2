@@ -182,6 +182,14 @@ enum RuleError {
         "Configuration rules cannot use execution groups; their targets are configured without an execution platform"
     )]
     ExecutionGroupsOnConfigurationRule,
+    #[error(
+        "Attribute `{attr}` uses execution group `{group}`, which the rule does not declare. Declared execution groups: [{declared}]"
+    )]
+    UndeclaredExecutionGroup {
+        attr: String,
+        group: String,
+        declared: String,
+    },
 }
 
 impl<'v> AllocValue<'v> for StarlarkRuleCallable<'v> {
@@ -264,7 +272,7 @@ impl<'v> StarlarkRuleCallable<'v> {
         }
 
         let (execution_groups, default_execution_group) =
-            validate_execution_groups(execution_groups, rule_kind)?;
+            validate_execution_groups(execution_groups, rule_kind, &sorted_validated_attrs)?;
 
         let attributes = AttributeSpec::from(
             sorted_validated_attrs,
@@ -388,11 +396,13 @@ impl<'v> StarlarkRuleCallable<'v> {
     }
 }
 
-/// Checks the `exec_groups` a rule declares. Returns the named groups, and whether the rule
-/// lists `DefaultExecGroup` or declares no named groups.
+/// Checks the `exec_groups` a rule declares, and that every execution group its attributes
+/// use is among them. Returns the named groups, and whether the rule lists
+/// `DefaultExecGroup` or declares no named groups.
 fn validate_execution_groups(
     execution_groups: Vec<ExecutionGroup>,
     rule_kind: RuleKind,
+    attrs: &[(String, Attribute)],
 ) -> buck2_error::Result<(Vec<NamedExecutionGroup>, bool)> {
     if !execution_groups.is_empty() {
         match rule_kind {
@@ -428,6 +438,27 @@ fn validate_execution_groups(
             .into());
         }
         declared.push(group);
+    }
+
+    let mut used = Vec::new();
+    for (name, attr) in attrs {
+        attr.coercer()
+            .for_each_named_execution_group(&mut |group| used.push((name, group.dupe())));
+    }
+    if rule_kind == RuleKind::Toolchain && !used.is_empty() {
+        return Err(RuleError::ExecutionGroupsOnToolchainRule.into());
+    }
+    if let Some((attr, group)) = used.into_iter().find(|(_, g)| !declared.contains(g)) {
+        return Err(RuleError::UndeclaredExecutionGroup {
+            attr: attr.to_owned(),
+            group: group.name().to_owned(),
+            declared: declared
+                .iter()
+                .map(|g| format!("`{g}`"))
+                .collect::<Vec<_>>()
+                .join(", "),
+        }
+        .into());
     }
     let default_execution_group = declared.is_empty() || default_listed;
     Ok((declared, default_execution_group))

@@ -1,0 +1,17 @@
+load(":rules.bzl", "binary", "same_platform", "tool")
+
+tool(
+    name = "remote_tool",
+    target_compatible_with = ["//config:remote"],
+)
+
+tool(
+    name = "local_tool",
+    target_compatible_with = ["//config:local"],
+)
+
+tool(name = "any_tool")
+
+binary(name = "binary")
+
+same_platform(name = "same_platform")

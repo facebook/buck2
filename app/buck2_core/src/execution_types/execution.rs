@@ -228,6 +228,24 @@ impl ExecutionPlatformResolutionBase {
             .as_deref()
             .map_or(&[], |g| g.as_slice())
     }
+
+    fn execution_group(
+        &self,
+        named: &NamedExecutionGroup,
+    ) -> buck2_error::Result<&ExecutionGroupResolution> {
+        let groups = self.execution_groups();
+        groups.iter().find(|g| &g.group == named).ok_or_else(|| {
+            ExecutionPlatformError::ExecutionGroupNotDeclared {
+                group: named.name().to_owned(),
+                declared: groups
+                    .iter()
+                    .map(|g| format!("`{}`", g.group))
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            }
+            .into()
+        })
+    }
 }
 
 /// Transient result of execution platform resolution, before modifiers are applied.
@@ -478,19 +496,8 @@ impl ExecutionPlatformResolution {
             ExecutionGroup::Default => return Ok(Some((base, exec_dep_cfgs))),
             ExecutionGroup::Named(named) => named,
         };
-        let groups = base.execution_groups();
-        match groups.iter().find(|g| &g.group == named) {
-            Some(g) => Ok(Some((&g.base, &g.exec_dep_cfgs))),
-            None => Err(ExecutionPlatformError::ExecutionGroupNotDeclared {
-                group: named.name().to_owned(),
-                declared: groups
-                    .iter()
-                    .map(|g| format!("`{}`", g.group))
-                    .collect::<Vec<_>>()
-                    .join(", "),
-            }
-            .into()),
-        }
+        let g = base.execution_group(named)?;
+        Ok(Some((&g.base, &g.exec_dep_cfgs)))
     }
 
     /// The execution platform cfg of `group`.

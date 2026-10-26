@@ -32,15 +32,19 @@ use buck2_core::execution_types::execution::ExecutionPlatform;
 use buck2_core::execution_types::execution::ExecutionPlatformError;
 use buck2_core::execution_types::execution::ExecutionPlatformIncompatibleReason;
 use buck2_core::execution_types::execution::ExecutionPlatformResolutionPartial;
+use buck2_core::execution_types::execution_group::NamedExecutionGroup;
 use buck2_core::execution_types::execution_platforms::ExecutionPlatformFallback;
 use buck2_core::execution_types::execution_platforms::ExecutionPlatforms;
 use buck2_core::execution_types::execution_platforms::ExecutionPlatformsData;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_core::target::target_configured_target_label::TargetConfiguredTargetLabel;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use buck2_hash::BuckFixedSortedMap;
+use buck2_hash::BuckMutInsertionMap;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::attrs::spec::internal::EXEC_COMPATIBLE_WITH_ATTRIBUTE;
@@ -75,6 +79,7 @@ use pagable::pagable_typetag;
 use crate::configuration::compute_platform_cfgs;
 use crate::configuration::get_matched_cfg_keys;
 use crate::configuration::get_matched_cfg_keys_for_node;
+use crate::nodes::CheckVisibility;
 use crate::nodes::GatheredDeps;
 use crate::nodes::LookingUpConfiguredNodeContext;
 use crate::nodes::compute_configured_node_preamble;
@@ -225,6 +230,35 @@ impl ExecutionPlatformConstraints {
         gathered_deps: &GatheredDeps,
         cfg_ctx: &(dyn AttrConfigurationContext + Sync),
     ) -> buck2_error::Result<Self> {
+        Self::new_for_deps(
+            node,
+            &gathered_deps.exec_deps,
+            &gathered_deps.toolchain_deps,
+            cfg_ctx,
+        )
+    }
+
+    /// The constraints that select the execution platform of the named execution group `group`:
+    /// the target's `exec_compatible_with` and the deps in that group.
+    fn for_execution_group(
+        node: TargetNodeRef,
+        gathered_deps: &GatheredDeps,
+        group: &NamedExecutionGroup,
+        cfg_ctx: &(dyn AttrConfigurationContext + Sync),
+    ) -> buck2_error::Result<Self> {
+        let exec_deps = match gathered_deps.execution_group_deps.get(group) {
+            Some(group_deps) => &group_deps.exec_deps,
+            None => &BuckMutInsertionMap::default(),
+        };
+        Self::new_for_deps(node, exec_deps, &BuckMutInsertionSet::default(), cfg_ctx)
+    }
+
+    fn new_for_deps(
+        node: TargetNodeRef,
+        exec_deps: &BuckMutInsertionMap<ConfiguredProvidersLabel, CheckVisibility>,
+        toolchain_deps: &BuckMutInsertionSet<TargetConfiguredTargetLabel>,
+        cfg_ctx: &(dyn AttrConfigurationContext + Sync),
+    ) -> buck2_error::Result<Self> {
         let exec_compatible_with: Arc<[_]> = if let Some(a) =
             node.known_attr_or_none(EXEC_COMPATIBLE_WITH_ATTRIBUTE.id, AttrInspectOptions::All)
         {
@@ -249,16 +283,11 @@ impl ExecutionPlatformConstraints {
         };
 
         Ok(Self::new_constraints(
-            gathered_deps
-                .exec_deps
+            exec_deps
                 .iter()
                 .map(|c| c.0.target().unconfigured().dupe())
                 .collect(),
-            gathered_deps
-                .toolchain_deps
-                .iter()
-                .map(|c| c.dupe())
-                .collect(),
+            toolchain_deps.iter().map(|c| c.dupe()).collect(),
             exec_compatible_with,
         ))
     }
@@ -451,6 +480,33 @@ pub(crate) async fn resolve_execution_platform(
     gathered_deps: &GatheredDeps,
     cfg_ctx: &(dyn AttrConfigurationContext + Sync),
 ) -> buck2_error::Result<ExecutionPlatformResolutionPartial> {
+    resolve_execution_platform_with_constraints(ctx, node, matched_cfg_keys, || {
+        ExecutionPlatformConstraints::new(node, gathered_deps, cfg_ctx)
+    })
+    .await
+}
+
+/// Resolves the execution platform of a named execution group from the deps in that group.
+pub(crate) async fn resolve_execution_group_platform(
+    ctx: &mut DiceComputations<'_>,
+    node: TargetNodeRef<'_>,
+    matched_cfg_keys: &MatchedConfigurationSettingKeysWithCfg,
+    gathered_deps: &GatheredDeps,
+    group: &NamedExecutionGroup,
+    cfg_ctx: &(dyn AttrConfigurationContext + Sync),
+) -> buck2_error::Result<ExecutionPlatformResolutionPartial> {
+    resolve_execution_platform_with_constraints(ctx, node, matched_cfg_keys, || {
+        ExecutionPlatformConstraints::for_execution_group(node, gathered_deps, group, cfg_ctx)
+    })
+    .await
+}
+
+async fn resolve_execution_platform_with_constraints(
+    ctx: &mut DiceComputations<'_>,
+    node: TargetNodeRef<'_>,
+    matched_cfg_keys: &MatchedConfigurationSettingKeysWithCfg,
+    constraints: impl FnOnce() -> buck2_error::Result<ExecutionPlatformConstraints>,
+) -> buck2_error::Result<ExecutionPlatformResolutionPartial> {
     // If no execution platforms are configured, we fall back to the legacy execution
     // platform behavior. We currently only support legacy execution platforms. That behavior is that there is a
     // single executor config (the fallback config) and the execution platform is in the same
@@ -464,8 +520,7 @@ pub(crate) async fn resolve_execution_platform(
         ));
     };
 
-    let constraints = ExecutionPlatformConstraints::new(node, gathered_deps, cfg_ctx)?;
-    constraints
+    constraints()?
         .one_for_cell(
             ctx,
             CellNameForConfigurationResolution(node.label().pkg().cell_name()),

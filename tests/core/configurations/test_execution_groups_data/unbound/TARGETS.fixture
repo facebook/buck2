@@ -1,0 +1,14 @@
+load("//groups:rules.bzl", "tool")
+load(":rules.bzl", "constraint_with_group", "uses_select")
+
+tool(name = "tool")
+
+constraint_with_group(name = "constraint")
+
+uses_select(
+    name = "t",
+    value = select({
+        ":constraint": "matched",
+        "DEFAULT": "default",
+    }),
+)

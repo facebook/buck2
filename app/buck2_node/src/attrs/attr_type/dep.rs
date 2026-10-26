@@ -14,6 +14,7 @@ use std::hash::Hasher;
 
 use allocative::Allocative;
 use buck2_core::configuration::compatibility::ResultMaybeCompatible;
+use buck2_core::execution_types::execution_group::NamedExecutionGroup;
 use buck2_core::plugins::PluginKindSet;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
@@ -63,6 +64,8 @@ pub enum DepAttrTransition {
     Exec,
     /// Transition to toolchain.
     Toolchain,
+    /// Transition to the execution platform of a named execution group.
+    ExecInGroup(NamedExecutionGroup),
 }
 
 /// A dep attribute accepts a target label and will resolve to the provider collection from that label's analysis.
@@ -107,6 +110,9 @@ impl DepAttr<ConfiguredProvidersLabel> {
             }
             DepAttrTransition::Exec => traversal.exec_dep(&self.label),
             DepAttrTransition::Toolchain => traversal.toolchain_dep(&self.label),
+            DepAttrTransition::ExecInGroup(group) => {
+                traversal.exec_dep_in_group(&self.label, group)
+            }
         }
     }
 }
@@ -127,7 +133,9 @@ impl DepAttr<ProvidersLabel> {
     ) -> buck2_error::Result<()> {
         match &attr_type.transition {
             DepAttrTransition::Identity(..) => traversal.dep(label),
-            DepAttrTransition::Exec => traversal.exec_dep(label),
+            DepAttrTransition::Exec | DepAttrTransition::ExecInGroup(_) => {
+                traversal.exec_dep(label)
+            }
             DepAttrTransition::Toolchain => traversal.toolchain_dep(label),
         }
     }
@@ -150,6 +158,9 @@ impl DepAttrType {
             DepAttrTransition::Identity(..) => ctx.configure_target(label),
             DepAttrTransition::Exec => ctx.configure_exec_target(label)?,
             DepAttrTransition::Toolchain => ctx.configure_toolchain_target(label),
+            DepAttrTransition::ExecInGroup(group) => {
+                ctx.configure_exec_target_in_group(label, group)?
+            }
         };
         Ok(ConfiguredAttr::Dep(Box::new(DepAttr {
             attr_type: self.dupe(),

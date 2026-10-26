@@ -14,6 +14,7 @@ use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::plugins::PluginKindSet;
 use buck2_error::BuckErrorContext;
 use buck2_interpreter::coerce::COERCE_PROVIDERS_LABEL_FOR_BZL;
+use buck2_interpreter::execution_group::ExecutionGroupArg;
 use buck2_interpreter::types::provider::callable::ValueAsProviderCallableLike;
 use buck2_interpreter::types::transition::transition_id_from_value;
 use buck2_node::attrs::attr::Attribute;
@@ -34,6 +35,7 @@ use starlark::values::ValueError;
 use starlark::values::ValueOf;
 use starlark::values::ValueTyped;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
+use starlark::values::none::NoneOr;
 use starlark::values::tuple::UnpackTuple;
 
 use crate::attrs::coerce::attr_type::AttrTypeExt;
@@ -179,15 +181,25 @@ fn attr_module(registry: &mut GlobalsBuilder) {
     /// Takes a target from the user, as a string, and supplies a dependency to the rule.
     /// The dependency will transition to the execution platform. Use `exec_dep` if you
     /// plan to execute things from this dependency as part of the compilation.
+    ///
+    /// With `exec_group`, the dependency is configured for the execution platform of that
+    /// group instead, and constrains only that group's execution platform resolution. The rule
+    /// must declare the group in `rule(exec_groups = ...)`.
     fn exec_dep<'v>(
         #[starlark(require = named, default = UnpackListOrTuple::default())]
         providers: UnpackListOrTuple<Value<'v>>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
+        #[starlark(require = named, default = NoneOr::None)] exec_group: NoneOr<ExecutionGroupArg>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkAttribute> {
         let required_providers = dep_like_attr_handle_providers_arg(providers.items)?;
-        let coercer = AttrType::exec_dep(required_providers);
+        let coercer = match exec_group.into_option() {
+            None => AttrType::exec_dep(required_providers),
+            Some(ExecutionGroupArg { group }) => {
+                AttrType::exec_dep_in_group(required_providers, group)
+            }
+        };
         Ok(Attribute::attr(eval, default, doc, coercer)?)
     }
 

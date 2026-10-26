@@ -14,6 +14,8 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::configuration::transition::id::TransitionId;
+use buck2_core::execution_types::execution_group::ExecutionGroup;
+use buck2_core::execution_types::execution_group::NamedExecutionGroup;
 use buck2_core::plugins::PluginKind;
 use buck2_core::plugins::PluginKindSet;
 use buck2_util::strong_hasher::Blake3StrongHasher;
@@ -308,6 +310,43 @@ impl AttrType {
             )),
             false,
         )
+    }
+
+    /// An execution dependency attribute in the given execution group.
+    pub fn exec_dep_in_group(required_providers: ProviderIdSet, group: ExecutionGroup) -> Self {
+        let transition = match group {
+            ExecutionGroup::Default => DepAttrTransition::Exec,
+            ExecutionGroup::Named(group) => DepAttrTransition::ExecInGroup(group),
+        };
+        Self::of(
+            AttrTypeInner::Dep(DepAttrType::new(required_providers, transition)),
+            false,
+        )
+    }
+
+    /// Calls `f` for every named execution group a dep within this attribute belongs to.
+    pub fn for_each_named_execution_group(&self, f: &mut dyn FnMut(&NamedExecutionGroup)) {
+        match &self.0.inner {
+            AttrTypeInner::Dep(DepAttrType {
+                transition: DepAttrTransition::ExecInGroup(group),
+                ..
+            }) => f(group),
+            AttrTypeInner::List(x) => x.inner.for_each_named_execution_group(f),
+            AttrTypeInner::Option(x) => x.inner.for_each_named_execution_group(f),
+            AttrTypeInner::Dict(x) => {
+                x.key.for_each_named_execution_group(f);
+                x.value.for_each_named_execution_group(f);
+            }
+            AttrTypeInner::Tuple(x) => {
+                x.xs.iter()
+                    .for_each(|x| x.for_each_named_execution_group(f))
+            }
+            AttrTypeInner::OneOf(x) => {
+                x.xs.iter()
+                    .for_each(|x| x.for_each_named_execution_group(f))
+            }
+            _ => {}
+        }
     }
 
     /// A toolchain dependency attribute optionally with a specific provider/providers

@@ -18,6 +18,8 @@ use buck2_core::configuration::pair::ConfigurationWithExec;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
+use buck2_core::execution_types::execution_group::ExecutionGroup;
+use buck2_core::execution_types::execution_group::NamedExecutionGroup;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
@@ -85,6 +87,15 @@ pub trait AttrConfigurationContext {
         // but its exec_deps are considered when picking an execution platform, and MUST
         // use the execution dependency of its parent.
         label.configure_pair(self.toolchain_cfg().cfg_pair().dupe())
+    }
+
+    /// Configure an exec dep that belongs to a named execution group.
+    fn configure_exec_target_in_group(
+        &self,
+        label: &ProvidersLabel,
+        _group: &NamedExecutionGroup,
+    ) -> buck2_error::Result<ConfiguredProvidersLabel> {
+        self.configure_exec_target(label)
     }
 
     /// Configure a transition target.
@@ -186,6 +197,17 @@ impl AttrConfigurationContext for AttrConfigurationContextImpl<'_> {
         let cfg = self
             .execution_platform_resolution
             .cfg_for_exec_dep(label.target())?;
+        Ok(label.configure(cfg))
+    }
+
+    fn configure_exec_target_in_group(
+        &self,
+        label: &ProvidersLabel,
+        group: &NamedExecutionGroup,
+    ) -> buck2_error::Result<ConfiguredProvidersLabel> {
+        let cfg = self
+            .execution_platform_resolution
+            .cfg_for_exec_dep_in_group(&ExecutionGroup::Named(group.dupe()), label.target())?;
         Ok(label.configure(cfg))
     }
 
