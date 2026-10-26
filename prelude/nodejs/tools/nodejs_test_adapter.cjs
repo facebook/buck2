@@ -62,6 +62,29 @@ const JEST_RESERVED_FLAGS = [
   '--watchman',
 ];
 const JEST_RESERVED_SHORT_FLAGS = 'cfot';
+const VITEST_RESERVED_FLAGS = [
+  '--changed',
+  '--config',
+  '--coverage',
+  '--dir',
+  '--exclude',
+  '--filesOnly',
+  '--files-only',
+  '--json',
+  '--mergeReports',
+  '--merge-reports',
+  '--outputFile',
+  '--output-file',
+  '--related',
+  '--reporter',
+  '--root',
+  '--run',
+  '--shard',
+  '--testNamePattern',
+  '--test-name-pattern',
+  '--watch',
+];
+const VITEST_RESERVED_SHORT_FLAGS = 'crtw';
 
 // Splits a group of short flags the way Jest's parser, yargs-parser, does: each
 // character is a flag until one is followed by `=`, a non-word character or a
@@ -87,6 +110,29 @@ function isReservedJestArg(arg) {
   return JEST_RESERVED_FLAGS.includes(flag);
 }
 
+function hasReservedVitestShortFlag(arg) {
+  for (let j = 1; j < arg.length; j++) {
+    if (VITEST_RESERVED_SHORT_FLAGS.includes(arg[j])) {
+      return true;
+    }
+    const rest = arg.slice(j + 1);
+    if (/^\W/.test(rest) || /^-?\d+(\.\d*)?(e-?\d+)?$/.test(rest)) {
+      return false;
+    }
+  }
+  return false;
+}
+
+function isReservedVitestArg(arg) {
+  if (!arg.startsWith('--')) {
+    return arg.startsWith('-') && hasReservedVitestShortFlag(arg);
+  }
+  const flag = arg.split('=')[0].replace(/^--no-/, '--');
+  return (
+    VITEST_RESERVED_FLAGS.includes(flag) || flag.startsWith('--coverage.')
+  );
+}
+
 // Reported by its message alone, without a stack.
 class AdapterError extends Error {}
 
@@ -99,6 +145,8 @@ function parseArgs(argv) {
     output: undefined,
     nodeArgs: [],
     jest: undefined,
+    vitest: undefined,
+    coveragePrefix: undefined,
     config: undefined,
     root: undefined,
     args: [],
@@ -135,6 +183,12 @@ function parseArgs(argv) {
       case '--jest':
         options.jest = value(arg);
         break;
+      case '--vitest':
+        options.vitest = value(arg);
+        break;
+      case '--coverage-prefix':
+        options.coveragePrefix = value(arg);
+        break;
       case '--config':
         options.config = value(arg);
         break;
@@ -161,8 +215,21 @@ function parseArgs(argv) {
         `Jest argument '${reserved}' is set by the test adapter or changes which test files run, and cannot be passed in \`args\``,
       );
     }
+  } else if (options.framework === 'vitest') {
+    if (options.vitest === undefined || options.root === undefined) {
+      throw new AdapterError('--framework vitest requires --vitest and --root');
+    }
+    const reserved = options.args.find(isReservedVitestArg);
+    if (reserved !== undefined) {
+      throw new AdapterError(
+        `Vitest argument '${reserved}' is set by the test adapter or changes which test files run, and cannot be passed in \`args\``,
+      );
+    }
   } else if (options.framework !== 'node') {
     throw new AdapterError(`unsupported --framework '${options.framework}'`);
+  }
+  if (options.coveragePrefix !== undefined && options.framework !== 'vitest') {
+    throw new AdapterError('--coverage-prefix requires --framework vitest');
   }
   return options;
 }
@@ -968,6 +1035,331 @@ async function runJestTests(options, runs, workDir) {
   return {results, runFailures};
 }
 
+function vitestArgs(options) {
+  return [
+    path.join(options.vitest, 'vitest', 'vitest.mjs'),
+    '--root',
+    options.root,
+    ...(options.config === undefined ? [] : ['--config', options.config]),
+    ...options.args,
+  ];
+}
+
+async function vitestTestFiles(options, workDir) {
+  const listFile = path.join(workDir, 'vitest-files.json');
+  const outcome = await spawnNode(options.nodeArgs, [
+    ...vitestArgs(options),
+    'list',
+    `--json=${listFile}`,
+    '--filesOnly',
+    ...options.files.map(file => file.path),
+  ]);
+  if (outcome.error !== undefined || outcome.code !== 0) {
+    throw new AdapterError(processDetails('vitest list', outcome, true));
+  }
+  let listed;
+  try {
+    listed = JSON.parse(fs.readFileSync(listFile, 'utf8'));
+  } catch (error) {
+    throw new AdapterError(
+      `vitest list wrote no test list: ${error.message}\n${processDetails('vitest list', outcome, false)}`,
+    );
+  }
+  if (!Array.isArray(listed)) {
+    throw new AdapterError('vitest list wrote no test list');
+  }
+  const findFile = fileFinder(options.files);
+  const selected = new Set(
+    listed
+      .map(entry => findFile(entry?.file))
+      .filter(file => file !== undefined),
+  );
+  const files = options.files.filter(file => selected.has(file));
+  if (files.length === 0) {
+    throw new AdapterError(
+      `Vitest selects none of ${options.files.map(file => `'${file.name}'`).join(', ')}: check \`include\` and \`exclude\` in the Vitest config`,
+    );
+  }
+  return files;
+}
+
+function isVitestSuite(suite) {
+  return isJestSuite(suite);
+}
+
+function readVitestReport(reportFile) {
+  const report = JSON.parse(fs.readFileSync(reportFile, 'utf8'));
+  if (
+    typeof report?.success !== 'boolean' ||
+    !Array.isArray(report.testResults)
+  ) {
+    throw new Error('it is not a Vitest `--reporter=json` report');
+  }
+  return report;
+}
+
+function vitestCoveragePlan(workDir) {
+  const output = process.env.COVERAGE_COLLECTION_OUTPUT_FILE;
+  if (!output) {
+    return undefined;
+  }
+  const reportsDirectory =
+    process.env.COVERAGE_COLLECTION_TMPDIR ?? path.join(workDir, 'coverage');
+  return {
+    output: path.resolve(output),
+    reportsDirectory: path.resolve(reportsDirectory),
+    args: [
+      '--coverage',
+      '--coverage.reporter=json',
+      `--coverage.reportsDirectory=${path.resolve(reportsDirectory)}`,
+      '--coverage.reportOnFailure=true',
+    ],
+  };
+}
+
+function coverageFilepath(sourcePath, options) {
+  const root = path.resolve(options.root);
+  const absolute = path.resolve(sourcePath);
+  const relative = path.relative(root, absolute);
+  if (
+    relative === '' ||
+    relative === '..' ||
+    relative.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relative)
+  ) {
+    return undefined;
+  }
+  const parts = relative.split(path.sep);
+  if (parts.includes('node_modules')) {
+    return undefined;
+  }
+  const staged = parts.join('/');
+  return options.coveragePrefix === undefined
+    ? staged
+    : `${options.coveragePrefix.replace(/\/+$/, '')}/${staged}`;
+}
+
+function writeVitestCoverage(options, plan) {
+  const input = JSON.parse(
+    fs.readFileSync(path.join(plan.reportsDirectory, 'coverage-final.json'), 'utf8'),
+  );
+  if (typeof input !== 'object' || input === null || Array.isArray(input)) {
+    throw new Error('coverage report is not an object');
+  }
+  const entries = [];
+  for (const fileCoverage of Object.values(input)) {
+    if (typeof fileCoverage?.path !== 'string') {
+      continue;
+    }
+    const filepath = coverageFilepath(fileCoverage.path, options);
+    if (filepath === undefined) {
+      continue;
+    }
+    const lineHits = new Map();
+    for (const [id, statement] of Object.entries(fileCoverage.statementMap ?? {})) {
+      const line = statement?.start?.line;
+      if (typeof line !== 'number' || !Number.isInteger(line) || line < 1) {
+        continue;
+      }
+      const hit = fileCoverage.s?.[id] ?? 0;
+      const zeroBased = line - 1;
+      lineHits.set(zeroBased, Math.max(lineHits.get(zeroBased) ?? 0, hit));
+    }
+    const executable = [...lineHits.keys()].sort((a, b) => a - b);
+    entries.push({
+      filepath,
+      covered_lines: executable.filter(line => (lineHits.get(line) ?? 0) > 0),
+      executable_lines: executable,
+    });
+  }
+  entries.sort((a, b) =>
+    a.filepath < b.filepath ? -1 : a.filepath > b.filepath ? 1 : 0,
+  );
+  fs.mkdirSync(path.dirname(plan.output), {recursive: true});
+  fs.writeFileSync(
+    plan.output,
+    entries.length === 0
+      ? ''
+      : entries.map(entry => JSON.stringify(entry)).join('\n') + '\n',
+    'utf8',
+  );
+}
+
+async function runVitestGroup(options, group, reportFile, coverage) {
+  const files = group.runs.map(run => run.file);
+  const patterns = group.runs.flatMap(run =>
+    run.whole ? [] : run.filters.map(filter => namePattern(run.file, filter, true)),
+  );
+  const outcome = await spawnNode(options.nodeArgs, [
+    ...vitestArgs(options),
+    'run',
+    '--reporter=json',
+    `--outputFile=${reportFile}`,
+    ...(patterns.length > 0 ? [`--testNamePattern=${patterns.join('|')}`] : []),
+    ...(coverage === undefined ? [] : coverage.args),
+    ...files.map(file => file.path),
+  ]);
+  const endedTime = Date.now();
+  let report;
+  let readError;
+  try {
+    report = readVitestReport(reportFile);
+  } catch (error) {
+    readError = error;
+  }
+  const findFile = fileFinder(files);
+  const results = [];
+  const suites = new Map();
+  const unselectedFailed = [];
+  let malformed = 0;
+  for (const suite of report?.testResults ?? []) {
+    if (!isVitestSuite(suite)) {
+      malformed++;
+      continue;
+    }
+    const file = findFile(suite.name);
+    if (file === undefined) {
+      if (suite.status === 'failed') {
+        unselectedFailed.push(suite.name);
+      }
+      continue;
+    }
+    const merged = suites.get(file);
+    suites.set(
+      file,
+      merged === undefined
+        ? suite
+        : {
+            status:
+              merged.status === 'failed' || suite.status === 'failed'
+                ? 'failed'
+                : suite.status,
+            message: [merged.message, suite.message]
+              .filter(message => message !== '')
+              .join('\n'),
+            startTime: Math.min(merged.startTime, suite.startTime),
+            endTime: Math.max(merged.endTime, suite.endTime),
+            assertionResults: [
+              ...merged.assertionResults,
+              ...suite.assertionResults,
+            ],
+          },
+    );
+  }
+  for (const [file, suite] of suites) {
+    const run = group.runs.find(candidate => candidate.file === file);
+    const suiteTestFailed = suite.assertionResults.some(
+      test => test.status === 'failed',
+    );
+    const tests = filterResults(
+      file,
+      jestTestResults(file, suite, endedTime),
+      [],
+      {
+        whole: run.whole,
+        filters: run.filters,
+        ended: suite.status !== 'failed' || suite.assertionResults.length > 0,
+        endedTime,
+      },
+    );
+    results.push(
+      ...tests,
+      testFileResult(
+        file,
+        tests,
+        suite.status === 'failed' && !suiteTestFailed
+          ? suite.message
+          : undefined,
+        suite.endTime > suite.startTime
+          ? Math.round(suite.endTime - suite.startTime)
+          : 0,
+        endedTime,
+      ),
+    );
+  }
+  const notes = ['Vitest reported no result for this file'];
+  if (readError !== undefined) {
+    notes.push(`could not read Vitest's report: ${readError.message}`);
+  }
+  if (malformed > 0) {
+    notes.push(`could not read ${malformed} test file entries in Vitest's report`);
+  }
+  for (const file of files) {
+    if (!suites.has(file)) {
+      for (const note of notes) {
+        printNote(`${file.name}: ${note}`);
+      }
+      const details = processDetails('vitest', outcome, true, notes);
+      results.push(testFileResult(file, [], details, 0, endedTime));
+    }
+  }
+  const runFailures = [];
+  if (
+    report !== undefined &&
+    (outcome.error !== undefined ||
+      outcome.signal !== null ||
+      (report.success && outcome.code !== 0) ||
+      unselectedFailed.length > 0 ||
+      (!report.success &&
+        ![...suites.values()].some(suite => suite.status === 'failed')))
+  ) {
+    runFailures.push(
+      processDetails(
+        'vitest',
+        outcome,
+        true,
+        unselectedFailed.map(
+          name => `Vitest ran ${name}, which is not a test file of this run, and it failed`,
+        ),
+      ),
+    );
+  }
+  return {results, runFailures};
+}
+
+async function runVitestTests(options, runs, workDir) {
+  const coverage = vitestCoveragePlan(workDir);
+  const groups = [];
+  const whole = runs.filter(run => run.whole);
+  if (whole.length > 0) {
+    groups.push({runs: whole});
+  }
+  for (const run of runs) {
+    if (!run.whole) {
+      groups.push({runs: [run]});
+    }
+  }
+  const results = [];
+  const runFailures = [];
+  for (const [index, group] of groups.entries()) {
+    try {
+      const outcome = await runVitestGroup(
+        options,
+        group,
+        path.join(workDir, `vitest-${index}.json`),
+        coverage,
+      );
+      results.push(...outcome.results);
+      runFailures.push(...outcome.runFailures);
+    } catch (error) {
+      const details = `the adapter failed during the Vitest run that included this file: ${error?.stack ?? error}`;
+      for (const {file} of group.runs) {
+        printNote(`${file.name}: ${details}`);
+        results.push(testFileResult(file, [], details, 0, Date.now()));
+      }
+      runFailures.push(details);
+    }
+  }
+  if (coverage !== undefined) {
+    try {
+      writeVitestCoverage(options, coverage);
+    } catch (error) {
+      runFailures.push(`could not write coverage: ${error?.stack ?? error}`);
+    }
+  }
+  return {results, runFailures};
+}
+
 function writeTestResults(events) {
   const output = process.env.TEST_RESULTS_OUTPUT_FILE;
   if (!output) {
@@ -1007,18 +1399,34 @@ async function main(argv) {
   if (options.framework === 'jest') {
     options.files = await jestTestFiles(options);
   }
+  if (options.framework === 'vitest') {
+    workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nodejs_test-'));
+    try {
+      options.files = await vitestTestFiles(options, workDir);
+    } catch (error) {
+      fs.rmSync(workDir, {recursive: true, force: true});
+      throw error;
+    }
+  }
   if (options.list) {
+    if (workDir !== undefined) {
+      fs.rmSync(workDir, {recursive: true, force: true});
+    }
     writeListing(options.files, options.output);
     return {code: 0};
   }
   const runs = selectRuns(options.files, options.filters);
-  workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nodejs_test-'));
+  if (workDir === undefined) {
+    workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nodejs_test-'));
+  }
   let outcome;
   try {
     outcome =
       options.framework === 'jest'
         ? await runJestTests(options, runs, workDir)
-        : await runNodeTests(options, runs, workDir);
+        : options.framework === 'vitest'
+          ? await runVitestTests(options, runs, workDir)
+          : await runNodeTests(options, runs, workDir);
   } finally {
     fs.rmSync(workDir, {recursive: true, force: true});
   }
