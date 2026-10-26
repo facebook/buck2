@@ -14,7 +14,6 @@ import stat
 from pathlib import Path
 from typing import Awaitable, Optional, Type, TypeVar, Union
 
-import pytest
 from buck2.tests.e2e_util.api.buck_result import (
     BuckException,
     BuckResult,
@@ -71,9 +70,12 @@ async def expect_failure(
             An optional regex pattern to search for in stderr if provided.
             Raises an AssertionError if the regex pattern is not found.
     """
-    with pytest.raises(exception) as execinfo:  # type: ignore
+    try:
         await process
-    failure = execinfo.value
+    except exception as e:
+        failure = e
+    else:
+        raise AssertionError(f"{exception.__name__} was not raised")
     if not isinstance(failure, BuckException):
         return failure
     if exit_code is not None:

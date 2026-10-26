@@ -33,7 +33,6 @@ use pin_project::pin_project;
 
 use crate::ActivationData;
 use crate::LinearRecomputeDiceComputations;
-use crate::UserCycleDetectorGuard;
 use crate::api::computations::DiceComputations;
 use crate::api::computations::DiceComputationsData;
 use crate::api::data::DiceData;
@@ -41,28 +40,23 @@ use crate::api::invalidation_tracking::DiceKeyTrackedInvalidationPaths;
 use crate::api::key::Key;
 use crate::api::projection::ProjectionKey;
 use crate::api::user_data::UserComputationData;
-use crate::arc::Arc;
 use crate::core::graph::revision::Revision;
 use crate::deps::LinearDepsTracker;
 use crate::deps::RecordedDeps;
 use crate::deps::RecordingDepsTracker;
 use crate::deps::graph::DepEdge;
-use crate::dice::Dice;
 use crate::epoch::branches::BranchEntry;
 use crate::epoch::branches::LinearRecomputeArena;
 use crate::epoch::branches::ParallelArena;
 use crate::epoch::branches::ParallelBranchFuture;
 use crate::epoch::evaluator::TransactionData;
 use crate::epoch::evaluator::ValueDemand;
-use crate::epoch::evaluator::VersionState;
 use crate::epoch::task::promise::DicePromise;
 use crate::key::CowDiceKeyHashed;
 use crate::key::DiceKey;
 use crate::key::ParentKey;
 use crate::opaque::OpaqueValue;
 use crate::updater::ActiveTransactionGuard;
-use crate::user_cycle::KeyComputingUserCycleDetectorData;
-use crate::user_cycle::UserCycleDetectorData;
 use crate::value::MaybeResidentComputedValue;
 use crate::value::TrackedInvalidationPaths;
 use crate::versions::VersionNumber;
@@ -79,7 +73,6 @@ impl Clone for TransactionCtx {
             ctx: ComputeCtx {
                 transaction_data: self.ctx.transaction_data.dupe(),
                 parent_key: ParentKey::None,
-                cycles: KeyComputingUserCycleDetectorData::Untracked,
                 evaluation_data: Mutex::new(EvaluationData::none()),
                 dependency_failed: AtomicBool::new(false),
             },
@@ -92,20 +85,13 @@ impl Dupe for TransactionCtx {}
 
 impl TransactionCtx {
     pub(crate) fn new(
-        per_live_version_ctx: VersionState,
-        user_data: Arc<UserComputationData>,
-        dice: StdArc<Dice>,
+        transaction_data: TransactionData,
         live_version_guard: ActiveTransactionGuard,
     ) -> Self {
         Self {
             ctx: ComputeCtx {
-                transaction_data: TransactionData {
-                    version_state: per_live_version_ctx,
-                    user_data,
-                    dice,
-                },
+                transaction_data,
                 parent_key: ParentKey::None,
-                cycles: KeyComputingUserCycleDetectorData::Untracked,
                 evaluation_data: Mutex::new(EvaluationData::none()),
                 dependency_failed: AtomicBool::new(false),
             },
@@ -313,8 +299,6 @@ impl<'d> TrackedComputations<'d> {
         let inner_core_ctx = ComputeCtx {
             transaction_data: ctx_data.transaction_data.dupe(),
             parent_key: ctx_data.parent_key.dupe(),
-            // FIXME(JakobDegen): These are never looked at again below, seems bad?
-            cycles: ctx_data.cycles.clone(),
             evaluation_data: Mutex::new(EvaluationData::none()),
             dependency_failed: AtomicBool::new(false),
         };
@@ -464,7 +448,7 @@ pub struct ModernDiceComputationsData(TransactionData);
 
 impl ModernDiceComputationsData {
     pub fn global_data(&self) -> &DiceData {
-        &self.0.dice.global_data
+        &self.0.global_data
     }
 
     pub fn per_transaction_data(&self) -> &UserComputationData {
@@ -617,8 +601,7 @@ impl<'d> TrackedComputations<'d> {
             .dupe())
     }
 
-    /// Data that is static per the entire lifetime of Dice. These data are initialized at the
-    /// time that Dice is initialized via the constructor.
+    /// Untracked data that is static for the lifetime of this branch tree.
     pub(crate) fn global_data(&self) -> &'d DiceData {
         self.ctx_data().global_data()
     }
@@ -642,10 +625,6 @@ impl<'d> TrackedComputations<'d> {
     ) -> DiceResult<()> {
         self.ctx_data().store_evaluation_data(value)
     }
-
-    pub(crate) fn cycle_guard<T: UserCycleDetectorGuard>(&self) -> DiceResult<Option<StdArc<T>>> {
-        self.ctx_data().cycle_guard()
-    }
 }
 
 /// The base type that provides access to `.compute()` operations and stores the state needed to
@@ -655,7 +634,6 @@ impl<'d> TrackedComputations<'d> {
 pub(crate) struct ComputeCtx {
     pub(crate) transaction_data: TransactionData,
     pub(crate) parent_key: ParentKey,
-    pub(crate) cycles: KeyComputingUserCycleDetectorData,
     // data for the entire compute of a Key, including parallel computes
     pub(crate) evaluation_data: Mutex<EvaluationData>,
     /// Whether a dependency failed to produce a value, for example because its paged-out value
@@ -697,18 +675,14 @@ impl ComputeCtx {
             .key_index
             .index(CowDiceKeyHashed::key_ref(key));
 
-        let cycles = self
-            .cycles
-            .subrequest(dice_key, &self.transaction_data.dice.key_index);
-        let promise =
-            self.transaction_data
-                .bring_up_to_date(dice_key, self.parent_key, cycles.dupe());
+        let promise = self
+            .transaction_data
+            .bring_up_to_date(dice_key, self.parent_key);
         ComputeOpaqueFuture {
             state: ComputeOpaqueState::UpToDate {
                 promise,
                 compute: self,
                 key: dice_key,
-                cycles,
             },
         }
     }
@@ -716,7 +690,6 @@ impl ComputeCtx {
     fn page_in_opaque<'d, K: Key>(
         &'d self,
         key: DiceKey,
-        cycles: UserCycleDetectorData,
     ) -> BoxFuture<'d, DiceResult<OpaqueValue<'d, K>>> {
         async move {
             let value = self
@@ -724,7 +697,6 @@ impl ComputeCtx {
                 .page_in(ValueDemand {
                     key,
                     parent_key: self.parent_key,
-                    cycles,
                 })
                 .await
                 .inspect_err(|_| self.record_dependency_failure())?;
@@ -760,10 +732,9 @@ impl ComputeCtx {
         Ok((dice_key, value))
     }
 
-    /// Data that is static per the entire lifetime of Dice. These data are initialized at the
-    /// time that Dice is initialized via the constructor.
+    /// Untracked data that is static for the lifetime of this branch tree.
     pub(crate) fn global_data(&self) -> &DiceData {
-        &self.transaction_data.dice.global_data
+        &self.transaction_data.global_data
     }
 
     /// Data that is static for the lifetime of the current request context. This lifetime is
@@ -789,10 +760,6 @@ impl ComputeCtx {
         evaluation_data.0 = Some(Box::new(value) as _);
         Ok(())
     }
-
-    pub(crate) fn cycle_guard<T: UserCycleDetectorGuard>(&self) -> DiceResult<Option<StdArc<T>>> {
-        self.cycles.cycle_guard()
-    }
 }
 
 #[pin_project(project = ComputeOpaqueStateProj)]
@@ -802,7 +769,6 @@ enum ComputeOpaqueState<'d, K: Key> {
         promise: DicePromise<'d>,
         compute: &'d ComputeCtx,
         key: DiceKey,
-        cycles: UserCycleDetectorData,
     },
     PagingIn {
         #[pin]
@@ -827,9 +793,16 @@ impl<'d, K: Key> Future for ComputeOpaqueFuture<'d, K> {
                     promise,
                     compute,
                     key,
-                    cycles,
                 } => {
-                    let value = std::task::ready!(promise.poll(cx));
+                    let value = match std::task::ready!(promise.poll(cx)) {
+                        Ok(value) => value,
+                        Err(cycle) => {
+                            // The dep goes unrecorded, as after a failed page-in, and the result
+                            // computed without it must likewise not be reused.
+                            compute.record_dependency_failure();
+                            return Poll::Ready(Err(cycle.into()));
+                        }
+                    };
                     if let Ok(resident) = value.try_as_resident() {
                         // Return from the poll that produced the resident value; the hot path
                         // needs neither a boxed future nor another future state transition.
@@ -840,7 +813,7 @@ impl<'d, K: Key> Future for ComputeOpaqueFuture<'d, K> {
                             resident.invalidation_paths(),
                         )));
                     }
-                    let future = compute.page_in_opaque(*key, cycles.dupe());
+                    let future = compute.page_in_opaque(*key);
                     this.state.set(ComputeOpaqueState::PagingIn { future });
                 }
                 ComputeOpaqueStateProj::PagingIn { future } => return future.poll(cx),

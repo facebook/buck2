@@ -16,6 +16,8 @@ import com.facebook.buck.android.exopackage.AdbUtils;
 import com.facebook.buck.android.exopackage.AndroidDevice;
 import com.facebook.buck.testresultsoutput.TestResultsOutputEvent.RunFailureStatus;
 import com.facebook.buck.testresultsoutput.TestResultsOutputSender;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -31,6 +33,8 @@ import java.util.Map;
  * [testRunFailed] testRunEnded
  */
 public class InstrumentationTpxStandardOutputTestListener implements ITestRunListener {
+  private static final String OS_FINGERPRINT_PROPERTY = "ro.build.fingerprint";
+  private static final String OS_FINGERPRINT_METADATA_KEY = "app_info:OS";
   private final TpxStandardOutputTestListener listener;
   private final TestResultsOutputSender sender;
   private final AndroidDevice mAndroidDevice;
@@ -38,10 +42,34 @@ public class InstrumentationTpxStandardOutputTestListener implements ITestRunLis
 
   public InstrumentationTpxStandardOutputTestListener(
       TestResultsOutputSender sender, AndroidDevice androidDevice, AdbUtils adbUtils) {
+    this(sender, androidDevice, adbUtils, false);
+  }
+
+  public InstrumentationTpxStandardOutputTestListener(
+      TestResultsOutputSender sender,
+      AndroidDevice androidDevice,
+      AdbUtils adbUtils,
+      boolean includeOsFingerprint) {
     this.sender = sender;
-    this.listener = new TpxStandardOutputTestListener(sender);
+    this.listener =
+        new TpxStandardOutputTestListener(
+            sender,
+            includeOsFingerprint ? getResultMetadata(androidDevice) : Collections.emptyMap());
     this.mAndroidDevice = androidDevice;
     this.mAdbUtils = adbUtils;
+  }
+
+  static Map<String, String> getResultMetadata(AndroidDevice androidDevice) {
+    Map<String, String> metadata = new HashMap<>();
+    try {
+      String fingerprint = androidDevice.getProperty(OS_FINGERPRINT_PROPERTY);
+      if (fingerprint != null && !fingerprint.trim().isEmpty()) {
+        metadata.put(OS_FINGERPRINT_METADATA_KEY, fingerprint.trim());
+      }
+    } catch (Exception e) {
+      System.err.printf("Unable to read device OS fingerprint: %s%n", e);
+    }
+    return metadata;
   }
 
   /**

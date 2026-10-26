@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-#![feature(used_with_arg)]
 #![feature(anonymous_lifetime_in_impl_trait)]
 
 pub mod bxl;

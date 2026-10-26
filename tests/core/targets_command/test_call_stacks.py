@@ -12,17 +12,18 @@
 import json
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_target_call_stacks_json(buck: Buck) -> None:
-    out = await buck.targets(
-        "--stack",
-        "--output-attribute=.*",
-        "root//:test",
-    )
+class CallStacksTest(BuckTestCase):
+    @buck_test()
+    async def test_target_call_stacks_json(self, buck: Buck) -> None:
+        out = await buck.targets(
+            "--stack",
+            "--output-attribute=.*",
+            "root//:test",
+        )
 
-    out = json.loads(out.stdout)
-    call_stack = out[0]["buck.target_call_stack"]
-    assert "stub" in call_stack
+        out = json.loads(out.stdout)
+        call_stack = out[0]["buck.target_call_stack"]
+        assert "stub" in call_stack

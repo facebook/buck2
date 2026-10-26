@@ -10,26 +10,25 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test(inplace=True)
-async def test_lint_buck2(buck: Buck) -> None:
-    # FIXME(JakobDegen): Reusing `project.ignore` for this is bad, `starlark
-    # lint` should have `-I` and `-X` flags like sapling
-    await buck.starlark(
-        "lint",
-        "buck2",
-        "-c",
-        "project.ignore=buck2/tests/e2e,buck2/tests/core",
-    )
+class StarlarkTest(BuckTestCase):
+    @buck_test(inplace=True)
+    async def test_lint_buck2(self, buck: Buck) -> None:
+        # FIXME(JakobDegen): Reusing `project.ignore` for this is bad, `starlark
+        # lint` should have `-I` and `-X` flags like sapling
+        await buck.starlark(
+            "lint",
+            "buck2",
+            "-c",
+            "project.ignore=buck2/tests/e2e,buck2/tests/core",
+        )
 
+    @buck_test(inplace=True)
+    async def test_typecheck_prelude_lightweight(self, buck: Buck) -> None:
+        await buck.starlark("typecheck", "buck2/prelude/prelude.bzl")
 
-@buck_test(inplace=True)
-async def test_typecheck_prelude_lightweight(buck: Buck) -> None:
-    await buck.starlark("typecheck", "buck2/prelude/prelude.bzl")
-
-
-@buck_test(inplace=True)
-async def test_typecheck_prelude_compiler(buck: Buck) -> None:
-    await buck.uquery("fbcode//buck2:buck2", "--unstable-typecheck")
+    @buck_test(inplace=True)
+    async def test_typecheck_prelude_compiler(self, buck: Buck) -> None:
+        await buck.uquery("fbcode//buck2:buck2", "--unstable-typecheck")

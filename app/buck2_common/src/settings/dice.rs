@@ -40,3 +40,9 @@ impl SetBuckSettings for DiceDataBuilder {
         self.set(settings)
     }
 }
+
+impl SetBuckSettings for DiceData {
+    fn set_buck_settings(&mut self, settings: BuckSettings) {
+        self.set(settings)
+    }
+}

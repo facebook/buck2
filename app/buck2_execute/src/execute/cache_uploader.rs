@@ -65,6 +65,7 @@ pub enum DepFileCacheUploadOutcome {
     NoDepFileBundle,
     UnsupportedExecutionKind,
     LocalUploadNotAllowed,
+    LocalInPlaceOfRemote,
     Attempted(CacheUploadOutcome),
 }
 
@@ -77,7 +78,8 @@ impl DepFileCacheUploadOutcome {
         match self {
             Self::NoDepFileBundle
             | Self::UnsupportedExecutionKind
-            | Self::LocalUploadNotAllowed => None,
+            | Self::LocalUploadNotAllowed
+            | Self::LocalInPlaceOfRemote => None,
             Self::Attempted(outcome) => Some(outcome),
         }
     }
@@ -86,7 +88,8 @@ impl DepFileCacheUploadOutcome {
         match self {
             Self::NoDepFileBundle
             | Self::UnsupportedExecutionKind
-            | Self::LocalUploadNotAllowed => false,
+            | Self::LocalUploadNotAllowed
+            | Self::LocalInPlaceOfRemote => false,
             Self::Attempted(outcome) => outcome.uploaded(),
         }
     }
@@ -97,6 +100,7 @@ impl DepFileCacheUploadOutcome {
                 buck2_data::UploadResult::NotAttempted
             }
             Self::LocalUploadNotAllowed => buck2_data::UploadResult::ActionUploadNotAllowed,
+            Self::LocalInPlaceOfRemote => buck2_data::UploadResult::LocalInPlaceOfRemote,
             Self::Attempted(outcome) => outcome.to_proto(),
         }
     }
@@ -116,6 +120,7 @@ pub enum CacheUploadOutcome {
     NonLocalExecution,
     DepFileEntryExists,
     ActionUploadNotAllowed,
+    LocalInPlaceOfRemote,
 }
 
 impl CacheUploadOutcome {
@@ -150,6 +155,7 @@ impl CacheUploadOutcome {
             Self::DepFileEntryExists => buck2_data::UploadResult::DepFileEntryExists,
             Self::ActionUploadNotAllowed => buck2_data::UploadResult::ActionUploadNotAllowed,
             Self::NonLocalExecution => buck2_data::UploadResult::NonLocalExecution,
+            Self::LocalInPlaceOfRemote => buck2_data::UploadResult::LocalInPlaceOfRemote,
         }
     }
 
@@ -160,7 +166,8 @@ impl CacheUploadOutcome {
             | Self::HadDepFileBundle
             | Self::DepFileEntryExists
             | Self::ActionUploadNotAllowed
-            | Self::NonLocalExecution => String::new(),
+            | Self::NonLocalExecution
+            | Self::LocalInPlaceOfRemote => String::new(),
             Self::RejectedOutputExceedsLimit { max_bytes, .. } => {
                 format!("Rejected: OutputExceedsLimit({max_bytes})")
             }
@@ -182,7 +189,8 @@ impl CacheUploadOutcome {
             | Self::HadDepFileBundle
             | Self::DepFileEntryExists
             | Self::ActionUploadNotAllowed
-            | Self::NonLocalExecution => None,
+            | Self::NonLocalExecution
+            | Self::LocalInPlaceOfRemote => None,
             Self::RejectedOutputExceedsLimit { .. } | Self::RejectedSymlinkOutput { .. } => None,
             Self::RejectedPermissionDenied { .. } => Some(TCode::PERMISSION_DENIED.to_string()),
             Self::FailedUploadActionBlobs { error, .. }
@@ -225,7 +233,8 @@ impl CacheUploadOutcome {
             | Self::HadDepFileBundle
             | Self::DepFileEntryExists
             | Self::ActionUploadNotAllowed
-            | Self::NonLocalExecution => {
+            | Self::NonLocalExecution
+            | Self::LocalInPlaceOfRemote => {
                 info!("Cache upload for `{}` not attempted", digest_str);
             }
         };

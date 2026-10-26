@@ -13,36 +13,35 @@ import json
 from buck2.tests.e2e.configurations.cfg_constructor.modifiers_util import get_cfg
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test(inplace=False)
-async def test_cfg_modifiers_attr(buck: Buck) -> None:
-    result = await buck.targets(
-        "root//:test",
-        "--output-attribute=modifiers",
-    )
+class CfgModifiersAttrTest(BuckTestCase):
+    @buck_test(inplace=False)
+    async def test_cfg_modifiers_attr(self, buck: Buck) -> None:
+        result = await buck.targets(
+            "root//:test",
+            "--output-attribute=modifiers",
+        )
 
-    targets = json.loads(result.stdout)
-    assert len(targets) == 1
-    target = targets[0]
-    target_modifiers = target["modifiers"]
-    assert target_modifiers == ["root//:A_1"]
+        targets = json.loads(result.stdout)
+        assert len(targets) == 1
+        target = targets[0]
+        target_modifiers = target["modifiers"]
+        assert target_modifiers == ["root//:A_1"]
 
+    @buck_test(inplace=False)
+    async def test_cfg_modifiers_attr_ctargets(self, buck: Buck) -> None:
+        result = await get_cfg(
+            buck,
+            "root//:test2",
+        )
+        assert ":A_1" in result
 
-@buck_test(inplace=False)
-async def test_cfg_modifiers_attr_ctargets(buck: Buck) -> None:
-    result = await get_cfg(
-        buck,
-        "root//:test2",
-    )
-    assert ":A_1" in result
-
-
-@buck_test(inplace=False)
-async def test_metadata_modifiers_is_hard_error(buck: Buck) -> None:
-    result = await expect_failure(buck.ctargets("root//:test_metadata_modifiers"))
-    assert (
-        'sets `metadata["buck.cfg_modifiers"]` which is no longer supported'
-        in result.stderr
-    )
+    @buck_test(inplace=False)
+    async def test_metadata_modifiers_is_hard_error(self, buck: Buck) -> None:
+        result = await expect_failure(buck.ctargets("root//:test_metadata_modifiers"))
+        assert (
+            'sets `metadata["buck.cfg_modifiers"]` which is no longer supported'
+            in result.stderr
+        )

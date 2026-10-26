@@ -36,3 +36,7 @@ constraint_value(
     name = "cat",
     constraint_setting = ":animal",
 )
+
+execution_platforms(
+    name = "local_execution_platforms",
+)

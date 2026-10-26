@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::any::TypeId;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
@@ -259,19 +258,6 @@ impl PagableStorage for InMemoryPagableStorageHandle {
         self.cache
             .get_data(key)
             .ok_or_else(|| anyhow::anyhow!("no data for key {:?}", key))
-    }
-
-    fn on_arc_deserialized(
-        &self,
-        typeid: TypeId,
-        key: DataKey,
-        arc: Box<dyn ArcEraseDyn>,
-    ) -> Option<Box<dyn ArcEraseDyn>> {
-        if self.cache.is_dropped.load(Ordering::Acquire) {
-            Some(arc)
-        } else {
-            self.cache.arcs.on_arc_deserialized(typeid, key, arc)
-        }
     }
 
     fn schedule_for_paging(&self, arc: Box<dyn ArcEraseDyn>) {

@@ -10,10 +10,11 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_configuration_transition_access_attr(buck: Buck) -> None:
-    # Trigger assertions in transition function implementation.
-    await buck.cquery("root//:faithful")
+class AccessAttrTest(BuckTestCase):
+    @buck_test()
+    async def test_configuration_transition_access_attr(self, buck: Buck) -> None:
+        # Trigger assertions in transition function implementation.
+        await buck.cquery("root//:faithful")

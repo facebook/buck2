@@ -18,13 +18,13 @@ use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::file_name::FileNameBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_hash::BuckMutInsertionMap;
+use buck2_hash::index_map::Entry;
 use derivative::Derivative;
 use dupe::Clone_;
 use dupe::Copy_;
 use dupe::Dupe;
 use either::Either;
-use starlark_map::small_map::Entry;
-use starlark_map::small_map::SmallMap;
 
 use crate::directory::builder_lazy::DirectoryBuilderLike;
 use crate::directory::directory::Directory;
@@ -77,7 +77,7 @@ where
 {
     /// This has a dedicated copy and we can mutate it.
     Mutable {
-        entries: SmallMap<FileNameBuf, DirectoryEntry<DirectoryBuilder<L, H>, L>>,
+        entries: BuckMutInsertionMap<FileNameBuf, DirectoryEntry<DirectoryBuilder<L, H>, L>>,
         exhaustiveness: Exhaustiveness,
     },
     Immutable(ImmutableDirectory<L, H>),
@@ -326,7 +326,7 @@ where
                 // do is linear in the size of the RHS
                 //
                 // Only do this if the LHS is still immutable, as otherwise we'd just end up
-                // spending O(len(new LHS)) to convert it into a SmallMap anyway
+                // spending O(len(new LHS)) to convert it into a BuckMutInsertionMap anyway
                 //
                 // Finally, we may also only do this if we know the leaves are compatible. Otherwise
                 // we'll change which one overrides which
@@ -589,7 +589,7 @@ where
     /// mutating an exhaustive listing leaves it an exhaustive listing.
     pub(super) fn as_mut(
         &mut self,
-    ) -> &mut SmallMap<FileNameBuf, DirectoryEntry<DirectoryBuilder<L, H>, L>> {
+    ) -> &mut BuckMutInsertionMap<FileNameBuf, DirectoryEntry<DirectoryBuilder<L, H>, L>> {
         if let Self::Mutable { entries, .. } = self {
             return entries;
         };
@@ -598,7 +598,10 @@ where
             match std::mem::replace(self, DirectoryBuilder::empty_non_exhaustive()) {
                 Self::Immutable(d) => {
                     let exhaustiveness = d.exhaustiveness_hash().own_exhaustiveness();
-                    (d.collect_entries::<SmallMap<_, _>>(), exhaustiveness)
+                    (
+                        d.collect_entries::<BuckMutInsertionMap<_, _>>(),
+                        exhaustiveness,
+                    )
                 }
                 Self::Mutable { .. } => unreachable!(),
             };
@@ -813,9 +816,10 @@ where
     pub fn fingerprint(self, hasher: &impl DirectoryDigester<L, H>) -> ImmutableDirectory<L, H> {
         match self {
             Self::Mutable {
-                entries,
+                mut entries,
                 exhaustiveness,
             } => {
+                entries.sort_keys();
                 let entries = entries
                     .into_iter()
                     .map(|(k, v)| (k, v.map_dir(|v| v.fingerprint(hasher))))

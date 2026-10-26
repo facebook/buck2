@@ -11,14 +11,17 @@
 use std::fmt;
 use std::fmt::Display;
 use std::sync::Arc;
-use std::sync::LazyLock;
 
 use allocative::Allocative;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::plugins::PluginKind;
 use buck2_core::plugins::PluginKindSet;
+use buck2_util::strong_hasher::Blake3StrongHasher;
+use buck2_util::strong_hasher::StrongHash128;
 use dupe::Dupe;
+use itertools::Either;
 use pagable::Pagable;
+use strong_hash::StrongHash;
 
 use crate::attrs::attr_type::any::AnyAttrType;
 use crate::attrs::attr_type::arg::ArgAttrType;
@@ -90,9 +93,12 @@ pub struct AttrTypeInner2 {
     /// * `attrs.arg()`
     /// * collection of those e.g. `attrs.list(attrs.query(...))`
     pub may_have_queries: bool,
+    /// Identity-grade content hash of the type: equal fingerprints identify
+    /// types that coerce every value identically.
+    pub fingerprint: StrongHash128,
 }
 
-#[derive(Debug, Hash, Pagable, Eq, PartialEq, Allocative)]
+#[derive(Debug, Hash, Pagable, Eq, PartialEq, Allocative, StrongHash)]
 pub enum AttrTypeInner {
     Any(AnyAttrType),
     Arg(ArgAttrType),
@@ -120,7 +126,31 @@ pub enum AttrTypeInner {
     TargetModifiers(TargetModifiersAttrType),
 }
 
+/// Merkle composition: a type's stored fingerprint stands in for its whole
+/// subtree, so nested constructors never re-walk their children.
+impl StrongHash for AttrType {
+    fn strong_hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.fingerprint.strong_hash(state);
+    }
+}
+
 impl AttrType {
+    fn of(inner: AttrTypeInner, may_have_queries: bool) -> Self {
+        let mut hasher = Blake3StrongHasher::new();
+        inner.strong_hash(&mut hasher);
+        Self(Arc::new(AttrTypeInner2 {
+            inner,
+            may_have_queries,
+            fingerprint: hasher.finalize128(),
+        }))
+    }
+
+    /// Identity-grade content hash: equal fingerprints identify types that
+    /// coerce every value identically.
+    pub fn fingerprint(&self) -> StrongHash128 {
+        self.0.fingerprint
+    }
+
     pub fn fmt_with_default(
         &self,
         f: &mut fmt::Formatter<'_>,
@@ -164,15 +194,51 @@ impl AttrType {
     }
 
     pub fn any() -> Self {
-        Self(Arc::new(AttrTypeInner2 {
-            inner: AttrTypeInner::Any(AnyAttrType),
-            may_have_queries: false,
-        }))
+        Self::of(AttrTypeInner::Any(AnyAttrType), false)
     }
 
-    pub(crate) fn any_ref() -> &'static Self {
-        static ANY: LazyLock<AttrType> = LazyLock::new(AttrType::any);
-        &ANY
+    /// This type with its `Option` layers removed. Values do not record
+    /// optionality, so a value's kind is read against this.
+    pub(crate) fn non_optional(&self) -> &AttrType {
+        let mut t = self;
+        while let AttrTypeInner::Option(opt) = &t.0.inner {
+            t = &opt.inner;
+        }
+        t
+    }
+
+    /// The item type of a list value of this type, or `None` if lists do
+    /// not fit it. Values do not record that they were coerced as `Any`
+    /// either: an `Any` holds literal containers whose items are `Any`.
+    pub(crate) fn list_item(&self) -> Option<&AttrType> {
+        let t = self.non_optional();
+        match &t.0.inner {
+            AttrTypeInner::Any(_) => Some(t),
+            AttrTypeInner::List(ty) => Some(&ty.inner),
+            _ => None,
+        }
+    }
+
+    /// The key and value types of a dict value of this type, or `None` if
+    /// dicts do not fit it; `Any` as for [`Self::list_item`].
+    pub(crate) fn dict_items(&self) -> Option<(&AttrType, &AttrType)> {
+        let t = self.non_optional();
+        match &t.0.inner {
+            AttrTypeInner::Any(_) => Some((t, t)),
+            AttrTypeInner::Dict(ty) => Some((&ty.key, &ty.value)),
+            _ => None,
+        }
+    }
+
+    /// The item types of a tuple value of this type and length, or `None`
+    /// if such tuples do not fit it; `Any` as for [`Self::list_item`].
+    pub(crate) fn tuple_items(&self, len: usize) -> Option<impl Iterator<Item = &AttrType>> {
+        let t = self.non_optional();
+        match &t.0.inner {
+            AttrTypeInner::Any(_) => Some(Either::Left(std::iter::repeat_n(t, len))),
+            AttrTypeInner::Tuple(ty) if ty.xs.len() == len => Some(Either::Right(ty.xs.iter())),
+            _ => None,
+        }
     }
 
     /// An arg attribute. Args are similar to strings, but have built in support
@@ -184,40 +250,34 @@ impl AttrType {
     /// can be passed into anon targets. There is a slight memory hit when using
     /// this flag.
     pub fn arg(anon_target_compatible: bool) -> Self {
-        Self(Arc::new(AttrTypeInner2 {
-            inner: AttrTypeInner::Arg(ArgAttrType {
+        Self::of(
+            AttrTypeInner::Arg(ArgAttrType {
                 anon_target_compatible,
             }),
-            may_have_queries: true,
-        }))
+            true,
+        )
     }
 
     pub fn enumeration(variants: Vec<String>) -> buck2_error::Result<Self> {
-        Ok(Self(Arc::new(AttrTypeInner2 {
-            inner: AttrTypeInner::Enum(EnumAttrType::new(variants)?),
-            may_have_queries: false,
-        })))
+        Ok(Self::of(
+            AttrTypeInner::Enum(EnumAttrType::new(variants)?),
+            false,
+        ))
     }
 
     pub fn bool() -> Self {
-        Self(Arc::new(AttrTypeInner2 {
-            inner: AttrTypeInner::Bool(BoolAttrType),
-            may_have_queries: false,
-        }))
+        Self::of(AttrTypeInner::Bool(BoolAttrType), false)
     }
 
     pub fn int() -> Self {
-        Self(Arc::new(AttrTypeInner2 {
-            inner: AttrTypeInner::Int(IntAttrType),
-            may_have_queries: false,
-        }))
+        Self::of(AttrTypeInner::Int(IntAttrType), false)
     }
 
     pub fn configuration_dep(t: ConfigurationDepKind) -> Self {
-        Self(Arc::new(AttrTypeInner2 {
-            inner: AttrTypeInner::ConfigurationDep(ConfigurationDepAttrType(t)),
-            may_have_queries: false,
-        }))
+        Self::of(
+            AttrTypeInner::ConfigurationDep(ConfigurationDepAttrType(t)),
+            false,
+        )
     }
 
     /// A TargetLabel attribute optionally with a specific provider/providers
@@ -226,13 +286,13 @@ impl AttrType {
     /// If `required_providers` is non-empty, the dependency must return those providers
     /// from its implementation function. Otherwise an error will result at resolution time.
     pub fn dep(required_providers: ProviderIdSet, plugin_kinds: PluginKindSet) -> Self {
-        Self(Arc::new(AttrTypeInner2 {
-            inner: AttrTypeInner::Dep(DepAttrType::new(
+        Self::of(
+            AttrTypeInner::Dep(DepAttrType::new(
                 required_providers,
                 DepAttrTransition::Identity(plugin_kinds),
             )),
-            may_have_queries: false,
-        }))
+            false,
+        )
     }
 
     /// An execution dependency attribute optionally with a specific provider/providers
@@ -241,13 +301,13 @@ impl AttrType {
     /// If `required_providers` is non-empty, the dependency must return those providers
     /// from its implementation function. Otherwise an error will result at resolution time.
     pub fn exec_dep(required_providers: ProviderIdSet) -> Self {
-        Self(Arc::new(AttrTypeInner2 {
-            inner: AttrTypeInner::Dep(DepAttrType::new(
+        Self::of(
+            AttrTypeInner::Dep(DepAttrType::new(
                 required_providers,
                 DepAttrTransition::Exec,
             )),
-            may_have_queries: false,
-        }))
+            false,
+        )
     }
 
     /// A toolchain dependency attribute optionally with a specific provider/providers
@@ -256,13 +316,13 @@ impl AttrType {
     /// If `required_providers` is non-empty, the dependency must return those providers
     /// from its implementation function. Otherwise an error will result at resolution time.
     pub fn toolchain_dep(required_providers: ProviderIdSet) -> Self {
-        Self(Arc::new(AttrTypeInner2 {
-            inner: AttrTypeInner::Dep(DepAttrType::new(
+        Self::of(
+            AttrTypeInner::Dep(DepAttrType::new(
                 required_providers,
                 DepAttrTransition::Toolchain,
             )),
-            may_have_queries: false,
-        }))
+            false,
+        )
     }
 
     /// An a dependency attribute which changes the configuration optionally with a specific
@@ -274,145 +334,125 @@ impl AttrType {
         required_providers: ProviderIdSet,
         cfg: Option<Arc<TransitionId>>,
     ) -> Self {
-        Self(Arc::new(AttrTypeInner2 {
-            inner: AttrTypeInner::TransitionDep(TransitionDepAttrType::new(
-                required_providers,
-                cfg,
-            )),
-            may_have_queries: false,
-        }))
+        Self::of(
+            AttrTypeInner::TransitionDep(TransitionDepAttrType::new(required_providers, cfg)),
+            false,
+        )
     }
 
     pub fn configured_dep(required_providers: ProviderIdSet) -> Self {
-        Self(Arc::new(AttrTypeInner2 {
-            inner: AttrTypeInner::ConfiguredDep(ExplicitConfiguredDepAttrType {
-                required_providers,
-            }),
-            may_have_queries: false,
-        }))
+        Self::of(
+            AttrTypeInner::ConfiguredDep(ExplicitConfiguredDepAttrType { required_providers }),
+            false,
+        )
     }
 
     pub fn split_transition_dep(required_providers: ProviderIdSet, cfg: Arc<TransitionId>) -> Self {
-        Self(Arc::new(AttrTypeInner2 {
-            inner: AttrTypeInner::SplitTransitionDep(SplitTransitionDepAttrType::new(
+        Self::of(
+            AttrTypeInner::SplitTransitionDep(SplitTransitionDepAttrType::new(
                 required_providers,
                 cfg,
             )),
-            may_have_queries: false,
-        }))
+            false,
+        )
     }
 
     pub fn plugin_dep(kind: PluginKind) -> Self {
-        Self(Arc::new(AttrTypeInner2 {
-            inner: AttrTypeInner::PluginDep(PluginDepAttrType::new(kind)),
-            may_have_queries: false,
-        }))
+        Self::of(
+            AttrTypeInner::PluginDep(PluginDepAttrType::new(kind)),
+            false,
+        )
     }
 
     /// A dict attribute containing keys and values of the specified types.
     pub fn dict(key: AttrType, value: AttrType, sorted: bool) -> Self {
         let may_have_queries = key.0.may_have_queries || value.0.may_have_queries;
-        Self(Arc::new(AttrTypeInner2 {
-            inner: AttrTypeInner::Dict(DictAttrType::new(key, value, sorted)),
+        Self::of(
+            AttrTypeInner::Dict(DictAttrType::new(key, value, sorted)),
             may_have_queries,
-        }))
+        )
     }
 
     /// A list attribute containing items of some inner type.
     pub fn list(inner: AttrType) -> Self {
         let may_have_queries = inner.0.may_have_queries;
-        Self(Arc::new(AttrTypeInner2 {
-            inner: AttrTypeInner::List(ListAttrType::new(inner)),
+        Self::of(
+            AttrTypeInner::List(ListAttrType::new(inner)),
             may_have_queries,
-        }))
+        )
     }
 
     pub fn tuple(xs: Vec<AttrType>) -> Self {
         let may_have_queries = xs.iter().any(|x| x.0.may_have_queries);
-        Self(Arc::new(AttrTypeInner2 {
-            inner: AttrTypeInner::Tuple(TupleAttrType::new(xs)),
+        Self::of(
+            AttrTypeInner::Tuple(TupleAttrType::new(xs)),
             may_have_queries,
-        }))
+        )
     }
 
     pub fn one_of(xs: Vec<AttrType>) -> Self {
         let may_have_queries = xs.iter().any(|x| x.0.may_have_queries);
-        Self(Arc::new(AttrTypeInner2 {
-            inner: AttrTypeInner::OneOf(OneOfAttrType::new(xs)),
+        Self::of(
+            AttrTypeInner::OneOf(OneOfAttrType::new(xs)),
             may_have_queries,
-        }))
+        )
     }
 
     pub fn option(value: AttrType) -> Self {
         let may_have_queries = value.0.may_have_queries;
-        Self(Arc::new(AttrTypeInner2 {
-            inner: AttrTypeInner::Option(OptionAttrType::new(value)),
+        Self::of(
+            AttrTypeInner::Option(OptionAttrType::new(value)),
             may_have_queries,
-        }))
+        )
     }
 
     pub fn query() -> Self {
-        Self(Arc::new(AttrTypeInner2 {
-            inner: AttrTypeInner::Query(QueryAttrType::new(DepAttrType::new(
+        Self::of(
+            AttrTypeInner::Query(QueryAttrType::new(DepAttrType::new(
                 ProviderIdSet::EMPTY,
                 DepAttrTransition::Identity(PluginKindSet::EMPTY),
             ))),
-            may_have_queries: true,
-        }))
+            true,
+        )
     }
 
     // A file attribute. This will accept paths or targets like
     /// `//some:target[inner]`. When contained within a list, one item may
     /// expand to multiple (e.g. an output group or a lazy glob).
     pub fn source(allow_directory: bool) -> Self {
-        Self(Arc::new(AttrTypeInner2 {
-            inner: AttrTypeInner::Source(SourceAttrType { allow_directory }),
-            may_have_queries: false,
-        }))
+        Self::of(
+            AttrTypeInner::Source(SourceAttrType { allow_directory }),
+            false,
+        )
     }
 
     /// A string attribute. For flags passed to a command, an arg() attr is
     /// preferred to support macro and make variable substitution.
     pub fn string() -> Self {
-        Self(Arc::new(AttrTypeInner2 {
-            inner: AttrTypeInner::String(StringAttrType),
-            may_have_queries: false,
-        }))
+        Self::of(AttrTypeInner::String(StringAttrType), false)
     }
 
     pub fn label() -> Self {
-        Self(Arc::new(AttrTypeInner2 {
-            inner: AttrTypeInner::Label(LabelAttrType),
-            may_have_queries: false,
-        }))
+        Self::of(AttrTypeInner::Label(LabelAttrType), false)
     }
 
     pub fn visibility() -> Self {
-        Self(Arc::new(AttrTypeInner2 {
-            inner: AttrTypeInner::Visibility(VisibilityAttrType),
-            may_have_queries: false,
-        }))
+        Self::of(AttrTypeInner::Visibility(VisibilityAttrType), false)
     }
 
     pub fn within_view() -> Self {
-        Self(Arc::new(AttrTypeInner2 {
-            inner: AttrTypeInner::WithinView(WithinViewAttrType),
-            may_have_queries: false,
-        }))
+        Self::of(AttrTypeInner::WithinView(WithinViewAttrType), false)
     }
 
     pub fn metadata() -> Self {
-        Self(Arc::new(AttrTypeInner2 {
-            inner: AttrTypeInner::Metadata(MetadataAttrType),
-            may_have_queries: false,
-        }))
+        Self::of(AttrTypeInner::Metadata(MetadataAttrType), false)
     }
 
     pub fn target_modifiers() -> Self {
-        Self(Arc::new(AttrTypeInner2 {
-            inner: AttrTypeInner::TargetModifiers(TargetModifiersAttrType),
-            may_have_queries: false,
-        }))
+        Self::of(
+            AttrTypeInner::TargetModifiers(TargetModifiersAttrType),
+            false,
+        )
     }
 
     /// Used when we first detect that concatenation is going to happen for an attr

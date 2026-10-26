@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-#![feature(used_with_arg)]
-
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 
 pub mod dep_files;

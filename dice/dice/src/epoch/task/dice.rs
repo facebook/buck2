@@ -11,6 +11,7 @@
 //! A task stored by Dice that is shared for all transactions at the same version
 use std::future::Future;
 use std::pin::Pin;
+use std::sync::Arc as StdArc;
 use std::sync::OnceLock;
 use std::sync::atomic::AtomicU32;
 use std::sync::atomic::Ordering;
@@ -18,6 +19,7 @@ use std::task::Context;
 use std::task::Poll;
 
 use allocative::Allocative;
+use dice_error::cycles::CycleError;
 use dice_futures::atomic_waker_set::AtomicWakerSet;
 use dice_futures::atomic_waker_set::AtomicWakerSetEntry;
 use dice_futures::cancellation::CancellationContext;
@@ -34,6 +36,8 @@ use futures::future::BoxFuture;
 use parking_lot::Mutex;
 
 use super::handle::DiceTaskHandle;
+use crate::epoch::cycles::DetectedCycle;
+use crate::epoch::cycles::TaskCycles;
 use crate::epoch::task::PreviouslyCancelledTask;
 use crate::epoch::task::promise::DicePromise;
 use crate::epoch::worker::WorkerCancelled;
@@ -171,6 +175,8 @@ pub(crate) struct DiceTaskInternal<T = MaybeResidentComputedValue> {
     ///
     /// Each entry names the key that is waiting, see `for_each_waiting_key`.
     wakers: AtomicWakerSet<ParentKey>,
+    /// The cycles this task has been found to be a key of, see `mark_in_cycle`.
+    cycles: TaskCycles,
 }
 
 enum ReadValueResult<'d, T = MaybeResidentComputedValue> {
@@ -193,13 +199,29 @@ impl<'d, T> TaskWaiter<'d, T> {
     ///
     /// Note that it's very ill-advised to do this if you don't hold a strong count to the task, as
     /// without one completion might never happen.
-    fn poll_complete(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<&'d T> {
+    ///
+    /// Fails if the waiting key has been found to be in a cycle with this task's, see
+    /// `DetectedCycle`.
+    fn poll_complete(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Result<&'d T, CycleError>> {
         let this = self.as_mut().project();
         let internal = this.task.internal.get();
+        let waiting = *this.waiter.data();
 
+        // Everything here is rechecked after registering, since `mark_in_cycle` wakes only the
+        // waiters registered at the time, just as completion does.
         let check = || {
+            // The cycle is checked before the value so that every key of the cycle that was
+            // waiting when it was found gets the cycle error: the first of them to be woken by
+            // the detection may well have finished, with an error value of its own, by the time
+            // the others poll.
+            if let Some(error) = internal.cycles.error_for(waiting, internal.key) {
+                return Poll::Ready(Err(error));
+            }
             if let Some(r) = internal.maybe_value.get() {
-                Poll::Ready(r)
+                Poll::Ready(Ok(r))
             } else {
                 Poll::Pending
             }
@@ -314,6 +336,7 @@ impl<T> DiceTask<T> {
                 terminated_generation: AtomicU32::new(0),
                 maybe_value: OnceLock::new(),
                 wakers: AtomicWakerSet::new(),
+                cycles: TaskCycles::default(),
                 starter_lock: Mutex::new(None),
             }),
         }
@@ -359,6 +382,7 @@ impl<T> DiceTask<T> {
                 terminated_generation: AtomicU32::new(0),
                 maybe_value: OnceLock::new(),
                 wakers: AtomicWakerSet::new(),
+                cycles: TaskCycles::default(),
                 starter_lock: Mutex::new(Some(cancellation_handle)),
             }),
         };
@@ -504,13 +528,20 @@ impl<'d, T> DiceTaskRef<'d, T> {
     /// Calls `f` with the key of every computation that is blocked on this task: one that polled
     /// its `DicePromise` for the task, found it pending, and has not been woken since. Requests
     /// from outside of any computation (`ParentKey::None`) are not reported.
-    #[cfg(test)]
     pub(crate) fn for_each_waiting_key(&self, mut f: impl FnMut(DiceKey)) {
         self.internal.wakers.for_each_registered(|parent| {
             if let ParentKey::Some(k) = *parent {
                 f(k)
             }
         })
+    }
+
+    /// Records that this task's key is in `cycle`, and wakes its dependents so that those which
+    /// the cycle fails find out.
+    pub(crate) fn mark_in_cycle(&self, cycle: &StdArc<DetectedCycle>) {
+        debug_assert!(cycle.keys().any(|k| k == self.internal.key));
+        self.internal.cycles.add(cycle);
+        self.internal.wakers.wake_all();
     }
 
     pub(crate) fn introspect_state(&self) -> DiceTaskState {
@@ -752,7 +783,7 @@ impl<'d, T> PinnedDrop for DiceTaskDependentFuture<'d, T> {
 }
 
 impl<'d, T> Future for DiceTaskDependentFuture<'d, T> {
-    type Output = &'d T;
+    type Output = Result<&'d T, CycleError>;
 
     fn poll(
         self: std::pin::Pin<&mut Self>,

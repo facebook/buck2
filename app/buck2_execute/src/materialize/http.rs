@@ -361,7 +361,7 @@ async fn copy_and_hash(
         buff.peek(&chunk);
 
         writer
-            .write(&chunk)
+            .write_all(&chunk)
             .with_buck_error_context(|| format!("write({abs_path})"))
             .map_err(HttpDownloadError::IoError)?;
 
@@ -559,6 +559,39 @@ mod tests {
 
         assert_eq!(std::str::from_utf8(&bytes).unwrap(), "foobar");
 
+        Ok(())
+    }
+    /// `copy_and_hash` writes every byte of a chunk even when the writer accepts a chunk in
+    /// several pieces.
+    #[tokio::test]
+    async fn test_copy_and_hash_short_write() -> buck2_error::Result<()> {
+        struct ShortWriter<'a>(&'a mut Vec<u8>);
+        impl Write for ShortWriter<'_> {
+            fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+                let n = buf.len().min(2);
+                self.0.extend_from_slice(&buf[..n]);
+                Ok(n)
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+
+        let mut out = Vec::new();
+        let digest = copy_and_hash(
+            "test",
+            None,
+            "test",
+            stream::iter(vec![Ok(Bytes::from("foo")), Ok(Bytes::from("bar"))]),
+            ShortWriter(&mut out),
+            testing::sha1(),
+            &Checksum::Sha1(Arc::from("8843d7f92416211de9ebb963ff4ce28125932878")),
+            false,
+        )
+        .await?;
+
+        assert_eq!(digest.size(), 6);
+        assert_eq!(std::str::from_utf8(&out).unwrap(), "foobar");
         Ok(())
     }
 

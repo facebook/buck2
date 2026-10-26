@@ -11,12 +11,12 @@
 use std::hash::Hash;
 
 use allocative::Allocative;
+use buck2_hash::BuckMutInsertionSet;
 use dupe::Clone_;
 use dupe::Dupe;
 use pagable::Pagable;
 use starlark_map::Equivalent;
 use starlark_map::Hashed;
-use starlark_map::ordered_set::OrderedSet;
 use starlark_map::small_set;
 
 use crate::query::graph::node::LabeledNode;
@@ -71,19 +71,19 @@ impl<'a, T: LabeledNode> Hash for LabelIndexer<'a, T> {
 /// operate only on the `NodeRef` of the `LabeledNode`.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Allocative, Pagable)]
 pub struct LabelIndexedSet<T: LabeledNode> {
-    nodes: OrderedSet<LabelIndexed<T>>,
+    nodes: BuckMutInsertionSet<LabelIndexed<T>>,
 }
 
 impl<T: LabeledNode> LabelIndexedSet<T> {
     pub fn new() -> Self {
         Self {
-            nodes: OrderedSet::new(),
+            nodes: BuckMutInsertionSet::new(),
         }
     }
 
     pub fn with_capacity(n: usize) -> Self {
         Self {
-            nodes: OrderedSet::with_capacity(n),
+            nodes: BuckMutInsertionSet::with_capacity(n),
         }
     }
 

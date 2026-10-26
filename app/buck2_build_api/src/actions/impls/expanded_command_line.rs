@@ -11,7 +11,7 @@
 use std::borrow::Cow;
 
 use allocative::Allocative;
-use sorted_vector_map::SortedVectorMap;
+use buck2_hash::BuckFixedSortedMap;
 
 use crate::interpreter::rule_defs::cmd_args::CommandLineSink;
 
@@ -19,7 +19,7 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineSink;
 pub struct ExpandedCommandLine {
     pub exe: Vec<String>,
     pub args: Vec<String>,
-    pub env: SortedVectorMap<String, String>,
+    pub env: BuckFixedSortedMap<String, String>,
 }
 
 /// The digest of an ExpandedCommandLine.
@@ -85,7 +85,7 @@ impl CommandLineSink for ExpandedCommandLineFingerprinter {
 
 #[cfg(test)]
 mod tests {
-    use sorted_vector_map::sorted_vector_map;
+    use buck2_hash::BuckFixedSortedMap;
 
     use super::*;
 
@@ -149,19 +149,19 @@ mod tests {
         let cmd1 = ExpandedCommandLine {
             exe: Default::default(),
             args: Default::default(),
-            env: sorted_vector_map! { "FOO".to_owned() => "BAR".to_owned() },
+            env: BuckFixedSortedMap::from_iter([("FOO".to_owned(), "BAR".to_owned())]),
         };
 
         let cmd2 = ExpandedCommandLine {
             exe: Default::default(),
             args: Default::default(),
-            env: sorted_vector_map! { "FOO2".to_owned()=> "BAR".to_owned() },
+            env: BuckFixedSortedMap::from_iter([("FOO2".to_owned(), "BAR".to_owned())]),
         };
 
         let cmd3 = ExpandedCommandLine {
             exe: Default::default(),
             args: Default::default(),
-            env: sorted_vector_map! { "FOO".to_owned()=> "BAR2".to_owned() },
+            env: BuckFixedSortedMap::from_iter([("FOO".to_owned(), "BAR2".to_owned())]),
         };
 
         assert_ne!(cmd1.fingerprint(), cmd2.fingerprint());
@@ -171,8 +171,11 @@ mod tests {
 
     #[test]
     fn test_hash_stability() {
-        fn env() -> SortedVectorMap<String, String> {
-            sorted_vector_map! { "FOO1".to_owned() => "BAR1".to_owned(), "FOO2".to_owned() => "BAR2".to_owned() }
+        fn env() -> BuckFixedSortedMap<String, String> {
+            BuckFixedSortedMap::from_iter([
+                ("FOO1".to_owned(), "BAR1".to_owned()),
+                ("FOO2".to_owned(), "BAR2".to_owned()),
+            ])
         }
 
         let mut cmd = ExpandedCommandLine {

@@ -47,6 +47,10 @@ use buck2_event_observer::span_tracker::EventTimestamp;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_subscription_proto::SubscriptionRequest;
 use futures::StreamExt;
+use superconsole::Line;
+use superconsole::Lines;
+use superconsole::Span;
+use superconsole::style::Stylize;
 use tokio::pin;
 use tokio::sync::mpsc;
 use tokio::sync::watch;
@@ -151,7 +155,7 @@ impl BuckSubcommand for SnoopCommand {
             loop {
                 match snoop_one(&mut ctx, &console_opts, &current, idle_timeout, &live).await? {
                     SnoopOutcome::Switch(target) => current = target,
-                    SnoopOutcome::Ended(res) => {
+                    SnoopOutcome::Ended { invocation, res } => {
                         match res {
                             Ok(CommandOutcome::Success(result)) => {
                                 for e in &result.errors {
@@ -163,12 +167,19 @@ impl BuckSubcommand for SnoopCommand {
                             }
                             Err(e) if e.has_tag(ErrorTag::MissingCommandResult) => {
                                 buck2_client_ctx::eprintln!(
-                                    "Warning: The event log stopped growing without a command result. \
-                                    The command may have exited abnormally, or its log may have been deleted."
+                                    "The command ended without a result: it was likely interrupted, or its log was deleted."
+                                )?;
+                            }
+                            Err(e) if e.has_tag(ErrorTag::InterruptedByDaemonShutdown) => {
+                                buck2_client_ctx::eprintln!(
+                                    "The buck2 daemon shut down while the command was running."
                                 )?;
                             }
                             Err(e) => return ExitResult::from(e),
                         }
+                        // The console's canvas (and the argv banner in it) is gone by
+                        // now; restate what was being watched in plain scrollback.
+                        buck2_client_ctx::eprintln!("Finished snooping {}", invocation)?;
 
                         if !follow_new {
                             return ExitResult::success();
@@ -318,7 +329,12 @@ enum SnoopOutcome {
     /// The user asked to snoop a different invocation.
     Switch(EventLogPathBuf),
     /// The event stream ended.
-    Ended(buck2_error::Result<CommandOutcome<ReplayResult>>),
+    Ended {
+        /// `<trace_id>: <command line>` of the invocation that ended, for reporting
+        /// after its console is gone.
+        invocation: String,
+        res: buck2_error::Result<CommandOutcome<ReplayResult>>,
+    },
 }
 
 /// Snoop a single invocation until its stream ends or the user switches away.
@@ -330,6 +346,7 @@ async fn snoop_one(
     live: &LiveCommands,
 ) -> buck2_error::Result<SnoopOutcome> {
     let log_dir = ctx.paths()?.log_dir();
+    let isolation = ctx.paths()?.isolation.clone();
 
     let (writer_state_tx, writer_state_rx) = watch::channel(WriterState::Unknown);
     let (invocation, events) = log_path
@@ -343,23 +360,37 @@ async fn snoop_one(
 
     // The header slot is too cramped for the command line (it shares a row with the
     // action stats), so show it as a banner line inside the canvas: switching
-    // invocations then replaces it instead of accumulating scrollback.
-    let banner = format!(
-        "Snooping {}: {}",
-        invocation.trace_id,
-        invocation.display_command_line()
-    );
+    // invocations then replaces it instead of accumulating scrollback. The banner is
+    // styled (reverse-video chip + dimmed trace id) so the snoop chrome is visually
+    // distinct from the snooped command's own superconsole output.
+    let display_args = invocation.display_args();
+    let invocation_desc = format!("{}: {}", invocation.trace_id, display_args);
+    let banner = Lines(vec![Line::from_iter([
+        Span::new_styled_lossy(format!(" SNOOP {isolation} ").bold().reverse()),
+        Span::padding(1),
+        Span::new_styled_lossy(invocation.trace_id.to_string().dim()),
+        Span::sanitized(format!(": {display_args}")),
+    ])]);
 
     let header = match running_logs(&log_dir, live)? {
         Some(running) => match running.iter().position(|l| l.path() == log_path.path()) {
-            Some(i) => format!("(snoop {}/{} running)", i + 1, running.len()),
-            None => format!("(snoop finished, {} running)", running.len()),
+            Some(i) => format!(
+                "(snoop [{}] {}/{} running)",
+                isolation,
+                i + 1,
+                running.len()
+            ),
+            None => format!(
+                "(snoop [{}] finished, {} running)",
+                isolation,
+                running.len()
+            ),
         },
         None => {
             let logs = get_local_logs(&log_dir)?;
             match logs.iter().position(|l| l.path() == log_path.path()) {
-                Some(i) => format!("(snoop {}/{})", i + 1, logs.len()),
-                None => "(snoop)".to_owned(),
+                Some(i) => format!("(snoop [{}] {}/{})", isolation, i + 1, logs.len()),
+                None => format!("(snoop [{}])", isolation),
             }
         }
     };
@@ -379,7 +410,7 @@ async fn snoop_one(
     );
 
     let mut superconsole_config = console_opts.superconsole_config();
-    superconsole_config.banner = Some(banner.clone());
+    superconsole_config.banner = Some(banner);
     // File-change notifications describe the snooped command's own state; emitted
     // above the canvas they would pile up as scrollback across switches.
     superconsole_config.hide_file_watcher_events = true;
@@ -398,7 +429,7 @@ async fn snoop_one(
     // Without a superconsole there is no canvas to carry the banner; print it the
     // ordinary way instead.
     if !used_superconsole {
-        buck2_client_ctx::eprintln!("{}", banner)?;
+        buck2_client_ctx::eprintln!("Snooping [{}] {}", isolation, invocation_desc)?;
     }
 
     let mut events_ctx = EventsCtx::new(None, vec![console]);
@@ -417,7 +448,9 @@ async fn snoop_one(
 
         loop {
             tokio::select! {
-                res = &mut unpack => break SnoopOutcome::Ended(res),
+                res = &mut unpack => {
+                    break SnoopOutcome::Ended { invocation: invocation_desc, res };
+                }
                 _ = live_check.tick() => {
                     // Track the daemon's view of this command for the tail: running
                     // suppresses the idle timeout (a quiet command is not gone), absent

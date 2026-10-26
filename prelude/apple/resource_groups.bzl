@@ -13,7 +13,14 @@ load(
 )
 load(":apple_asset_catalog_types.bzl", "AppleAssetCatalogSpec")
 load(":apple_core_data_types.bzl", "AppleCoreDataSpec")
-load(":apple_resource_types.bzl", "AppleResourceSelectionOutput", "AppleResourceSpec", "CxxResourceSpec", "SelectedAppleAssetCatalogSpec")
+load(
+    ":apple_resource_types.bzl",
+    "AppleResourceSelectionOutput",
+    "AppleResourceSpec",
+    "CxxResourceSpec",
+    "ReachableXcassetsSymbolSpec",
+    "SelectedAppleAssetCatalogSpec",
+)
 load(":scene_kit_assets_types.bzl", "SceneKitAssetsSpec")
 load(":xcassets_asset_symbols.bzl", "MetaXcassetsAssetSymbolSpec")
 
@@ -178,12 +185,13 @@ def get_filtered_resources(
     core_data_specs = []
     scene_kit_assets_specs = []
     cxx_resource_specs = []
+    reachable_xcassets_symbol_specs = []
 
     for target in targets:
         target_resource_group = resource_group_mappings.get(target)
 
         # Ungrouped targets belong to the unlabeled bundle
-        if (
+        selected = (
             (not target_resource_group and not resource_group)
             or
             # Does it match special "MATCH_ALL" mapping?
@@ -191,8 +199,11 @@ def get_filtered_resources(
             or
             # Does it match currently evaluated group?
             target_resource_group == resource_group
-        ):
-            node = resource_graph_node_map[target]
+        )
+        node = resource_graph_node_map[target]
+        if node.xcassets_symbol_spec != None:
+            reachable_xcassets_symbol_specs.append(ReachableXcassetsSymbolSpec(spec = node.xcassets_symbol_spec, selected = selected))
+        if selected:
             resource_spec = node.resource_spec
             if resource_spec:
                 resource_specs.append(resource_spec)
@@ -220,6 +231,7 @@ def get_filtered_resources(
         resource_specs = resource_specs,
         asset_catalog_specs = asset_catalog_specs,
         selected_asset_catalog_specs = selected_asset_catalog_specs,
+        reachable_xcassets_symbol_specs = reachable_xcassets_symbol_specs,
         core_data_specs = core_data_specs,
         scene_kit_assets_spec = scene_kit_assets_specs,
         cxx_resource_specs = cxx_resource_specs,

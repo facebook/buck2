@@ -21,7 +21,6 @@ dupe.workspace = true
 either.workspace = true
 mini_vec.workspace = true
 pagable.workspace = true
-sorted_vector_map.workspace = true
 starlark_map.workspace = true
 strong_hash.workspace = true
 

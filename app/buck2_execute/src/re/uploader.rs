@@ -181,7 +181,8 @@ impl Uploader {
                             upload_blobs.push(directory_to_blob(d));
                         }
                         DirectoryEntry::Leaf(ActionDirectoryMember::File(f)) => {
-                            upload_file_paths.push(dir_path.join(path.get()));
+                            upload_file_paths
+                                .push((dir_path.join(path.get()), f.digest.data().dupe()));
                             upload_file_digests.push(digest.to_re());
                             upload_file_metadata.push(f.dupe());
                         }
@@ -223,9 +224,9 @@ impl Uploader {
                     }
                     Err(
                         ref err @ ArtifactNotMaterializedReason::RequiresCasDownload {
+                            ref path,
                             ref entry,
                             ref info,
-                            ..
                         },
                     ) => {
                         if let DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) =
@@ -272,6 +273,20 @@ impl Uploader {
                                     quiet: true
                                 )?;
 
+                                // Materialize the file locally from CAS and add it to
+                                // the upload list. Silently skipping this file (the old
+                                // behavior) leaves the downstream action with incomplete
+                                // inputs, causing confusing failures. Materializing
+                                // bypasses FindMissingCache and talks directly to CAS;
+                                // if the blob truly is gone, we fail here with a clear
+                                // error rather than later with a mysterious one.
+                                artifacts_to_materialize
+                                    .push((path.clone(), ArtifactValue::file(metadata)));
+                                upload_files.push(NamedDigest {
+                                    name: fs.resolve(path).as_maybe_relativized_str()?.to_owned(),
+                                    digest,
+                                    ..Default::default()
+                                });
                                 continue;
                             }
                         }
@@ -350,38 +365,93 @@ impl Uploader {
 
         // Upload
         if !upload_files.is_empty() || !upload_blobs.is_empty() {
-            with_error_handler(
-                "upload",
-                client.get_session_id(),
-                client.get_raw_re_client()
-                    .upload(
-                        &use_case.metadata(identity),
-                        UploadRequest {
-                            files_with_digest: Some(upload_files),
-                            inlined_blobs_with_digest: Some(upload_blobs),
-                            // all find missing checks are done previously
-                            // and we can skip them and upload all digests
-                            upload_only_missing: false,
-                            ..Default::default()
-                        },
-                    )
-                    .await,
-            )
-            .map_err(|e| {
-                if e.tags().contains(&buck2_error::ErrorTag::ReInvalidArgument) {
-                    buck2_error::buck2_error!(
-                        buck2_error::ErrorTag::ReInvalidArgument,
-                        "RE Upload failed. It looks like you might have modified files while the build \
-                        was in progress. Retry your build to proceed. Debug information: {:#}",
-                        e
-                    )
-                } else {
-                    e
-                }
-            })?;
+            Self::send(client, use_case, identity, upload_files, upload_blobs).await?;
         };
 
         Ok(stats)
+    }
+
+    /// Uploads whichever of `blobs` the CAS does not hold: the check and the upload `upload`
+    /// makes, for content that is in memory and under no directory.
+    pub async fn upload_blobs(
+        client: &RemoteExecutionClient,
+        blobs: &ActionBlobs,
+        use_case: RemoteExecutorUseCase,
+    ) -> buck2_error::Result<UploadStats> {
+        let digests: Vec<TrackedFileDigest> = blobs.keys().map(|digest| digest.dupe()).collect();
+        // Whatever is missing gets uploaded below, so a stale miss costs one redundant upload.
+        let presence = client
+            .check_presence(use_case, digests.clone(), NegativeCache::Allowed)
+            .await?;
+        let upload_blobs: Vec<InlinedBlobWithDigest> = digests
+            .iter()
+            .zip_eq(presence)
+            .filter(|(_, presence)| presence.is_none())
+            .map(|(digest, _)| InlinedBlobWithDigest {
+                blob: blobs
+                    .get(digest)
+                    .expect("the digests are the blobs' keys")
+                    .0
+                    .clone(),
+                digest: digest.to_re(),
+                ..Default::default()
+            })
+            .collect();
+        if upload_blobs.is_empty() {
+            return Ok(UploadStats::default());
+        }
+        let stats = UploadStats {
+            total: ReUploadMetrics {
+                digests_uploaded: upload_blobs.len() as u64,
+                bytes_uploaded: upload_blobs
+                    .iter()
+                    .map(|blob| u64::try_from(blob.digest.size_in_bytes).unwrap_or_default())
+                    .sum(),
+            },
+            by_extension: IntentionallyStdHashMap::new(),
+        };
+        Self::send(client, use_case, None, Vec::new(), upload_blobs).await?;
+        Ok(stats)
+    }
+
+    /// Uploads `files` and `blobs`, every one of them: the caller has asked the CAS what it
+    /// holds already.
+    async fn send(
+        client: &RemoteExecutionClient,
+        use_case: RemoteExecutorUseCase,
+        identity: Option<&ReActionIdentity<'_>>,
+        files: Vec<NamedDigest>,
+        blobs: Vec<InlinedBlobWithDigest>,
+    ) -> buck2_error::Result<()> {
+        with_error_handler(
+            "upload",
+            client.get_session_id(),
+            client
+                .get_raw_re_client()
+                .upload(
+                    &use_case.metadata(identity),
+                    UploadRequest {
+                        files_with_digest: Some(files),
+                        inlined_blobs_with_digest: Some(blobs),
+                        upload_only_missing: false,
+                        ..Default::default()
+                    },
+                )
+                .await,
+        )
+        .map_err(|e| {
+            if e.tags().contains(&buck2_error::ErrorTag::ReInvalidArgument) {
+                buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::ReInvalidArgument,
+                    "RE Upload failed. It looks like you might have modified files while the build \
+                    was in progress. Retry your build to proceed. Debug information: {:#}",
+                    e
+                )
+            } else {
+                e
+            }
+        })?;
+        Ok(())
     }
 }
 

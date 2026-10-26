@@ -495,8 +495,9 @@ def cxx_gnu_dist_link(
             for link in binary_links:
                 index_cmd.add(unpack_link_args(link))
 
-            output_as_string = cmd_args(output, ignore_artifacts = True)
-            index_cmd.add("-o", output_as_string)
+            # Indexing must not resolve the final binary's content-based path:
+            # producing that binary depends on the index being generated here.
+            index_cmd.add("-o", cmd_args(index_out_dir, format = "{}/indexing-output"))
             index_cmd.add(cmd_args(index_file_out.as_output(), format = "-Wl,--thinlto-index-only={}"))
             index_cmd.add("-Wl,--thinlto-emit-imports-files")
             index_cmd.add("-Wl,--thinlto-full-index")

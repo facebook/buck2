@@ -41,6 +41,12 @@ impl SetIoProvider for DiceDataBuilder {
     }
 }
 
+impl SetIoProvider for DiceData {
+    fn set_io_provider(&mut self, fs: Arc<dyn IoProvider>) {
+        self.set(fs)
+    }
+}
+
 pub mod testing {
     use buck2_core::fs::project::ProjectRootTemp;
 

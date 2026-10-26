@@ -60,6 +60,9 @@ struct TagMetadata {
     // reported externally.
     // These should be removed/avoided if possible.
     hidden: bool,
+    // Root cause tags explain all other tags on an error, e.g. a full disk or an unmounted
+    // filesystem. If an error has any, its category key is only the best-ranked one of them.
+    root_cause: bool,
     // Allows overriding the exit code derived from the error tier.
     exit_code: ExitCode,
 }
@@ -72,6 +75,13 @@ impl TagMetadata {
     fn hidden(self) -> Self {
         Self {
             hidden: true,
+            ..self
+        }
+    }
+
+    fn root_cause(self) -> Self {
+        Self {
+            root_cause: true,
             ..self
         }
     }
@@ -89,6 +99,7 @@ macro_rules! rank {
                 rank: line!(),
                 generic: false,
                 hidden: false,
+                root_cause: false,
                 exit_code: ExitCode::InfraError,
             },
             "tier0" => TagMetadata {
@@ -96,6 +107,7 @@ macro_rules! rank {
                 rank: line!(),
                 generic: false,
                 hidden: false,
+                root_cause: false,
                 exit_code: ExitCode::InfraError,
             },
             "input" => TagMetadata {
@@ -103,6 +115,7 @@ macro_rules! rank {
                 rank: line!(),
                 generic: false,
                 hidden: false,
+                root_cause: false,
                 exit_code: ExitCode::UserError,
             },
             "unspecified" => TagMetadata {
@@ -110,6 +123,7 @@ macro_rules! rank {
                 rank: line!(),
                 generic: true,
                 hidden: false,
+                root_cause: false,
                 exit_code: ExitCode::UnknownFailure,
             },
             _ => unreachable!(),
@@ -174,17 +188,21 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::ServerSigterm => rank!(environment),
         ErrorTag::IoMaterializerFileBusy => rank!(environment),
         ErrorTag::IoEdenDaemonRestarted => rank!(environment),
-        ErrorTag::IoClientBrokenPipe => rank!(environment).exit_code(ExitCode::ClientIoBrokenPipe),
-        ErrorTag::IoReadOnlyFilesystem => rank!(environment),
+        ErrorTag::IoClientBrokenPipe => rank!(environment)
+            .exit_code(ExitCode::ClientIoBrokenPipe)
+            .root_cause(),
+        ErrorTag::IoReadOnlyFilesystem => rank!(environment).root_cause(),
         ErrorTag::WatchmanRootNotConnectedError => rank!(environment),
         ErrorTag::WatchmanCheckoutInProgress => rank!(environment),
         ErrorTag::ServerTransportError => rank!(environment),
         ErrorTag::ServerMemoryPressure => rank!(environment),
-        ErrorTag::DaemonOomKilled => rank!(environment).exit_code(ExitCode::FatalOom),
+        ErrorTag::DaemonOomKilled => rank!(environment)
+            .exit_code(ExitCode::FatalOom)
+            .root_cause(),
         // Note: This is only true internally due to buckwrapper
         ErrorTag::NoBuckRoot => rank!(environment),
         ErrorTag::InstallerEnvironment => rank!(environment).hidden(),
-        ErrorTag::IoNotConnected => rank!(environment), // This typically means eden is not mounted
+        ErrorTag::IoNotConnected => rank!(environment).root_cause(), // This typically means eden is not mounted
         // Typically due to poor network performance and large artifacts.
         ErrorTag::ReDeadlineExceeded => rank!(environment),
         // Typically due to network configuration/x2p
@@ -207,7 +225,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::ReUserBadCerts => rank!(environment),
         ErrorTag::EPerm => rank!(environment),
         ErrorTag::IoPermissionDenied => rank!(environment),
-        ErrorTag::IoStorageFull => rank!(environment),
+        ErrorTag::IoStorageFull => rank!(environment).root_cause(),
         // Test runner reported test failure exit code and no test failures.
         ErrorTag::TestStatusUnknown => rank!(environment),
         // Test runner returned exit code 1. This can include input errors (CLI arg parse errors)
@@ -217,7 +235,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::ThriftTimeout => rank!(environment),
         ErrorTag::ThriftLoadshedding => rank!(environment),
         // Often caused by eden loadshedding
-        ErrorTag::IoInputOutputError => rank!(environment),
+        ErrorTag::IoInputOutputError => rank!(environment).root_cause(),
         ErrorTag::IoBadAddress => rank!(environment),
         ErrorTag::IoStaleNfsHandle => rank!(environment),
         ErrorTag::InvalidBuckOut => rank!(environment),
@@ -226,7 +244,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::MissingHomeDir => rank!(environment),
         // Typically a checkout replaced the directory the daemon was started in.
         ErrorTag::DaemonStaleWorkingDir => rank!(environment),
-        ErrorTag::ActionOom => rank!(environment),
+        ErrorTag::ActionOom => rank!(environment).root_cause(),
         ErrorTag::DotslashError => rank!(environment),
         ErrorTag::SaplingNotFound => rank!(environment),
         ErrorTag::SaplingNetwork => rank!(environment),
@@ -424,8 +442,9 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::DiceDuplicatedChange => rank!(tier0),
         ErrorTag::DiceChangedToInvalid => rank!(tier0),
         ErrorTag::DiceInjectedKeyGotInvalidation => rank!(tier0),
-        ErrorTag::DiceUnexpectedCycleGuardType => rank!(tier0),
         ErrorTag::DiceDuplicateActivationData => rank!(tier0),
+        // A dependency cycle between the user's keys.
+        ErrorTag::DiceCycle => rank!(input),
         // "Resource temporarily unavailable"
         ErrorTag::EAgain => rank!(tier0),
         ErrorTag::InstallerUnknown => rank!(tier0),
@@ -547,6 +566,11 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
 pub fn tag_is_generic(tag: &ErrorTag) -> bool {
     let metadata = tag_metadata(*tag);
     metadata.generic || metadata.hidden
+}
+
+/// Tags that explain all other tags on an error; see `TagMetadata::root_cause`.
+pub fn tag_is_root_cause(tag: &ErrorTag) -> bool {
+    tag_metadata(*tag).root_cause
 }
 
 /// Hidden tags only used internally, for categorization.

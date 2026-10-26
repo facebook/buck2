@@ -32,7 +32,9 @@ use buck2_directory::directory::directory::Directory;
 use buck2_directory::directory::directory_iterator::DirectoryIterator;
 use buck2_directory::directory::fingerprinted_directory::FingerprintedDirectory;
 use buck2_error::buck2_error;
-use buck2_hash::BuckIndexSet;
+use buck2_hash::BuckFixedSortedMap;
+use buck2_hash::BuckFixedSortedSet;
+use buck2_hash::BuckMutInsertionSet;
 use derive_more::Display;
 use dupe::Dupe;
 use host_sharing::host_sharing::HostSharingRequirements;
@@ -40,8 +42,6 @@ use itertools::Itertools;
 use pagable::Pagable;
 use prost::Message;
 use remote_execution as RE;
-use sorted_vector_map::SortedVectorMap;
-use starlark_map::sorted_set::SortedSet;
 
 use super::dep_file_digest::DepFileDigest;
 use crate::artifact::group::artifact_group_values_dyn::ArtifactGroupValuesDyn;
@@ -208,7 +208,7 @@ impl ExecutorPreference {
 
 pub struct CommandExecutionPaths {
     inputs: Vec<CommandExecutionInput>,
-    outputs: BuckIndexSet<CommandExecutionOutput>,
+    outputs: BuckMutInsertionSet<CommandExecutionOutput>,
 
     input_directory: ActionImmutableDirectory,
     output_paths: Vec<(ProjectRelativePathBuf, OutputType)>,
@@ -220,7 +220,7 @@ pub struct CommandExecutionPaths {
 impl CommandExecutionPaths {
     pub fn new(
         inputs: Vec<CommandExecutionInput>,
-        outputs: BuckIndexSet<CommandExecutionOutput>,
+        outputs: BuckMutInsertionSet<CommandExecutionOutput>,
         fs: &ArtifactFs,
         digest_config: DigestConfig,
         interner: Option<&DashMapDirectoryInterner<ActionDirectoryMember, TrackedFileDigest>>,
@@ -230,7 +230,7 @@ impl CommandExecutionPaths {
         // RE spec requires outputs to be sorted:
         // https://github.com/bazelbuild/remote-apis/blob/1f36c310b28d762b258ea577ed08e8203274efae/build/bazel/remote/execution/v2/remote_execution.proto#L667-L669
         // We sort early here and not when we create RE action in order for local and remote actions to be in-sync.
-        let outputs: BuckIndexSet<_> = outputs
+        let outputs: BuckMutInsertionSet<_> = outputs
             .into_iter()
             .sorted_by_key(|e| {
                 let resolved = e
@@ -326,7 +326,7 @@ pub struct WorkerId(pub u64);
 pub struct WorkerSpec {
     pub id: WorkerId,
     pub exe: Vec<String>,
-    pub env: SortedVectorMap<String, String>,
+    pub env: BuckFixedSortedMap<String, String>,
     pub concurrency: Option<usize>,
     pub streaming: bool,
     pub remote_key: Option<TrackedFileDigest>,
@@ -342,9 +342,24 @@ impl WorkerSpec {
 pub struct RemoteWorkerSpec {
     pub id: WorkerId,
     pub init: Vec<String>,
-    pub env: SortedVectorMap<String, String>,
+    pub env: BuckFixedSortedMap<String, String>,
     pub input_paths: CommandExecutionPaths,
     pub concurrency: Option<usize>,
+}
+
+/// Bytes folded into an action's digest without being part of its command or inputs,
+/// so that the action key covers dependencies the command observes only by content.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ActionSalt(Vec<u8>);
+
+impl ActionSalt {
+    pub fn from_digest(digest: &TrackedFileDigest) -> Self {
+        Self(digest.raw_digest().as_bytes().to_vec())
+    }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.0
+    }
 }
 
 /// The data contains the information about the command to be executed.
@@ -354,7 +369,7 @@ pub struct CommandExecutionRequest {
     exe: Vec<String>,
     args: Vec<String>,
     paths: CommandExecutionPaths,
-    env: SortedVectorMap<String, String>,
+    env: BuckFixedSortedMap<String, String>,
     timeout: Option<Duration>,
     pub executor_preference: ExecutorPreference,
     host_sharing_requirements: Arc<HostSharingRequirements>,
@@ -375,7 +390,10 @@ pub struct CommandExecutionRequest {
     force_full_hybrid_if_capable: bool,
     /// Whether to disable capturing performance counters for this execution.
     disable_miniperf: bool,
-    required_local_resources: SortedSet<LocalResourceState>,
+    /// Whether to treat this action as a cache miss everywhere: buck2's remote lookups skip it and
+    /// the remote execution service is told not to serve it from its own cache.
+    induced_cache_miss: bool,
+    required_local_resources: BuckFixedSortedSet<LocalResourceState>,
     /// Persistent worker to use for execution
     worker: Option<WorkerSpec>,
     /// Persistent remote worker to use for execution
@@ -383,6 +401,7 @@ pub struct CommandExecutionRequest {
     /// Whether the executor should guarantee that the inodes for all inputs are unique (i.e. avoid
     /// hardlinking identical input files, for example)
     unique_input_inodes: bool,
+    salt: Option<ActionSalt>,
     /// Remote dep file key, if the action has a dep file.
     /// If this key is set and remote dep file caching is enabled, it will be used to query the cache.
     pub remote_dep_file_key: Option<DepFileDigest>,
@@ -418,7 +437,7 @@ impl CommandExecutionRequest {
         exe: Vec<String>,
         args: Vec<String>,
         paths: CommandExecutionPaths,
-        env: SortedVectorMap<String, String>,
+        env: BuckFixedSortedMap<String, String>,
     ) -> Self {
         Self {
             exe,
@@ -435,10 +454,12 @@ impl CommandExecutionRequest {
             local_environment_inheritance: None,
             force_full_hybrid_if_capable: false,
             disable_miniperf: false,
-            required_local_resources: SortedSet::new(),
+            induced_cache_miss: false,
+            required_local_resources: BuckFixedSortedSet::new(),
             worker: None,
             remote_worker: None,
             unique_input_inodes: false,
+            salt: None,
             remote_dep_file_key: None,
             re_gang_workers: Vec::new(),
             remote_execution_dependencies: Vec::new(),
@@ -574,7 +595,7 @@ impl CommandExecutionRequest {
         self.paths.outputs.iter().map(|output| output.as_ref())
     }
 
-    pub fn env(&self) -> &SortedVectorMap<String, String> {
+    pub fn env(&self) -> &BuckFixedSortedMap<String, String> {
         &self.env
     }
 
@@ -628,6 +649,15 @@ impl CommandExecutionRequest {
         self.disable_miniperf
     }
 
+    pub fn with_induced_cache_miss(mut self, induced_cache_miss: bool) -> Self {
+        self.induced_cache_miss = induced_cache_miss;
+        self
+    }
+
+    pub fn induced_cache_miss(&self) -> bool {
+        self.induced_cache_miss
+    }
+
     pub fn with_required_local_resources(
         mut self,
         required_local_resources: Vec<LocalResourceState>,
@@ -643,7 +673,7 @@ impl CommandExecutionRequest {
         Ok(self)
     }
 
-    pub fn required_local_resources(&self) -> &SortedSet<LocalResourceState> {
+    pub fn required_local_resources(&self) -> &BuckFixedSortedSet<LocalResourceState> {
         &self.required_local_resources
     }
 
@@ -654,6 +684,15 @@ impl CommandExecutionRequest {
 
     pub fn unique_input_inodes(&self) -> bool {
         self.unique_input_inodes
+    }
+
+    pub fn with_salt(mut self, salt: Option<ActionSalt>) -> Self {
+        self.salt = salt;
+        self
+    }
+
+    pub fn salt(&self) -> Option<&ActionSalt> {
+        self.salt.as_ref()
     }
 
     pub fn with_re_gang_workers(mut self, re_gang_workers: Vec<ReGangWorker>) -> Self {

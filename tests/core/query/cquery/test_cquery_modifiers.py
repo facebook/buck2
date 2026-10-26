@@ -12,148 +12,149 @@ import re
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
 def _extract_configuration(s: str) -> list[str]:
     return re.findall(r"\((.*?)\)", s)
 
 
-@buck_test()
-async def test_cquery_fails_with_modifier_syntax_in_query(buck: Buck) -> None:
-    await expect_failure(
-        buck.cquery("root//:target?modifier"),
-        stderr_regex=r"root//:target\?modifier\n\s*\^",
-    )
+class CqueryModifiersTest(BuckTestCase):
+    @buck_test()
+    async def test_cquery_fails_with_modifier_syntax_in_query(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.cquery("root//:target?modifier"),
+            stderr_regex=r"root//:target\?modifier\n\s*\^",
+        )
 
+    @buck_test()
+    async def test_cquery_fails_with_global_modifier(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.cquery(
+                "root//:target",
+                "--modifier",
+                "root//:macos",
+                "--target-universe",
+                "root//:target?root//:arm",
+            ),
+            stderr_regex=r"Cannot specify modifiers with \?modifier syntax when global CLI modifiers are set with --modifier flag",
+        )
 
-@buck_test()
-async def test_cquery_fails_with_global_modifier(buck: Buck) -> None:
-    await expect_failure(
-        buck.cquery(
+    @buck_test()
+    async def test_cquery_with_single_universe_single_modifier(
+        self, buck: Buck
+    ) -> None:
+        result = await buck.cquery(
             "root//:target",
-            "--modifier",
-            "root//:macos",
             "--target-universe",
-            "root//:target?root//:arm",
-        ),
-        stderr_regex=r"Cannot specify modifiers with \?modifier syntax when global CLI modifiers are set with --modifier flag",
-    )
+            "root//:target?root//:macos",
+        )
 
+        [configuration] = _extract_configuration(result.stdout)
 
-@buck_test()
-async def test_cquery_with_single_universe_single_modifier(buck: Buck) -> None:
-    result = await buck.cquery(
-        "root//:target",
-        "--target-universe",
-        "root//:target?root//:macos",
-    )
+        cfg = await buck.audit_configurations(configuration)
 
-    [configuration] = _extract_configuration(result.stdout)
+        assert "root//:macos" in cfg.stdout
 
-    cfg = await buck.audit_configurations(configuration)
+    @buck_test()
+    async def test_cquery_with_single_universe_multiple_modifiers(
+        self, buck: Buck
+    ) -> None:
+        result = await buck.cquery(
+            "root//:target",
+            "--target-universe",
+            "root//:target?root//:macos+root//:arm",
+        )
 
-    assert "root//:macos" in cfg.stdout
+        [configuration] = _extract_configuration(result.stdout)
 
+        cfg = await buck.audit_configurations(configuration)
 
-@buck_test()
-async def test_cquery_with_single_universe_multiple_modifiers(buck: Buck) -> None:
-    result = await buck.cquery(
-        "root//:target",
-        "--target-universe",
-        "root//:target?root//:macos+root//:arm",
-    )
+        assert "root//:macos" in cfg.stdout
+        assert "root//:arm" in cfg.stdout
 
-    [configuration] = _extract_configuration(result.stdout)
+    @buck_test()
+    async def test_cquery_with_multiple_universes_single_modifier(
+        self, buck: Buck
+    ) -> None:
+        result = await buck.cquery(
+            "root//:target",
+            "--target-universe",
+            "root//:target?root//:macos,root//:target?root//:linux",
+        )
 
-    cfg = await buck.audit_configurations(configuration)
+        [linux_configuration, mac_configuration] = _extract_configuration(result.stdout)
 
-    assert "root//:macos" in cfg.stdout
-    assert "root//:arm" in cfg.stdout
+        linux_cfg = await buck.audit_configurations(linux_configuration)
+        assert "root//:linux" in linux_cfg.stdout
 
+        mac_cfg = await buck.audit_configurations(mac_configuration)
+        assert "root//:macos" in mac_cfg.stdout
 
-@buck_test()
-async def test_cquery_with_multiple_universes_single_modifier(buck: Buck) -> None:
-    result = await buck.cquery(
-        "root//:target",
-        "--target-universe",
-        "root//:target?root//:macos,root//:target?root//:linux",
-    )
+    @buck_test()
+    async def test_cquery_with_multiple_universes_multiple_modifier(
+        self, buck: Buck
+    ) -> None:
+        result = await buck.cquery(
+            "root//:target",
+            "--target-universe",
+            "root//:target?root//:macos+root//:arm,root//:target?root//:linux+root//:x86",
+        )
 
-    [linux_configuration, mac_configuration] = _extract_configuration(result.stdout)
+        [mac_configuration, linux_configuration] = _extract_configuration(result.stdout)
 
-    linux_cfg = await buck.audit_configurations(linux_configuration)
-    assert "root//:linux" in linux_cfg.stdout
+        mac_cfg = await buck.audit_configurations(mac_configuration)
+        assert "root//:macos" in mac_cfg.stdout
+        assert "root//:arm" in mac_cfg.stdout
 
-    mac_cfg = await buck.audit_configurations(mac_configuration)
-    assert "root//:macos" in mac_cfg.stdout
+        linux_cfg = await buck.audit_configurations(linux_configuration)
+        assert "root//:linux" in linux_cfg.stdout
+        assert "root//:x86" in linux_cfg.stdout
 
+    @buck_test()
+    async def test_cquery_same_universe(self, buck: Buck) -> None:
+        result = await buck.cquery(
+            "root//:target",
+            "--target-universe",
+            "root//:target?root//:macos,root//:target?root//:macos",
+        )
 
-@buck_test()
-async def test_cquery_with_multiple_universes_multiple_modifier(buck: Buck) -> None:
-    result = await buck.cquery(
-        "root//:target",
-        "--target-universe",
-        "root//:target?root//:macos+root//:arm,root//:target?root//:linux+root//:x86",
-    )
+        [configuration] = _extract_configuration(result.stdout)
 
-    [mac_configuration, linux_configuration] = _extract_configuration(result.stdout)
+        cfg = await buck.audit_configurations(configuration)
 
-    mac_cfg = await buck.audit_configurations(mac_configuration)
-    assert "root//:macos" in mac_cfg.stdout
-    assert "root//:arm" in mac_cfg.stdout
+        assert "root//:macos" in cfg.stdout
 
-    linux_cfg = await buck.audit_configurations(linux_configuration)
-    assert "root//:linux" in linux_cfg.stdout
-    assert "root//:x86" in linux_cfg.stdout
+    @buck_test()
+    async def test_cquery_order_of_modifiers(self, buck: Buck) -> None:
+        result = await buck.cquery(
+            "root//:target",
+            "--target-universe",
+            "root//:target?root//:linux+root//:macos",
+        )
 
+        [configuration] = _extract_configuration(result.stdout)
 
-@buck_test()
-async def test_cquery_same_universe(buck: Buck) -> None:
-    result = await buck.cquery(
-        "root//:target",
-        "--target-universe",
-        "root//:target?root//:macos,root//:target?root//:macos",
-    )
+        cfg = await buck.audit_configurations(configuration)
+        assert "root//:macos" in cfg.stdout
 
-    [configuration] = _extract_configuration(result.stdout)
+    # There should be an error thrown whenever ?modifier syntax is used outside of a target universe.
+    # However, the ? character can still show up in regex expressions and those should still be considered valid queries.
+    @buck_test()
+    async def test_cquery_with_attrregexfilter(self, buck: Buck) -> None:
+        result = await buck.cquery(
+            "attrregexfilter(attribute, 'test_greedys?', root//:attr_regex)"
+        )
 
-    cfg = await buck.audit_configurations(configuration)
+        assert "root//:attr_regex" in result.stdout
 
-    assert "root//:macos" in cfg.stdout
+        result = await buck.cquery(
+            "attrregexfilter(attribute, 'test_greedys?', root//:attr_regex)",
+            "--target-universe",
+            "root//:attr_regex?root//:macos",
+        )
 
+        [configuration] = _extract_configuration(result.stdout)
 
-@buck_test()
-async def test_cquery_order_of_modifiers(buck: Buck) -> None:
-    result = await buck.cquery(
-        "root//:target",
-        "--target-universe",
-        "root//:target?root//:linux+root//:macos",
-    )
-
-    [configuration] = _extract_configuration(result.stdout)
-
-    cfg = await buck.audit_configurations(configuration)
-    assert "root//:macos" in cfg.stdout
-
-
-# There should be an error thrown whenever ?modifier syntax is used outside of a target universe.
-# However, the ? character can still show up in regex expressions and those should still be considered valid queries.
-@buck_test()
-async def test_cquery_with_attrregexfilter(buck: Buck) -> None:
-    result = await buck.cquery(
-        "attrregexfilter(attribute, 'test_greedys?', root//:attr_regex)"
-    )
-
-    assert "root//:attr_regex" in result.stdout
-
-    result = await buck.cquery(
-        "attrregexfilter(attribute, 'test_greedys?', root//:attr_regex)",
-        "--target-universe",
-        "root//:attr_regex?root//:macos",
-    )
-
-    [configuration] = _extract_configuration(result.stdout)
-
-    cfg = await buck.audit_configurations(configuration)
-    assert "root//:macos" in cfg.stdout
+        cfg = await buck.audit_configurations(configuration)
+        assert "root//:macos" in cfg.stdout

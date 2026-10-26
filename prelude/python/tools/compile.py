@@ -36,19 +36,13 @@ from types import TracebackType
 DEFAULT_FORMAT: str = importlib.util.cache_from_source("{pkg}/{name}.py")
 
 
-def get_py_path(module: str) -> str:
-    return module.replace(".", os.sep) + ".py"
-
-
-def get_pyc_path(module: str, fmt: str) -> str:
-    try:
-        package, name = module.rsplit(".", 1)
-    except ValueError:
-        package, name = "", module
+def get_pyc_path(src_path: str, fmt: str) -> str:
+    # Split the path, not a dotted module name: `b.c.py` is not module `c` of `b`.
+    package, name = os.path.split(src_path[: -len(".py")])
     parts = fmt.split(os.sep)
     for idx in range(len(parts)):
         if parts[idx] == "{pkg}":
-            parts[idx] = package.replace(".", os.sep)
+            parts[idx] = package
         elif parts[idx].startswith("{name}"):
             parts[idx] = parts[idx].format(name=name)
     return os.path.join(*parts)
@@ -162,22 +156,20 @@ def main(argv: list[str]) -> None:
         with open(manifest_path) as mf:
             manifest = json.load(mf)
         for dst, src, _ in manifest:
-            # This is going to try to turn a path into a Python module, so
-            # reduce the scope for bugs in get_pyc_path by normalizing first.
+            # Normalize first, so `get_pyc_path` sees one spelling of the path.
             dst = os.path.normpath(dst)
             # We only care about python sources.
-            base, ext = os.path.splitext(dst)
+            _, ext = os.path.splitext(dst)
             if ext != ".py":
                 continue
-            module = base.replace(os.sep, ".")
-            dest_pyc = get_pyc_path(module, args.format)
+            dest_pyc = get_pyc_path(dst, args.format)
             pyc = os.path.join(args.output, dest_pyc)
             _mkdirs(os.path.dirname(pyc))
             try:
                 compile(
                     src,
                     cfile=pyc,
-                    dfile=get_py_path(module),
+                    dfile=dst,
                     doraise=True,
                     invalidation_mode=invalidation_mode,
                 )

@@ -16,6 +16,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_core::plugins::PluginKind;
 use buck2_error::BuckErrorOptionContext;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_interpreter::late_binding_ty::AnalysisContextReprLate;
 use buck2_interpreter::late_binding_ty::ProviderReprLate;
 use buck2_interpreter::late_binding_ty::TransitionReprLate;
@@ -24,11 +25,10 @@ use buck2_interpreter::types::rule::FROZEN_PROMISE_ARTIFACT_MAPPINGS_GET_IMPL;
 use buck2_interpreter::types::rule::FROZEN_RULE_GET_IMPL;
 use buck2_interpreter::types::transition::transition_id_from_value;
 use buck2_node::attrs::attr::Attribute;
-use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use buck2_node::attrs::spec::AttributeSpec;
 use buck2_node::bzl_or_bxl_path::BzlOrBxlPath;
 use buck2_node::nodes::unconfigured::RuleKind;
-use buck2_node::nodes::unconfigured::TargetNode;
+use buck2_node::nodes::unconfigured::UnsealedTargetNode;
 use buck2_node::rule::Rule;
 use buck2_node::rule::RuleIncomingTransition;
 use buck2_node::rule_type::RuleType;
@@ -70,14 +70,15 @@ use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::starlark_value;
 use starlark::values::typing::StarlarkCallable;
 use starlark::values::typing::StarlarkCallableChecked;
-use starlark_map::small_map::SmallMap;
 
+use crate::attrs::coerce::ctx::MemoizedCoercionCtx;
 use crate::attrs::starlark_attribute::StarlarkAttribute;
 use crate::interpreter::build_context::BuildContext;
 use crate::interpreter::build_context::PerFileTypeContext;
+use crate::interpreter::extra_value::InterpreterExtraValue;
 use crate::interpreter::module_internals::ModuleInternals;
 use crate::nodes::attr_spec::AttributeSpecExt;
-use crate::nodes::unconfigured::TargetNodeExt;
+use crate::nodes::unconfigured::UnsealedTargetNodeExt;
 use crate::plugins::PluginKindArg;
 
 pub static NAME_ATTRIBUTE_FIELD: &str = "name";
@@ -124,13 +125,13 @@ pub struct StarlarkRuleCallable<'v> {
 /// Mappings of promise artifact name to the starlark function that will produce it, for anon targets.
 #[derive(Debug, ProvidesStaticType, Trace, NoSerialize, Allocative)]
 struct ArtifactPromiseMappings<'v> {
-    mappings: SmallMap<StringValue<'v>, Value<'v>>,
+    mappings: BuckMutInsertionMap<StringValue<'v>, Value<'v>>,
 }
 
 /// Mappings of frozen promise artifact name to the frozen starlark function that will produce it, for anon targets.
 #[derive(Debug, ProvidesStaticType, Allocative, StarlarkPagable)]
 pub struct FrozenArtifactPromiseMappings<'v> {
-    pub mappings: SmallMap<StringValue<'v>, Value<'v>>,
+    pub mappings: BuckMutInsertionMap<StringValue<'v>, Value<'v>>,
 }
 
 impl<'v> Display for StarlarkRuleCallable<'v> {
@@ -268,7 +269,7 @@ impl<'v> StarlarkRuleCallable<'v> {
         implementation: RuleImpl<'v>,
         attrs: UnpackDictEntries<&'v str, &'v StarlarkAttribute>,
         doc: &str,
-        artifact_promise_mappings: SmallMap<
+        artifact_promise_mappings: BuckMutInsertionMap<
             StringValue<'v>,
             StarlarkCallable<'v, (Value<'static>,), UnpackList<Value<'static>>>,
         >,
@@ -287,7 +288,7 @@ impl<'v> StarlarkRuleCallable<'v> {
                 mappings: artifact_promise_mappings
                     .iter()
                     .map(|(k, v)| (*k, v.0))
-                    .collect::<SmallMap<_, _>>(),
+                    .collect::<BuckMutInsertionMap<_, _>>(),
             }),
             eval,
         )
@@ -297,7 +298,7 @@ impl<'v> StarlarkRuleCallable<'v> {
         implementation: StarlarkCallable<'v, (Value<'static>,), ListType<Value<'static>>>,
         attrs: UnpackDictEntries<&'v str, &'v StarlarkAttribute>,
         doc: &str,
-        artifact_promise_mappings: SmallMap<
+        artifact_promise_mappings: BuckMutInsertionMap<
             StringValue<'v>,
             StarlarkCallable<'v, (Value<'static>,), UnpackList<Value<'static>>>,
         >,
@@ -320,7 +321,7 @@ impl<'v> StarlarkRuleCallable<'v> {
         >,
         attrs: UnpackDictEntries<&'v str, &'v StarlarkAttribute>,
         doc: &str,
-        artifact_promise_mappings: SmallMap<
+        artifact_promise_mappings: BuckMutInsertionMap<
             StringValue<'v>,
             StarlarkCallable<'v, (Value<'static>,), UnpackList<Value<'static>>>,
         >,
@@ -347,7 +348,7 @@ impl<'v> StarlarkRuleCallable<'v> {
         let params = parameters_spec.documentation_with_default_value_formatter(
             parameter_types,
             parameter_docs,
-            |v| v.as_display_no_ctx().to_string(),
+            String::clone,
         );
 
         let function_docs = DocFunction::from_docstring(
@@ -443,7 +444,7 @@ impl<'v> Freeze<'v> for StarlarkRuleCallable<'v> {
 
         let artifact_promise_mappings = match self.artifact_promise_mappings {
             Some(artifacts) => {
-                let mut mappings = SmallMap::new();
+                let mut mappings = BuckMutInsertionMap::new();
                 for (name, implementation) in artifacts.mappings {
                     mappings.insert(name.freeze(freezer)?, implementation.freeze(freezer)?);
                 }
@@ -522,7 +523,7 @@ pub(crate) fn init_frozen_promise_artifact_mappings_get_impl() {
             .as_ref()
             .artifact_promise_mappings
             .as_ref()
-            .map_or_else(SmallMap::new, |m| m.mappings.clone()))
+            .map_or_else(BuckMutInsertionMap::new, |m| m.mappings.clone()))
     })
 }
 
@@ -563,10 +564,15 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkRuleCallable<'v> {
             // The body of the callable returned by `rule()`.
             // Records the target in this package's `TargetMap`.
             let internals = ModuleInternals::from_context(eval, self.rule.rule_type.name())?;
-            let target_node = TargetNode::from_params(
+            let coercion_ctx = MemoizedCoercionCtx {
+                base: internals.attr_coercion_context(),
+                memo: &InterpreterExtraValue::get(eval.module())?.coerce_memo,
+            };
+            let target_node = UnsealedTargetNode::from_params(
                 self.rule.dupe(),
                 internals.package(),
                 internals,
+                &coercion_ctx,
                 param_parser,
                 arg_count,
                 self.ignore_attrs_for_profiling,
@@ -650,7 +656,7 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
         >,
         #[starlark(require = named)] attrs: UnpackDictEntries<&'v str, &'v StarlarkAttribute>,
         #[starlark(require = named, default = "")] doc: &str,
-        #[starlark(require = named)] artifact_promise_mappings: SmallMap<
+        #[starlark(require = named)] artifact_promise_mappings: BuckMutInsertionMap<
             StringValue<'v>,
             StarlarkCallable<'v, (Value<'static>,), UnpackList<Value<'static>>>,
         >,

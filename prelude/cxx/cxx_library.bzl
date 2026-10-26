@@ -8,7 +8,7 @@
 
 load(
     "@prelude//:artifact_tset.bzl",
-    "ArtifactTSet",  # @unused Used as a type
+    "ArtifactTSet",
     "make_artifact_tset",
 )
 load("@prelude//:attrs_validators.bzl", "get_attrs_validation_specs")
@@ -81,7 +81,7 @@ load(
     "LinkInfos",
     "LinkOrdering",
     "LinkStrategy",
-    "LinkableFlavor",  # @unused Used as a type
+    "LinkableFlavor",
     "LinkedObject",
     "ObjectsLinkable",
     "SharedLibLinkable",
@@ -166,7 +166,7 @@ load(
     ":compile_types.bzl",
     "CxxCompileCommandOutput",
     "CxxCompileFlavor",
-    "CxxCompileOutput",  # @unused Used as a type
+    "CxxCompileOutput",
     "CxxExtension",
     "CxxSrcCompileCommand",
     "CxxSrcPrecompileCommand",
@@ -207,7 +207,7 @@ load(
 load(
     ":cxx_types.bzl",
     "CxxLibraryInfo",
-    "CxxRuleConstructorParams",  # @unused Used as a type
+    "CxxRuleConstructorParams",
 )
 load(":diagnostics.bzl", "check_sub_target")
 load(":gcno.bzl", "GcnoFilesInfo")
@@ -215,7 +215,7 @@ load(":hip_debug_extract.bzl", "PRE_EXTRACT_SUFFIX", "hip_debug_extract_availabl
 load(":index_store.bzl", "IndexStoreInfo", "create_index_store_subtargets_and_provider")
 load(
     ":link.bzl",
-    "CxxLinkResult",  # @unused Used as a type
+    "CxxLinkResult",
     "CxxLinkerMapData",
     "cxx_link_shared_library",
     "link_args_have_hip_device_debug",
@@ -251,19 +251,21 @@ load(
 )
 load(
     ":preprocessor.bzl",
-    "CPreprocessor",  # @unused Used as a type
+    "CPreprocessor",
     "CPreprocessorArgs",
     "CPreprocessorForTestsInfo",
-    "CPreprocessorInfo",  # @unused Used as a type
+    "CPreprocessorInfo",
     "cxx_exported_preprocessor_info",
     "cxx_inherited_preprocessor_infos",
     "cxx_merge_cpreprocessors",
     "cxx_private_preprocessor_info",
 )
-load(
-    ":shared_library_interface.bzl",
-    "shared_library_interface",
-)
+
+# Interface modes in which the library's own link action yields the interface.
+_INTERFACE_FROM_LIBRARY_LINK_MODES = [
+    ShlibInterfacesMode("stub_from_linker_invocation"),
+    ShlibInterfacesMode("stub_from_library"),
+]
 
 # A possible output of a `cxx_library`. This could be an archive or a shared library. Generally for an archive
 # it represents just the sources of the library target itself, while a shared library will bundle multiple libraries
@@ -757,7 +759,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
 
     frameworks_linkable = apple_create_frameworks_linkable(ctx)
     swiftmodule_linkable = impl_params.swiftmodule_linkable
-    dep_infos, link_group_map, link_execution_preference = _get_shared_library_links(
+    shared_library_links = _get_shared_library_links(
         ctx,
         partial(reduce_linkable_graph, deps_linkable_graph),
         link_group,
@@ -771,8 +773,8 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         swiftmodule_linkable,
         force_static_follows_dependents = impl_params.link_groups_force_static_follows_dependents,
     )
-    if impl_params.generate_sub_targets.link_group_map and link_group_map:
-        sub_targets[LINK_GROUP_MAP_DATABASE_SUB_TARGET] = [link_group_map]
+    if impl_params.generate_sub_targets.link_group_map and shared_library_links.link_group_map_database:
+        sub_targets[LINK_GROUP_MAP_DATABASE_SUB_TARGET] = [shared_library_links.link_group_map_database]
 
     extra_static_linkables = []
     if frameworks_linkable:
@@ -785,10 +787,10 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         impl_params = impl_params,
         compiled_srcs = compiled_srcs,
         preferred_linkage = preferred_linkage,
-        dep_infos = dep_infos,
+        dep_infos = shared_library_links.link_args,
         extra_static_linkables = extra_static_linkables,
         gnu_use_link_groups = cxx_is_gnu(ctx) and bool(link_group_mappings),
-        link_execution_preference = link_execution_preference,
+        link_execution_preference = shared_library_links.link_execution_preference,
         compile_pch = compile_pch,
     )
     shared_libs = create_flavored_shared_libraries(ctx, library_outputs.solibs)
@@ -2096,6 +2098,13 @@ def _strip_objects(
 
     return stripped_objects
 
+_SharedLibraryLinks = record(
+    link_args = field(LinkArgs),
+    # The `[link-group-map-database]` output of a link group-aware link.
+    link_group_map_database = field(DefaultInfo | None),
+    link_execution_preference = field(LinkExecutionPreference),
+)
+
 def _get_shared_library_links(
     ctx: AnalysisContext,
     reduce_linkable_graph_func: typing.Callable[[], ReducedLinkableGraph],
@@ -2109,9 +2118,10 @@ def _get_shared_library_links(
     frameworks_linkable: [FrameworksLinkable, None],
     swiftmodule_linkable: [SwiftmoduleLinkable, None],
     force_static_follows_dependents: bool = True,
-) -> (LinkArgs, [DefaultInfo, None], LinkExecutionPreference):
+) -> _SharedLibraryLinks:
     """
-    Returns LinkArgs with the content to link, and a link group map json output if applicable.
+    Returns the link args of the library's shared output, with the link group
+    map database of a link group-aware link and the link execution preference.
 
     TODO(T110378116): Omnibus linking always creates shared libraries by linking
     against shared dependencies. This is not true for link groups and possibly
@@ -2137,8 +2147,8 @@ def _get_shared_library_links(
             get_link_execution_preference(ctx, []) if hasattr(ctx.attrs, "link_execution_preference") else LinkExecutionPreference("any")
         )
 
-        return (
-            apple_build_link_args_with_deduped_flags(
+        return _SharedLibraryLinks(
+            link_args = apple_build_link_args_with_deduped_flags(
                 ctx,
                 deps_merged_link_infos,
                 frameworks_linkable,
@@ -2150,8 +2160,8 @@ def _get_shared_library_links(
                 None,
                 swiftmodule_linkable,
             ),
-            None,
-            link_execution_preference,
+            link_group_map_database = None,
+            link_execution_preference = link_execution_preference,
         )
 
     # Else get filtered link group links
@@ -2206,7 +2216,11 @@ def _get_shared_library_links(
     if additional_links:
         filtered_links.append(additional_links)
 
-    return LinkArgs(infos = filtered_links), get_link_group_map_json(ctx, filtered_targets), link_execution_preference
+    return _SharedLibraryLinks(
+        link_args = LinkArgs(infos = filtered_links),
+        link_group_map_database = get_link_group_map_json(ctx, filtered_targets),
+        link_execution_preference = link_execution_preference,
+    )
 
 def _use_pic(output_style: LibOutputStyle) -> bool:
     """
@@ -2448,7 +2462,7 @@ def _shared_library(
             extra_linker_outputs_factory = impl_params.extra_linker_outputs_factory,
             extra_linker_outputs_flags_factory = impl_params.extra_linker_outputs_flags_factory,
             extra_distributed_thin_lto_opt_outputs_merger = impl_params.extra_distributed_thin_lto_opt_outputs_merger,
-            produce_shared_library_interface = effective_shlib_interfaces_mode == ShlibInterfacesMode("stub_from_linker_invocation"),
+            produce_shared_library_interface = effective_shlib_interfaces_mode in _INTERFACE_FROM_LIBRARY_LINK_MODES,
             has_hip_device_debug = has_hip_device_debug,
         ),
         name = soname if impl_params.use_soname else None,
@@ -2456,16 +2470,10 @@ def _shared_library(
     )
     exported_shlib = link_result.linked_object.output
 
-    if effective_shlib_interfaces_mode == ShlibInterfacesMode("stub_from_linker_invocation"):
+    if effective_shlib_interfaces_mode in _INTERFACE_FROM_LIBRARY_LINK_MODES:
+        # Linking rdeps against the interface prevents relinking them when
+        # changes do not affect the library's symbols.
         exported_shlib = link_result.shared_library_interface
-    elif effective_shlib_interfaces_mode == ShlibInterfacesMode("stub_from_library"):
-        # Generate a library interface from the linked library output.
-        # This will prevent relinking rdeps when changes do not affect
-        # the library symbols.
-        exported_shlib = shared_library_interface(
-            ctx = ctx,
-            shared_lib = exported_shlib,
-        )
     elif effective_shlib_interfaces_mode == ShlibInterfacesMode("defined_only"):
         link_info = LinkInfo(
             pre_flags = link_info.pre_flags,
@@ -2493,15 +2501,12 @@ def _shared_library(
                 links = [LinkArgs(infos = [link_info])],
                 identifier = flavored_output(soname + "-interface", separator = "_"),
                 link_execution_preference = link_execution_preference,
-                strip = impl_params.strip_executable,
                 error_handler = impl_params.error_handler,
+                produce_shared_library_interface = True,
             ),
             name = soname,
         )
-        exported_shlib = shared_library_interface(
-            ctx = ctx,
-            shared_lib = intf_link_result.linked_object.output,
-        )
+        exported_shlib = intf_link_result.shared_library_interface
 
     # Link against import library on Windows.
     if link_result.linked_object.import_library:

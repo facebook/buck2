@@ -13,6 +13,7 @@ use std::fs::File;
 use std::path::Path;
 use std::path::PathBuf;
 use std::time::Duration;
+use std::time::Instant;
 
 use assert_matches::assert_matches;
 use async_trait::async_trait;
@@ -150,7 +151,59 @@ impl Drop for WatchmanInstance {
     }
 }
 
+/// Sandcastle Mac VMs boot with fseventsd disabled and ship a sudo-whitelisted script that
+/// starts it. Watchman cannot watch any subdirectory of a root without it.
+async fn ensure_fseventsd_running() -> buck2_error::Result<()> {
+    const KICKSTART: &str = "/usr/local/bin/kickstart-fseventsd";
+
+    async fn fseventsd_running() -> buck2_error::Result<bool> {
+        Ok(async_background_command("/usr/bin/pgrep")
+            .args(["-qx", "fseventsd"])
+            .status()
+            .await?
+            .success())
+    }
+
+    if fseventsd_running().await? {
+        return Ok(());
+    }
+    if !tokio::fs::try_exists(KICKSTART).await? {
+        return Err(buck2_error!(
+            buck2_error::ErrorTag::Tier0,
+            "fseventsd is not running and `{KICKSTART}` is missing"
+        ));
+    }
+    let status = async_background_command("/usr/bin/sudo")
+        .arg("-n")
+        .arg(KICKSTART)
+        .status()
+        .await?;
+    if !status.success() {
+        return Err(buck2_error!(
+            buck2_error::ErrorTag::Tier0,
+            "`{KICKSTART}` failed with {status}"
+        ));
+    }
+    let deadline = Instant::now() + Duration::from_secs(30);
+    while Instant::now() < deadline {
+        if fseventsd_running().await? {
+            return Ok(());
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    Err(buck2_error!(
+        buck2_error::ErrorTag::Tier0,
+        "fseventsd did not start within 30s"
+    ))
+}
+
 async fn spawn_watchman(watchman_dir: &Path) -> buck2_error::Result<WatchmanInstance> {
+    if cfg!(target_os = "macos") {
+        ensure_fseventsd_running()
+            .await
+            .buck_error_context("Starting fseventsd")?;
+    }
+
     // This config might make Watchman a bit more efficient on Mac and make tests less flaky there
     let watchman_config = watchman_dir.join("config");
     let watchman_config_text = r#"{"prefer_split_fsevents_watcher": true}"#;

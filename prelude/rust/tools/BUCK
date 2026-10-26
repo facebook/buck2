@@ -156,3 +156,40 @@ prelude.python_library(
     ],
     typing = True,
 )
+
+prelude.python_test(
+    name = "test_failure_filter",
+    srcs = [
+        "failure_filter_action.py",
+        "rustc_action.py",
+        "tests/test_failure_filter.py",
+    ],
+    base_module = "",
+)
+
+prelude.python_test(
+    name = "test_rustc_action_env",
+    srcs = [
+        "rustc_action.py",
+        "tests/test_rustc_action_env.py",
+    ],
+    base_module = "",
+)
+
+prelude.python_test(
+    name = "test_buildscript_run",
+    srcs = [
+        "buildscript_run.py",
+        "tests/test_buildscript_run.py",
+    ],
+    base_module = "",
+)
+
+prelude.python_test(
+    name = "test_shared_libraries_symlink_tree",
+    srcs = [
+        "shared_libraries_symlink_tree.py",
+        "tests/test_shared_libraries_symlink_tree.py",
+    ],
+    base_module = "",
+)

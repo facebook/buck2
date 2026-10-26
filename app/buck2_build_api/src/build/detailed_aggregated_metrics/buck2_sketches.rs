@@ -290,7 +290,7 @@ impl Key for AnalysisGraphPropertiesKey {
         analysis_result.try_map(|analysis_result| {
             Ok(gather_heap_graph_sketch(
                 analysis_result
-                    .analysis_values()
+                    .analysis_values()?
                     .analysis_storage()?
                     .owner(),
                 self.compute_retained,
@@ -497,10 +497,11 @@ mod tests {
     use buck2_execute::directory::insert_artifact;
     use buck2_execute::directory::insert_file;
     use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
-    use buck2_hash::BuckIndexSet;
+    use buck2_hash::BuckFixedSortedMap;
+    use buck2_hash::BuckMutInsertionSet;
     use buck2_hash::BuckMutMap;
     use buck2_hash::BuckMutSet;
-    use buck2_hash::StdBuckHashMap;
+    use buck2_node::rule_type::RuleType;
     use dupe::Dupe;
     use pagable::Pagable;
     use pagable::pagable_typetag;
@@ -556,8 +557,8 @@ mod tests {
 
     impl MockAction {
         fn new(
-            inputs: BuckIndexSet<ArtifactGroup>,
-            outputs: BuckIndexSet<BuildArtifact>,
+            inputs: BuckMutInsertionSet<ArtifactGroup>,
+            outputs: BuckMutInsertionSet<BuildArtifact>,
             identifier: Option<String>,
         ) -> Self {
             Self {
@@ -635,7 +636,7 @@ mod tests {
             action_key.dupe(),
             Box::new(MockAction::new(
                 inputs.into_iter().cloned().collect(),
-                BuckIndexSet::from([output.dupe()]),
+                BuckMutInsertionSet::from([output.dupe()]),
                 Some(format!("action-{index}")),
             )),
             CommandExecutorConfig::testing_local(),
@@ -713,15 +714,19 @@ mod tests {
 
         let analysis_values =
             RecordedAnalysisValues::testing_new_actions_only(holder_key.dupe(), recorded_actions);
-        let holder = OwnedDeferredHolder::Analysis(AnalysisResult::new(
-            analysis_values,
-            None,
-            StdBuckHashMap::default(),
-            0,
-            0,
-            None,
-            Vec::new(),
-        ));
+        let holder = OwnedDeferredHolder::Analysis(
+            AnalysisResult::new(
+                analysis_values,
+                None,
+                BuckFixedSortedMap::default(),
+                0,
+                0,
+                None,
+                Vec::new(),
+                RuleType::Forward,
+            )
+            .expect("test analysis should have valid providers"),
+        );
 
         let mut state = BuckMutMap::default();
         state.insert(holder_key, holder);

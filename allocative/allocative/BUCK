@@ -131,6 +131,7 @@ rust_library(
         # Test files are relative to `CARGO_MANIFEST_DIR`.
         "CARGO_MANIFEST_DIR": "$(location :testcases)",
     },
+    unittests_miri = True,
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:bumpalo",

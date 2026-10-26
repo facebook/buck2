@@ -174,12 +174,23 @@ def sanitize_hashes(s: str) -> str:
 
 # C++ libraries linked into buck2 (and the tools it spawns) can emit glog-format
 # lines such as `I0623 15:40:41.926481 128942 Hash.cpp:327] tiHash seed: ...ull`
-# to stderr during process init. Their timestamps, PIDs, and source locations
+# to stderr during process init, with any of glog's or folly logging's severity
+# prefixes (`V`, `I`, `W`, `E`, `C`, `F`). Their timestamps, PIDs, and source locations
 # vary between runs, so they leak non-deterministically into captured stderr and
 # must be dropped before comparing against goldens. The marker may be indented
 # (e.g. when nested inside an embedded daemon stderr block), so we match it
 # anywhere in the line.
-_GLOG_LINE_RE = re.compile(r".*[WIEF]\d{4} \d{2}:\d{2}:\d{2}\.\d{6}.*\n?")
+_GLOG_LINE_RE = re.compile(r".*[VIWECF]\d{4} \d{2}:\d{2}:\d{2}\.\d{6}.*\n?")
+# The buck2 client's own `tracing` output goes to stderr too, as lines such as
+# `2026-10-15T02:15:11.181159Z  WARN buck2_client_ctx::events_ctx: Finalizing
+# 'event log' took 1.38s`, possibly wrapped in ANSI color escapes. Which of
+# those appear depends on timing (that one shows up under load), so they are
+# dropped the same way.
+_TRACING_LINE_RE = re.compile(
+    r"^(?:\x1b\[[0-9;]*m)*\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z(?:\x1b\[[0-9;]*m)*"
+    r"\s+(?:\x1b\[[0-9;]*m)*\s*(?:TRACE|DEBUG|INFO|WARN|ERROR)(?:\x1b\[[0-9;]*m)*\b.*\n?",
+    flags=re.MULTILINE,
+)
 # Some fbcode binaries have this removed option baked into their allocator
 # configuration, so the warning cannot be suppressed through MALLOC_CONF.
 _JEMALLOC_INVALID_CONF_RE = re.compile(
@@ -192,7 +203,7 @@ def strip_glog_lines(s: str) -> str:
     # Drops whole matching lines (leading indentation and trailing newline
     # included) while leaving every other newline intact, so callers' trailing
     # and blank-line structure is preserved.
-    return _GLOG_LINE_RE.sub("", s)
+    return _TRACING_LINE_RE.sub("", _GLOG_LINE_RE.sub("", s))
 
 
 def strip_jemalloc_invalid_conf(s: str) -> str:

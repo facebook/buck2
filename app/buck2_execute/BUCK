@@ -24,10 +24,10 @@ rust_library(
     test_deps = [
         "fbsource//third-party/rust:assert_matches",
         "fbsource//third-party/rust:prost-types",
-        "fbsource//third-party/rust:tempfile",
     ],
     deps = [
         "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:async-condvar-fair",
         "fbsource//third-party/rust:async-recursion",
         "fbsource//third-party/rust:async-trait",
         "fbsource//third-party/rust:bytes",
@@ -44,6 +44,7 @@ rust_library(
         "fbsource//third-party/rust:hyper",
         "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:jiff",
+        "fbsource//third-party/rust:parking_lot",
         "fbsource//third-party/rust:pathdiff",
         "fbsource//third-party/rust:prost",
         "fbsource//third-party/rust:ref-cast",
@@ -53,7 +54,7 @@ rust_library(
         "fbsource//third-party/rust:sha2",
         "fbsource//third-party/rust:slog",
         "fbsource//third-party/rust:smallvec",
-        "fbsource//third-party/rust:sorted_vector_map",
+        "fbsource//third-party/rust:tempfile",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tracing",
         "//buck2/allocative/allocative:allocative",
@@ -84,7 +85,6 @@ rust_library(
         "//buck2/pagable:pagable",
         "//buck2/remote_execution:remote_execution",
         "//buck2/shed/static_interner:static_interner",
-        "//buck2/starlark-rust/starlark_map:starlark_map",
         "//common/rust/shed/fbinit:fbinit",
     ],
 )

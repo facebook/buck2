@@ -54,7 +54,25 @@ def _parse_args():
         help="suppress the werror escalation (also forwarded to the checker)",
     )
     p.add_argument(
+        "--warning-level",
+        action="append",
+        default=[],
+        help="NAME:LEVEL, forwarded as -Xwarning-level (repeatable)",
+    )
+    p.add_argument(
         "--plugins", action="store_true", help="target uses compiler plugins"
+    )
+    p.add_argument(
+        "--kotlin-plugin",
+        action="append",
+        default=[],
+        help="compiler plugin jar, forwarded as -Xplugin= (repeatable)",
+    )
+    p.add_argument(
+        "--friend-path",
+        action="append",
+        default=[],
+        help="friend module jar, forwarded in -Xfriend-paths= (repeatable)",
     )
     p.add_argument(
         "--java-sources-skipped",
@@ -70,7 +88,7 @@ def _parse_args():
     p.add_argument(
         "--jdk-base",
         default=None,
-        help="hermetic java.base jar, forwarded as -jdk-home (JVM targets)",
+        help="hermetic java.base jar, forwarded as -jdk-home",
     )
     p.add_argument(
         "--jdk-required",
@@ -94,7 +112,11 @@ def _collect_sources(srcs, generated_dirs, tmp):
             dest = f"{tmp}/{i}"
             with zipfile.ZipFile(s) as z:
                 z.extractall(dest)
-            out.extend(str(p) for p in sorted(pathlib.Path(dest).rglob("*.kt")))
+            out.extend(
+                str(p)
+                for p in sorted(pathlib.Path(dest).rglob("*"))
+                if p.name.endswith((".kt", ".java"))
+            )
         elif s.endswith(".kt") or s.endswith(".java"):
             # .java rides along for declaration stubs (the CLI scans
             # top-level types for import resolution; it never checks them).
@@ -184,7 +206,7 @@ def _run(args, t0):  # noqa: C901
         if args.jdk_required and not args.jdk_base:
             _write_crash_report(
                 args.output,
-                "JDK unavailable for a JVM target; target unchecked",
+                "JDK unavailable; target unchecked",
                 round(time.time() - t0, 2),
                 plugins=args.plugins,
                 werror=args.werror,
@@ -196,6 +218,7 @@ def _run(args, t0):  # noqa: C901
         arg_paths = [classpath] if classpath else []
         if args.jdk_base:
             arg_paths.append(args.jdk_base)
+        arg_paths += args.kotlin_plugin + args.friend_path
         for p in arg_paths + sources:
             if any(c in " \t\n\r\x0b\x0c" for c in p):
                 raise ValueError(f"argfile path contains whitespace: {p!r}")
@@ -208,6 +231,12 @@ def _run(args, t0):  # noqa: C901
                 f.write("-jdk-home\n" + args.jdk_base + "\n")
             if args.werror:
                 f.write("-Werror\n")
+            for level in args.warning_level:
+                f.write("-Xwarning-level=" + level + "\n")
+            for plugin in args.kotlin_plugin:
+                f.write("-Xplugin=" + plugin + "\n")
+            if args.friend_path:
+                f.write("-Xfriend-paths=" + ",".join(args.friend_path) + "\n")
             if args.nowarn:
                 f.write("-nowarn\n")
             if args.language_version:

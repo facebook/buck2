@@ -10,20 +10,20 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_configuration_transition_attr_split_cquery(buck: Buck) -> None:
-    result = await buck.cquery("deps(root//:bb)")
-    result.check_returncode()
-    # Check both transitioned deps are present.
-    assert "root//:code (arm64#" in result.stdout
-    assert "root//:code (arm32#" in result.stdout
+class AttrSplitTest(BuckTestCase):
+    @buck_test()
+    async def test_configuration_transition_attr_split_cquery(self, buck: Buck) -> None:
+        result = await buck.cquery("deps(root//:bb)")
+        result.check_returncode()
+        # Check both transitioned deps are present.
+        assert "root//:code (arm64#" in result.stdout
+        assert "root//:code (arm32#" in result.stdout
 
-
-@buck_test()
-async def test_configuration_transition_attr_split_build(buck: Buck) -> None:
-    result = await buck.build("root//:bb")
-    result.check_returncode()
-    # Rule implementations do the assertions.
+    @buck_test()
+    async def test_configuration_transition_attr_split_build(self, buck: Buck) -> None:
+        result = await buck.build("root//:bb")
+        result.check_returncode()
+        # Rule implementations do the assertions.

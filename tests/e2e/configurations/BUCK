@@ -6,7 +6,6 @@ buck2_e2e_test(
     name = "test_unified_constraint",
     srcs = ["test_unified_constraint.py"],
     data_dir = "test_unified_constraint_data",
-    deps = ["//buck2/tests/e2e_util:golden"],
 )
 
 buck2_e2e_test(

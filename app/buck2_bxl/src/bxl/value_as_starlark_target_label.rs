@@ -11,7 +11,7 @@
 use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
-use buck2_core::cells::cell_path::CellPathRef;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::pattern::pattern::ParsedPattern;
@@ -48,7 +48,7 @@ impl<'v> ValueAsStarlarkTargetLabel<'v> {
                     ParsedPattern::<TargetPatternExtra>::parse_relaxed(
                         target_alias_resolver,
                         // TODO(nga): Parse relaxed relative to cell root is incorrect.
-                        CellPathRef::new(cell_name, CellRelativePath::empty()),
+                        CellPath::new(cell_name, CellRelativePath::empty()),
                         s,
                         cell_resolver,
                         cell_alias_resolver,

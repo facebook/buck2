@@ -26,7 +26,9 @@ use buck2_dynamic_actions::params::DynamicLambdaStaticFields;
 use buck2_dynamic_actions::storage::DynamicLambdaParamsStorageImpl;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_error::internal_error;
+use buck2_hash::BuckMutInsertionMap;
 use dupe::Dupe;
+use mini_vec::MiniBoxSlice;
 use starlark::environment::MethodsBuilder;
 use starlark::starlark_module;
 use starlark::values::Value;
@@ -34,7 +36,6 @@ use starlark::values::ValueTyped;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::none::NoneType;
 use starlark::values::typing::StarlarkCallable;
-use starlark_map::small_map::SmallMap;
 
 #[derive(buck2_error::Error, Debug)]
 #[buck2(tag = Input)]
@@ -46,7 +47,7 @@ enum DynamicOutputError {
 fn output_artifacts_to_lambda_build_artifacts<'v>(
     dynamic_key: &DynamicLambdaResultsKey,
     outputs: Vec<ValueTyped<'v, StarlarkOutputArtifact<'v>>>,
-) -> buck2_error::Result<Box<[ValueTyped<'v, StarlarkOutputArtifact<'v>>]>> {
+) -> buck2_error::Result<MiniBoxSlice<ValueTyped<'v, StarlarkOutputArtifact<'v>>>> {
     let outputs = dedupe_output_artifacts(outputs);
     let mut bind = DynamicActionsOutputArtifactBinder::new(dynamic_key);
 
@@ -108,8 +109,8 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
             'v,
             (
                 Value<'static>,
-                SmallMap<StarlarkArtifact, StarlarkArtifactValue>,
-                SmallMap<StarlarkArtifact, StarlarkDeclaredArtifact>,
+                BuckMutInsertionMap<StarlarkArtifact, StarlarkArtifactValue>,
+                BuckMutInsertionMap<StarlarkArtifact, StarlarkDeclaredArtifact>,
             ),
             NoneType,
         >,
@@ -151,7 +152,7 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
             outputs,
             static_fields: DynamicLambdaStaticFields {
                 artifact_values,
-                dynamic_values: Box::new([]),
+                dynamic_values: MiniBoxSlice::new(),
                 execution_platform,
             },
         };

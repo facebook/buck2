@@ -12,6 +12,7 @@ use std::convert::Infallible;
 
 use allocative::Allocative;
 use buck2_build_api::bxl::unconfigured_attribute::StarlarkCoercedAttr;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_interpreter::types::cell_path::StarlarkCellPath;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
@@ -19,7 +20,6 @@ use buck2_node::nodes::unconfigured::TargetNode;
 use derive_more::Display;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
-use starlark::collections::SmallMap;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::starlark_module;
@@ -88,20 +88,25 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
     /// ```
     #[starlark(attribute)]
     fn attrs<'v>(this: StarlarkTargetNode, heap: Heap<'_>) -> starlark::Result<Value<'v>> {
-        let attrs_iter = this.0.attrs(AttrInspectOptions::All);
+        let attrs_iter = this.0.owned_attrs(AttrInspectOptions::All);
         let special_attrs_iter = this.0.special_attrs();
         let attrs = attrs_iter
-            .map(|a| {
-                (
-                    a.name,
-                    StarlarkCoercedAttr(a.value.clone(), this.0.label().pkg().dupe()),
-                )
+            .map(|(name, value)| -> buck2_error::Result<_> {
+                Ok((
+                    name,
+                    StarlarkCoercedAttr(value, this.0.label().pkg().dupe()),
+                ))
             })
             .chain(special_attrs_iter.map(|(name, attr)| {
-                (name, StarlarkCoercedAttr(attr, this.0.label().pkg().dupe()))
+                Ok((
+                    name,
+                    StarlarkCoercedAttr(attr.to_owned_coerced()?, this.0.label().pkg().dupe()),
+                ))
             }));
 
-        Ok(heap.alloc(AllocStruct(attrs)))
+        Ok(itertools::process_results(attrs, |attrs| {
+            heap.alloc(AllocStruct(attrs))
+        })?)
     }
 
     /// Gets the attribute from the unconfigured target node.
@@ -135,7 +140,7 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
     fn get_attrs<'v>(
         this: &StarlarkTargetNode,
         heap: Heap<'v>,
-    ) -> starlark::Result<SmallMap<StringValue<'v>, Value<'v>>> {
+    ) -> starlark::Result<BuckMutInsertionMap<StringValue<'v>, Value<'v>>> {
         Ok(NodeAttributeGetter::get_attrs(this, heap)?)
     }
 

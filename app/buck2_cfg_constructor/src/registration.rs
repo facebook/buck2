@@ -11,7 +11,7 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_core::cells::cell_path::CellPathRef;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_interpreter::downstream_crate_starlark_defs::REGISTER_BUCK2_CFG_CONSTRUCTOR_GLOBALS;
 use buck2_interpreter_for_build::interpreter::build_context::BuildContext;
@@ -118,7 +118,7 @@ pub(crate) fn register_set_cfg_constructor(globals: &mut GlobalsBuilder) {
             }
         };
         if ctx.path.dir()
-            != CellPathRef::new(
+            != CellPath::new(
                 build_context.cell_info.cell_resolver().root_cell(),
                 CellRelativePath::empty(),
             )

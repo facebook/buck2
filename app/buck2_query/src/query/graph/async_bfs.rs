@@ -125,8 +125,9 @@ pub async fn async_bfs_find_path<'a, N: LabeledNode + 'static>(
                                     },
                                 );
                                 let succ = (*succ.key()).clone();
+                                let requester = node.node_key().clone();
                                 queue.push_back(Either::Right(async move {
-                                    let succ_node = lookup.get(&succ).await;
+                                    let succ_node = lookup.get_from(&succ, Some(&requester)).await;
                                     (succ, succ_node)
                                 }));
                             }

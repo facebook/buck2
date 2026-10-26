@@ -12,7 +12,7 @@
 import typing
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 from buck2.tests.e2e_util.helper.utils import filter_events
 
 
@@ -33,71 +33,67 @@ async def check_rule_type_names(
             assert actual["target_rule_type_name"] == expected
 
 
-@buck_test()
-async def test_build_nested_subtargets(buck: Buck) -> None:
-    await buck.build(
-        "//:nested[sub][nested_sub]",
-    )
-    await check_rule_type_names(buck, ["nested_subtargets"])
+class BuildRuleTypeNameLoggingTest(BuckTestCase):
+    @buck_test()
+    async def test_build_nested_subtargets(self, buck: Buck) -> None:
+        await buck.build(
+            "//:nested[sub][nested_sub]",
+        )
+        await check_rule_type_names(buck, ["nested_subtargets"])
 
+    @buck_test()
+    async def test_build_single_dep_touch(self, buck: Buck) -> None:
+        await buck.build(
+            "//:rule1",
+        )
+        await check_rule_type_names(buck, ["one"])
 
-@buck_test()
-async def test_build_single_dep_touch(buck: Buck) -> None:
-    await buck.build(
-        "//:rule1",
-    )
-    await check_rule_type_names(buck, ["one"])
+    @buck_test()
+    async def test_build_two_out_of_order(self, buck: Buck) -> None:
+        await buck.build(
+            "//:rule1",
+            "//:nested[sub][nested_sub]",
+        )
+        await check_rule_type_names(buck, ["nested_subtargets", "one"])
 
+    @buck_test()
+    async def test_build_rule_with_transition(self, buck: Buck) -> None:
+        await buck.build(
+            "//:a_writer_with_transition",
+        )
 
-@buck_test()
-async def test_build_two_out_of_order(buck: Buck) -> None:
-    await buck.build(
-        "//:rule1",
-        "//:nested[sub][nested_sub]",
-    )
-    await check_rule_type_names(buck, ["nested_subtargets", "one"])
+        await check_rule_type_names(buck, ["three_with_transition"])
 
+    @buck_test()
+    async def test_build_all_in_target(self, buck: Buck) -> None:
+        await buck.build(
+            "//:",
+        )
+        await check_rule_type_names(
+            buck,
+            [
+                "two",
+                "three_with_transition",
+                "nested_subtargets",
+                "one",
+                "one",
+                "platform",
+            ],
+        )
 
-@buck_test()
-async def test_build_rule_with_transition(buck: Buck) -> None:
-    await buck.build(
-        "//:a_writer_with_transition",
-    )
-
-    await check_rule_type_names(buck, ["three_with_transition"])
-
-
-@buck_test()
-async def test_build_all_in_target(buck: Buck) -> None:
-    await buck.build(
-        "//:",
-    )
-    await check_rule_type_names(
-        buck,
-        [
-            "two",
-            "three_with_transition",
-            "nested_subtargets",
-            "one",
-            "one",
-            "platform",
-        ],
-    )
-
-
-@buck_test()
-async def test_build_all_recursive(buck: Buck) -> None:
-    await buck.build(
-        "//...",
-    )
-    await check_rule_type_names(
-        buck,
-        [
-            "two",
-            "three_with_transition",
-            "nested_subtargets",
-            "one",
-            "one",
-            "platform",
-        ],
-    )
+    @buck_test()
+    async def test_build_all_recursive(self, buck: Buck) -> None:
+        await buck.build(
+            "//...",
+        )
+        await check_rule_type_names(
+            buck,
+            [
+                "two",
+                "three_with_transition",
+                "nested_subtargets",
+                "one",
+                "one",
+                "platform",
+            ],
+        )

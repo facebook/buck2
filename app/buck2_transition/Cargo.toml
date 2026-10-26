@@ -29,7 +29,6 @@ itertools.workspace = true
 pagable.workspace = true
 ref-cast.workspace = true
 starlark.workspace = true
-starlark_map.workspace = true
 
 [lints]
 workspace = true

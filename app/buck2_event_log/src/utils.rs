@@ -159,6 +159,14 @@ impl Invocation {
             .expect("Null byte unexpected")
     }
 
+    /// Like `display_command_line` but without `argv[0]`: the binary is usually
+    /// a long wrapper path that would push the interesting arguments off-screen
+    /// in width-constrained viewers like `buck2 log snoop`.
+    pub fn display_args(&self) -> String {
+        shlex::try_join(self.command_line_args.iter().skip(1).map(|e| e.as_str()))
+            .expect("Null byte unexpected")
+    }
+
     pub fn display_expanded_command_line(&self) -> String {
         shlex::try_join(self.expanded_command_line_args.iter().map(|e| e.as_str()))
             .expect("Null byte unexpected")

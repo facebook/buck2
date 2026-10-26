@@ -10,13 +10,14 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_configuration_transition_attr(buck: Buck) -> None:
-    result = await buck.cquery("deps(root//:the-test)")
-    result.check_returncode()
-    # Default configuration is iphoneos and it should be transitioned to watchos
-    assert ":watchos_resource" in result.stdout
-    assert ":default_resource" not in result.stdout
+class AttrTest(BuckTestCase):
+    @buck_test()
+    async def test_configuration_transition_attr(self, buck: Buck) -> None:
+        result = await buck.cquery("deps(root//:the-test)")
+        result.check_returncode()
+        # Default configuration is iphoneos and it should be transitioned to watchos
+        assert ":watchos_resource" in result.stdout
+        assert ":default_resource" not in result.stdout

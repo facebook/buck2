@@ -2,6 +2,7 @@
 
 # Bxl APIs
 ## anon\_rule
+## atarget\_set
 ## ctarget\_set
 ## dynamic\_actions
 ## fail\_no\_stacktrace

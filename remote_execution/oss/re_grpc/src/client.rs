@@ -9,6 +9,7 @@
  */
 
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::env::VarError;
 use std::io;
 use std::io::Cursor;
@@ -177,7 +178,8 @@ pub struct RECapabilities {
     /// Largest size of a message before being uploaded using bytestream service.
     /// 0 indicates no limit beyond constraint of underlying transport (which is unknown).
     max_total_batch_size: usize,
-    /// Compressors supported by the "compressed-blobs" bytestream resources.
+    /// Compressors supported by the "compressed-blobs" bytestream resources. Also used to decide
+    /// whether we can request zstd-compressed `BatchReadBlobs` responses.
     supported_compressors: Vec<Compressor>,
 }
 
@@ -191,6 +193,8 @@ pub struct RERuntimeOpts {
     cas_ttl_secs: i64,
     /// Maximum number of digests per `FindMissingBlobs` RPC.
     find_missing_blobs_batch_size: usize,
+    /// Whether to request zstd-compressed `BatchReadBlobs` responses (server supports zstd).
+    batch_read_zstd: bool,
 }
 
 struct InstanceName(Option<String>);
@@ -239,6 +243,15 @@ impl Compressor {
             Self::Brotli => "brotli",
         }
     }
+}
+
+/// Decompress a zstd-compressed blob returned in a `BatchReadBlobs` response.
+async fn zstd_decompress_blob(data: &[u8]) -> anyhow::Result<Vec<u8>> {
+    let mut decoder = ZstdDecoder::new(Cursor::new(data));
+    decoder.multiple_members(true);
+    let mut out = Vec::new();
+    decoder.read_to_end(&mut out).await?;
+    Ok(out)
 }
 
 pub struct REClientBuilder;
@@ -337,6 +350,9 @@ impl REClientBuilder {
                 // on the TTL of the remote blob.
                 cas_ttl_secs: opts.cas_ttl_secs.unwrap_or(3 * 60 * 60),
                 find_missing_blobs_batch_size: opts.find_missing_blobs_batch_size.unwrap_or(100),
+                batch_read_zstd: capabilities
+                    .supported_compressors
+                    .contains(&Compressor::Zstd),
             },
             capabilities,
             instance_name,
@@ -711,7 +727,10 @@ async fn execution_client_for(
 const MAX_EMPTY_RESUMES: u32 = 5;
 
 /// Decodes one `Operation` from an execution stream into a progress event.
-fn decode_execute_operation(msg: Operation) -> anyhow::Result<ExecuteWithProgressResponse> {
+fn decode_execute_operation(
+    msg: Operation,
+    cas_ttl_secs: i64,
+) -> anyhow::Result<ExecuteWithProgressResponse> {
     if !msg.done {
         let meta = ExecuteOperationMetadata::decode(&msg.metadata.unwrap_or_default().value[..])?;
 
@@ -750,12 +769,12 @@ fn decode_execute_operation(msg: Operation) -> anyhow::Result<ExecuteWithProgres
                 .result
                 .with_context(|| "The action result is not defined.")?;
 
-            let action_result = convert_action_result(action_result)?;
+            let action_result = convert_action_result(action_result, cas_ttl_secs)?;
 
             let execute_response = ExecuteResponse {
                 action_result,
                 action_result_digest: TDigest::default(),
-                action_result_ttl: 0,
+                action_result_ttl: cas_ttl_secs,
                 status: TStatus {
                     code: TCode::OK,
                     message: execute_response_grpc.message,
@@ -806,6 +825,7 @@ struct ExecutionStreamState<F> {
 /// that report nothing at all.
 fn execution_progress_stream<S, F, Fut>(
     open: F,
+    cas_ttl_secs: i64,
 ) -> impl Stream<Item = anyhow::Result<ExecuteWithProgressResponse>>
 where
     S: Stream<Item = Result<Operation, tonic::Status>> + Unpin,
@@ -852,7 +872,7 @@ where
                             state.operation = Some(msg.name.clone());
                         }
                         state.empty_resumes = 0;
-                        let response = decode_execute_operation(msg)?;
+                        let response = decode_execute_operation(msg, cas_ttl_secs)?;
                         state.done = response.execute_response.is_some();
                         return Ok(Some((response, (stream, state))));
                     }
@@ -951,6 +971,7 @@ impl REClient {
         engine_address: String,
         action_cache_address: String,
     ) -> Self {
+        let cas_ttl_secs = runtime_opts.cas_ttl_secs;
         REClient {
             runtime_opts,
             pool: Arc::new(pool),
@@ -958,7 +979,7 @@ impl REClient {
             instance_name,
             find_missing_cache: Mutex::new(FindMissingCache {
                 cache: LruCache::new(NonZeroUsize::new(500_000).unwrap()),
-                ttl: Duration::from_hours(12), // 12 hours TODO: Tune this parameter
+                ttl: Duration::from_secs(cas_ttl_secs.max(0) as u64),
                 last_check: Instant::now(),
             }),
             bystream_compressor,
@@ -996,8 +1017,11 @@ impl REClient {
                     .await?;
 
                 Ok(ActionResultResponse {
-                    action_result: convert_action_result(res.into_inner())?,
-                    ttl: 0,
+                    action_result: convert_action_result(
+                        res.into_inner(),
+                        self.runtime_opts.cas_ttl_secs,
+                    )?,
+                    ttl: self.runtime_opts.cas_ttl_secs,
                 })
             })
             .await
@@ -1034,8 +1058,11 @@ impl REClient {
                     .await?;
 
                 Ok(WriteActionResultResponse {
-                    actual_action_result: convert_action_result(res.into_inner())?,
-                    ttl_seconds: 0,
+                    actual_action_result: convert_action_result(
+                        res.into_inner(),
+                        self.runtime_opts.cas_ttl_secs,
+                    )?,
+                    ttl_seconds: self.runtime_opts.cas_ttl_secs,
                 })
             })
             .await
@@ -1099,7 +1126,8 @@ impl REClient {
             }
         };
 
-        let stream = execution_progress_stream(open).map_err(normalize_re_error);
+        let stream = execution_progress_stream(open, self.runtime_opts.cas_ttl_secs)
+            .map_err(normalize_re_error);
 
         // We fill in the action digest a little later here. We do it this way so we don't have to
         // clone the execute_request into every future we create above.
@@ -1208,6 +1236,7 @@ impl REClient {
             .0;
         async move {
             download_impl(
+                &self.runtime_opts,
                 &self.instance_name,
                 request,
                 self.bystream_compressor,
@@ -1300,22 +1329,28 @@ impl REClient {
                 })
                 .await?;
 
-                // Update the results and the cache
-                let mut find_missing_cache = self.find_missing_cache.lock().unwrap();
-                for digest in &digests_to_check {
-                    remote_results.insert(digest.clone(), DigestRemoteState::ExistsOnRemote);
-                    find_missing_cache.put(digest.clone(), DigestRemoteState::ExistsOnRemote);
-                }
-
-                for digest in resp
+                // Build the set of missing digests first, so we don't
+                // prematurely cache them as ExistsOnRemote.
+                let missing: HashSet<TDigest> = resp
                     .missing_blob_digests
                     .iter()
                     .map(|d| tdigest_from(d.clone()))
-                {
-                    // If it's present in the MissingBlobsResponse, it's expired on the remote and
-                    // needs to be refetched.
-                    remote_results.insert(digest.clone(), DigestRemoteState::Missing);
-                    find_missing_cache.put(digest, DigestRemoteState::Missing);
+                    .collect();
+
+                let mut find_missing_cache = self.find_missing_cache.lock().unwrap();
+                for digest in &digests_to_check {
+                    if missing.contains(digest) {
+                        // Missing is a transient state: the blob may be uploaded
+                        // or produced by an RE action at any time.  Do NOT cache
+                        // it -- a stale "Missing" entry would prevent future
+                        // FindMissingBlobs RPCs, and a premature "ExistsOnRemote"
+                        // entry would cause concurrent actions to skip uploading
+                        // a blob that hasn't been uploaded yet.
+                        remote_results.insert(digest.clone(), DigestRemoteState::Missing);
+                    } else {
+                        remote_results.insert(digest.clone(), DigestRemoteState::ExistsOnRemote);
+                        find_missing_cache.put(digest.clone(), DigestRemoteState::ExistsOnRemote);
+                    }
                 }
                 digests_to_check.clear();
             }
@@ -1404,7 +1439,10 @@ impl REClient {
     }
 }
 
-fn convert_action_result(action_result: ActionResult) -> anyhow::Result<TActionResult2> {
+fn convert_action_result(
+    action_result: ActionResult,
+    cas_ttl_secs: i64,
+) -> anyhow::Result<TActionResult2> {
     let execution_metadata = action_result
         .execution_metadata
         .with_context(|| "The execution metadata are not defined.")?;
@@ -1424,7 +1462,7 @@ fn convert_action_result(action_result: ActionResult) -> anyhow::Result<TActionR
                 name: output_file.path,
                 existed: false,
                 executable: output_file.is_executable,
-                ttl: 0,
+                ttl: cas_ttl_secs,
                 _dot_dot_default: (),
             })
         })
@@ -1606,6 +1644,7 @@ fn convert_t_action_result2(t_action_result: &TActionResult2) -> anyhow::Result<
 }
 
 async fn download_impl<Byt, BytRet, Cas>(
+    opts: &RERuntimeOpts,
     instance_name: &InstanceName,
     request: DownloadRequest,
     bystream_compressor: Option<Compressor>,
@@ -1682,6 +1721,17 @@ where
     let inlined_digests = request.inlined_digests.unwrap_or_default();
     let file_digests = request.file_digests.unwrap_or_default();
 
+    // Advertise zstd for BatchReadBlobs responses when the server supports it; Identity is always
+    // acceptable as a fallback and the server decides per-blob what to actually return.
+    let acceptable_compressors = if opts.batch_read_zstd {
+        vec![
+            compressor::Value::Zstd as i32,
+            compressor::Value::Identity as i32,
+        ]
+    } else {
+        vec![compressor::Value::Identity as i32]
+    };
+
     let mut curr_size = 0;
     let mut requests = vec![];
     let mut curr_digests = vec![];
@@ -1702,7 +1752,7 @@ where
             let read_blob_req = BatchReadBlobsRequest {
                 instance_name: instance_name.as_str().to_owned(),
                 digests: std::mem::take(&mut curr_digests),
-                acceptable_compressors: vec![compressor::Value::Identity as i32],
+                acceptable_compressors: acceptable_compressors.clone(),
                 ..Default::default()
             };
             requests.push(read_blob_req);
@@ -1715,7 +1765,7 @@ where
         let read_blob_req = BatchReadBlobsRequest {
             instance_name: instance_name.as_str().to_owned(),
             digests: std::mem::take(&mut curr_digests),
-            acceptable_compressors: vec![compressor::Value::Identity as i32],
+            acceptable_compressors: acceptable_compressors.clone(),
             ..Default::default()
         };
         requests.push(read_blob_req);
@@ -1732,7 +1782,20 @@ where
         for r in resp.responses.into_iter() {
             let digest = tdigest_from(r.digest.context("Response digest not found.")?);
             check_status(r.status.unwrap_or_default())?;
-            batched_blobs_response.insert(digest, r.data);
+            let data = if r.compressor == compressor::Value::Identity as i32 {
+                r.data
+            } else if r.compressor == compressor::Value::Zstd as i32 {
+                zstd_decompress_blob(&r.data)
+                    .await
+                    .context("Failed to decompress zstd BatchReadBlobs response")?
+            } else {
+                return Err(anyhow::anyhow!(
+                    "BatchReadBlobs response for `{}` used an unsupported compressor: {}",
+                    digest,
+                    r.compressor
+                ));
+            };
+            batched_blobs_response.insert(digest, data);
         }
     }
 
@@ -2255,7 +2318,7 @@ mod tests {
             }
         };
 
-        let events = execution_progress_stream(open).collect().await;
+        let events = execution_progress_stream(open, 0).collect().await;
         let calls = calls.lock().unwrap().clone();
         (events, calls)
     }
@@ -2600,6 +2663,16 @@ mod tests {
         assert_eq!(stages(&events), vec![Stage::COMPLETED]);
     }
 
+    pub(super) fn test_re_runtime_opts() -> RERuntimeOpts {
+        RERuntimeOpts {
+            use_fbcode_metadata: false,
+            max_concurrent_uploads_per_action: None,
+            cas_ttl_secs: 0,
+            find_missing_blobs_batch_size: 100,
+            batch_read_zstd: false,
+        }
+    }
+
     #[tokio::test]
     async fn test_retry_unauthenticated() {
         let attempts = AtomicU16::new(0);
@@ -2742,6 +2815,7 @@ mod tests {
         };
 
         download_impl(
+            &test_re_runtime_opts(),
             &InstanceName(None),
             req,
             None,
@@ -2849,6 +2923,7 @@ mod tests {
         };
 
         download_impl(
+            &test_re_runtime_opts(),
             &InstanceName(None),
             req,
             None,
@@ -2931,6 +3006,7 @@ mod tests {
         };
 
         let res = download_impl(
+            &test_re_runtime_opts(),
             &InstanceName(None),
             req,
             None,
@@ -3018,6 +3094,7 @@ mod tests {
         let counter = AtomicU16::new(0);
 
         let res = download_impl(
+            &test_re_runtime_opts(),
             &InstanceName(None),
             req,
             None,
@@ -3091,6 +3168,7 @@ mod tests {
         };
 
         let res = download_impl(
+            &test_re_runtime_opts(),
             &InstanceName(None),
             req,
             None,
@@ -3147,6 +3225,7 @@ mod tests {
         let res = BatchReadBlobsResponse { responses: vec![] };
 
         let res = download_impl(
+            &test_re_runtime_opts(),
             &InstanceName(None),
             req,
             None,
@@ -3186,6 +3265,7 @@ mod tests {
         };
 
         download_impl(
+            &test_re_runtime_opts(),
             &InstanceName(Some("instance".to_owned())),
             req,
             None,
@@ -3278,6 +3358,65 @@ mod tests {
         )
         .await?;
 
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_batch_download_zstd() -> anyhow::Result<()> {
+        // The server returns a zstd-compressed blob; we advertise zstd and decompress it.
+        let blob = vec![9u8; 500];
+        let digest = TDigest {
+            hash: "dd".to_owned(),
+            size_in_bytes: blob.len() as i64,
+            ..Default::default()
+        };
+
+        let mut compressed = vec![];
+        ZstdEncoder::new(Cursor::new(blob.clone()))
+            .read_to_end(&mut compressed)
+            .await
+            .unwrap();
+
+        let req = DownloadRequest {
+            inlined_digests: Some(vec![digest.clone()]),
+            ..Default::default()
+        };
+
+        let res = BatchReadBlobsResponse {
+            responses: vec![batch_read_blobs_response::Response {
+                digest: Some(tdigest_to(&digest)),
+                data: compressed.clone(),
+                status: Some(Status::default()),
+                compressor: compressor::Value::Zstd as i32,
+            }],
+        };
+
+        let mut opts = test_re_runtime_opts();
+        opts.batch_read_zstd = true;
+
+        let expected = blob.clone();
+        let d_resp = download_impl(
+            &opts,
+            &InstanceName(None),
+            req,
+            None,
+            10000,
+            |req| {
+                let res = res.clone();
+                async move {
+                    // We advertised zstd as an acceptable response compressor.
+                    assert!(
+                        req.acceptable_compressors
+                            .contains(&(compressor::Value::Zstd as i32))
+                    );
+                    Ok(res)
+                }
+            },
+            |_digest| async move { anyhow::Ok(Box::pin(futures::stream::iter(vec![]))) },
+        )
+        .await?;
+
+        assert_eq!(d_resp.inlined_blobs.unwrap()[0].blob, expected);
         Ok(())
     }
 
@@ -3814,6 +3953,7 @@ async fn test_download_compressed() -> anyhow::Result<()> {
     let compressed_data_ref = &compressed_data;
 
     let d_resp = download_impl(
+        &tests::test_re_runtime_opts(),
         &InstanceName(None),
         DownloadRequest {
             inlined_digests: Some(vec![TDigest {

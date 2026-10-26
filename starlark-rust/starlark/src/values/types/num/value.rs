@@ -36,6 +36,8 @@ use crate::values::types::int::int_or_big::StarlarkIntRef;
 enum NumError {
     #[error("float division by zero: {0} / {1}")]
     DivisionByZero(Num, Num),
+    #[error("int too large to convert to float")]
+    IntTooLargeForFloat,
 }
 
 /// [`NumRef`] represents a numerical value that can be unpacked from a [`Value`].
@@ -71,6 +73,16 @@ impl<'v> NumRef<'v> {
             Self::Int(i) => i.to_f64(),
             Self::Float(f) => f.0,
         }
+    }
+
+    /// Get underlying value as float, failing if it is an int too large to be
+    /// represented as a finite float.
+    pub(crate) fn as_finite_float(&self) -> anyhow::Result<f64> {
+        let f = self.as_float();
+        if f.is_infinite() && matches!(self, Self::Int(_)) {
+            return Err(NumError::IntTooLargeForFloat.into());
+        }
+        Ok(f)
     }
 
     pub(crate) fn f64_to_i32_exact(f: f64) -> Option<i32> {
@@ -131,8 +143,8 @@ impl<'v> NumRef<'v> {
     }
 
     pub(crate) fn div(self, other: NumRef) -> anyhow::Result<f64> {
-        let a = self.as_float();
-        let b = other.as_float();
+        let a = self.as_finite_float()?;
+        let b = other.as_finite_float()?;
         if b == 0.0 {
             Err(NumError::DivisionByZero(self.to_owned(), other.to_owned()).into())
         } else {
@@ -144,7 +156,8 @@ impl<'v> NumRef<'v> {
         if let (NumRef::Int(a), NumRef::Int(b)) = (self, other) {
             a.floor_div(b).map(Num::Int)
         } else {
-            StarlarkFloat::floor_div_impl(self.as_float(), other.as_float()).map(Num::Float)
+            StarlarkFloat::floor_div_impl(self.as_finite_float()?, other.as_finite_float()?)
+                .map(Num::Float)
         }
     }
 
@@ -152,7 +165,8 @@ impl<'v> NumRef<'v> {
         if let (NumRef::Int(a), NumRef::Int(b)) = (self, other) {
             a.percent(b).map(Num::Int)
         } else {
-            StarlarkFloat::percent_impl(self.as_float(), other.as_float()).map(Num::Float)
+            StarlarkFloat::percent_impl(self.as_finite_float()?, other.as_finite_float()?)
+                .map(Num::Float)
         }
     }
 }
@@ -193,35 +207,35 @@ impl<'v> Ord for NumRef<'v> {
 }
 
 impl<'v> Add for NumRef<'v> {
-    type Output = Num;
+    type Output = anyhow::Result<Num>;
 
     fn add(self, rhs: Self) -> Self::Output {
         if let (NumRef::Int(a), NumRef::Int(b)) = (self, rhs) {
-            return Num::Int(a + b);
+            return Ok(Num::Int(a + b));
         }
-        Num::Float(self.as_float() + rhs.as_float())
+        Ok(Num::Float(self.as_finite_float()? + rhs.as_finite_float()?))
     }
 }
 
 impl<'v> Sub for NumRef<'v> {
-    type Output = Num;
+    type Output = anyhow::Result<Num>;
 
     fn sub(self, rhs: Self) -> Self::Output {
         if let (NumRef::Int(a), NumRef::Int(b)) = (self, rhs) {
-            return Num::Int(a - b);
+            return Ok(Num::Int(a - b));
         }
-        Num::Float(self.as_float() - rhs.as_float())
+        Ok(Num::Float(self.as_finite_float()? - rhs.as_finite_float()?))
     }
 }
 
 impl<'v> Mul for NumRef<'v> {
-    type Output = Num;
+    type Output = anyhow::Result<Num>;
 
     fn mul(self, rhs: Self) -> Self::Output {
         if let (NumRef::Int(a), NumRef::Int(b)) = (self, rhs) {
-            return Num::Int(a * b);
+            return Ok(Num::Int(a * b));
         }
-        Num::Float(self.as_float() * rhs.as_float())
+        Ok(Num::Float(self.as_finite_float()? * rhs.as_finite_float()?))
     }
 }
 

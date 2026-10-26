@@ -21,5 +21,8 @@ rust_library(
         },
     }),
     visibility = ["PUBLIC"],
-    deps = ["fbsource//third-party/rust:thiserror"],
+    deps = [
+        "fbsource//third-party/rust:hashbrown",
+        "fbsource//third-party/rust:thiserror",
+    ],
 )

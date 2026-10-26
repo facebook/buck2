@@ -22,6 +22,7 @@ use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 use std::num::NonZeroU32;
+use std::ptr;
 use std::ptr::NonNull;
 use std::sync::Arc;
 use std::sync::Condvar;
@@ -31,7 +32,6 @@ use std::sync::OnceLock;
 use std::sync::RwLock;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicPtr;
-use std::sync::atomic::AtomicU64;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 #[cfg(all(test, feature = "pagable"))]
@@ -245,11 +245,12 @@ impl SlotState {
 }
 
 /// Per-slot init state and the single owner of the [`SlotState`] encoding, which
-/// packs the initialization states into one `u64`:
-/// 1. `0` (`INIT_NOT_STARTED`) — not started.
+/// packs the initialization states into one pointer-sized word, the header
+/// pointer with flags in its low bits:
+/// 1. null (`INIT_NOT_STARTED`) — not started.
 /// 2. in progress — bit 0 (`IN_PROGRESS_FLAG`) set; the header pointer is in the
 ///    remaining bits.
-/// 3. ready — any other non-zero value (all low bits clear); the value *is* the
+/// 3. ready — any other non-null value (all low bits clear); the value *is* the
 ///    header pointer.
 /// 4. `0b10` (`INIT_FAILED_FLAG`) — failed.
 /// 5. bit 2 (`READINESS_PENDING`) — enrolled in cycle readiness tracking. With
@@ -260,37 +261,43 @@ impl SlotState {
 /// After the initial claim, mutations require a [`HeapPublication`] guard.
 /// Its mutex serializes enrollment with completion; readers outside that
 /// mutex use acquire loads to observe payload writes published by release stores.
-#[derive(Allocative)]
 #[repr(transparent)]
-struct AtomicSlotState(AtomicU64);
+struct AtomicSlotState(AtomicPtr<AValueHeader>);
+
+impl Allocative for AtomicSlotState {
+    fn visit<'a, 'b: 'a>(&self, visitor: &'a mut allocative::Visitor<'b>) {
+        visitor.visit_simple_sized::<Self>();
+    }
+}
 
 const _: () = {
-    assert!(AValueHeader::ALIGN > AtomicSlotState::INIT_STATE_MASK as usize);
+    assert!(AValueHeader::ALIGN > AtomicSlotState::INIT_STATE_MASK);
 };
 
 impl AtomicSlotState {
-    const INIT_NOT_STARTED: u64 = 0;
-    const IN_PROGRESS_FLAG: u64 = 0b1;
-    const INIT_FAILED_FLAG: u64 = 0b10;
-    const READINESS_PENDING: u64 = 0b100;
-    const INIT_STATE_MASK: u64 = 0b111;
+    const INIT_NOT_STARTED: usize = 0;
+    const IN_PROGRESS_FLAG: usize = 0b1;
+    const INIT_FAILED_FLAG: usize = 0b10;
+    const READINESS_PENDING: usize = 0b100;
+    const INIT_STATE_MASK: usize = 0b111;
 
     fn not_started() -> Self {
-        AtomicSlotState(AtomicU64::new(Self::INIT_NOT_STARTED))
+        AtomicSlotState(AtomicPtr::new(ptr::null_mut()))
     }
 
     fn load(&self, order: Ordering) -> SlotState {
         let v = self.0.load(order);
-        if v == Self::INIT_NOT_STARTED {
+        let bits = v.addr();
+        if bits == Self::INIT_NOT_STARTED {
             SlotState::NotStarted
-        } else if v == Self::INIT_FAILED_FLAG {
+        } else if bits == Self::INIT_FAILED_FLAG {
             SlotState::Failed
-        } else if v & Self::IN_PROGRESS_FLAG != 0 {
-            SlotState::InProgress((v & !Self::INIT_STATE_MASK) as *mut AValueHeader)
-        } else if v & Self::READINESS_PENDING != 0 {
-            SlotState::Constructed((v & !Self::INIT_STATE_MASK) as *mut AValueHeader)
+        } else if bits & Self::IN_PROGRESS_FLAG != 0 {
+            SlotState::InProgress(v.map_addr(|addr| addr & !Self::INIT_STATE_MASK))
+        } else if bits & Self::READINESS_PENDING != 0 {
+            SlotState::Constructed(v.map_addr(|addr| addr & !Self::INIT_STATE_MASK))
         } else {
-            SlotState::Ready(v as *mut AValueHeader)
+            SlotState::Ready(v)
         }
     }
 
@@ -298,16 +305,18 @@ impl AtomicSlotState {
     /// flag set. The caller holds the claim lock, so this is the not-started ->
     /// in-progress transition.
     fn publish_in_progress(&self, header: *mut AValueHeader) {
-        self.0
-            .store((header as u64) | Self::IN_PROGRESS_FLAG, Ordering::Release);
+        self.0.store(
+            header.map_addr(|addr| addr | Self::IN_PROGRESS_FLAG),
+            Ordering::Release,
+        );
     }
 
     /// The publication mutex excludes concurrent readiness enrollment.
     fn try_finalize(&self, header: *mut AValueHeader) -> bool {
-        if self.0.load(Ordering::Relaxed) != (header as u64 | Self::IN_PROGRESS_FLAG) {
+        if self.0.load(Ordering::Relaxed) != header.map_addr(|addr| addr | Self::IN_PROGRESS_FLAG) {
             return false;
         }
-        self.0.store(header as u64, Ordering::Release);
+        self.0.store(header, Ordering::Release);
         true
     }
 
@@ -316,7 +325,7 @@ impl AtomicSlotState {
         match self.load(Ordering::Relaxed) {
             SlotState::InProgress(ptr) => {
                 self.0.store(
-                    ptr as u64 | Self::IN_PROGRESS_FLAG | Self::READINESS_PENDING,
+                    ptr.map_addr(|addr| addr | Self::IN_PROGRESS_FLAG | Self::READINESS_PENDING),
                     Ordering::Release,
                 );
                 SlotState::InProgress(ptr)
@@ -326,21 +335,28 @@ impl AtomicSlotState {
     }
 
     fn constructed(&self, header: *mut AValueHeader) {
-        self.0
-            .store(header as u64 | Self::READINESS_PENDING, Ordering::Release);
+        self.0.store(
+            header.map_addr(|addr| addr | Self::READINESS_PENDING),
+            Ordering::Release,
+        );
     }
 
     fn ready(&self) {
         let previous = self.0.load(Ordering::Relaxed);
-        debug_assert_ne!(previous & Self::READINESS_PENDING, 0);
+        debug_assert_ne!(previous.addr() & Self::READINESS_PENDING, 0);
         // The group's last writer can go straight from in-progress to ready.
-        self.0
-            .store(previous & !Self::INIT_STATE_MASK, Ordering::Release);
+        self.0.store(
+            previous.map_addr(|addr| addr & !Self::INIT_STATE_MASK),
+            Ordering::Release,
+        );
     }
 
     /// Publish the claim as failed.
     fn fail(&self) {
-        self.0.store(Self::INIT_FAILED_FLAG, Ordering::Release);
+        self.0.store(
+            ptr::without_provenance_mut(Self::INIT_FAILED_FLAG),
+            Ordering::Release,
+        );
     }
 }
 
@@ -1912,19 +1928,16 @@ impl<'fv> StarlarkValueResolver<'_, 'fv> {
         // values and its own dependencies come with it.
         target_heap.ensure_header_loaded(self.scope, self.storage)?;
         let ptr = resolve_in_loaded_heap(self.scope, self.storage, &target_heap, value_index)?;
+        let ptr = NonNull::new(ptr).expect("a resolved slot has a header");
+        let tag = if is_str {
+            PointerTags::StrFrozen as usize
+        } else {
+            PointerTags::OtherFrozen as usize
+        };
         // SAFETY: the allocation is retained by the context's brand. Use the
         // serialized string tag without borrowing a potentially unwritten
         // header: a cycle-breaking construction reference is not readable yet.
-        Ok(unsafe {
-            Value::new_frozen_ptr_usize_with_str_tag(
-                ptr as usize
-                    | if is_str {
-                        PointerTags::StrFrozen as usize
-                    } else {
-                        0
-                    },
-            )
-        })
+        Ok(unsafe { Value::new_frozen_ptr_with_str_tag(ptr.cast().map_addr(|addr| addr | tag)) })
     }
 }
 

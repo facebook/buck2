@@ -6,7 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//decls:rust_rules.bzl", _prelude_rust_test = "rust_test")
+load("@prelude//rust:rust_binary.bzl", _prelude_rust_test = "rust_test")
 
 def _custom_rust_test_impl(ctx: AnalysisContext) -> list[Provider]:
     return _prelude_rust_test.impl(ctx)

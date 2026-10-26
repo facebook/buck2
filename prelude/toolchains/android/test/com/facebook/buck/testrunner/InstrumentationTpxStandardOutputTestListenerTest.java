@@ -170,4 +170,84 @@ public class InstrumentationTpxStandardOutputTestListenerTest {
       Assert.assertNull(reader.readLine());
     }
   }
+
+  @Test
+  public void testReportsDeviceFingerprintAsResultMetadata() throws IOException {
+    AndroidDevice device =
+        new TestAndroidDevice() {
+          @Override
+          public String getProperty(String name) {
+            return "ro.build.fingerprint".equals(name) ? "Meta/device/build//123:" : null;
+          }
+        };
+
+    try (FileOutputStream fileOutputStream = new FileOutputStream(tempFile)) {
+      InstrumentationTpxStandardOutputTestListener listener =
+          new InstrumentationTpxStandardOutputTestListener(
+              new TestResultsOutputSender(fileOutputStream), device, null, true);
+      TestIdentifier testIdentifier = new TestIdentifier("TestClass", "testOne");
+      listener.testStarted(testIdentifier);
+      listener.testEnded(testIdentifier, new HashMap<String, String>());
+    }
+
+    try (BufferedReader reader = new BufferedReader(new FileReader(tempFile))) {
+      reader.readLine();
+      String endLine = reader.readLine();
+      Assert.assertTrue(
+          endLine.contains("\"metadata\":{\"app_info:OS\":\"Meta/device/build//123:\"}"));
+    }
+  }
+
+  @Test
+  public void testDoesNotReadDeviceFingerprintByDefault() throws IOException {
+    AndroidDevice device =
+        new TestAndroidDevice() {
+          @Override
+          public String getProperty(String name) {
+            throw new AssertionError("OS fingerprint should not be read");
+          }
+        };
+
+    try (FileOutputStream fileOutputStream = new FileOutputStream(tempFile)) {
+      InstrumentationTpxStandardOutputTestListener listener =
+          new InstrumentationTpxStandardOutputTestListener(
+              new TestResultsOutputSender(fileOutputStream), device, null);
+      TestIdentifier testIdentifier = new TestIdentifier("TestClass", "testOne");
+      listener.testStarted(testIdentifier);
+      listener.testEnded(testIdentifier, new HashMap<String, String>());
+    }
+
+    try (BufferedReader reader = new BufferedReader(new FileReader(tempFile))) {
+      reader.readLine();
+      Assert.assertFalse(reader.readLine().contains("\"metadata\""));
+    }
+  }
+
+  @Test
+  public void testOmitsBlankDeviceFingerprint() {
+    AndroidDevice device =
+        new TestAndroidDevice() {
+          @Override
+          public String getProperty(String name) {
+            return "   ";
+          }
+        };
+
+    Assert.assertTrue(
+        InstrumentationTpxStandardOutputTestListener.getResultMetadata(device).isEmpty());
+  }
+
+  @Test
+  public void testOmitsDeviceFingerprintWhenPropertyReadFails() {
+    AndroidDevice device =
+        new TestAndroidDevice() {
+          @Override
+          public String getProperty(String name) {
+            throw new IllegalStateException("device unavailable");
+          }
+        };
+
+    Assert.assertTrue(
+        InstrumentationTpxStandardOutputTestListener.getResultMetadata(device).isEmpty());
+  }
 }

@@ -28,6 +28,9 @@ use buck2_event_observer::two_snapshots::TwoSnapshots;
 use buck2_event_observer::unpack_event::VisitorError;
 use buck2_event_observer::unpack_event::unpack_event;
 use buck2_event_observer::verbosity::Verbosity;
+use buck2_event_observer::what_ran::WhatRanCommandConsoleFormat;
+use buck2_event_observer::what_ran::WhatRanOutputCommand;
+use buck2_event_observer::what_ran::WhatRanOutputWriter;
 use buck2_event_observer::what_ran::command_to_string;
 use buck2_event_observer::what_ran::worker_command_as_fallback_to_string;
 use buck2_events::BuckEvent;
@@ -376,10 +379,69 @@ pub enum StatefulSuperConsole {
     Finalized(SimpleConsole<DebugEventObserverExtra>),
 }
 
+/// Where a `StatefulSuperConsoleImpl`'s output goes.
+pub enum ConsoleCanvas {
+    /// Owns the terminal: emitted lines scroll above the canvas, and this console's
+    /// own render/finalize/erase calls draw to the terminal.
+    Terminal(SuperConsole),
+}
+
+impl ConsoleCanvas {
+    fn emit(&mut self, lines: Lines) {
+        match self {
+            Self::Terminal(sc) => sc.emit(lines),
+        }
+    }
+
+    fn emit_aux(&mut self, lines: Lines) {
+        match self {
+            Self::Terminal(sc) => sc.emit_aux(lines),
+        }
+    }
+
+    fn render<C: Component + ?Sized>(
+        &mut self,
+        root: &C,
+    ) -> Result<(), superconsole::Error<C::Error>> {
+        match self {
+            Self::Terminal(sc) => sc.render(root),
+        }
+    }
+
+    fn finalize(
+        self,
+        root: &BuckRootComponent,
+    ) -> Result<(), superconsole::Error<buck2_error::Error>> {
+        match self {
+            Self::Terminal(sc) => sc.finalize(root),
+        }
+    }
+
+    #[cfg(test)]
+    fn testing_terminal(&mut self) -> &mut SuperConsole {
+        match self {
+            Self::Terminal(sc) => sc,
+        }
+    }
+}
+
+impl WhatRanOutputWriter for ConsoleCanvas {
+    fn emit_command(&mut self, command: WhatRanOutputCommand<'_>) -> buck2_error::Result<()> {
+        let msg = WhatRanCommandConsoleFormat {
+            reason: command.reason,
+            identity: command.identity,
+            repro: command.repro,
+        }
+        .to_string();
+        self.emit(Lines(vec![Line::sanitized(&msg)]));
+        Ok(())
+    }
+}
+
 pub struct StatefulSuperConsoleImpl {
     header: String,
     state: SuperConsoleState,
-    super_console: SuperConsole,
+    canvas: ConsoleCanvas,
     verbosity: Verbosity,
     games_overlay: GamesOverlay,
     shown_interactive_console_message: bool,
@@ -411,10 +473,11 @@ pub struct SuperConsoleConfig {
     /// Two lines for root events with single child event.
     pub two_lines: bool,
     pub max_lines: usize,
-    /// Extra line(s) rendered at the very top of the canvas, e.g. `buck2 log snoop`'s
-    /// `Snooping <trace>: <argv>` banner. Part of the canvas so that erasing or
-    /// redrawing the console replaces it too.
-    pub banner: Option<String>,
+    /// Extra styled line(s) rendered at the very top of the canvas, e.g. `buck2 log
+    /// snoop`'s `Snooping <trace>: <argv>` banner. Part of the canvas so that erasing
+    /// or redrawing the console replaces it too. Callers are responsible for
+    /// sanitizing the content (e.g. via `Span::sanitized`).
+    pub banner: Option<Lines>,
     /// Do not emit "File changed:" notifications above the canvas. Used by viewers
     /// like `buck2 log snoop` where they would pile up as scrollback across
     /// invocation switches.
@@ -513,8 +576,7 @@ impl Component for BuckRootComponent<'_> {
         let mut draw = DrawVertical::new(dimensions);
 
         if let Some(banner) = &self.state.config.banner {
-            let lines = Lines(banner.lines().map(Line::sanitized).collect());
-            draw.draw(&StaticLinesAdapter(&lines), mode)?;
+            draw.draw(&StaticLinesAdapter(banner), mode)?;
         }
 
         // Render games overlay above normal build output when active.
@@ -651,7 +713,7 @@ impl StatefulSuperConsole {
         Self::new(
             command_name,
             trace_id,
-            builder.build_forced(Self::FALLBACK_SIZE)?,
+            ConsoleCanvas::Terminal(builder.build_forced(Self::FALLBACK_SIZE)?),
             verbosity,
             expect_spans,
             timekeeper,
@@ -663,7 +725,7 @@ impl StatefulSuperConsole {
     pub(crate) fn new(
         command_name: &str,
         trace_id: TraceId,
-        super_console: SuperConsole,
+        canvas: ConsoleCanvas,
         verbosity: Verbosity,
         expect_spans: bool,
         timekeeper: Timekeeper,
@@ -681,7 +743,7 @@ impl StatefulSuperConsole {
                 config,
                 health_check_reports_receiver,
             )?,
-            super_console,
+            canvas,
             verbosity,
             games_overlay: GamesOverlay::new(),
             shown_interactive_console_message: false,
@@ -837,7 +899,7 @@ impl StatefulSuperConsoleImpl {
                 event.parent_id().into(),
                 event.data(),
                 self.state.simple_console.observer().spans(),
-                &mut self.super_console,
+                &mut self.canvas,
             )?;
         }
         Ok(())
@@ -892,8 +954,7 @@ impl StatefulSuperConsoleImpl {
     }
 
     async fn handle_stderr(&mut self, msg: &str) -> buck2_error::Result<()> {
-        self.super_console
-            .emit(msg.lines().map(Line::sanitized).collect());
+        self.canvas.emit(msg.lines().map(Line::sanitized).collect());
         Ok(())
     }
 
@@ -905,7 +966,7 @@ impl StatefulSuperConsoleImpl {
             return Ok(());
         }
 
-        self.super_console.emit(
+        self.canvas.emit(
             err.payload
                 .lines()
                 .map(|line| Line::from_iter([Span::new_colored_lossy(line, Color::DarkYellow)]))
@@ -919,7 +980,7 @@ impl StatefulSuperConsoleImpl {
         file_watcher: &buck2_data::FileWatcherEnd,
     ) -> buck2_error::Result<()> {
         if self.verbosity.print_status() && !self.state.config.hide_file_watcher_events {
-            self.super_console.emit(Lines(
+            self.canvas.emit(Lines(
                 display_file_watcher_end(file_watcher)
                     .into_iter()
                     .map(|x| Line::sanitized(&x))
@@ -936,7 +997,7 @@ impl StatefulSuperConsoleImpl {
     ) -> buck2_error::Result<()> {
         // TODO(nmj): Maybe better handling of messages that have color data in them. Right now
         //            they're just stripped
-        self.super_console.emit(Lines::from_multiline_string_raw(
+        self.canvas.emit(Lines::from_multiline_string_raw(
             &message.message,
             ContentStyle::default(),
         ));
@@ -947,11 +1008,10 @@ impl StatefulSuperConsoleImpl {
         &mut self,
         message: &buck2_data::StdoutStreamingOutput,
     ) -> buck2_error::Result<()> {
-        self.super_console
-            .emit_aux(Lines::from_multiline_string_raw(
-                &message.message,
-                ContentStyle::default(),
-            ));
+        self.canvas.emit_aux(Lines::from_multiline_string_raw(
+            &message.message,
+            ContentStyle::default(),
+        ));
         Ok(())
     }
 
@@ -963,7 +1023,7 @@ impl StatefulSuperConsoleImpl {
             foreground_color: Some(Color::Yellow),
             ..Default::default()
         };
-        self.super_console
+        self.canvas
             .emit(Lines::from_multiline_string_raw(&message.message, style));
         Ok(())
     }
@@ -999,10 +1059,10 @@ impl StatefulSuperConsoleImpl {
                     );
                     lines.push(Line::from_iter([Span::new_styled_lossy(action_id)]));
                     lines.extend(Lines::from_colored_multiline_string(stderr));
-                    self.super_console.emit(Lines(lines));
+                    self.canvas.emit(Lines(lines));
                 }
                 EmitResult::Exceeded(msg) => {
-                    self.super_console.emit(Lines(vec![Line::sanitized(msg)]));
+                    self.canvas.emit(Lines(vec![Line::sanitized(msg)]));
                 }
                 EmitResult::Skipped => {}
             }
@@ -1094,7 +1154,7 @@ impl StatefulSuperConsoleImpl {
             lines.push(Line::sanitized(msg));
         }
 
-        self.super_console.emit(Lines(lines));
+        self.canvas.emit(Lines(lines));
 
         Ok(())
     }
@@ -1107,10 +1167,10 @@ impl StatefulSuperConsoleImpl {
             let byte_count: usize = msg.0.iter().map(|line| line.len()).sum();
             match self.state.simple_console.output_limit.emit(byte_count) {
                 EmitResult::Emit => {
-                    self.super_console.emit(msg);
+                    self.canvas.emit(msg);
                 }
                 EmitResult::Exceeded(msg) => {
-                    self.super_console.emit(Lines(vec![Line::sanitized(msg)]));
+                    self.canvas.emit(Lines(vec![Line::sanitized(msg)]));
                 }
                 EmitResult::Skipped => {}
             }
@@ -1153,7 +1213,7 @@ impl StatefulSuperConsoleImpl {
                 return Ok(());
             }
             ConsoleInteraction::Resize => {
-                self.super_console.render(&BuckRootComponent {
+                self.canvas.render(&BuckRootComponent {
                     header: &self.header,
                     state: &self.state,
                     games_overlay: &self.games_overlay,
@@ -1473,7 +1533,7 @@ impl StatefulSuperConsoleImpl {
             }
         }
 
-        self.super_console.render(&BuckRootComponent {
+        self.canvas.render(&BuckRootComponent {
             header: &self.header,
             state: &self.state,
             games_overlay: &self.games_overlay,
@@ -1486,7 +1546,7 @@ impl StatefulSuperConsoleImpl {
         result: &buck2_cli_proto::CommandResult,
     ) -> buck2_error::Result<()> {
         let lines = StatefulSuperConsole::render_result_errors(result);
-        self.super_console.emit(lines);
+        self.canvas.emit(lines);
         Ok(())
     }
 
@@ -1497,7 +1557,7 @@ impl StatefulSuperConsoleImpl {
         Option<superconsole::Error<buck2_error::Error>>,
     ) {
         let err = self
-            .super_console
+            .canvas
             .finalize(&BuckRootComponent {
                 header: &self.header,
                 state: &self.state,
@@ -1516,7 +1576,7 @@ impl StatefulSuperConsoleImpl {
         Option<superconsole::Error<buck2_error::Error>>,
     ) {
         let err = self
-            .super_console
+            .canvas
             .render(&superconsole::components::Blank)
             .err()
             .map(|e| match e {
@@ -1837,7 +1897,7 @@ mod tests {
         let mut console = StatefulSuperConsole::new(
             "build",
             trace_id.dupe(),
-            test_console(),
+            ConsoleCanvas::Terminal(test_console()),
             Verbosity::default(),
             true,
             Timekeeper::new(
@@ -1909,7 +1969,8 @@ mod tests {
 
         let frame = match &mut console {
             StatefulSuperConsole::Running(c) => c
-                .super_console
+                .canvas
+                .testing_terminal()
                 .test_output_mut()
                 .frames
                 .pop()
@@ -1930,6 +1991,51 @@ mod tests {
         console
             .handle_command_result(&buck2_cli_proto::CommandResult { result: None })
             .await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_banner_rendered() -> buck2_error::Result<()> {
+        let trace_id = TraceId::new();
+        let tick = Tick::now();
+
+        let config = SuperConsoleConfig {
+            banner: Some(Lines(vec![Line::from_iter([Span::new_styled_lossy(
+                " SNOOP v2 ".to_owned().bold().reverse(),
+            )])])),
+            ..Default::default()
+        };
+        let mut console = StatefulSuperConsole::new(
+            "build",
+            trace_id.dupe(),
+            ConsoleCanvas::Terminal(test_console()),
+            Verbosity::default(),
+            true,
+            Timekeeper::new(
+                Box::new(RealtimeClock),
+                EventTimestamp(SystemTime::now().into()),
+            ),
+            config,
+            None,
+        )?;
+
+        console.tick(&tick).await?;
+
+        let frame = match &mut console {
+            StatefulSuperConsole::Running(c) => c
+                .canvas
+                .testing_terminal()
+                .test_output_mut()
+                .frames
+                .pop()
+                .internal_error("No frame was emitted")?,
+            StatefulSuperConsole::Finalized(_) => {
+                panic!("Console was downgraded");
+            }
+        };
+
+        assert_frame_contains(&frame, "SNOOP v2");
 
         Ok(())
     }
@@ -2087,7 +2193,7 @@ mod tests {
         let mut console = StatefulSuperConsole::new(
             "build",
             trace_id.dupe(),
-            test_console(),
+            ConsoleCanvas::Terminal(test_console()),
             Verbosity::default(),
             true,
             Timekeeper::new(
@@ -2103,7 +2209,8 @@ mod tests {
 
         let frame = match &mut console {
             StatefulSuperConsole::Running(c) => c
-                .super_console
+                .canvas
+                .testing_terminal()
                 .test_output_mut()
                 .frames
                 .pop()

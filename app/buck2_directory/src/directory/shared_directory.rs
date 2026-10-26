@@ -151,10 +151,6 @@ where
         })
     }
 
-    fn upgrade_weak(weak: &Self::Weak) -> Option<Self> {
-        weak.inner.upgrade().map(|inner| SharedDirectory { inner })
-    }
-
     fn serialize_inner(
         &self,
         ser: &mut dyn pagable::PagableSerializer,
@@ -208,6 +204,11 @@ where
 
     pub fn size(&self) -> u64 {
         self.inner.data.size
+    }
+
+    /// The allocation behind this handle, for identity comparisons and ordering.
+    pub fn allocation_ptr(&self) -> *const () {
+        Arc::as_ptr(&self.inner) as *const ()
     }
 
     pub fn into_builder(self) -> DirectoryBuilder<L, H> {
@@ -397,8 +398,12 @@ mod tests {
         let dir = builder.fingerprint(&TestHasher).shared(&interner);
 
         let weak = ArcErase::downgrade(&dir).expect("shared directory should support downgrade");
-        let upgraded = <SharedDirectory<NopEntry, TestDigest> as ArcErase>::upgrade_weak(&weak)
-            .expect("live shared directory should upgrade");
+        let upgraded = WeakErase::upgrade_weak(&weak)
+            .expect("live shared directory should upgrade")
+            .as_arc_any()
+            .downcast_ref::<SharedDirectory<NopEntry, TestDigest>>()
+            .expect("upgraded weak should be a shared directory")
+            .dupe();
 
         assert!(dir.ptr_eq(&upgraded));
         assert!(!WeakErase::is_expired(&weak));
@@ -407,7 +412,7 @@ mod tests {
         drop(upgraded);
 
         assert!(WeakErase::is_expired(&weak));
-        assert!(<SharedDirectory<NopEntry, TestDigest> as ArcErase>::upgrade_weak(&weak).is_none());
+        assert!(WeakErase::upgrade_weak(&weak).is_none());
         Ok(())
     }
 }

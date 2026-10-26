@@ -38,9 +38,12 @@ pub(crate) trait BuildListenerBackend {
         artifacts: impl IntoIterator<Item = NodeKey>,
     );
 
+    /// `discovery_edges` maps a node to the node that discovered it (an anon target to the
+    /// analysis that first discovered it; a package load to the load of the package whose
+    /// computation first requested it). Each becomes one extra dependency edge.
     fn finish(
         self,
-        anon_target_discovery_edges: BuckMutMap<NodeKey, NodeKey>,
+        discovery_edges: BuckMutMap<NodeKey, NodeKey>,
     ) -> Result<BuildInfo, CriticalPathError>;
 
     fn name() -> CriticalPathBackendName;

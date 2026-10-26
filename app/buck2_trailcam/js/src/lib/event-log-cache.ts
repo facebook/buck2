@@ -383,7 +383,8 @@ export async function startCachingInvocation(
       })
       .catch((err: unknown) => {
         console.warn(
-          `[event-log-cache] background cleanup ${eventLogPath} failed:`,
+          '[event-log-cache] background cleanup failed:',
+          eventLogPath,
           err,
         );
       });

@@ -11,6 +11,7 @@
 use std::hash::Hash;
 use std::sync::Arc;
 use std::time::Instant;
+use std::time::SystemTime;
 
 use async_trait::async_trait;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
@@ -75,6 +76,7 @@ use buck2_node::configured_universe::CqueryUniverse;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
+use buck2_server_ctx::commands::send_build_phase_end;
 use buck2_server_ctx::commands::send_target_cfg_event;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
@@ -419,6 +421,13 @@ async fn build(
             .await
         }
         .boxed()
+    });
+
+    let event_dispatcher = server_ctx.events().dupe();
+    let build_future = build_future.map(move |result| {
+        let build_succeeded = result.as_ref().is_ok_and(|r| !r.build_failed);
+        send_build_phase_end(&event_dispatcher, SystemTime::now(), build_succeeded);
+        result
     });
 
     let build_result = build::build_report::maybe_stream_build_reports(

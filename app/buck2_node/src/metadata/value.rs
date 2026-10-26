@@ -53,12 +53,18 @@ impl Hash for MetadataValue {
     }
 }
 
+/// The JSON walk feeds every value byte plus a tag per node, so it satisfies
+/// `StrongHash`'s completeness contract; there is no cached hash to leak.
 impl StrongHash for MetadataValue {
     fn strong_hash<H: Hasher>(&self, state: &mut H) {
         hash_json_value(&self.0, state);
     }
 }
 
+// Objects are hashed in map iteration order while JSON equality ignores key
+// order, so equal values hash equally only while iteration is canonical
+// (sorted). That holds for serde_json's default `BTreeMap` map backing and
+// breaks under its `preserve_order` feature (insertion-ordered `IndexMap`).
 pub(crate) fn hash_json_value<H: Hasher>(v: &serde_json::Value, state: &mut H) {
     use serde_json::Value;
 
@@ -102,5 +108,19 @@ pub(crate) fn hash_json_value<H: Hasher>(v: &serde_json::Value, state: &mut H) {
                 hash_json_value(v, state);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_json_object_iteration_is_sorted() {
+        let v: serde_json::Value = serde_json::from_str(r#"{"b":1,"a":2}"#).unwrap();
+        let keys: Vec<_> = v.as_object().unwrap().keys().collect();
+        assert_eq!(
+            keys,
+            ["a", "b"],
+            "hash_json_value hashes objects in iteration order, so iteration must be canonical (sorted)"
+        );
     }
 }

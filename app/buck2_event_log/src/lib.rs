@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-#![feature(used_with_arg)]
-
 use std::io;
 use std::process;
 use std::time::Duration;

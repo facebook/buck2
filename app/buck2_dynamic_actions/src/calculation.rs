@@ -94,8 +94,11 @@ impl Key for DynamicLambdaDiceKey {
         ctx.analysis_started(&self_deferred_key)?;
 
         let deferred_holder = lookup_deferred_holder(ctx, self.0.holder_key()).await?;
+        let rule_type = deferred_holder
+            .rule_type()
+            .map(|rule_type| rule_type.dupe());
         let lambda = FrozenDynamicLambdaParamsStorageImpl::lookup_lambda(
-            deferred_holder.analysis_values().analysis_storage()?,
+            deferred_holder.analysis_values()?.analysis_storage()?,
             &self.0,
         )?;
 
@@ -104,7 +107,10 @@ impl Key for DynamicLambdaDiceKey {
             .with_buck_error_context(|| {
                 format!("Error running dynamic analysis for `{}`", self.0.owner())
             })?;
-        let res = Arc::new(DynamicLambdaResult { analysis_values });
+        let res = Arc::new(DynamicLambdaResult {
+            analysis_values,
+            rule_type,
+        });
         ctx.analysis_complete(&self_deferred_key, &DeferredHolder::DynamicLambda(&res))?;
         Ok(res)
     }

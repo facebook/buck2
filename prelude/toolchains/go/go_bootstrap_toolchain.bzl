@@ -6,7 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//go_bootstrap:go_bootstrap.bzl", "GoBootstrapDistrInfo", "GoBootstrapToolchainInfo")
+load("@prelude//go_bootstrap:toolchain.bzl", "GoBootstrapDistrInfo", "GoBootstrapToolchainInfo")
 
 def _go_bootstrap_toolchain_impl(ctx):
     go_bootstrap_distr = ctx.attrs.go_bootstrap_distr[GoBootstrapDistrInfo]

@@ -15,7 +15,6 @@ use std::sync::Arc;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::name::CellName;
 use buck2_fs::paths::file_name::FileNameBuf;
 use buck2_hash::BuckMutSet;
@@ -50,10 +49,10 @@ impl DiceFileComputations {
     /// Filters out ignored paths
     pub async fn read_dir<'d>(
         ctx: &mut DiceComputations<'d>,
-        path: CellPathRef<'_>,
+        path: CellPath,
     ) -> buck2_error::Result<&'d ReadDirOutput> {
         ctx.compute(&ReadDirKey {
-            path: path.to_owned(),
+            path,
             check_ignores: CheckIgnores::Yes,
         })
         .await?
@@ -68,19 +67,17 @@ impl DiceFileComputations {
     /// elements before.
     pub async fn exists_matching_exact_case(
         ctx: &mut DiceComputations<'_>,
-        path: CellPathRef<'_>,
+        path: CellPath,
     ) -> buck2_error::Result<bool> {
-        ctx.compute(&ExistsMatchingExactCaseKey(path.to_owned()))
-            .await?
-            .dupe()
+        ctx.compute(&ExistsMatchingExactCaseKey(path)).await?.dupe()
     }
 
     pub async fn read_dir_include_ignores<'d>(
         ctx: &mut DiceComputations<'d>,
-        path: CellPathRef<'_>,
+        path: CellPath,
     ) -> buck2_error::Result<&'d ReadDirOutput> {
         ctx.compute(&ReadDirKey {
-            path: path.to_owned(),
+            path,
             check_ignores: CheckIgnores::No,
         })
         .await?
@@ -91,7 +88,7 @@ impl DiceFileComputations {
     /// Like read_dir, but with extended error information. This may add additional dice dependencies.
     pub async fn read_dir_ext(
         ctx: &mut DiceComputations<'_>,
-        path: CellPathRef<'_>,
+        path: CellPath,
     ) -> Result<ReadDirOutput, ReadDirError> {
         read_dir_ext(ctx, path).await
     }
@@ -101,9 +98,9 @@ impl DiceFileComputations {
     /// TODO(cjhopman): error on ignored paths, maybe.
     pub async fn read_file_if_exists(
         ctx: &mut DiceComputations<'_>,
-        path: CellPathRef<'_>,
+        path: CellPath,
     ) -> buck2_error::Result<Option<String>> {
-        ctx.compute(&ReadFileKey(Arc::new(path.to_owned())))
+        ctx.compute(&ReadFileKey(path))
             .await?
             .as_ref()
             .duped_err()?
@@ -114,7 +111,7 @@ impl DiceFileComputations {
     /// Does not check if the path is ignored
     pub async fn read_file(
         ctx: &mut DiceComputations<'_>,
-        path: CellPathRef<'_>,
+        path: CellPath,
     ) -> Result<String, FileReadError> {
         match Self::read_file_if_exists(ctx, path).await {
             Ok(result) => result.ok_or_else(|| FileReadError::NotFound(path.to_string())),
@@ -125,15 +122,15 @@ impl DiceFileComputations {
     /// Does not check if the path is ignored
     pub async fn read_path_metadata_if_exists(
         ctx: &mut DiceComputations<'_>,
-        path: CellPathRef<'_>,
+        path: CellPath,
     ) -> buck2_error::Result<Option<RawPathMetadata>> {
-        ctx.compute(&PathMetadataKey(path.to_owned())).await?.dupe()
+        ctx.compute(&PathMetadataKey(path)).await?.dupe()
     }
 
     /// Does not check if the path is ignored
     pub async fn read_path_metadata(
         ctx: &mut DiceComputations<'_>,
-        path: CellPathRef<'_>,
+        path: CellPath,
     ) -> Result<RawPathMetadata, FileReadError> {
         match Self::read_path_metadata_if_exists(ctx, path).await {
             Ok(result) => result.ok_or_else(|| FileReadError::NotFound(path.to_string())),
@@ -143,7 +140,7 @@ impl DiceFileComputations {
 
     pub async fn is_ignored(
         ctx: &mut DiceComputations<'_>,
-        path: CellPathRef<'_>,
+        path: CellPath,
     ) -> buck2_error::Result<FileIgnoreResult> {
         get_delegated_file_ops(ctx, path.cell(), CheckIgnores::Yes)
             .await?
@@ -192,8 +189,8 @@ impl FileChangeTracker {
         // See comment on `dir_entries_changed_for_watchman_bug`
         for p in self.paths_to_dirty.clone() {
             if let Some(dir) = p.0.parent() {
-                if self.maybe_modified_dirs.contains(&dir.to_owned()) {
-                    self.entry_added_or_removed(p.0.clone());
+                if self.maybe_modified_dirs.contains(&dir) {
+                    self.entry_added_or_removed(p.0);
                 }
             }
         }
@@ -207,22 +204,22 @@ impl FileChangeTracker {
     }
 
     fn entry_added_or_removed(&mut self, path: CellPath) {
-        self.paths_to_dirty.insert(PathMetadataKey(path.clone()));
+        self.paths_to_dirty.insert(PathMetadataKey(path));
         self.exists_matching_exact_case_to_dirty
-            .insert(ExistsMatchingExactCaseKey(path.clone()));
+            .insert(ExistsMatchingExactCaseKey(path));
         let parent = path.parent();
         if let Some(parent) = parent {
             // The above can be None (validly!) if we have a cell we either create or delete.
             // That never happens in established repos, but if you are setting one up, it's not uncommon.
             // Since we don't include paths in different cells, the fact we don't dirty the parent
             // (which is in an enclosing cell) doesn't matter.
-            self.insert_dir_keys(parent.to_owned());
+            self.insert_dir_keys(parent);
         }
     }
 
     fn insert_dir_keys(&mut self, path: CellPath) {
         self.dirs_to_dirty.insert(ReadDirKey {
-            path: path.clone(),
+            path,
             check_ignores: CheckIgnores::No,
         });
         self.dirs_to_dirty.insert(ReadDirKey {
@@ -232,7 +229,7 @@ impl FileChangeTracker {
     }
 
     pub fn file_added_or_removed(&mut self, path: CellPath) {
-        self.file_contents_changed(path.clone());
+        self.file_contents_changed(path);
         self.entry_added_or_removed(path);
     }
 
@@ -241,9 +238,8 @@ impl FileChangeTracker {
     }
 
     pub fn file_contents_changed(&mut self, path: CellPath) {
-        self.files_to_dirty
-            .insert(ReadFileKey(Arc::new(path.clone())));
-        self.paths_to_dirty.insert(PathMetadataKey(path.clone()));
+        self.files_to_dirty.insert(ReadFileKey(path));
+        self.paths_to_dirty.insert(PathMetadataKey(path));
     }
 
     /// Normally, buck does not need the file watcher to tell it that a directory's entries have
@@ -276,7 +272,7 @@ impl FileChangeTracker {
 #[derive(Clone, Dupe, Allocative, Pagable)]
 pub struct ReadFileValue {
     file_ops: FileOpsDelegateWithIgnores,
-    path: Arc<CellPath>,
+    path: CellPath,
 }
 
 impl ReadFileValue {
@@ -293,9 +289,11 @@ impl ReadFileValue {
     }
 }
 
-#[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
+#[derive(
+    Clone, Dupe, Copy, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable
+)]
 #[pagable_typetag(dice::DiceKeyDyn)]
-struct ReadFileKey(Arc<CellPath>);
+struct ReadFileKey(CellPath);
 
 #[async_trait]
 impl Key for ReadFileKey {
@@ -342,7 +340,7 @@ impl Key for ReadDirKey {
         _cancellations: &CancellationContext,
     ) -> Self::Value {
         let file_ops = get_delegated_file_ops(ctx, self.path.cell(), self.check_ignores).await?;
-        file_ops.read_dir(ctx, self.path.as_ref().path()).await
+        file_ops.read_dir(ctx, self.path.path()).await
     }
 
     fn equality_behavior() -> EqualityBehavior<Self::Value> {
@@ -410,18 +408,11 @@ impl Key for PathMetadataKey {
     ) -> Self::Value {
         let res = get_delegated_file_ops(ctx, self.0.cell(), CheckIgnores::No)
             .await?
-            .read_path_metadata_if_exists(ctx, self.0.as_ref().path())
+            .read_path_metadata_if_exists(ctx, self.0.path())
             .await?;
 
-        if let Some(RawPathMetadata::Symlink {
-            at: ref path,
-            to: _,
-        }) = res
-        {
-            ctx.compute(&ReadFileKey(path.dupe()))
-                .await?
-                .as_ref()
-                .duped_err()?;
+        if let Some(RawPathMetadata::Symlink { at, to: _ }) = res {
+            ctx.compute(&ReadFileKey(at)).await?.as_ref().duped_err()?;
         }
 
         Ok(res)
@@ -450,7 +441,7 @@ impl Key for PathMetadataKey {
 /// out-of-line impl for DiceComputations::read_dir_ext so it doesn't add noise to the api
 async fn read_dir_ext(
     ctx: &mut DiceComputations<'_>,
-    path: CellPathRef<'_>,
+    path: CellPath,
 ) -> Result<ReadDirOutput, ReadDirError> {
     match DiceFileComputations::read_dir(ctx, path).await {
         Ok(v) => Ok(v.dupe()),

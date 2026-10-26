@@ -175,7 +175,7 @@ async fn check_file_status(
     result.checking();
 
     let cell_path = cell_resolver.get_cell_path(path);
-    if DiceFileComputations::is_ignored(ctx, cell_path.as_ref())
+    if DiceFileComputations::is_ignored(ctx, cell_path)
         .await?
         .is_ignored()
     {
@@ -184,8 +184,7 @@ async fn check_file_status(
 
     let fs_metadata = io.read_path_metadata_if_exists(path.to_owned()).await?;
 
-    let dice_metadata =
-        DiceFileComputations::read_path_metadata_if_exists(ctx, cell_path.as_ref()).await?;
+    let dice_metadata = DiceFileComputations::read_path_metadata_if_exists(ctx, cell_path).await?;
 
     let (fs_metadata, dice_metadata) = match (&fs_metadata, &dice_metadata) {
         (Some(fs), Some(dice)) => (fs, dice),
@@ -213,7 +212,7 @@ async fn check_file_status(
                 to: dice_to,
             },
         ) => {
-            let dice_at = cell_resolver.resolve_path(dice_at.as_ref().as_ref())?;
+            let dice_at = cell_resolver.resolve_path(*dice_at)?;
             result.report("symlink component location", path, fs_at, &dice_at)?;
 
             result.report(
@@ -228,7 +227,7 @@ async fn check_file_status(
                     RawSymlink::Relative(fs_rel, fs_raw_rel),
                     RawSymlink::Relative(dice_rel, dice_raw_rel),
                 ) => {
-                    let dice_rel = cell_resolver.resolve_path(dice_rel.as_ref().as_ref())?;
+                    let dice_rel = cell_resolver.resolve_path(*dice_rel)?;
                     result.report("relative symlink destination", path, fs_rel, &dice_rel)?;
                     result.report(
                         "relative symlink destination raw",
@@ -250,7 +249,7 @@ async fn check_file_status(
         }
         (RawPathMetadata::Directory, RawPathMetadata::Directory) => {
             let fs_read_dir = io.read_dir(path.to_owned()).await?.into_entries();
-            let dice_read_dir = DiceFileComputations::read_dir(ctx, cell_path.as_ref()).await?;
+            let dice_read_dir = DiceFileComputations::read_dir(ctx, cell_path).await?;
 
             // No point checking file types here, we'll do that when we inspect them.
             let mut fs_names = fs_read_dir

@@ -31,7 +31,7 @@ internal constructor(
   override val names: List<String>
     get() = ftq.names
 
-  fun parametriseWith(generics: List<KType>): KType = KType(ftq, nullable, generics)
+  fun parametriseWith(generics: List<Type>): KType = KType(ftq, nullable, generics)
 
   companion object {
     val ANY_NULLABLE: KType = Any::class.asNullableKType()

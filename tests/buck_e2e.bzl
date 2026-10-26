@@ -9,7 +9,7 @@
 load("@fbcode//buck2/app:modifier.bzl", "buck2_modifiers")
 load("@fbcode_macros//build_defs:native_rules.bzl", "buck_filegroup")
 load("@fbcode_macros//build_defs:platform_utils.bzl", "platform_utils")
-load("@fbcode_macros//build_defs:python_pytest.bzl", "python_pytest")
+load("@fbcode_macros//build_defs:python_unittest.bzl", "python_unittest")
 load("@fbsource//tools/target_determinator/macros:ci.bzl", "ci")
 load("@fbsource//tools/target_determinator/macros:ci_hint.bzl", "ci_hint")
 
@@ -27,10 +27,6 @@ def buck_e2e_test(
     env = None,
     resources = None,
     skip_for_os = (),
-    pytest_config = None,
-    pytest_marks = None,
-    pytest_expr = None,
-    pytest_confcutdir = None,
     serialize_test_cases = None,
     require_nano_prelude = None,
     cfg_modifiers = None,
@@ -39,9 +35,11 @@ def buck_e2e_test(
     compatible_with = None,
     heavyweight_threads = "4",
     remote_execution = None,
+    network_access = None,
+    visibility = None,
 ):
     """
-    Custom macro for buck2/buckaemon end-to-end tests using pytest.
+    Custom macro for buck2/buckaemon end-to-end tests.
     """
     srcs = srcs or []
     labels = labels or []
@@ -58,14 +56,6 @@ def buck_e2e_test(
 
     # Having it enabled has significant negative impact on Starlark evaluation performance.
     env["RUST_LIB_BACKTRACE"] = "0"
-
-    # Flags passed to pytest.
-    # -vv shows full assertion output on failures.
-    # ---tb=native shows python native traceback instead of default pytest traceback with source code.
-    # --no-header disables headers printed after "test session starts" on output
-    # --no-summary disables pytest summary printed after each test run on output, including the
-    # traceback of an error raised while pytest imports a test module or its conftest
-    env.setdefault("PYTEST_ADDOPTS", "-vv --tb=native --no-header --no-summary")
 
     # For autodeps
     read_package_value = getattr(native, "read_package_value", None)
@@ -120,26 +110,20 @@ def buck_e2e_test(
     if require_nano_prelude:
         env["NANO_PRELUDE"] = "$(location fbcode//buck2/tests/e2e_util/nano_prelude:nano_prelude)"
 
-    deps += [
-        "fbsource//third-party/pypi/pytest:pytest",
-        "fbsource//third-party/pypi/pytest-asyncio:pytest-asyncio",
-        "fbcode//buck2/tests/e2e_util:utilities",
-    ]
+    deps += ["fbcode//buck2/tests/e2e_util:utilities"]
     if use_buck_api:
         deps += ["fbcode//buck2/tests/e2e_util/api:api"]
-    resources = resources or {}
 
-    # Let users of the macro define their own configuration for pytest. This allow for reusing all
-    # the fixture code for tools building e2e tests that also need a working buck environment.
-    if not "conftest.py" in resources.values():
-        resources["fbcode//buck2/tests/e2e_util:conftest.py"] = "conftest.py"
-
+    ci_removals = []
     if "darwin" in skip_for_os:
-        labels += ci.remove_labels(ci.mac(ci.aarch64(ci.opt())))
+        ci_removals.append(ci.remove(ci.mac(ci.aarch64(ci.opt()))))
     if "windows" in skip_for_os:
-        labels += ci.remove_labels(ci.windows(ci.opt()))
+        ci_removals.append(ci.remove(ci.windows(ci.opt())))
+    if ci_removals:
+        labels = _remove_ci_labels(labels, ci_removals)
 
-    python_pytest(
+    kwargs = {"visibility": visibility} if visibility != None else {}
+    python_unittest(
         name = name,
         base_module = base_module,
         srcs = srcs,
@@ -147,21 +131,27 @@ def buck_e2e_test(
         deps = deps,
         env = env,
         emails = contacts,
-        # Forwarded verbatim (python_pytest already accepts it): e2e tests
-        # boot buck2 daemons against the host checkout, so callers under an
-        # RE-by-default PACKAGE (re_test_utils.set_package_default) need the
-        # per-target `remote_execution = False` pin — the narrow form —
-        # instead of a directory-wide PACKAGE opt-out.
+        # Forwarded verbatim: e2e tests boot buck2 daemons against the host
+        # checkout, so callers under an RE-by-default PACKAGE
+        # (re_test_utils.set_package_default) need the per-target
+        # `remote_execution = False` pin — the narrow form — instead of a
+        # directory-wide PACKAGE opt-out.
         remote_execution = remote_execution,
+        # Forwarded verbatim for the same reason as `remote_execution`: the
+        # nested buck2 these tests spawn is resolved through DotSlash and talks
+        # to RE, so a caller under a no-network PACKAGE
+        # (network_access_utils.set_package_default) needs the per-target pin to
+        # keep its own unit tests isolated.
+        network_access = network_access,
         resources = resources,
         skip_on_mode_mac = "darwin" in skip_for_os,
         skip_on_mode_win = "windows" in skip_for_os,
-        pytest_config = pytest_config,
-        pytest_marks = pytest_marks,
-        pytest_expr = pytest_expr,
-        pytest_confcutdir = pytest_confcutdir,
         modifiers = cfg_modifiers,
         compatible_with = compatible_with,
+        # Static listing reads the test names off the source: it would miss the test cases
+        # `parametrize()` generates and list the method they come from.
+        supports_static_listing = False,
+        **kwargs,
     )
 
     if e2e_flavor == "buck2_non_isolated":
@@ -199,6 +189,20 @@ def buck_e2e_test(
             default_target_platform = platform_utils.get_cxx_platform_for_current_buildfile().target_platform,
         )
 
+def _remove_ci_labels(labels, removals):
+    """Apply CI removals without discarding CI labels the caller set.
+
+    Only the last `ci:overwrite` group on a target counts, so the caller's CI
+    labels must live in the same group as the removals.
+    """
+    ci_labels = [label for label in labels if label.startswith("ci:")]
+    other_labels = [label for label in labels if not label.startswith("ci:")]
+    if "ci:overwrite" in ci_labels:
+        for remove in removals:
+            ci_labels = remove(ci_labels)
+        return other_labels + ci_labels
+    return other_labels + ci.labels(*(ci_labels + removals))
+
 def buck2_e2e_test(
     name,
     test_with_compiled_buck2 = True,
@@ -217,10 +221,6 @@ def buck2_e2e_test(
     srcs = (),
     labels = (),
     resources = None,
-    pytest_config = None,
-    pytest_marks = None,
-    pytest_expr = None,
-    pytest_confcutdir = None,
     serialize_test_cases = None,
     require_nano_prelude = None,
     ci_srcs = [],
@@ -228,9 +228,11 @@ def buck2_e2e_test(
     compatible_with = None,
     heavyweight_threads = "4",
     remote_execution = None,
+    network_access = None,
+    visibility = None,
 ):
     """
-    Custom macro for buck2 end-to-end tests using pytest. All tests are run against buck2 compiled in-repo (compiled buck2).
+    Custom macro for buck2 end-to-end tests. All tests are run against buck2 compiled in-repo (compiled buck2).
 
     test_with_compiled_buck2:
         A boolean for whether to run tests with the compiled buck2.
@@ -264,16 +266,14 @@ def buck2_e2e_test(
         "data_dir": data_dir,
         "heavyweight_threads": heavyweight_threads,
         "labels": labels,
-        "pytest_confcutdir": pytest_confcutdir,
-        "pytest_config": pytest_config,
-        "pytest_expr": pytest_expr,
-        "pytest_marks": pytest_marks,
+        "network_access": network_access,
         "remote_execution": remote_execution,
         "require_nano_prelude": require_nano_prelude,
         "resources": resources,
         "serialize_test_cases": serialize_test_cases,
         "srcs": srcs,
         "use_buck_api": use_buck_api,
+        "visibility": visibility,
     }
 
     env = env or {}
@@ -291,13 +291,21 @@ def buck2_e2e_test(
         compiled_env["BUCK2_HARD_ERROR"] = "true"
         compiled_env["BUCK2_TPX"] = "$BUCK2_BINARY_DIR/buck2-tpx"
 
+        # The coverage wrapper maps profiles only against the test's own executable and
+        # `LLVM_COVERAGE_ADDITIONAL_OBJECT_PATHS`. Each branch lists the binaries the test runs;
+        # without them, their coverage is dropped and coverage-based test selection does not
+        # link these tests to buck2 or tpx sources.
         if use_compiled_buck2_client_and_tpx:
+            compiled_env["LLVM_COVERAGE_ADDITIONAL_OBJECT_PATHS"] = ";".join(
+                ["$(location fbcode//buck2:symlinked_buck2_and_tpx)/" + binary for binary in ["buck2", "buck2-daemon", "buck2-tpx"]]
+            )
             base_exe = "$(location fbcode//buck2:symlinked_buck2_and_tpx)/buck2"
             exe = select({
                 "DEFAULT": base_exe,
                 "ovr_config//os:windows": base_exe + ".exe",
             })
         else:
+            compiled_env["LLVM_COVERAGE_ADDITIONAL_OBJECT_PATHS"] = "$(location fbcode//buck2:buck2)"
             exe = "$(location fbcode//buck2:buck2)"
 
         buck_e2e_test(
@@ -331,7 +339,10 @@ def buck2_e2e_test(
         previous_env["BUCK2_CHANNEL"] = "previous"
         buck_e2e_test(name = name + "_with_reverted_buck2", env = previous_env, executable = "buck2", skip_for_os = skip_for_os, deps = deps, **kwargs)
 
-def buck2_core_tests(extra_attrs = {}, target_extra_attrs = {}, allow_bundled_cells = False):
+# Materializer implementations other than the default, by their `buck2.materializer` value.
+OTHER_MATERIALIZERS = ["v2"]
+
+def buck2_core_tests(extra_attrs = {}, target_extra_attrs = {}, allow_bundled_cells = False, materializer_variants = []):
     """
     A little wrapper that generates `buck2_e2e_test`s for core tests.
 
@@ -342,6 +353,9 @@ def buck2_core_tests(extra_attrs = {}, target_extra_attrs = {}, allow_bundled_ce
     allow_bundled_cells:
         Lets fixtures use bundled external cells other than the nano prelude, which the test
         harness otherwise rejects. Only for tests of the external cells machinery itself.
+    materializer_variants:
+        Test targets to also generate as `<target>_<materializer>` for every other
+        materializer implementation, so that a suite runs against each core.
     """
 
     # @lint-ignore BUCKRESTRICTEDSYNTAX
@@ -393,10 +407,24 @@ def buck2_core_tests(extra_attrs = {}, target_extra_attrs = {}, allow_bundled_ce
             attrs["deps"].extend(IMPLICIT_DEPS)
 
             buck2_e2e_test(name = target, **attrs)
+            if target in materializer_variants:
+                for materializer in OTHER_MATERIALIZERS:
+                    variant_attrs = dict(attrs)
+                    variant_attrs["env"] = dict(attrs.get("env") or {})
+                    variant_attrs["env"]["BUCK2_TEST_MATERIALIZER"] = materializer
+                    if data_dir:
+                        # The data filegroup already exists for the main target.
+                        variant_attrs["data_dir"] = None
+                        variant_attrs["env"]["TEST_REPO_DATA"] = "$(location :{d})/{d}".format(d = data_dir)
+                        variant_attrs.setdefault("require_nano_prelude", True)
+                    buck2_e2e_test(name = target + "_" + materializer, **variant_attrs)
             continue
         fail("Expected all directory entries to look like `test_*_data` or `test_*.py`, not {}".format(item))
 
     # Check that all target attrs actually correspond to a target
     for t in target_extra_attrs.keys():
+        if t not in generated_targets:
+            fail("No such target {}".format(t))
+    for t in materializer_variants:
         if t not in generated_targets:
             fail("No such target {}".format(t))

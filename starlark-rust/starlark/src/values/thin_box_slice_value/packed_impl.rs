@@ -16,9 +16,9 @@
  */
 
 use std::marker::PhantomData;
-use std::num::NonZeroUsize;
 use std::ops::Deref;
 use std::ptr;
+use std::ptr::NonNull;
 
 use either::Either;
 use static_assertions::assert_eq_align;
@@ -43,7 +43,12 @@ use crate::values::thin_box_slice_value::thin_box::AllocatedThinBoxSlice;
 /// They are told apart by the tag in the word's low bits, which an `AllocatedThinBoxSlice`
 /// always has and a `Value` never does.
 #[repr(transparent)]
-struct PackedImpl<'v>(NonZeroUsize, PhantomData<Value<'v>>);
+struct PackedImpl<'v>(NonNull<()>, PhantomData<Value<'v>>);
+
+// SAFETY: The word is a `Value<'v>` or an owned slice of them, so the auto traits are those of
+// `Value<'v>`, which the `PhantomData` already says; the `NonNull` would otherwise deny them.
+unsafe impl<'v> Send for PackedImpl<'v> where Value<'v>: Send {}
+unsafe impl<'v> Sync for PackedImpl<'v> where Value<'v>: Sync {}
 
 assert_eq_size!(PackedImpl<'static>, Value<'static>);
 assert_eq_align!(PackedImpl<'static>, Value<'static>);
@@ -52,14 +57,14 @@ assert_eq_align!(PackedImpl<'static>, AllocatedThinBoxSlice<Value<'static>>);
 
 impl<'v> PackedImpl<'v> {
     const fn new_allocated(allocated: AllocatedThinBoxSlice<Value<'v>>) -> Self {
-        let Some(word) = NonZeroUsize::new(allocated.into_inner()) else {
+        let Some(word) = NonNull::new(allocated.into_inner()) else {
             panic!("an `AllocatedThinBoxSlice`'s word carries a nonzero tag")
         };
         Self(word, PhantomData)
     }
 
     fn new_inline(value: Value<'v>) -> Self {
-        Self(value.ptr_value().0, PhantomData)
+        Self(value.ptr_value().ptr(), PhantomData)
     }
 
     fn new(iter: impl IntoIterator<Item = Value<'v>>) -> Self {
@@ -77,7 +82,7 @@ impl<'v> PackedImpl<'v> {
 
     fn unpack<'a>(&'a self) -> Either<&'a Value<'v>, &'a AllocatedThinBoxSlice<Value<'v>>> {
         let word = ptr::from_ref(self);
-        if AllocatedThinBoxSlice::<Value<'v>>::is_word(self.0.get()) {
+        if AllocatedThinBoxSlice::<Value<'v>>::is_word(self.0.addr().get()) {
             // SAFETY: No `Value` carries this tag, so the word was built by `new_allocated`, from
             // a value of the target type; the types are one word of the same layout.
             Either::Right(unsafe { &*word.cast::<AllocatedThinBoxSlice<Value<'v>>>() })
@@ -97,7 +102,7 @@ impl<'v> PackedImpl<'v> {
 
     fn as_mut_slice(&mut self) -> &mut [Value<'v>] {
         let word = ptr::from_mut(self);
-        if AllocatedThinBoxSlice::<Value<'v>>::is_word(self.0.get()) {
+        if AllocatedThinBoxSlice::<Value<'v>>::is_word(self.0.addr().get()) {
             // SAFETY: as in `unpack`, with exclusive access through `&mut self`.
             unsafe { &mut *word.cast::<AllocatedThinBoxSlice<Value<'v>>>() }
         } else {
@@ -296,7 +301,7 @@ mod tests {
         Heap::temp(|heap| {
             for value in one_of_each_tag(heap) {
                 assert!(
-                    !AllocatedThinBoxSlice::<Value>::is_word(value.ptr_value().0.get()),
+                    !AllocatedThinBoxSlice::<Value>::is_word(value.ptr_value().ptr_value()),
                     "{value:?}"
                 );
             }
@@ -374,10 +379,12 @@ mod tests {
         assert_eq!(val_a.0.0, val_c.0);
         assert_eq!(mem::size_of_val(&val_c), mem::size_of::<usize>());
         // The empty slice is the null address under an allocated tag.
-        assert_eq!(val_c.0.get() & !TAG_MASK, 0);
-        assert!(AllocatedThinBoxSlice::<Value>::is_word(val_c.0.get()));
+        assert_eq!(val_c.0.addr().get() & !TAG_MASK, 0);
+        assert!(AllocatedThinBoxSlice::<Value>::is_word(
+            val_c.0.addr().get()
+        ));
         assert_eq!(
-            val_c.0.get(),
+            val_c.0.as_ptr(),
             AllocatedThinBoxSlice::<Value>::empty().into_inner()
         );
     }

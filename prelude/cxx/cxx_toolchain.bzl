@@ -7,6 +7,8 @@
 # above-listed licenses.
 
 load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
+load("@prelude//cxx:attrs.bzl", "cxx_common")
 load("@prelude//cxx:compile.bzl", "compiler_info_with_toolchain_argsfiles")
 load(
     "@prelude//cxx:cxx_toolchain_types.bzl",
@@ -14,6 +16,7 @@ load(
     "AsmCompilerInfo",
     "BinaryUtilitiesInfo",
     "CCompilerInfo",
+    "CXX_COMPILER_TYPES",
     "CudaCompilerInfo",
     "CvtresCompilerInfo",
     "CxxCompilerInfo",
@@ -36,13 +39,8 @@ load("@prelude//cxx:cxx_utility.bzl", "cxx_toolchain_allow_cache_upload_args")
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load("@prelude//cxx:headers.bzl", "HeaderMode", "HeadersAsRawHeadersMode", "RawHeadersAsHeadersMode")
 load("@prelude//cxx:linker.bzl", "LINKERS", "is_pdb_generated")
-load("@prelude//decls:cxx_rules.bzl", "cxx_rules")
-load(
-    "@prelude//linking:link_info.bzl",
-    "LibOutputStyle",
-    "LinkOrdering",
-    "LinkStyle",
-)
+load("@prelude//decls:common.bzl", "buck")
+load("@prelude//linking:link_info.bzl", "ArchiveContentsType", "LibOutputStyle", "LinkOrdering", "LinkStyle")
 load("@prelude//linking:linkable_graph.bzl", "LinkableGraph")
 load("@prelude//linking:lto.bzl", "LtoMode", "lto_compiler_flags")
 load(
@@ -422,14 +420,127 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "_msvc_hermetic_exec": attrs.default_only(dep_type(providers = [RunInfo], default = "prelude//windows/tools:msvc_hermetic_exec")),
     } | cxx_toolchain_allow_cache_upload_args()
 
-def _cxx_toolchain_inheriting_target_platform_attrs():
-    attrs = dict(cxx_rules.cxx_toolchain.attrs)
-    attrs.update(cxx_toolchain_extra_attributes(is_toolchain_rule = True))
-    return attrs
+ArchiverProviderType = ["bsd", "gnu", "llvm", "windows", "windows_clang"]
+
+LinkerProviderType = ["darwin", "gnu", "windows", "unknown", "wasm"]
+
+PicType = ["pic", "pdc"]
+
+def _cxx_toolchain_base_attrs() -> dict[str, Attr]:
+    return (
+        cxx_common.raw_headers_as_headers_mode_arg()
+        | {
+            "archive_contents": attrs.enum(ArchiveContentsType.values(), default = "normal"),
+            "archiver": attrs.source(),
+            "archiver_flags": attrs.list(attrs.arg(), default = []),
+            "archiver_type": attrs.enum(ArchiverProviderType),
+            "asm_compiler": attrs.option(attrs.source(), default = None),
+            "asm_compiler_flags": attrs.list(attrs.arg(), default = []),
+            "asm_compiler_type": attrs.option(attrs.enum(CXX_COMPILER_TYPES), default = None),
+            "asm_preprocessor": attrs.option(attrs.source(), default = None),
+            "asm_preprocessor_flags": attrs.list(attrs.arg(), default = []),
+            "asm_preprocessor_type": attrs.option(attrs.enum(CXX_COMPILER_TYPES), default = None),
+            "assembler": attrs.source(),
+            "assembler_flags": attrs.list(attrs.arg(), default = []),
+            "assembler_preprocessor": attrs.option(attrs.source(), default = None),
+            "assembler_preprocessor_flags": attrs.list(attrs.arg(), default = []),
+            "assembler_preprocessor_type": attrs.option(attrs.enum(CXX_COMPILER_TYPES), default = None),
+            "assembler_type": attrs.option(attrs.enum(CXX_COMPILER_TYPES), default = None),
+            "binary_extension": attrs.option(attrs.string(), default = None),
+            "binary_linker_flags": attrs.list(
+                attrs.arg(anon_target_compatible = True),
+                default = [],
+                doc = """
+                Linker flags that apply to all links coordinated by a binary
+                rule.  One key distinction between these and `executable_linker_flags`
+                is that these will also apply to library links coordinated by
+                binary rules (e.g. linking roots/deps when using native python or
+                omnibus link strategies).
+                """,
+            ),
+            "bolt": attrs.source(),
+            "c_compiler": attrs.source(),
+            "c_compiler_flags": attrs.list(attrs.arg(), default = []),
+            "c_compiler_type": attrs.option(attrs.enum(CXX_COMPILER_TYPES), default = None),
+            "c_preprocessor_flags": attrs.list(attrs.arg(), default = []),
+            "cache_links": attrs.bool(default = False),
+            "compiler_type": attrs.option(attrs.enum(CXX_COMPILER_TYPES), default = None),
+            "cuda_compiler": attrs.option(attrs.source(), default = None),
+            "cuda_compiler_flags": attrs.list(attrs.arg(), default = []),
+            "cuda_compiler_type": attrs.option(attrs.enum(CXX_COMPILER_TYPES), default = None),
+            "cuda_preprocessor_flags": attrs.list(attrs.arg(), default = []),
+            "custom_tools": attrs.dict(key = attrs.string(), value = attrs.source(), default = {}),
+            "cvtres_compiler": attrs.option(attrs.source(), default = None),
+            "cvtres_compiler_flags": attrs.list(attrs.arg(), default = []),
+            "cvtres_compiler_type": attrs.option(attrs.enum(CXX_COMPILER_TYPES), default = None),
+            "cvtres_preprocessor_flags": attrs.list(attrs.arg(), default = []),
+            "cxx_compiler": attrs.source(),
+            "cxx_compiler_flags": attrs.list(attrs.arg(), default = []),
+            "cxx_compiler_type": attrs.option(attrs.enum(CXX_COMPILER_TYPES), default = None),
+            "cxx_preprocessor_flags": attrs.list(attrs.arg(), default = []),
+            "debug_path_prefix_map_sanitizer_format": attrs.option(attrs.string(), default = None),
+            "dist_thin_lto_codegen_flags": attrs.list(attrs.arg(), default = []),
+            "executable_linker_flags": attrs.list(
+                attrs.arg(anon_target_compatible = True),
+                default = [],
+                doc = """
+                Linker flags that only apply when linking an executable.
+                """,
+            ),
+            "extra_linker_outputs": attrs.set(attrs.string(), default = []),
+            "headers_as_raw_headers_mode": attrs.option(attrs.enum(HeadersAsRawHeadersMode.values()), default = None),
+            "hip_compiler": attrs.option(attrs.source(), default = None),
+            "hip_compiler_flags": attrs.list(attrs.arg(), default = []),
+            "hip_compiler_type": attrs.option(attrs.enum(CXX_COMPILER_TYPES), default = None),
+            "hip_preprocessor_flags": attrs.list(attrs.arg(), default = []),
+            "link_metadata_flag": attrs.option(attrs.string(), default = None),
+            "link_style": attrs.enum(
+                LinkStyle.values(),
+                default = "static",
+                doc = """
+                The default value of the `link_style` attribute for rules that use this toolchain.
+                """,
+            ),
+            "linker": attrs.source(),
+            "linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
+            "linker_type": attrs.enum(LinkerProviderType),
+            "nm": attrs.source(),
+            "objc_compiler_flags": attrs.list(attrs.arg(), default = []),
+            "objcopy_for_shared_library_interface": attrs.source(),
+            "objcxx_compiler_flags": attrs.list(attrs.arg(), default = []),
+            "objdump": attrs.option(attrs.source(), default = None),
+            "object_file_extension": attrs.string(default = ""),
+            "post_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
+            "private_headers_symlinks_enabled": attrs.bool(default = False),
+            "public_headers_symlinks_enabled": attrs.bool(default = False),
+            "ranlib": attrs.option(attrs.source(), default = None),
+            "ranlib_flags": attrs.list(attrs.arg(), default = []),
+            "rc_compiler": attrs.option(attrs.source(), default = None),
+            "rc_compiler_flags": attrs.list(attrs.arg(), default = []),
+            "rc_compiler_type": attrs.option(attrs.enum(CXX_COMPILER_TYPES), default = None),
+            "rc_preprocessor_flags": attrs.list(attrs.arg(), default = []),
+            "requires_archives": attrs.bool(default = False),
+            "shared_dep_runtime_ld_flags": attrs.list(attrs.arg(), default = []),
+            "shared_library_extension": attrs.string(default = ""),
+            "shared_library_interface_flags": attrs.list(attrs.string(), default = []),
+            "shared_library_versioned_extension_format": attrs.string(default = ""),
+            "static_dep_runtime_ld_flags": attrs.list(attrs.arg(), default = []),
+            "static_library_extension": attrs.string(default = ""),
+            "static_pic_dep_runtime_ld_flags": attrs.list(attrs.arg(), default = []),
+            "strip": attrs.source(),
+            "strip_all_flags": attrs.option(attrs.list(attrs.arg()), default = None),
+            "strip_debug_flags": attrs.option(attrs.list(attrs.arg()), default = None),
+            "strip_non_global_flags": attrs.option(attrs.list(attrs.arg()), default = None),
+            "use_header_map": attrs.bool(default = False),
+        }
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
+    )
 
 cxx_toolchain_inheriting_target_platform = rule(
     impl = cxx_toolchain_impl,
-    attrs = _cxx_toolchain_inheriting_target_platform_attrs(),
+    attrs = _cxx_toolchain_base_attrs() | cxx_toolchain_extra_attributes(is_toolchain_rule = True),
     is_toolchain_rule = True,
 )
 
@@ -482,3 +593,24 @@ def _get_maybe_wrapped_msvc(compiler: RunInfo, compiler_type: str, msvc_hermetic
     if compiler_type == "windows":
         return RunInfo(args = cmd_args(msvc_hermetic_exec, compiler))
     return compiler
+
+cxx_toolchain = prelude_rule(
+    name = "cxx_toolchain",
+    impl = cxx_toolchain_impl,
+    docs = """
+        A `cxx_toolchain()` rule declares a complete C/C++ toolchain — a
+        set of compilers (C, C++, Objective-C, asm, CUDA, HIP, etc.),
+        preprocessors, linker, archiver, and binary utilities (`strip`,
+        `objcopy`, `dwp`, `nm`, etc.) — along with the flags and behavior
+        options that control how each tool is invoked.
+
+        Native rules (`cxx_binary()`, `cxx_library()`, `cxx_test()`,
+        `prebuilt_cxx_library()`, etc.) and rules in other languages that
+        ultimately link native code (e.g. `python_binary()`,
+        `rust_binary()`, `haskell_binary()`) consume a `cxx_toolchain()`
+        via a toolchain dependency to compile and link their outputs.
+    """,
+    examples = None,
+    further = None,
+    attrs = _cxx_toolchain_base_attrs() | cxx_toolchain_extra_attributes(is_toolchain_rule = False),
+)

@@ -243,8 +243,8 @@ where
             } else {
                 tokio::fs::copy(&entry.path(), &entry_destination_path)
                     .await
-                    .buck_error_context(format!("Copying file {:?}", entry.path()))
-                    .map(|_| ())
+                    .buck_error_context(format!("Copying file {:?}", entry.path()))?;
+                make_writable(&entry_destination_path)
             }
         })
         .await?;
@@ -271,7 +271,7 @@ async fn copy_file(src: &Path, dst: &Path) -> buck2_error::Result<()> {
     // NOTE: We don't do the overwrite since we might be writing to e.g. a pipe here and we can't
     // do an atomic move into it.
     match tokio::fs::copy(src, &dest_path).await {
-        Ok(..) => Ok(()),
+        Ok(..) => make_writable(&dest_path),
         Err(e) if e.raw_os_error() == Some(libc::ETXTBSY) => {
             let dir = dest_path
                 .parent()
@@ -283,11 +283,25 @@ async fn copy_file(src: &Path, dst: &Path) -> buck2_error::Result<()> {
             tmp_name.push(".buck2.tmp");
             let tmp_path = dir.join(tmp_name);
             tokio::fs::copy(src, &tmp_path).await?;
-            tokio::fs::rename(&tmp_path, dest_path).await?;
-            Ok(())
+            tokio::fs::rename(&tmp_path, &dest_path).await?;
+            make_writable(&dest_path)
         }
         Err(e) => Err(convert_broken_pipe_error(e)),
     }
+}
+
+/// A copy carries the output's mode, which may be read-only (`buck2.readonly_outputs`), and a
+/// file outside buck-out is the user's to write. Nothing is done to what is not a plain file, a
+/// device `--out` was pointed at for one.
+fn make_writable(path: &Path) -> buck2_error::Result<()> {
+    let path = AbsPath::new(path)?;
+    if fs_util::symlink_metadata(path)
+        .categorize_internal()?
+        .is_file()
+    {
+        fs_util::set_writable(path, true).categorize_internal()?;
+    }
+    Ok(())
 }
 
 fn convert_broken_pipe_error(e: io::Error) -> buck2_error::Error {
@@ -304,6 +318,33 @@ mod tests {
     use tempfile::TempDir;
 
     use super::*;
+
+    #[tokio::test]
+    async fn test_copies_of_read_only_outputs_are_writable() -> buck2_error::Result<()> {
+        let src_dir = tempfile::tempdir()?;
+        let dst_dir = tempfile::tempdir()?;
+        std::fs::create_dir_all(src_dir.path().join("dir"))?;
+        for p in ["dir/sealed", "sealed"] {
+            let path = src_dir.path().join(p);
+            std::fs::write(&path, "content")?;
+            fs_util::set_writable(AbsPath::new(&path)?, false)?;
+        }
+        let (src, dst) = (src_dir.path().join("dir"), dst_dir.path().join("dir"));
+        let copy_context = CopyContext {
+            relative_symlink_boundary: fs_util::canonicalize(AbsPath::new(src_dir.path())?)?,
+        };
+        copy_directory(AbsPath::new(&src)?, AbsPath::new(&dst)?, &copy_context).await?;
+        let (src, dst) = (src_dir.path().join("sealed"), dst_dir.path().join("sealed"));
+        copy_file(&src, &dst).await?;
+        // Over the previous copy, as a second `--out` to the same path goes.
+        copy_file(&src, &dst).await?;
+
+        for p in ["dir/sealed", "sealed"] {
+            let copied = std::fs::metadata(dst_dir.path().join(p))?;
+            assert!(!copied.permissions().readonly(), "{p}");
+        }
+        Ok(())
+    }
 
     #[tokio::test]
     async fn test_copy_directory() -> buck2_error::Result<()> {

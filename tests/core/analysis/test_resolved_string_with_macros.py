@@ -10,14 +10,14 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_startswith(buck: Buck) -> None:
-    await buck.build("//:test_startswith")
+class ResolvedStringWithMacrosTest(BuckTestCase):
+    @buck_test()
+    async def test_startswith(self, buck: Buck) -> None:
+        await buck.build("//:test_startswith")
 
-
-@buck_test()
-async def test_equality(buck: Buck) -> None:
-    await buck.build("//:test_equality")
+    @buck_test()
+    async def test_equality(self, buck: Buck) -> None:
+        await buck.build("//:test_equality")

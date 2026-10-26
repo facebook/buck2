@@ -45,6 +45,26 @@ fn test_inputs_outputs() -> buck2_error::Result<()> {
 }
 
 #[test]
+fn test_inputs_equality_ignores_order() -> buck2_error::Result<()> {
+    let mut tester = tester()?;
+    tester.run_starlark_bzl_test(indoc!(
+        r#"
+        def test():
+            a = source_artifact("foo", "a.h")
+            b = source_artifact("foo", "b.h")
+            c = source_artifact("foo", "c.h")
+
+            inputs = cmd_args(a, b).inputs
+            assert_eq(inputs, cmd_args(b, a).inputs)
+            assert_eq(inputs, cmd_args(b, hidden = [a, b]).inputs)
+            assert_eq(False, inputs == cmd_args(a).inputs)
+            assert_eq(False, inputs == cmd_args(a, c).inputs)
+        "#
+    ))?;
+    Ok(())
+}
+
+#[test]
 fn test_ignore_artifacts() -> buck2_error::Result<()> {
     let mut tester = tester()?;
     tester.run_starlark_bzl_test(indoc!(
@@ -63,6 +83,58 @@ fn test_ignore_artifacts() -> buck2_error::Result<()> {
             assert_eq([], cli.outputs)
 
             assert_eq_ignore_hash(["buck-out/v2/art/root/<HASH>/__dep2__/dir/quz.h"], get_args(cli))
+        "#
+    ))?;
+    Ok(())
+}
+
+#[test]
+fn test_salt_hidden_is_a_dependency() -> buck2_error::Result<()> {
+    let mut tester = tester()?;
+    tester.run_starlark_bzl_test(indoc!(
+        r#"
+        def test():
+            artifact = bound_artifact("//:dep2", "dir/quz.h")
+
+            cli = cmd_args(hidden = artifact, experimental_salt_hidden = True)
+            assert_eq(make_inputs([artifact]), cli.inputs)
+            assert_eq([], get_args(cli))
+
+            # Everything reached through the salted hidden list is covered,
+            # including nested hidden lists and rendered items below it.
+            nested = cmd_args(hidden = cmd_args(hidden = artifact), experimental_salt_hidden = True)
+            assert_eq(make_inputs([artifact]), nested.inputs)
+            with_ignore = cmd_args(hidden = artifact, ignore_artifacts = True, experimental_salt_hidden = True)
+            assert_eq(make_inputs([artifact]), with_ignore.inputs)
+        "#
+    ))?;
+    Ok(())
+}
+
+#[test]
+fn test_ignore_artifacts_hidden_static_path_is_not_a_dependency() -> buck2_error::Result<()> {
+    let mut tester = tester()?;
+    tester.run_starlark_bzl_test(indoc!(
+        r#"
+        def test():
+            artifact = bound_artifact("//:dep2", "dir/quz.h")
+            assert_eq(make_inputs([]), cmd_args(hidden = artifact, ignore_artifacts = True).inputs)
+        "#
+    ))?;
+    Ok(())
+}
+
+#[test]
+fn test_ignore_artifacts_under_enclosing_hidden_is_not_a_dependency() -> buck2_error::Result<()> {
+    let mut tester = tester()?;
+    tester.run_starlark_bzl_test(indoc!(
+        r#"
+        def test():
+            artifact = bound_artifact("//:dep2", "dir/quz.h")
+
+            # A hidden argument list may exempt one path from being a dependency.
+            assert_eq(make_inputs([]), cmd_args(hidden = cmd_args(artifact, ignore_artifacts = True)).inputs)
+            assert_eq(make_inputs([]), cmd_args(hidden = [cmd_args(artifact, ignore_artifacts = True), "x"]).inputs)
         "#
     ))?;
     Ok(())

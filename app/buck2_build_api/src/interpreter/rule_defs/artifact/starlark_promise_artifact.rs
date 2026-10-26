@@ -54,6 +54,7 @@ use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
+use crate::interpreter::rule_defs::cmd_args::InputProperties;
 use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command_line_arg_like_impl;
 
@@ -281,7 +282,7 @@ impl<'v> CommandLineArgLike<'v> for StarlarkPromiseArtifact {
         &self,
         visitor: &mut dyn CommandLineArtifactVisitor<'v>,
     ) -> buck2_error::Result<()> {
-        visitor.visit_input(self.as_artifact(), vec![]);
+        visitor.visit_input(self.as_artifact(), InputProperties::default(), vec![]);
         Ok(())
     }
 

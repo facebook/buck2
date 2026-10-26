@@ -101,19 +101,26 @@ def main() -> None:
     if os.name != "nt":
         offline_mirror = os.path.realpath(offline_mirror)
     env = {"YARN_YARN_OFFLINE_MIRROR": offline_mirror}
-    run(
-        yarn
-        + [
-            "--cwd",
-            tmp_src_path,
-            "install",
-            "--offline",
-            "--frozen-lockfile",
-            "--ignore-scripts",
-            "--check-files",
-        ],
-        env=env,
-    )
+    # Yarn's default cache is shared by every yarn process on the host and has
+    # no cross-process locking, so concurrent installs corrupt it.
+    with tempfile.TemporaryDirectory(
+        prefix="yarn_cache", dir=args.tmp, ignore_cleanup_errors=True
+    ) as yarn_cache:
+        run(
+            yarn
+            + [
+                "--cwd",
+                tmp_src_path,
+                "install",
+                "--offline",
+                "--frozen-lockfile",
+                "--ignore-scripts",
+                "--check-files",
+                "--cache-folder",
+                yarn_cache,
+            ],
+            env=env,
+        )
 
     rm_rf(os.path.join(tmp_src_path, "dist"))
 

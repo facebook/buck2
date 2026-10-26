@@ -164,7 +164,7 @@ fn test_remove_path() {
 }
 
 #[cfg(test)]
-mod state_machine {
+pub(crate) mod state_machine {
     #[cfg(all(unix, not(target_os = "macos")))]
     use std::ffi::OsString;
     #[cfg(all(unix, not(target_os = "macos")))]
@@ -215,14 +215,14 @@ mod state_machine {
     use crate::sqlite::materializer_db::testing_materializer_state_sqlite_db;
 
     #[derive(Debug, Eq, PartialEq, Allocative)]
-    enum Op {
+    pub(crate) enum Op {
         Clean,
         Materialize,
         MaterializeError,
     }
 
     #[derive(Allocative)]
-    struct StubIoHandler {
+    pub(crate) struct StubIoHandler {
         log: Mutex<Vec<(Op, ProjectRelativePathBuf)>>,
         fail: Mutex<bool>,
         fail_paths: Mutex<Vec<ProjectRelativePathBuf>>,
@@ -267,7 +267,7 @@ mod state_machine {
     }
 
     impl StubIoHandler {
-        fn take_log(&self) -> Vec<(Op, ProjectRelativePathBuf)> {
+        pub(crate) fn take_log(&self) -> Vec<(Op, ProjectRelativePathBuf)> {
             std::mem::take(&mut *self.log.lock())
         }
 
@@ -275,7 +275,7 @@ mod state_machine {
             *self.fail.lock() = fail;
         }
 
-        fn set_fail_on(&self, paths: Vec<ProjectRelativePathBuf>) {
+        pub(crate) fn set_fail_on(&self, paths: Vec<ProjectRelativePathBuf>) {
             *self.fail_paths.lock() = paths;
         }
 
@@ -291,7 +291,7 @@ mod state_machine {
             *self.invalidated_clean_attempts.lock()
         }
 
-        pub fn new(fs: ProjectRoot) -> Self {
+        pub(crate) fn new(fs: ProjectRoot) -> Self {
             Self {
                 log: Default::default(),
                 fail: Default::default(),
@@ -437,13 +437,17 @@ mod state_machine {
             unimplemented!()
         }
 
+        /// The stub has no CAS to upload to; a caller sees the failure it would see offline.
         async fn upload_materialized_artifact(
             self: &Arc<Self>,
-            _path: ProjectRelativePathBuf,
+            path: ProjectRelativePathBuf,
             _entry: ActionDirectoryEntry<ActionSharedDirectory>,
             _info: Arc<CasDownloadInfo>,
         ) -> buck2_error::Result<()> {
-            unimplemented!()
+            Err(buck2_error!(
+                buck2_error::ErrorTag::Tier0,
+                "The IO stub cannot upload `{path}`"
+            ))
         }
 
         fn read_dir(&self, path: &AbsNormPathBuf) -> buck2_error::Result<ReadDir> {
@@ -475,6 +479,21 @@ mod state_machine {
 
         fn digest_config(&self) -> DigestConfig {
             self.digest_config
+        }
+
+        async fn seal(
+            self: &Arc<Self>,
+            _path: ProjectRelativePathBuf,
+            _entry: ActionDirectoryEntry<ActionSharedDirectory>,
+        ) -> buck2_error::Result<()> {
+            Ok(())
+        }
+
+        async fn make_outputs_writable(
+            self: &Arc<Self>,
+            _paths: Vec<ProjectRelativePathBuf>,
+        ) -> buck2_error::Result<()> {
+            Ok(())
         }
     }
 
@@ -756,11 +775,10 @@ mod state_machine {
             let artifact = ArtifactValue::file(io.digest_config().empty_file());
             let (dm, _daemon_dispatcher_events) = make_materializer(io, None).await;
 
-            dm.declare_existing(
-                &WriteLease::noop(),
-                vec![DeclareArtifactPayload { path, artifact }],
-            )
-            .await?;
+            let lease = dm.as_dyn().prepare_outputs(vec![path.clone()]).await?;
+            dm.as_dyn()
+                .declare_existing(&lease, vec![DeclareArtifactPayload { path, artifact }])
+                .await?;
 
             let source = dm.allocative().await?.flamegraph().write();
             assert!(
@@ -1238,17 +1256,20 @@ mod state_machine {
             });
             let (mut dm, _events) = make_materializer(io, None).await;
             dm.materialize_final_artifacts = false;
-            dm.declare_existing(
-                &WriteLease::noop(),
-                vec![DeclareArtifactPayload {
-                    path: path.clone(),
-                    artifact: value.dupe(),
-                }],
-            )
-            .await?;
+            let lease = dm.as_dyn().prepare_outputs(vec![path.clone()]).await?;
+            dm.as_dyn()
+                .declare_existing(
+                    &lease,
+                    vec![DeclareArtifactPayload {
+                        path: path.clone(),
+                        artifact: value.dupe(),
+                    }],
+                )
+                .await?;
             assert!(dm.has_artifact_at(path.clone()).await?);
 
             let response = dm
+                .as_dyn()
                 .materialize(request(
                     vec![(path.clone(), value.dupe())],
                     MaterializationPurpose::FinalOutput { required: false },
@@ -1273,6 +1294,7 @@ mod state_machine {
 
             dm.materialize_final_artifacts = true;
             let response = dm
+                .as_dyn()
                 .materialize(request(
                     vec![(path, value)],
                     MaterializationPurpose::FinalOutput { required: true },
@@ -2486,14 +2508,16 @@ mod state_machine {
 
             let existing = make_path("foo/existing");
             let existing_value = file_value(digest_config, b"existing");
-            dm.declare_existing(
-                &WriteLease::noop(),
-                vec![DeclareArtifactPayload {
-                    path: existing.clone(),
-                    artifact: existing_value.dupe(),
-                }],
-            )
-            .await?;
+            let lease = dm.as_dyn().prepare_outputs(vec![existing.clone()]).await?;
+            dm.as_dyn()
+                .declare_existing(
+                    &lease,
+                    vec![DeclareArtifactPayload {
+                        path: existing.clone(),
+                        artifact: existing_value.dupe(),
+                    }],
+                )
+                .await?;
 
             let remote = make_path("foo/remote");
             let remote_value = file_value(digest_config, b"remote");
@@ -2514,6 +2538,7 @@ mod state_machine {
             let undeclared = make_path("foo/undeclared");
 
             let response = dm
+                .as_dyn()
                 .materialize(request(
                     vec![
                         (remote.clone(), remote_value),
@@ -2546,17 +2571,19 @@ mod state_machine {
 
             let path = make_path("foo/output");
             io.fs().write_file(&path, "previous", false)?;
-            dm.declare_existing(
-                &WriteLease::noop(),
-                vec![DeclareArtifactPayload {
-                    path: path.clone(),
-                    artifact: file_value(digest_config, b"previous"),
-                }],
-            )
-            .await?;
+            let lease = dm.as_dyn().prepare_outputs(vec![path.clone()]).await?;
+            dm.as_dyn()
+                .declare_existing(
+                    &lease,
+                    vec![DeclareArtifactPayload {
+                        path: path.clone(),
+                        artifact: file_value(digest_config, b"previous"),
+                    }],
+                )
+                .await?;
             assert!(dm.has_artifact_at(path.clone()).await?);
 
-            let _lease = dm.prepare_outputs(vec![path.clone()]).await?;
+            let _lease = dm.as_dyn().prepare_outputs(vec![path.clone()]).await?;
             assert!(!dm.has_artifact_at(path.clone()).await?);
             assert!(
                 io.fs().resolve(&path).exists(),
@@ -2578,13 +2605,17 @@ mod state_machine {
 
             let src = make_path("foo/placeholder");
             let dest = make_path("foo/content");
-            dm.publish(
-                &WriteLease::noop(),
-                src.clone(),
-                dest.clone(),
-                file_value(digest_config, b"published"),
-            )
-            .await?;
+            let lease = dm.as_dyn().prepare_outputs(vec![src.clone()]).await?;
+            drop(
+                dm.as_dyn()
+                    .publish(
+                        &lease,
+                        src.clone(),
+                        dest.clone(),
+                        file_value(digest_config, b"published"),
+                    )
+                    .await?,
+            );
 
             // `dest` is on disk before `publish` returns, and `src` stays tracked because it is
             // what `dest` copies from.
@@ -2625,6 +2656,7 @@ mod state_machine {
                 .await?;
 
             let response = dm
+                .as_dyn()
                 .materialize(request(
                     vec![(path.clone(), value.dupe())],
                     MaterializationPurpose::FinalOutput { required: false },
@@ -2633,6 +2665,7 @@ mod state_machine {
             assert_eq!(response.results.len(), 1);
 
             let response = dm
+                .as_dyn()
                 .materialize(request(
                     vec![(path.clone(), value)],
                     MaterializationPurpose::FinalOutput { required: true },
@@ -2649,5 +2682,16 @@ mod state_machine {
             Ok(())
         })
         .await
+    }
+
+    /// The public API of the materializer under test, which lives on the trait object.
+    trait AsDyn {
+        fn as_dyn(&self) -> &dyn Materializer;
+    }
+
+    impl AsDyn for DeferredMaterializerAccessor<StubIoHandler> {
+        fn as_dyn(&self) -> &dyn Materializer {
+            self
+        }
     }
 }

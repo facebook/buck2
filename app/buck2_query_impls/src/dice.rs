@@ -26,7 +26,6 @@ use buck2_core::cells::CellResolver;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedRelativeDir;
 use buck2_core::cells::name::CellName;
-use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
@@ -46,7 +45,7 @@ use buck2_core::target::label::label::TargetLabel;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileNameBuf;
 use buck2_hash::BuckMutMap;
-use buck2_hash::buck_indexset;
+use buck2_hash::buck_mut_insertion_set;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::load_patterns::load_patterns;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -145,9 +144,7 @@ impl LiteralParser {
         ParsedPattern::parse_not_relaxed(
             value,
             TargetParsingRel::AllowRelative(
-                &CellPathWithAllowedRelativeDir::backwards_relative_not_supported(
-                    self.working_dir.clone(),
-                ),
+                &CellPathWithAllowedRelativeDir::backwards_relative_not_supported(self.working_dir),
                 Some(&self.target_alias_resolver),
             ),
             &self.cell_resolver,
@@ -163,9 +160,7 @@ impl LiteralParser {
         ParsedPatternWithModifiers::parse_not_relaxed(
             value,
             TargetParsingRel::AllowRelative(
-                &CellPathWithAllowedRelativeDir::backwards_relative_not_supported(
-                    self.working_dir.clone(),
-                ),
+                &CellPathWithAllowedRelativeDir::backwards_relative_not_supported(self.working_dir),
                 Some(&self.target_alias_resolver),
             ),
             &self.cell_resolver,
@@ -289,9 +284,9 @@ impl UqueryDelegate for DiceQueryDelegate<'_, '_> {
         &self,
         path: &CellPath,
     ) -> buck2_error::Result<Vec<PackageLabel>> {
-        let cell_root = CellPath::new(path.cell(), CellRelativePath::empty().to_buf());
+        let cell_root = CellPath::empty(path.cell());
         Ok(DicePackageListingResolver(&mut self.ctx.get())
-            .get_enclosing_packages(path.as_ref(), cell_root.as_ref())
+            .get_enclosing_packages(*path, cell_root)
             .await?
             .into_iter()
             .collect())
@@ -299,7 +294,7 @@ impl UqueryDelegate for DiceQueryDelegate<'_, '_> {
 
     async fn eval_file_literal(&self, literal: &str) -> buck2_error::Result<FileSet> {
         let cell_path = self.query_data.literal_parser.parse_file_literal(literal)?;
-        Ok(FileSet::new(buck_indexset![FileNode(cell_path)]))
+        Ok(FileSet::new(buck_mut_insertion_set![FileNode(cell_path)]))
     }
 
     fn linear_dice_computations(&self) -> LinearRecomputeDiceComputations<'_, '_> {

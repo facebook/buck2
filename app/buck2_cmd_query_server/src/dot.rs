@@ -24,9 +24,9 @@ use std::fmt::Display;
 use std::io::Write;
 use std::sync::LazyLock;
 
+use buck2_hash::BuckMutInsertionMap;
 use buck2_hash::BuckMutMap;
 use regex::Regex;
-use starlark_map::small_map::SmallMap;
 
 pub(crate) mod targets;
 
@@ -35,7 +35,7 @@ pub(crate) struct DotNodeAttrs {
     pub(crate) style: Option<String>,
     pub(crate) color: Option<String>,
     pub(crate) label: Option<String>,
-    pub(crate) extra: SmallMap<String, String>,
+    pub(crate) extra: BuckMutInsertionMap<String, String>,
 }
 
 impl Display for DotNodeAttrs {
@@ -193,7 +193,7 @@ mod tests {
 
     impl DotNode for N {
         fn attrs(&self) -> buck2_error::Result<DotNodeAttrs> {
-            let mut extra = SmallMap::new();
+            let mut extra = BuckMutInsertionMap::new();
             extra.insert("buck_description".to_owned(), self.0.to_owned());
             Ok(DotNodeAttrs {
                 extra,

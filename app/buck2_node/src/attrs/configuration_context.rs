@@ -23,9 +23,8 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_error::BuckErrorOptionContext;
+use buck2_hash::BuckFixedSortedMap;
 use dupe::Dupe;
-use starlark_map::ordered_map::OrderedMap;
-use starlark_map::sorted_map::SortedMap;
 
 use crate::configuration::resolved::MatchedConfigurationSettingKeys;
 use crate::configuration::resolved::MatchedConfigurationSettingKeysWithCfg;
@@ -62,7 +61,7 @@ pub trait AttrConfigurationContext {
     /// using current node configuration as input.
     fn resolved_transitions(
         &self,
-    ) -> buck2_error::Result<&OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>>;
+    ) -> buck2_error::Result<&BuckFixedSortedMap<Arc<TransitionId>, Arc<TransitionApplied>>>;
 
     /// Constructs an `IncompatiblePlatformReason` for this target from the given cause.
     fn incompatible_platform_reason(
@@ -105,7 +104,7 @@ pub trait AttrConfigurationContext {
         &self,
         label: &ProvidersLabel,
         tr: &TransitionId,
-    ) -> buck2_error::Result<SortedMap<String, ConfiguredProvidersLabel>> {
+    ) -> buck2_error::Result<BuckFixedSortedMap<String, ConfiguredProvidersLabel>> {
         let cfg = self
             .resolved_transitions()?
             .get(tr)
@@ -123,8 +122,8 @@ pub struct AttrConfigurationContextImpl<'b> {
     resolved_cfg: &'b MatchedConfigurationSettingKeysWithCfg,
     /// Must be equal to `(cfg, Some(exec_cfg))`.
     toolchain_cfg: ConfigurationWithExec,
-    resolved_transitions: &'b OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
-    platform_cfgs: &'b OrderedMap<TargetLabel, ConfigurationData>,
+    resolved_transitions: &'b BuckFixedSortedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
+    platform_cfgs: &'b BuckFixedSortedMap<TargetLabel, ConfigurationData>,
     /// The execution platform resolution, which contains per-exec_dep configurations
     /// when in the Resolved state.
     execution_platform_resolution: &'b ExecutionPlatformResolution,
@@ -136,8 +135,8 @@ impl<'b> AttrConfigurationContextImpl<'b> {
         configured_target_label: ConfiguredTargetLabel,
         resolved_cfg: &'b MatchedConfigurationSettingKeysWithCfg,
         execution_platform_resolution: &'b ExecutionPlatformResolution,
-        resolved_transitions: &'b OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
-        platform_cfgs: &'b OrderedMap<TargetLabel, ConfigurationData>,
+        resolved_transitions: &'b BuckFixedSortedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
+        platform_cfgs: &'b BuckFixedSortedMap<TargetLabel, ConfigurationData>,
         label: Option<TargetLabel>,
     ) -> AttrConfigurationContextImpl<'b> {
         let exec_cfg = execution_platform_resolution.base_cfg();
@@ -203,7 +202,7 @@ impl AttrConfigurationContext for AttrConfigurationContextImpl<'_> {
 
     fn resolved_transitions(
         &self,
-    ) -> buck2_error::Result<&OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>> {
+    ) -> buck2_error::Result<&BuckFixedSortedMap<Arc<TransitionId>, Arc<TransitionApplied>>> {
         Ok(self.resolved_transitions)
     }
 }

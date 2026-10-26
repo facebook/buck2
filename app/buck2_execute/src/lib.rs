@@ -11,11 +11,11 @@
 #![feature(trait_alias)]
 #![feature(try_blocks)]
 #![feature(try_trait_v2)]
-#![feature(used_with_arg)]
 
 pub mod artifact;
 pub mod artifact_utils;
 pub mod artifact_value;
+pub mod blob_store;
 pub mod dep_file_state;
 pub mod digest;
 pub mod digest_config;

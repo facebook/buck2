@@ -9,67 +9,64 @@
 # pyre-strict
 
 
-import pytest
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase, parametrize
 
 
-@buck_test()
-@pytest.mark.parametrize("section", ["some", "other"])
-@pytest.mark.parametrize("root", ["true", "false"])
-async def test_deprecated_config(buck: Buck, section: str, root: str) -> None:
-    _ = await expect_failure(
-        buck.build(
-            f":test_target_{section}_config1",
-            "-c",
-            f"test.section={section}",
-            "-c",
-            "test.conf=config1",
-            "-c",
-            f"test.root={root}",
-        ),
-        stderr_regex=f"{section}.config1 is no longer used. Please use other.config2",
-    )
+class DeprecatedConfigTest(BuckTestCase):
+    @buck_test()
+    @parametrize("section", ["some", "other"])
+    @parametrize("root", ["true", "false"])
+    async def test_deprecated_config(self, buck: Buck, section: str, root: str) -> None:
+        _ = await expect_failure(
+            buck.build(
+                f":test_target_{section}_config1",
+                "-c",
+                f"test.section={section}",
+                "-c",
+                "test.conf=config1",
+                "-c",
+                f"test.root={root}",
+            ),
+            stderr_regex=f"{section}.config1 is no longer used. Please use other.config2",
+        )
 
-
-@buck_test()
-@pytest.mark.parametrize("root", ["true", "false"])
-async def test_not_deprecated_config(buck: Buck, root: str) -> None:
-    section = "other"
-    _ = await buck.build(
-        f":test_target_{section}_config2",
-        "-c",
-        f"test.section={section}",
-        "-c",
-        "test.conf=config2",
-        "-c",
-        f"test.root={root}",
-    )
-
-
-@buck_test()
-async def test_no_deprecated_cell_config(buck: Buck) -> None:
-    section = "other"
-    await buck.build(
-        f"cell//:test_target_{section}_config1",
-        "-c",
-        f"test.section={section}",
-        "-c",
-        "test.conf=config1",
-    )
-
-
-@buck_test()
-async def test_deprecated_cell_config2(buck: Buck) -> None:
-    section = "other"
-    _ = await expect_failure(
-        buck.build(
-            f"cell//:test_target_{section}_config2",
+    @buck_test()
+    @parametrize("root", ["true", "false"])
+    async def test_not_deprecated_config(self, buck: Buck, root: str) -> None:
+        section = "other"
+        _ = await buck.build(
+            f":test_target_{section}_config2",
             "-c",
             f"test.section={section}",
             "-c",
             "test.conf=config2",
-        ),
-        stderr_regex=f"{section}.config2 is no longer used. Please use other.config3",
-    )
+            "-c",
+            f"test.root={root}",
+        )
+
+    @buck_test()
+    async def test_no_deprecated_cell_config(self, buck: Buck) -> None:
+        section = "other"
+        await buck.build(
+            f"cell//:test_target_{section}_config1",
+            "-c",
+            f"test.section={section}",
+            "-c",
+            "test.conf=config1",
+        )
+
+    @buck_test()
+    async def test_deprecated_cell_config2(self, buck: Buck) -> None:
+        section = "other"
+        _ = await expect_failure(
+            buck.build(
+                f"cell//:test_target_{section}_config2",
+                "-c",
+                f"test.section={section}",
+                "-c",
+                "test.conf=config2",
+            ),
+            stderr_regex=f"{section}.config2 is no longer used. Please use other.config3",
+        )

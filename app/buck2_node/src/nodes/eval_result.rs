@@ -27,7 +27,7 @@ use dupe::Dupe;
 use itertools::Itertools;
 use pagable::Pagable;
 
-use crate::attrs::coerced_attr::CoercedAttr;
+use crate::attrs::coerced::kinds;
 use crate::attrs::inspect_options::AttrInspectOptions;
 use crate::nodes::targets_map::TargetsMap;
 use crate::nodes::unconfigured::TargetNode;
@@ -40,15 +40,13 @@ use crate::super_package::SuperPackage;
 /// attribute we know nothing about. It's also pretty difficult to fix this right now
 /// though.
 pub fn is_generated_target(node: TargetNodeRef) -> bool {
-    if let Some(labels) = node.attr_or_none("labels", AttrInspectOptions::All) {
-        if let CoercedAttr::List(labels) = labels.value {
-            return labels.iter().any(|label| match label {
-                CoercedAttr::String(label) => ***label == *"generated",
-                _ => false,
-            });
-        }
-    }
-    false
+    node.attr_or_none("labels", AttrInspectOptions::All)
+        .and_then(|labels| labels.value.downcast::<kinds::List>())
+        .is_some_and(|items| {
+            items
+                .iter()
+                .any(|x| x.downcast::<kinds::String>() == Some("generated"))
+        })
 }
 
 #[derive(Debug, buck2_error::Error)]

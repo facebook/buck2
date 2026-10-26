@@ -27,6 +27,7 @@ The .appup.src template is expected to contain a single Erlang term of the form
 placeholder (either as an atom or as a string), it is substituted with the
 buck-supplied `version`. Otherwise it must already equal `version`.
 """.
+-compile(warn_missing_spec_all).
 
 -export([main/1]).
 

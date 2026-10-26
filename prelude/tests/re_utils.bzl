@@ -181,6 +181,8 @@ def _get_re_executors(
     re_gang = re_props_copy.pop("gang", None)
     local_enabled = re_props_copy.pop("local_enabled", False)
     local_listing_enabled = re_props_copy.pop("local_listing_enabled", None)
+    if re_props_copy.pop("disable_local_listing", False):
+        local_listing_enabled = False
     re_resource_units = re_props_copy.pop("resource_units", None)
     re_listing_resource_units = re_props_copy.pop("listing_resource_units", re_resource_units)
     re_dynamic_image = re_props_copy.pop("remote_execution_dynamic_image", None)

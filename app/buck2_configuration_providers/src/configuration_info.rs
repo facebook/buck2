@@ -16,12 +16,12 @@ use buck2_build_api_derive::internal_provider;
 use buck2_common::legacy_configs::configs::parse_config_section_and_key;
 use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::configuration::data::ConfigurationDataData;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_hash::BuckMutSet;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
-use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::MethodsBuilder;
 use starlark::eval::Evaluator;
@@ -117,7 +117,7 @@ impl<'v> ConfigurationInfo<'v> {
 
     /// Create a provider from configuration data.
     pub fn from_configuration_data(conf: &ConfigurationDataData, heap: Heap<'v>) -> Self {
-        let mut constraints = SmallMap::new();
+        let mut constraints = BuckMutInsertionMap::new();
         for (k, v) in &conf.constraints {
             let constraint_setting_label = heap.alloc_typed(StarlarkTargetLabel::new(k.key.dupe()));
             let default_value = k
@@ -170,8 +170,8 @@ fn build_constraints_map_from_dict<'v>(
         ValueOf<'v, &'v StarlarkTargetLabel>,
         ValueOf<'v, &'v ConstraintValueInfo<'v>>,
     >,
-) -> starlark::Result<SmallMap<Value<'v>, Value<'v>>> {
-    let mut new_constraints = SmallMap::new();
+) -> starlark::Result<BuckMutInsertionMap<Value<'v>, Value<'v>>> {
+    let mut new_constraints = BuckMutInsertionMap::new();
 
     for (constraint_setting, constraint_value) in dict_entries.entries {
         let constraint_setting_hashed = constraint_setting
@@ -443,7 +443,7 @@ fn configuration_info_methods(builder: &mut MethodsBuilder) {
         // Copy constraints dict
         let constraints =
             DictRef::from_value(this.constraints.get()).expect("type checked on construction");
-        let mut new_constraints = SmallMap::new();
+        let mut new_constraints = BuckMutInsertionMap::new();
         for (k, v) in constraints.iter() {
             let key_hashed = k.get_hashed().expect("should be hashable");
             new_constraints.insert_hashed(key_hashed, v);
@@ -451,7 +451,7 @@ fn configuration_info_methods(builder: &mut MethodsBuilder) {
 
         // Copy values dict
         let values = DictRef::from_value(this.values.get()).expect("type checked on construction");
-        let mut new_values = SmallMap::new();
+        let mut new_values = BuckMutInsertionMap::new();
         for (k, v) in values.iter() {
             let key_hashed = k.get_hashed().expect("should be hashable");
             new_values.insert_hashed(key_hashed, v);
@@ -463,7 +463,7 @@ fn configuration_info_methods(builder: &mut MethodsBuilder) {
             root_values: {
                 let root_values = DictRef::from_value(this.root_values.get())
                     .expect("type checked on construction");
-                let mut new_root_values = SmallMap::new();
+                let mut new_root_values = BuckMutInsertionMap::new();
                 for (k, v) in root_values.iter() {
                     let key_hashed = k.get_hashed().expect("should be hashable");
                     new_root_values.insert_hashed(key_hashed, v);
@@ -494,7 +494,9 @@ mod tests {
     fn to_configuration_data_rejects_root_buckconfigs_with_clear_error() {
         Heap::temp(|heap| {
             let info = ConfigurationInfo {
-                constraints: ValueOfUnchecked::new(heap.alloc(SmallMap::<Value, Value>::new())),
+                constraints: ValueOfUnchecked::new(
+                    heap.alloc(BuckMutInsertionMap::<Value, Value>::new()),
+                ),
                 values: heap.alloc_typed_unchecked(AllocDict([("", ""); 0])).cast(),
                 root_values: heap
                     .alloc_typed_unchecked(AllocDict([("apple.key", "value")]))

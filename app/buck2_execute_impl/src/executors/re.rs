@@ -53,7 +53,7 @@ use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
 use buck2_execute::re::remote_action_result::ExecuteResponseWithQueueStats;
 use buck2_execute::re::remote_action_result::RemoteActionResult;
-use buck2_hash::BuckIndexMap;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_util::time_span::TimeSpan;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
@@ -130,6 +130,7 @@ impl ReExecutor {
                         digests_uploaded: Some(stats.total.digests_uploaded),
                         bytes_uploaded: Some(stats.total.bytes_uploaded),
                         stats_by_extension: stats.by_extension,
+                        stats: None,
                     },
                 ),
                 Err(e) => (Err(e), buck2_data::ReUploadEnd::default()),
@@ -191,7 +192,7 @@ impl ReExecutor {
             re_gang_workers,
             identity,
             &mut manager,
-            self.skip_cache_read,
+            self.skip_cache_read || request.induced_cache_miss(),
             self.skip_cache_write,
             self.re_max_queue_time,
             self.re_resource_units,
@@ -294,7 +295,7 @@ impl ReExecutor {
                 // do here is just pass on the error.
                 manager.failure(
                     execution_kind,
-                    BuckIndexMap::default(),
+                    BuckMutInsertionMap::default(),
                     CommandStdStreams::Local {
                         stdout: Vec::new(),
                         stderr: out.to_owned().into(),
@@ -310,7 +311,7 @@ impl ReExecutor {
             {
                 manager.timeout(
                     execution_kind,
-                    BuckIndexMap::default(),
+                    BuckMutInsertionMap::default(),
                     // Checked above: we fallthrough to the error path if we didn't set a timeout
                     // and yet received one.
                     request.timeout().unwrap(),

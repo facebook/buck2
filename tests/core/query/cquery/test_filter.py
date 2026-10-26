@@ -12,25 +12,28 @@
 import re
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
 def _replace_hash(s: str) -> str:
     return re.sub(r"\b[0-9a-f]{16}\b", "<HASH>", s)
 
 
-@buck_test()
-async def test_cquery_filter_should_not_include_configuration(buck: Buck) -> None:
-    # First, self-check.
-    result = await buck.cquery("//...")
-    assert [
-        "root//:aaaaa (<unbound>)",
-        "root//:bbbbb (root//:aaaaa#<HASH>)",
-    ] == _replace_hash(result.stdout).splitlines()
+class FilterTest(BuckTestCase):
+    @buck_test()
+    async def test_cquery_filter_should_not_include_configuration(
+        self, buck: Buck
+    ) -> None:
+        # First, self-check.
+        result = await buck.cquery("//...")
+        assert [
+            "root//:aaaaa (<unbound>)",
+            "root//:bbbbb (root//:aaaaa#<HASH>)",
+        ] == _replace_hash(result.stdout).splitlines()
 
-    # Now check the behavior of `filter()`.
-    # `filter()` function checks unconfigured target label, as Buck1 does.
-    result = await buck.cquery(r"filter('^root//:bbbbb$', //...)")
-    assert [
-        "root//:bbbbb (root//:aaaaa#<HASH>)",
-    ] == _replace_hash(result.stdout).splitlines()
+        # Now check the behavior of `filter()`.
+        # `filter()` function checks unconfigured target label, as Buck1 does.
+        result = await buck.cquery(r"filter('^root//:bbbbb$', //...)")
+        assert [
+            "root//:bbbbb (root//:aaaaa#<HASH>)",
+        ] == _replace_hash(result.stdout).splitlines()

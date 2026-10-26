@@ -13,52 +13,52 @@ import json
 import tempfile
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test(inplace=True)
-async def test_apple_coverage(buck: Buck) -> None:
-    with tempfile.NamedTemporaryFile("w") as covfile:
-        await buck.test(
-            "-c",
-            "xplat.available_platforms=APPLE,CXX",
-            "-c",
-            "code_coverage.enable=all",
-            "fbsource//fbobjc/Samples/TestInfra/TpxUnitTests:TpxUnitTests",
-            "--",
-            "--collect-coverage",
-            f"--coverage-output={covfile.name}",
-            "--return-zero-on-skips",
-        )
-        paths = []
-        with open(covfile.name) as results:
-            for line in results:
-                paths.append(json.loads(line)["filepath"])
-    assert (
-        "fbobjc/Samples/TestInfra/TpxUnitTests/TpxUnitTests/TpxUnitTests.m" in paths
-    ), str(paths)
+class CoverageAppleTest(BuckTestCase):
+    @buck_test(inplace=True)
+    async def test_apple_coverage(self, buck: Buck) -> None:
+        with tempfile.NamedTemporaryFile("w") as covfile:
+            await buck.test(
+                "-c",
+                "xplat.available_platforms=APPLE,CXX",
+                "-c",
+                "code_coverage.enable=all",
+                "fbsource//fbobjc/Samples/TestInfra/TpxUnitTests:TpxUnitTests",
+                "--",
+                "--collect-coverage",
+                f"--coverage-output={covfile.name}",
+                "--return-zero-on-skips",
+            )
+            paths = []
+            with open(covfile.name) as results:
+                for line in results:
+                    paths.append(json.loads(line)["filepath"])
+        assert (
+            "fbobjc/Samples/TestInfra/TpxUnitTests/TpxUnitTests/TpxUnitTests.m" in paths
+        ), str(paths)
 
-
-@buck_test(inplace=True)
-async def test_apple_coverage_xplat(buck: Buck) -> None:
-    with tempfile.NamedTemporaryFile("w") as covfile:
-        await buck.test(
-            "-c",
-            "xplat.available_platforms=APPLE,CXX",
-            "-c",
-            "code_coverage.enable=all",
-            # By default, xplat targets currently use xbat to compile to apple.
-            # With xbat, however, we'll get divergence between the LLVM tooling
-            # during pika upgrades, as pika will be newer than what's provided
-            # by xbat.
-            "@fbsource//fbobjc/mode/buck2/toolchains/pika-fat",
-            "fbsource//xplat/testinfra/playground/cpp:example_testApple",
-            "--",
-            "--collect-coverage",
-            f"--coverage-output={covfile.name}",
-        )
-        paths = []
-        with open(covfile.name) as results:
-            for line in results:
-                paths.append(json.loads(line)["filepath"])
-    assert "xplat/testinfra/playground/cpp/ExampleTest.cpp" in paths, str(paths)
+    @buck_test(inplace=True)
+    async def test_apple_coverage_xplat(self, buck: Buck) -> None:
+        with tempfile.NamedTemporaryFile("w") as covfile:
+            await buck.test(
+                "-c",
+                "xplat.available_platforms=APPLE,CXX",
+                "-c",
+                "code_coverage.enable=all",
+                # By default, xplat targets currently use xbat to compile to apple.
+                # With xbat, however, we'll get divergence between the LLVM tooling
+                # during pika upgrades, as pika will be newer than what's provided
+                # by xbat.
+                "@fbsource//fbobjc/mode/buck2/toolchains/pika-fat",
+                "fbsource//xplat/testinfra/playground/cpp:example_testApple",
+                "--",
+                "--collect-coverage",
+                f"--coverage-output={covfile.name}",
+            )
+            paths = []
+            with open(covfile.name) as results:
+                for line in results:
+                    paths.append(json.loads(line)["filepath"])
+        assert "xplat/testinfra/playground/cpp/ExampleTest.cpp" in paths, str(paths)

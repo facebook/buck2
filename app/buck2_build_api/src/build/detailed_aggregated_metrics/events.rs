@@ -29,6 +29,7 @@ use crate::build::detailed_aggregated_metrics::implementation::state::DetailedAg
 use crate::build::detailed_aggregated_metrics::types::ActionExecutionMetrics;
 use crate::build::detailed_aggregated_metrics::types::ActionGraphSketchResult;
 use crate::build::detailed_aggregated_metrics::types::DetailedAggregatedMetrics;
+use crate::build::detailed_aggregated_metrics::types::DetailedMetricsInput;
 use crate::build::detailed_aggregated_metrics::types::PerBuildEvents;
 use crate::build::detailed_aggregated_metrics::types::TopLevelTargetSpec;
 use crate::deferred::calculation::DeferredHolder;
@@ -38,7 +39,7 @@ pub(crate) enum DetailedAggregatedMetricsEvent {
     AnalysisStarted(DeferredHolderKey),
     AnalysisComplete(DeferredHolderKey, OwnedDeferredHolder),
     ComputeMetrics(
-        PerBuildEvents,
+        DetailedMetricsInput,
         tokio::sync::oneshot::Sender<buck2_error::Result<DetailedAggregatedMetrics>>,
         Option<EventDispatcher>,
     ),
@@ -81,7 +82,7 @@ impl DetailedAggregatedMetricsEventHandler {
 
     async fn compute_metrics(
         &self,
-        events: PerBuildEvents,
+        events: DetailedMetricsInput,
     ) -> buck2_error::Result<DetailedAggregatedMetrics> {
         let (tx, rx) = tokio::sync::oneshot::channel();
         self.send(DetailedAggregatedMetricsEvent::ComputeMetrics(
@@ -185,9 +186,9 @@ impl DetailedAggregatedMetricsHandle {
         }
     }
 
-    pub async fn compute_metrics(
+    pub(crate) async fn compute_metrics(
         &self,
-        events: PerBuildEvents,
+        events: DetailedMetricsInput,
     ) -> buck2_error::Result<DetailedAggregatedMetrics> {
         // Incomplete tracker view: report empty rather than partial metrics.
         if self.analysis_nodes_not_recorded.load(Ordering::Relaxed) {

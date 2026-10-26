@@ -427,6 +427,14 @@ impl ManagedRemoteExecutionClient {
             .await
     }
 
+    pub async fn upload_blobs(&self, blobs: &ActionBlobs) -> buck2_error::Result<UploadStats> {
+        self.lock()?
+            .get()
+            .await?
+            .upload_blobs(blobs, self.use_case)
+            .await
+    }
+
     pub async fn upload_files_and_directories(
         &self,
         files_with_digest: Vec<NamedDigest>,

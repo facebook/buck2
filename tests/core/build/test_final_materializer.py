@@ -25,7 +25,7 @@ import time
 import typing
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
 async def get_materialization_duration_from_critical_path(
@@ -66,112 +66,6 @@ async def run_build_and_measure(
     mat_duration = await get_materialization_duration_from_critical_path(buck)
 
     return wall_clock, mat_duration
-
-
-@buck_test()
-async def test_small_flat_build(buck: Buck) -> None:
-    """Test that building a small flat tset (10 artifacts) works correctly."""
-    result = await buck.build("//:small_flat")
-    build_report = result.get_build_report()
-    output = build_report.output_for_target("root//:small_flat")
-    assert output.exists()
-    content = output.read_text()
-    assert "10 artifacts" in content
-
-
-@buck_test()
-async def test_medium_balanced_build(buck: Buck) -> None:
-    """Test that building a medium balanced tset (100 artifacts) works correctly."""
-    result = await buck.build("//:medium_balanced")
-    build_report = result.get_build_report()
-    output = build_report.output_for_target("root//:medium_balanced")
-    assert output.exists()
-    content = output.read_text()
-    assert "100 artifacts" in content
-
-
-@buck_test()
-async def test_medium_flat_build(buck: Buck) -> None:
-    """Test that building a medium flat tset (100 artifacts) works correctly."""
-    result = await buck.build("//:medium_flat")
-    build_report = result.get_build_report()
-    output = build_report.output_for_target("root//:medium_flat")
-    assert output.exists()
-    content = output.read_text()
-    assert "100 artifacts" in content
-
-
-@buck_test()
-async def test_medium_deep_build(buck: Buck) -> None:
-    """Test that building a medium deep tset (100 artifacts) works correctly."""
-    result = await buck.build("//:medium_deep")
-    build_report = result.get_build_report()
-    output = build_report.output_for_target("root//:medium_deep")
-    assert output.exists()
-    content = output.read_text()
-    assert "100 artifacts" in content
-
-
-@buck_test()
-async def test_noop_materialization_small_flat(buck: Buck) -> None:
-    """
-    Test no-op materialization for small flat tset.
-
-    Builds the target twice - the second build should have minimal
-    materialization overhead since artifacts are already present.
-    """
-    target = "//:small_flat"
-
-    # First build - materialize everything
-    await buck.build(target, "--no-remote-cache")
-
-    # Second build - should be a no-op for materialization
-    wall_clock, mat_duration = await run_build_and_measure(buck, target)
-
-    # Basic sanity check - second build should complete reasonably fast
-    assert wall_clock < 30.0, f"No-op build took too long: {wall_clock}s"
-
-
-@buck_test()
-async def test_noop_materialization_medium_balanced(buck: Buck) -> None:
-    """
-    Test no-op materialization for medium balanced tset.
-
-    Builds the target twice - the second build should have minimal
-    materialization overhead since artifacts are already present.
-    """
-    target = "//:medium_balanced"
-
-    # First build - materialize everything
-    await buck.build(target, "--no-remote-cache")
-
-    # Second build - should be a no-op for materialization
-    wall_clock, mat_duration = await run_build_and_measure(buck, target)
-
-    # Basic sanity check - second build should complete reasonably fast
-    assert wall_clock < 30.0, f"No-op build took too long: {wall_clock}s"
-
-
-@buck_test()
-async def test_configurable_target(buck: Buck) -> None:
-    """
-    Test the configurable target with custom parameters.
-    """
-    result = await buck.build(
-        "//:configurable",
-        "-c",
-        "test.artifacts_per_node=2",
-        "-c",
-        "test.nodes_per_tset=5",
-        "-c",
-        "test.number_of_tsets=3",
-    )
-    build_report = result.get_build_report()
-    output = build_report.output_for_target("root//:configurable")
-    assert output.exists()
-    content = output.read_text()
-    # 2 * 5 * 3 = 30 artifacts
-    assert "30 artifacts" in content
 
 
 # Performance test functions - these can be called directly for benchmarking
@@ -248,23 +142,123 @@ async def perf_noop_materialization(
     }
 
 
-@buck_test()
-async def test_perf_small_scale(buck: Buck) -> None:
-    """
-    Small-scale performance test that runs as part of the test suite.
+class FinalMaterializerTest(BuckTestCase):
+    @buck_test()
+    async def test_small_flat_build(self, buck: Buck) -> None:
+        """Test that building a small flat tset (10 artifacts) works correctly."""
+        result = await buck.build("//:small_flat")
+        build_report = result.get_build_report()
+        output = build_report.output_for_target("root//:small_flat")
+        assert output.exists()
+        content = output.read_text()
+        assert "10 artifacts" in content
 
-    This validates that the performance test infrastructure works correctly
-    with a small number of artifacts.
-    """
-    results = await perf_noop_materialization(
-        buck,
-        artifacts_per_node=1,
-        nodes_per_tset=10,
-        number_of_tsets=2,
-        iterations=2,
-    )
+    @buck_test()
+    async def test_medium_balanced_build(self, buck: Buck) -> None:
+        """Test that building a medium balanced tset (100 artifacts) works correctly."""
+        result = await buck.build("//:medium_balanced")
+        build_report = result.get_build_report()
+        output = build_report.output_for_target("root//:medium_balanced")
+        assert output.exists()
+        content = output.read_text()
+        assert "100 artifacts" in content
 
-    assert results["total_artifacts"] == 20
-    assert results["noop_iterations"] == 2
-    assert len(results["noop_wall_clock_seconds"]["all"]) == 2
-    assert results["noop_wall_clock_seconds"]["avg"] > 0
+    @buck_test()
+    async def test_medium_flat_build(self, buck: Buck) -> None:
+        """Test that building a medium flat tset (100 artifacts) works correctly."""
+        result = await buck.build("//:medium_flat")
+        build_report = result.get_build_report()
+        output = build_report.output_for_target("root//:medium_flat")
+        assert output.exists()
+        content = output.read_text()
+        assert "100 artifacts" in content
+
+    @buck_test()
+    async def test_medium_deep_build(self, buck: Buck) -> None:
+        """Test that building a medium deep tset (100 artifacts) works correctly."""
+        result = await buck.build("//:medium_deep")
+        build_report = result.get_build_report()
+        output = build_report.output_for_target("root//:medium_deep")
+        assert output.exists()
+        content = output.read_text()
+        assert "100 artifacts" in content
+
+    @buck_test()
+    async def test_noop_materialization_small_flat(self, buck: Buck) -> None:
+        """
+        Test no-op materialization for small flat tset.
+
+        Builds the target twice - the second build should have minimal
+        materialization overhead since artifacts are already present.
+        """
+        target = "//:small_flat"
+
+        # First build - materialize everything
+        await buck.build(target, "--no-remote-cache")
+
+        # Second build - should be a no-op for materialization
+        wall_clock, mat_duration = await run_build_and_measure(buck, target)
+
+        # Basic sanity check - second build should complete reasonably fast
+        assert wall_clock < 30.0, f"No-op build took too long: {wall_clock}s"
+
+    @buck_test()
+    async def test_noop_materialization_medium_balanced(self, buck: Buck) -> None:
+        """
+        Test no-op materialization for medium balanced tset.
+
+        Builds the target twice - the second build should have minimal
+        materialization overhead since artifacts are already present.
+        """
+        target = "//:medium_balanced"
+
+        # First build - materialize everything
+        await buck.build(target, "--no-remote-cache")
+
+        # Second build - should be a no-op for materialization
+        wall_clock, mat_duration = await run_build_and_measure(buck, target)
+
+        # Basic sanity check - second build should complete reasonably fast
+        assert wall_clock < 30.0, f"No-op build took too long: {wall_clock}s"
+
+    @buck_test()
+    async def test_configurable_target(self, buck: Buck) -> None:
+        """
+        Test the configurable target with custom parameters.
+        """
+        result = await buck.build(
+            "//:configurable",
+            "-c",
+            "test.artifacts_per_node=2",
+            "-c",
+            "test.nodes_per_tset=5",
+            "-c",
+            "test.number_of_tsets=3",
+        )
+        build_report = result.get_build_report()
+        output = build_report.output_for_target("root//:configurable")
+        assert output.exists()
+        content = output.read_text()
+        # 2 * 5 * 3 = 30 artifacts
+        assert "30 artifacts" in content
+
+    @buck_test()
+    async def test_perf_small_scale(self, buck: Buck) -> None:
+        """
+        Small-scale performance test that runs as part of the test suite.
+
+        This validates that the performance test infrastructure works correctly
+        with a small number of artifacts.
+        """
+        results = await perf_noop_materialization(
+            buck,
+            artifacts_per_node=1,
+            nodes_per_tset=10,
+            number_of_tsets=2,
+            iterations=2,
+        )
+
+        assert results["total_artifacts"] == 20
+        assert results["noop_iterations"] == 2
+        assert len(results["noop_wall_clock_seconds"]["all"]) == 2
+        assert results["noop_wall_clock_seconds"]["avg"] > 0

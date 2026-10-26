@@ -80,3 +80,30 @@ assert_false(returns_type_is(something_else))
     ",
     );
 }
+
+/// `def f(*, x): return type(x) == "y"` is not inlined for a positional call: the call binds
+/// its arguments and reports the missing named-only parameter, before and after freeze.
+#[test]
+fn test_kwonly_type_is_not_inlined_for_positional_call() {
+    let mut a = Assert::new();
+    a.module(
+        "lib.star",
+        "def is_int(*, x):\n    return type(x) == 'int'\ndef is_list(x):\n    return type(x) == 'list'\n",
+    );
+    a.fail(
+        "load('lib.star', 'is_int')\nis_int(1)",
+        "Missing named-only parameter `x`",
+    );
+    a.eq("load('lib.star', 'is_int')\nis_int(x = 1)", "True");
+    a.eq("load('lib.star', 'is_list')\nis_list([])", "True");
+    let mut a = Assert::new();
+    a.disable_static_typechecking();
+    a.module(
+        "lib.star",
+        "def is_int(*, x):\n    return type(x) == 'int'\ndef g():\n    return is_int(1)\n",
+    );
+    a.fail(
+        "load('lib.star', 'g')\ng()",
+        "Missing named-only parameter `x`",
+    );
+}

@@ -877,7 +877,8 @@ mod tests {
 
         thread_local! {
             /// The root a `ReenterWhenRead` reads again from inside its own resolution.
-            static REENTER: Cell<usize> = const { Cell::new(0) };
+            static REENTER: Cell<*const DeferredOwnedFrozen<Value<'static>>> =
+                const { Cell::new(std::ptr::null()) };
         }
 
         /// Reads the field it is being resolved for, as a cyclic value graph would.
@@ -898,9 +899,9 @@ mod tests {
                 _: &mut dyn crate::pagable::StarlarkDeserializeContext<'_, 'fv>,
             ) -> crate::Result<Self> {
                 let root = REENTER.get();
-                assert_ne!(root, 0, "the test must name the root to re-read");
+                assert!(!root.is_null(), "the test must name the root to re-read");
                 // SAFETY: the test keeps the root alive across the read that reaches here.
-                let root = unsafe { &*(root as *const DeferredOwnedFrozen<Value<'static>>) };
+                let root = unsafe { &*root };
                 root.value.read()?;
                 Ok(ReenterWhenRead)
             }
@@ -1022,12 +1023,12 @@ mod tests {
                 .storage_context()
                 .get_or_init(|| crate::pagable::DeferredFieldReadsEnabled);
             let root = DeferredOwnedFrozen::<Value<'static>>::pagable_deserialize(&mut de).unwrap();
-            REENTER.set(std::ptr::from_ref(&root) as usize);
+            REENTER.set(std::ptr::from_ref(&root));
             let error = root
                 .value
                 .read()
                 .expect_err("re-reading a field from its own resolution must fail");
-            REENTER.set(0);
+            REENTER.set(std::ptr::null());
             assert!(
                 format!("{error:#}").contains("cyclic deferred field read"),
                 "{error:#}"

@@ -6,6 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
 load(
     "@prelude//utils:build_graph_pattern.bzl",
     "BuildGraphInfo",
@@ -126,3 +127,30 @@ def transformation_spec_impl(ctx: AnalysisContext) -> list[Provider]:
             determine_transformation = build_determine_transformation(_build_transformations(ctx.attrs.transformations)),
         ),
     ]
+
+transformation_spec = prelude_rule(
+    name = "transformation_spec",
+    impl = transformation_spec_impl,
+    docs = """
+        A `transformation_spec()` rule declares a list of transformation
+        rules that map targets (by `Label`, by build target pattern, or
+        by build graph pattern) to a `TransformationKind`
+        (`debug` or `optimized`). Other rules can reference a
+        `transformation_spec()` via a `transformation_spec` attribute to
+        decide, on a per-dependency basis, which transformation should be
+        applied when building that dependency.
+        Exact `debug` and `optimized` meaning depends on
+        flags configured in toolchain for each flavor.
+    """,
+    examples = None,
+    further = None,
+    attrs = {
+        "transformations": attrs.list(
+            attrs.tuple(
+                attrs.one_of(attrs.dep(), attrs.string()),
+                attrs.enum(TransformationKind.values()),
+            ),
+            default = [],
+        ),
+    },
+)

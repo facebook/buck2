@@ -197,6 +197,8 @@ pub(crate) struct StarArg {
     pub(crate) param: SimpleParam,
     pub pass_style: StarArgPassStyle,
     pub default: Option<Expr>,
+    /// Omit from generated documentation.
+    pub doc_hidden: bool,
     pub source: StarArgSource,
 }
 

@@ -13,8 +13,13 @@ use std::sync::Arc;
 
 use buck2_common::settings::PackageVisibilityDefaultIntersection;
 use buck2_core::pattern::package::PackagePattern;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_interpreter::paths::package::PackageFilePath;
 use buck2_node::cfg_constructor::CfgConstructorImpl;
+use buck2_node::metadata::key::MetadataKeyRef;
+use buck2_node::modifiers::CfgModifiers;
+use buck2_node::modifiers::MODIFIER_METADATA_KEY;
+use buck2_node::modifiers::ModifierLabelParser;
 use buck2_node::super_package::SuperPackage;
 use buck2_node::visibility::VisibilityLayerOrigin;
 use buck2_node::visibility::VisibilityPatternList;
@@ -22,7 +27,6 @@ use buck2_node::visibility::VisibilitySpecification;
 use buck2_node::visibility::WithinViewSpecification;
 use buck2_util::arc_str::ThinArcSlice;
 use dupe::Dupe;
-use starlark_map::small_map::SmallMap;
 
 use crate::interpreter::package_file_extra::MAKE_CFG_CONSTRUCTOR;
 use crate::interpreter::package_file_extra::OwnedFrozenPackageFileExtra;
@@ -87,14 +91,23 @@ impl PackageFileEvalCtx {
     pub(crate) fn build_super_package(
         self,
         extra: Option<OwnedFrozenPackageFileExtra>,
+        modifier_labels: &ModifierLabelParser,
     ) -> buck2_error::Result<SuperPackage> {
         let cfg_constructor = Self::cfg_constructor(extra.as_ref())?;
 
         let package_values = match &extra {
-            None => SmallMap::new(),
+            None => BuckMutInsertionMap::new(),
             Some(extra) => extra.package_values(),
         };
 
+        let modifier_key = MetadataKeyRef::new(MODIFIER_METADATA_KEY)?;
+        let parent_cfg_modifiers = self.parent.cfg_modifiers().copied();
+        let cfg_modifiers = match package_values.get(modifier_key) {
+            Some(value) => Some(value.with_value(|v| {
+                CfgModifiers::from_package(v, modifier_labels, parent_cfg_modifiers)
+            })),
+            None => parent_cfg_modifiers,
+        };
         let merged_package_values =
             SuperPackageValuesImpl::merge(self.parent.package_values(), package_values)?;
 
@@ -190,6 +203,7 @@ impl PackageFileEvalCtx {
             visibility_intersection,
             within_view_cap,
             cfg_constructor,
+            cfg_modifiers,
             test_config_unification_rollout,
         )
     }

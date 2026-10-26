@@ -30,6 +30,7 @@ ci = struct(
     aarch64 = _lbl,
     mode = _lbl,
     opt = _lbl,
+    remove = _lbl,
     labels = _labels,
     modifiers = _lbl,
 )

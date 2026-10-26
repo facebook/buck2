@@ -30,6 +30,8 @@ use crate::key::DiceKey;
 use crate::metrics::AllocWindow;
 use crate::metrics::Metrics;
 use crate::metrics::PagingMemoryMetrics;
+use crate::storage::EvictionPolicy;
+use crate::storage::PagingSetup;
 use crate::updater::ChangeType;
 use crate::value::DiceValidValue;
 use crate::value::MaybeResidentComputedValue;
@@ -59,17 +61,22 @@ pub(crate) struct PagableStatusRaw {
     pub(crate) total_nodes: usize,
     pub(crate) counts: PagableNodeCounts,
     /// Per-key-type breakdown source, one entry per value; lengths equal `counts.resident` /
-    /// `counts.paged_out`.
+    /// `counts.paged_out` / `counts.backed`.
     pub(crate) resident: Vec<DiceKey>,
     pub(crate) paged_out: Vec<DiceKey>,
+    pub(crate) backed: Vec<DiceKey>,
 }
 
 impl ActorState {
-    pub(super) fn new(paging_memory: Option<std::sync::Arc<PagingMemoryMetrics>>) -> Self {
+    pub(super) fn new(paging: Option<PagingSetup>) -> Self {
+        let mut graph = VersionedGraph::new();
+        if let Some(paging) = &paging {
+            graph.set_page_out_policy(paging.page_out_policy);
+        }
         Self {
             version_tracker: VersionTracker::new(),
-            graph: VersionedGraph::new(),
-            paging_memory,
+            graph,
+            paging_memory: paging.map(|paging| paging.memory),
         }
     }
 
@@ -158,20 +165,34 @@ impl ActorState {
         self.version_tracker.running_tasks(branch)
     }
 
-    /// Evict values that still share the exact allocation serialized by page-out.
+    /// Record the rows of values that still share the exact allocation serialized by page-out.
     /// A recomputation may replace the graph value while serialization runs; its
-    /// stale `DataKey` must not evict that newer value.
-    pub(super) fn evict_keys(&mut self, keys: Vec<(DiceKey, PageOutResult)>) {
+    /// stale `DataKey` must not evict or back that newer value.
+    pub(super) fn commit_page_out(
+        &mut self,
+        keys: Vec<(DiceKey, PageOutResult)>,
+        eviction_policy: EvictionPolicy,
+    ) {
         // The graph holds the last reference to each value — `page_out_value`
         // consumed and dropped the worker's copy before this eviction was even
         // queued — so the drops below are where the memory is actually released,
         // and jemalloc charges a free to the thread performing it.
         let window = AllocWindow::open();
-        let evicted = self.graph.evict_keys(keys);
+        let evicted = self.graph.commit_page_out(keys, eviction_policy);
         if let Some(metrics) = &self.paging_memory {
             metrics.record_nodes_paged_out(evicted);
             metrics.record_offloaded(window.net_freed());
         }
+    }
+
+    pub(super) fn evict_backed(&mut self, limit: usize) -> u64 {
+        let window = AllocWindow::open();
+        let evicted = self.graph.evict_backed(limit);
+        if let Some(metrics) = &self.paging_memory {
+            metrics.record_nodes_paged_out(evicted);
+            metrics.record_offloaded(window.net_freed());
+        }
+        evicted
     }
 
     /// Mark values that page-out considered but could not serialize, so they are
@@ -181,8 +202,7 @@ impl ActorState {
         self.graph.mark_non_pageable(keys);
     }
 
-    /// Returns resident values that have never been paged out — the page-out
-    /// candidates.
+    /// Returns the resident values the next page-out serializes.
     pub(super) fn keys_to_page_out(&self) -> Vec<(DiceKey, DiceValidValue)> {
         self.graph.keys_to_page_out()
     }
@@ -197,15 +217,17 @@ impl ActorState {
     /// Classify each computed value as resident (in memory) or paged out (only a `DataKey`
     /// left).
     pub(super) fn pagable_status(&self) -> PagableStatusRaw {
-        let (resident, paged_out) = self.graph.resident_and_paged_out();
+        let (resident, paged_out, backed) = self.graph.keys_by_paging_state();
         let counts = self.graph.pagable_node_counts();
         debug_assert_eq!(resident.len(), counts.resident, "resident count drifted");
         debug_assert_eq!(paged_out.len(), counts.paged_out, "paged-out count drifted");
+        debug_assert_eq!(backed.len(), counts.backed, "backed count drifted");
         PagableStatusRaw {
             total_nodes: self.graph.key_count(),
             counts,
             resident,
             paged_out,
+            backed,
         }
     }
 

@@ -169,7 +169,7 @@ impl StarlarkStr {
         } else {
             let mut s = StarlarkHasher::new();
             hash_string_value(self.as_str(), &mut s);
-            let hash = s.finish_small();
+            let hash = s.finish_short();
             // If hash is zero, we are unlucky, but it is highly improbable.
             self.str.hash.store(hash.get(), atomic::Ordering::Relaxed);
             hash
@@ -283,7 +283,7 @@ impl<'v> StarlarkValue<'v> for StarlarkStr {
             }
         } else {
             let len_chars = fast_string::len(self);
-            let ind = CharIndex((-i) as usize); // Index from the end, minimum of 1
+            let ind = CharIndex(i.unsigned_abs() as usize); // Index from the end, minimum of 1
             if ind > len_chars {
                 Err(ValueError::IndexOutOfBound(i).into())
             } else if len_chars.0 == self.len() {
@@ -393,6 +393,7 @@ mod tests {
     fn test_string_corruption() {
         assert::fail("'U4V6'[93]", "out of bound");
         assert::fail("''[2]", "out of bound");
+        assert::fail("'abc'[-2147483648]", "out of bound");
     }
 
     #[test]

@@ -33,6 +33,7 @@
 
 use std::sync::Arc;
 use std::sync::LazyLock;
+use std::sync::Weak;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicU8;
 use std::sync::atomic::Ordering;
@@ -57,6 +58,7 @@ use dupe::Dupe;
 use starlark::pagable::starlark_partial_deser_stats;
 use starlark::pagable::starlark_serialization_state_retained_bytes;
 use tokio::sync::Notify;
+use tokio::sync::watch;
 
 use crate::active_commands::is_only_active_command;
 use crate::daemon::state::TenantState;
@@ -126,6 +128,9 @@ impl PagingManager {
             paging_daemon_data_key_bytes_in: cumulative.map(|c| c.bytes_in),
             paging_memory_offloaded_bytes: memory.map(|m| m.bytes_offloaded),
             paging_memory_restored_bytes: memory.map(|m| m.bytes_restored),
+            paging_arc_cache_entries: dice
+                .pagable_storage_handle()
+                .map(|h| h.arc_cache_entries() as u64),
             starlark_partial_deser: starlark_partial_deser_proto(),
         }
     }
@@ -548,8 +553,52 @@ pub(crate) async fn page_out_measured(
         daemon_memory_restored_bytes: memory.map(|m| m.bytes_restored),
         memory_offloaded_bytes: memory_delta.map(|d| d.bytes_offloaded),
         memory_restored_bytes: memory_delta.map(|d| d.bytes_restored),
+        daemon_arc_cache_entries: dice
+            .pagable_storage_handle()
+            .map(|h| h.arc_cache_entries() as u64),
     };
     (result, summary)
+}
+
+/// Evicts a tenant's backed DICE values, those a row already holds, each time resource control
+/// starts seeing memory pressure (the default `hydration.eviction_policy`, `on_memory_pressure`,
+/// under which a page-out evicts nothing and these are the only evictions). Only the onset
+/// triggers it: while pressure lasts, what a command reads back is what it is using. Ends with
+/// the tenant or the tracker.
+pub(crate) fn spawn_evict_on_memory_pressure(
+    dice_manager: Weak<ConcurrencyHandler>,
+    mut pressure: watch::Receiver<bool>,
+) {
+    tokio::spawn(async move {
+        while pressure.changed().await.is_ok() {
+            if !*pressure.borrow_and_update() {
+                continue;
+            }
+            let Some(dice_manager) = dice_manager.upgrade() else {
+                return;
+            };
+            evict_backed_measured(dice_manager.unsafe_dice()).await;
+        }
+    });
+}
+
+/// Evicts backed values and returns the freed memory to the OS, logging what it moved. Returns
+/// how many values were evicted.
+pub(crate) async fn evict_backed_measured(dice: &Arc<Dice>) -> u64 {
+    let (resident_before, allocated_before, _) = page_out_memory_snapshot(dice);
+    let start = Instant::now();
+    let evicted = dice.evict_backed().await;
+    if let Err(e) = memory::purge_jemalloc() {
+        tracing::warn!("purging the allocator after evicting backed values failed: {e:#}");
+    }
+    let (resident_after, allocated_after, _) = page_out_memory_snapshot(dice);
+    tracing::info!(
+        "Evicted {evicted} backed DICE values in {:?}; \
+         RSS {resident_before:?} -> {resident_after:?} bytes, \
+         allocated {allocated_before:?} -> {allocated_after:?} bytes",
+        start.elapsed(),
+    );
+    evicted
 }
 
 /// `(resident RSS, jemalloc allocated, pagable DB on-disk size)` in bytes, each

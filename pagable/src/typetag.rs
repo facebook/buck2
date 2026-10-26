@@ -849,6 +849,10 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(
+        miri,
+        ignore = "generic registrations come from a linker section, which Miri does not assemble"
+    )]
     fn test_generic_pagable_typetag_roundtrip() -> crate::Result<()> {
         use crate::testing::TestingDeserializer;
         use crate::testing::TestingSerializer;
@@ -898,6 +902,10 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(
+        miri,
+        ignore = "generic registrations come from a linker section, which Miri does not assemble"
+    )]
     fn test_const_generic_pagable_typetag_roundtrip() -> crate::Result<()> {
         use crate::testing::TestingDeserializer;
         use crate::testing::TestingSerializer;
@@ -922,6 +930,10 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(
+        miri,
+        ignore = "generic registrations come from a linker section, which Miri does not assemble"
+    )]
     fn test_type_and_const_generic_pagable_typetag_roundtrip() -> crate::Result<()> {
         use crate::testing::TestingDeserializer;
         use crate::testing::TestingSerializer;
@@ -958,6 +970,10 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(
+        miri,
+        ignore = "generic registrations come from a linker section, which Miri does not assemble"
+    )]
     fn test_generic_pagable_typetag_arc_field_roundtrip() -> crate::Result<()> {
         use crate::PagableDeserialize;
         use crate::PagableSerialize;
@@ -1047,6 +1063,10 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(
+        miri,
+        ignore = "generic registrations come from a linker section, which Miri does not assemble"
+    )]
     fn test_generic_struct_form_typetag_roundtrip() -> crate::Result<()> {
         use crate::testing::TestingDeserializer;
         use crate::testing::TestingSerializer;
@@ -1168,6 +1188,10 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(
+        miri,
+        ignore = "generic registrations come from a linker section, which Miri does not assemble"
+    )]
     fn test_same_type_name_generic_registrations_do_not_collide() -> crate::Result<()> {
         use crate::testing::TestingDeserializer;
         use crate::testing::TestingSerializer;
@@ -1288,6 +1312,10 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(
+        miri,
+        ignore = "generic registrations come from a linker section, which Miri does not assemble"
+    )]
     fn test_same_short_trait_name_generic_registrations_do_not_collide() -> crate::Result<()> {
         use crate::testing::TestingDeserializer;
         use crate::testing::TestingSerializer;

@@ -16,7 +16,7 @@ Notably allows us to call post/pre method on the node if needed, e.g for coverag
 -export([run/1]).
 
 % For testing
--export([preload_app_file_atoms/1, split_args/1]).
+-export([ct_run_exit_code/1, preload_app_file_atoms/1, split_args/1]).
 
 -include_lib("kernel/include/logger.hrl").
 -include_lib("common/include/buck_ct_records.hrl").
@@ -71,6 +71,15 @@ Notably allows us to call post/pre method on the node if needed, e.g for coverag
     | {providers, [{Name :: atom(), Args :: term()}]}
     | {common_app_env, #{binary() => binary()}}.
 
+-type ct_run_result() ::
+    {
+        Ok :: integer(),
+        Failed :: integer(),
+        {UserSkipped :: integer(), AutoSkipped :: integer()}
+    }
+    | (TestRunnerPid :: pid())
+    | {error, Reason :: term()}.
+
 -define(raw_file_access, prim_file).
 
 -spec run([string()]) -> no_return().
@@ -120,7 +129,7 @@ run(Args) when is_list(Args) ->
                 ?LOG_DEBUG("ct_run finished with result ~tp ~n", [Result]),
                 Providers2 = [buck_ct_provider:do_post_running(Provider) || Provider <- Providers1],
                 [buck_ct_provider:do_terminate(Provider) || Provider <- Providers2],
-                0
+                ct_run_exit_code(Result)
             catch
                 Class:Reason:Stack ->
                     ?LOG_ERROR("ct executor failed due to ~ts\n", [
@@ -138,6 +147,16 @@ run(Args) when is_list(Args) ->
                 1
         end,
     erlang:halt(ExitCode).
+
+-spec ct_run_exit_code(ct_run_result()) -> 0 | 2.
+ct_run_exit_code({error, Reason}) ->
+    ?LOG_ERROR("ct_run failed with reason ~tp", [Reason]),
+    2;
+ct_run_exit_code(TestRunnerPid) when is_pid(TestRunnerPid) ->
+    ?LOG_ERROR("ct_run returned a test runner pid, but release_shell is unsupported: ~tp", [TestRunnerPid]),
+    2;
+ct_run_exit_code(_Result) ->
+    0.
 
 -spec parse_arguments([string()]) -> {[ct_exec_arg()], [ct_run_arg()]}.
 parse_arguments(Args) ->

@@ -32,7 +32,6 @@ use strong_hash::StrongHash;
 
 use crate::arc_str::base::ArcStrBase;
 use crate::arc_str::base::ArcStrBaseInner;
-use crate::arc_str::base::ArcStrBaseInnerConst;
 use crate::arc_str::base::ArcStrLenStrategy;
 use crate::size_assert;
 
@@ -54,7 +53,7 @@ unsafe impl ArcStrLenStrategy for ThinArcStrProperties {
     }
 
     #[inline]
-    fn inner_empty() -> &'static ArcStrBaseInnerConst<Self> {
+    fn inner_empty() -> &'static ArcStrBaseInner<Self> {
         &INNER_EMPTY
     }
 }
@@ -84,6 +83,10 @@ impl ArcErase for ThinArcStr {
 
     fn downgrade(&self) -> Option<Self::Weak> {
         None
+    }
+
+    fn is_unique(&self) -> bool {
+        self.base.is_unique()
     }
 
     fn serialize_inner(
@@ -118,7 +121,7 @@ impl<'de> PagableDeserialize<'de> for ThinArcStr {
 size_assert::words_of_type!(ThinArcStr, 1);
 size_assert::words_of_type!(Option<ThinArcStr>, 1);
 
-static INNER_EMPTY: ArcStrBaseInnerConst<ThinArcStrProperties> = ArcStrBaseInner::EMPTY;
+static INNER_EMPTY: ArcStrBaseInner<ThinArcStrProperties> = ArcStrBaseInner::empty();
 
 impl ThinArcStr {
     #[inline]
@@ -247,11 +250,13 @@ mod tests {
 
     #[test]
     fn test_little_stress_test() {
-        for i in 0..100 {
+        // Interpreted, a string costs milliseconds on the Windows CI hosts.
+        let (rounds, churn) = if cfg!(miri) { (20, 100) } else { (100, 1000) };
+        for i in 0..rounds {
             let strings = (0..i)
                 .map(|i| ThinArcStr::from(i.to_string()))
                 .collect::<Vec<_>>();
-            for j in 0..1000 {
+            for j in 0..churn {
                 let _ignore = ThinArcStr::from(j.to_string());
             }
             for (k, s) in strings.iter().enumerate() {
@@ -260,7 +265,8 @@ mod tests {
         }
     }
 
-    #[cfg(unix)]
+    // Re-runs the test binary as a subprocess, which Miri cannot.
+    #[cfg(all(unix, not(miri)))]
     mod allocation_failure {
         use std::alloc::GlobalAlloc;
         use std::alloc::Layout;

@@ -12,6 +12,7 @@
 # well-formatted (and then delete this TODO)
 
 load("@prelude//:attrs_validators.bzl", "validation_common")
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
 load("@prelude//:validation_deps.bzl", "VALIDATION_DEPS_ATTR_NAME", "VALIDATION_DEPS_ATTR_TYPE")
 load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//apple:apple_info_plist.bzl", "MergeOperations", "RestrictedMergeOperations", "UpdateOperations", "apple_info_plist_impl")
@@ -53,11 +54,11 @@ load("@prelude//apple/user:resource_group_map.bzl", "resource_group_map_impl")
 load("@prelude//apple/user:target_sdk_version_transition.bzl", "apple_test_target_sdk_version_transition", "target_sdk_version_transition")
 load("@prelude//apple/user:watch_transition.bzl", "watch_transition")
 load("@prelude//apple/validation:required_reasons_tools.bzl", "RequiredReasonsToolsInfo", "required_reasons_tools_impl")
+load("@prelude//cxx:attrs.bzl", "cxx_common")
 load("@prelude//cxx:groups_types.bzl", "GroupFilterInfo", "Traversal")
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo", "HeaderMode")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
-load("@prelude//decls:common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "LinkableDepType", "buck", "prelude_rule")
-load("@prelude//decls:cxx_common.bzl", "cxx_common")
+load("@prelude//decls:common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "LinkableDepType", "buck")
 load("@prelude//decls:native_common.bzl", "native_common")
 load("@prelude//decls:test_common.bzl", "test_common")
 load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
@@ -1146,6 +1147,7 @@ apple_test = prelude_rule(
 
 apple_toolchain = prelude_rule(
     name = "apple_toolchain",
+    is_toolchain_rule = True,
     docs = """
         An `apple_toolchain()` rule defines the set of tools and settings used to build Apple targets.
         It specifies paths to compilers, linkers, code signing utilities, resource compilers, and other
@@ -1197,6 +1199,7 @@ apple_toolchain = prelude_rule(
             # that the selected Xcode version matches the one defined
             # by the `xcode_build_version` fields.
             "requires_xcode_version_match": attrs.bool(default = False),
+            "sdk_canonical_name": attrs.option(attrs.string(), default = None),
             "sdk_environment": attrs.option(attrs.string(), default = None),
             "sdk_name": attrs.string(default = ""),
             "sdk_path": attrs.option(attrs.source(), default = None),  # Mark as optional until we remove `_internal_sdk_path`
@@ -1373,6 +1376,7 @@ scene_kit_assets = prelude_rule(
 
 swift_toolchain = prelude_rule(
     name = "swift_toolchain",
+    is_toolchain_rule = True,
     docs = """
         A `swift_toolchain()` rule defines the Swift compiler and associated tools used to build
         Swift code in Apple targets. It specifies the `swiftc` compiler, standard library tools,
@@ -1766,7 +1770,7 @@ apple_resource_bundle = prelude_rule(
             "resource_group_map": RESOURCE_GROUP_MAP_ATTR,
             "universal": attrs.option(attrs.bool(), default = None),
             "versioned_macos_bundle": get_versioned_macos_bundle_attr(),
-            "xcassets_usage_targets": attrs.list(attrs.dep(), default = []),
+            "xcassets_usage_targets": attrs.list(attrs.split_transition_dep(cfg = cpu_split_transition), default = []),
             # Only include macOS hosted toolchains, so we compile resources directly on Mac RE
             "_apple_toolchain": get_apple_resources_toolchain_attr(),
             # Because `apple_resource_bundle` is a proxy for `apple_bundle`, we need to get `name`

@@ -134,6 +134,18 @@ class SourceKeyTest(unittest.TestCase):
             "a/b/c/d.py",
         )
 
+    def test_a_dotted_file_name_keeps_both_of_its_parts(self) -> None:
+        self.assertEqual(
+            gen_bytecode_bundle.source_key(
+                cache_from_source(os.path.join("a", "b.c.py"))
+            ),
+            "a/b.c.py",
+        )
+
+    def test_bytecode_outside_pycache_is_an_error(self) -> None:
+        with self.assertRaises(ValueError):
+            gen_bytecode_bundle.source_key(os.path.join("a", "b.cpython-312.pyc"))
+
 
 class BuildTest(BundleTestBase):
     def test_header_pins_the_format_and_interpreter(self) -> None:

@@ -2,9 +2,14 @@
 
 [<TIMESTAMP>] Buck UI: https://www.internalfb.com/buck2/<UUID>
 Command failed: 
-Configured target cycle detected (`->` means "depends on"):
-  root//:cycle_bot (<unspecified>) ->
-  root//:cycle_top (<unspecified>) ->
-  root//:cycle_mid (<unspecified>) ->
-  root//:cycle_bot (<unspecified>)
+Error in configured node dependency, dependency chain follows (-> indicates depends on, ^ indicates same configuration as previous):
+       root//:top (<unspecified>)
+    -> root//:cycle_top (^)
 
+
+Caused by:
+    Dependency cycle detected (`->` means "depends on"):
+      root//:cycle_top (<unspecified>) ->
+      root//:cycle_mid (<unspecified>) ->
+      root//:cycle_bot (<unspecified>) ->
+      root//:cycle_top (<unspecified>)

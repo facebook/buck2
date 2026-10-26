@@ -13,7 +13,7 @@ use dupe::Dupe;
 use pagable::Pagable;
 
 use crate::cells::CellResolver;
-use crate::cells::cell_path::CellPathRef;
+use crate::cells::cell_path::CellPath;
 use crate::content_hash::ContentBasedPathHash;
 use crate::fs::buck_out_path::BuckOutPathResolver;
 use crate::fs::buck_out_path::BuildArtifactPath;
@@ -64,10 +64,7 @@ impl ArtifactFs {
             .resolve_gen_configuration_hash_path(path)
     }
 
-    pub fn resolve_cell_path(
-        &self,
-        path: CellPathRef,
-    ) -> buck2_error::Result<ProjectRelativePathBuf> {
+    pub fn resolve_cell_path(&self, path: CellPath) -> buck2_error::Result<ProjectRelativePathBuf> {
         self.cell_resolver.resolve_path(path)
     }
 

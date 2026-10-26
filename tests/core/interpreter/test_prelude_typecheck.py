@@ -11,13 +11,14 @@
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-# Test prelude is typechecked unconditionally.
-@buck_test()
-async def test_prelude_typecheck(buck: Buck) -> None:
-    await expect_failure(
-        buck.uquery("//:"),
-        stderr_regex="Expected type `str` but got `int`",
-    )
+class PreludeTypecheckTest(BuckTestCase):
+    # Test prelude is typechecked unconditionally.
+    @buck_test()
+    async def test_prelude_typecheck(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.uquery("//:"),
+            stderr_regex="Expected type `str` but got `int`",
+        )

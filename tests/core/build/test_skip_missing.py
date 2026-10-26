@@ -12,29 +12,31 @@
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_build_skip_missing(buck: Buck) -> None:
-    result = await buck.build(
-        "//:existing",
-        "//:missing",
-        "--skip-missing-targets",
-    )
-
-    out = result.get_build_report().output_for_target("//:existing").read_text()
-    assert "abcd" == out.strip()
-    assert "Skipped 1 missing targets:" in result.stderr
-
-
-@buck_test()
-async def test_build_skip_missing_fails_on_missing_package(buck: Buck) -> None:
-    await expect_failure(
-        buck.build(
+class SkipMissingTest(BuckTestCase):
+    @buck_test()
+    async def test_build_skip_missing(self, buck: Buck) -> None:
+        result = await buck.build(
             "//:existing",
-            "//bad-package:existing",
+            "//:missing",
             "--skip-missing-targets",
-        ),
-        stderr_regex="root//bad-package",
-    )
+        )
+
+        out = result.get_build_report().output_for_target("//:existing").read_text()
+        assert "abcd" == out.strip()
+        assert "Skipped 1 missing targets:" in result.stderr
+
+    @buck_test()
+    async def test_build_skip_missing_fails_on_missing_package(
+        self, buck: Buck
+    ) -> None:
+        await expect_failure(
+            buck.build(
+                "//:existing",
+                "//bad-package:existing",
+                "--skip-missing-targets",
+            ),
+            stderr_regex="root//bad-package",
+        )

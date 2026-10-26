@@ -12,12 +12,13 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import os
 import uuid
+from unittest import mock
 
-import pytest
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase, parametrize
 from buck2.tests.e2e_util.helper.http_server import StaticHttpServer
 
 
@@ -105,13 +106,14 @@ async def daemon_pid(buck: Buck, env: dict[str, str]) -> int:
     return json.loads(result.stdout)["process_info"]["pid"]
 
 
-class TestHttpProxyEnv:
-    @pytest.fixture(autouse=True)
-    def clear_proxy_environment(self, monkeypatch: pytest.MonkeyPatch) -> None:
+class HttpProxyEnvTest(BuckTestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.enterContext(mock.patch.dict(os.environ))
         for name in PROXY_ENV_VARS:
-            monkeypatch.delenv(name, raising=False)
+            os.environ.pop(name, None)
 
-    @pytest.mark.parametrize(
+    @parametrize(
         "allowlist",
         [None, "", "   "],
         ids=["unset", "empty", "whitespace"],
@@ -130,7 +132,7 @@ class TestHttpProxyEnv:
                 ("GET", "/download"),
             ]
 
-    @pytest.mark.parametrize(
+    @parametrize(
         "digest,size,methods",
         [
             ("SHA1", False, ["GET"]),
@@ -158,7 +160,7 @@ class TestHttpProxyEnv:
                 (method, origin.url("/download")) for method in methods
             ]
 
-    @pytest.mark.parametrize(
+    @parametrize(
         "values,proxied",
         [
             ({}, False),
@@ -209,7 +211,7 @@ class TestHttpProxyEnv:
                     ("GET", "/download"),
                 ]
 
-    @pytest.mark.parametrize(
+    @parametrize(
         "values",
         [
             {"HTTP_PROXY": ""},
@@ -289,7 +291,7 @@ class TestHttpProxyEnv:
                 ("GET", allowed_origin.url("/download")),
             ]
 
-    @pytest.mark.parametrize("initial_allowed", [True, False])
+    @parametrize("initial_allowed", [True, False])
     @buck_test(skip_for_os=["windows"])
     async def test_redirect_uses_destination_allowlist(
         self, buck: Buck, initial_allowed: bool

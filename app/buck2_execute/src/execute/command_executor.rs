@@ -28,11 +28,11 @@ use buck2_data::NetworkAccess;
 use buck2_directory::directory::fingerprinted_directory::FingerprintedDirectory;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
+use buck2_hash::BuckFixedSortedMap;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use remote_execution as RE;
 use remote_execution::TActionResult2;
-use sorted_vector_map::SortedVectorMap;
 
 use super::cache_uploader::CacheUploadResults;
 use crate::artifact::fs::ExecutorFs;
@@ -49,11 +49,13 @@ use crate::execute::prepared::PreparedAction;
 use crate::execute::prepared::PreparedCommand;
 use crate::execute::prepared::PreparedCommandExecutor;
 use crate::execute::prepared::PreparedCommandOptionalExecutor;
+use crate::execute::request::ActionSalt;
 use crate::execute::request::CommandExecutionRequest;
 use crate::execute::request::ExecutorPreference;
 use crate::execute::request::RemoteWorkerSpec;
 use crate::execute::result::CommandExecutionMetadata;
 use crate::execute::result::CommandExecutionResult;
+use crate::execute::write_action_cache::WriteActionCache;
 
 #[derive(Copy, Dupe, Clone, Debug, PartialEq, Eq)]
 pub struct ActionExecutionTimingData {
@@ -87,6 +89,7 @@ struct CommandExecutorData {
     options: CommandGenerationOptions,
     re_platform: RE::Platform,
     cache_uploader: Arc<dyn UploadCache>,
+    write_action_cache: Option<Arc<dyn WriteActionCache>>,
 }
 
 impl CommandExecutor {
@@ -95,6 +98,7 @@ impl CommandExecutor {
         action_cache_checker: Arc<dyn PreparedCommandOptionalExecutor>,
         remote_dep_file_cache_checker: Arc<dyn PreparedCommandOptionalExecutor>,
         cache_uploader: Arc<dyn UploadCache>,
+        write_action_cache: Option<Arc<dyn WriteActionCache>>,
         artifact_fs: ArtifactFs,
         options: CommandGenerationOptions,
         re_platform: RE::Platform,
@@ -107,7 +111,13 @@ impl CommandExecutor {
             options,
             re_platform,
             cache_uploader,
+            write_action_cache,
         }))
+    }
+
+    /// The action cache as write actions use it; `None` where this executor reads no cache.
+    pub fn write_action_cache(&self) -> Option<&dyn WriteActionCache> {
+        self.0.write_action_cache.as_deref()
     }
 
     pub fn fs(&self) -> &ArtifactFs {
@@ -258,6 +268,7 @@ impl CommandExecutor {
                 request
                     .meta_internal_extra_params()
                     .allow_unsandboxed_action_cache_uploads,
+                request.salt(),
             )?;
 
             buck2_error::Ok(action)
@@ -270,7 +281,7 @@ fn re_create_action(
     all_args: Vec<String>,
     outputs: &[(ProjectRelativePathBuf, OutputType)],
     working_directory: &ProjectRelativePath,
-    environment: &SortedVectorMap<String, String>,
+    environment: &BuckFixedSortedMap<String, String>,
     input_digest: &TrackedFileDigest,
     timeout: Option<Duration>,
     platform: RE::Platform,
@@ -286,6 +297,7 @@ fn re_create_action(
     worker: &Option<RemoteWorkerSpec>,
     re_outputs_required: bool,
     allow_unsandboxed_action_cache_uploads: bool,
+    salt: Option<&ActionSalt>,
 ) -> buck2_error::Result<PreparedAction> {
     let (worker_tool_init_action, command_args) = if let Some(worker) = worker {
         let mut action_and_blobs = ActionDigestAndBlobsBuilder::new(digest_config);
@@ -398,6 +410,9 @@ fn re_create_action(
             .transpose()
             .buck_error_context("Cannot convert timeout to GRPC")?,
         do_not_cache,
+        salt: salt
+            .map(|salt| salt.as_bytes().to_vec())
+            .unwrap_or_default(),
         #[cfg(fbcode_build)]
         allow_unsandboxed_action_cache_uploads,
         #[cfg(fbcode_build)]

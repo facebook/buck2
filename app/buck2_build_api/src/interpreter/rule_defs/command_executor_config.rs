@@ -38,9 +38,10 @@ use buck2_core::execution_types::executor_config::parse_network_access;
 use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
 use buck2_error::internal_error;
+use buck2_hash::BuckFixedSortedMap;
+use buck2_hash::BuckMutInsertionMap;
 use derive_more::Display;
 use starlark::any::ProvidesStaticType;
-use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::Freeze;
 use starlark::values::NoSerialize;
@@ -53,7 +54,6 @@ use starlark::values::list::UnpackList;
 use starlark::values::none::NoneOr;
 use starlark::values::none::NoneType;
 use starlark::values::starlark_value;
-use starlark_map::sorted_map::SortedMap;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]
@@ -82,6 +82,10 @@ enum CommandExecutorConfigErrors {
     ReGangNumSubGroupsNotAnInt(String),
     #[error("expected an integer for `resource_units` in `remote_execution_gang`, got `{0}`")]
     ReGangResourceUnitsNotAnInt(String),
+    #[error(
+        "expected a positive integer for `queue_timeout_s` in `remote_execution_policy`, got `{0}`"
+    )]
+    ReQueueTimeoutNotPositive(String),
 }
 
 #[derive(
@@ -105,6 +109,36 @@ starlark_simple_value!(StarlarkCommandExecutorConfig);
 #[starlark_value(type = "CommandExecutorConfig")]
 impl<'v> StarlarkValue<'v> for StarlarkCommandExecutorConfig {}
 
+fn parse_remote_execution_properties(
+    value: Value,
+) -> buck2_error::Result<Option<RePlatformFields>> {
+    if value.is_none() {
+        return Ok(None);
+    }
+
+    let properties = DictRef::from_value(value.to_value()).ok_or_else(|| {
+        buck2_error::Error::from(CommandExecutorConfigErrors::RePropertiesNotADict(
+            value.to_repr(),
+            value.get_type().to_owned(),
+        ))
+    })?;
+
+    Ok(Some(RePlatformFields {
+        properties: Arc::new(
+            properties
+                .iter()
+                .map(|(name, value)| {
+                    let values = ListRef::from_value(value).map_or_else(
+                        || vec![value.to_str()],
+                        |values| values.iter().map(Value::to_str).collect(),
+                    );
+                    (name.to_str(), values)
+                })
+                .collect(),
+        ),
+    }))
+}
+
 #[starlark_module]
 pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
     /// Contains configurations for how actions should be executed
@@ -113,7 +147,8 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
     /// If both remote_enabled and local_enabled are `True`, we will use the hybrid executor
     /// * `remote_enabled`: Whether to use remote execution for this execution platform
     /// * `remote_cache_enabled`: Whether to query RE caches
-    /// * `remote_execution_properties`: Properties for remote execution for this platform
+    /// * `remote_execution_properties`: Properties for remote execution for this platform. Each
+    /// value may be a single value or a list of alternative values.
     /// * `remote_execution_action_key`: A component to inject into the action key
     /// This should typically used to inject variability into the action key so that
     /// it's different across e.g. build modes (RE uses the action key for things like expected memory utilization)
@@ -138,7 +173,9 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
     /// * `remote_execution_custom_image`: Custom Tupperware image for remote execution for this platform
     /// * `meta_internal_extra_params`: Json dict of extra params to pass to RE related to Meta internal infra.
     ///   Supports the following keys:
-    ///   - `remote_execution_policy`: Policy settings for remote execution
+    ///   - `remote_execution_policy`: Policy settings for remote execution. A dict with optional keys
+    ///     `priority`, `region_preference`, `setup_preference_key` and `queue_timeout_s` (seconds the
+    ///     action may wait in the RE queue; RE caps it at the platform's queue timeout)
     ///   - `remote_execution_caf_fbpkgs`: CAF fbpkgs configuration
     ///   - `remote_execution_gang`: Constrained gang for gang scheduling in remote execution. A dict with keys:
     ///     - `capabilities`: A dict of capability key-value pairs (required)
@@ -177,9 +214,9 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
         #[starlark(default = NoneOr::None, require = named)]
         remote_execution_resource_units: NoneOr<i64>,
         #[starlark(default=UnpackList::default(), require = named)]
-        remote_execution_dependencies: UnpackList<SmallMap<&'v str, &'v str>>,
+        remote_execution_dependencies: UnpackList<BuckMutInsertionMap<&'v str, &'v str>>,
         #[starlark(default=UnpackList::default(), require = named)]
-        remote_execution_gang_workers: UnpackList<SmallMap<&'v str, &'v str>>,
+        remote_execution_gang_workers: UnpackList<BuckMutInsertionMap<&'v str, &'v str>>,
         #[starlark(default = NoneType, require = named)] remote_execution_dynamic_image: Value<'v>,
         #[starlark(default = NoneOr::None, require = named)] meta_internal_extra_params: NoneOr<
             DictRef<'v>,
@@ -197,26 +234,8 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
 
             let max_cache_upload_mebibytes = max_cache_upload_mebibytes.into_option();
 
-            let re_properties = if remote_execution_properties.is_none() {
-                None
-            } else {
-                let re_properties = DictRef::from_value(remote_execution_properties.to_value())
-                    .ok_or_else(|| {
-                        buck2_error::Error::from(CommandExecutorConfigErrors::RePropertiesNotADict(
-                            remote_execution_properties.to_value().to_repr(),
-                            remote_execution_properties.to_value().get_type().to_owned(),
-                        ))
-                    })?;
-
-                Some(RePlatformFields {
-                    properties: Arc::new(
-                        re_properties
-                            .iter()
-                            .map(|(k, v)| (k.to_str(), v.to_str()))
-                            .collect(),
-                    ),
-                })
-            };
+            let re_properties =
+                parse_remote_execution_properties(remote_execution_properties.to_value())?;
 
             let re_dependencies = remote_execution_dependencies
                 .into_iter()
@@ -513,6 +532,19 @@ fn parse_remote_execution_policy(
                 ))
             })?;
 
+            let queue_timeout_s = match re_policy_dict.get_str("queue_timeout_s") {
+                None => None,
+                Some(v) => match v.unpack_i32() {
+                    Some(seconds) if seconds > 0 => Some(seconds),
+                    _ => {
+                        return Err(CommandExecutorConfigErrors::ReQueueTimeoutNotPositive(
+                            v.to_repr(),
+                        )
+                        .into());
+                    }
+                },
+            };
+
             Ok(RemoteExecutionPolicy {
                 setup_preference_key: re_policy_dict
                     .get_str("setup_preference_key")
@@ -526,6 +558,7 @@ fn parse_remote_execution_policy(
                     .get_str("priority")
                     .and_then(|v| v.unpack_i32())
                     .map(|i| i.to_owned()),
+                queue_timeout_s,
             })
         }
     }
@@ -626,7 +659,7 @@ fn parse_remote_execution_gang<'v>(
         ))
     })?;
 
-    let capabilities: SortedMap<String, String> = capabilities_dict
+    let capabilities: BuckFixedSortedMap<String, String> = capabilities_dict
         .iter()
         .map(|(k, v)| (k.to_str(), v.to_str()))
         .collect();
@@ -679,4 +712,50 @@ fn parse_remote_execution_gang<'v>(
         num_sub_groups,
         resource_units,
     )?))
+}
+
+#[cfg(test)]
+mod tests {
+    use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
+    use buck2_interpreter::factory::BuckStarlarkModule;
+    use buck2_interpreter::factory::StarlarkEvaluatorProvider;
+    use dice_futures::cancellation::CancellationContext;
+    use starlark::values::dict::AllocDict;
+    use starlark::values::list::AllocList;
+
+    use crate::interpreter::rule_defs::command_executor_config::parse_remote_execution_properties;
+
+    #[test]
+    fn test_parse_remote_execution_properties_with_multiple_values() -> buck2_error::Result<()> {
+        BuckStarlarkModule::with_profiling(|module| {
+            let architectures = module.heap().alloc(AllocList(["x86_64", "aarch64"]));
+            let platform = module.heap().alloc("linux-remote-execution");
+            let properties = module
+                .heap()
+                .alloc(AllocDict([("arch", architectures), ("platform", platform)]));
+
+            let properties = parse_remote_execution_properties(properties)
+                .expect("Properties should parse")
+                .expect("Properties should be present");
+
+            assert_eq!(
+                properties.properties.get("arch"),
+                Some(&vec!["x86_64".to_owned(), "aarch64".to_owned()]),
+            );
+            assert_eq!(
+                properties.properties.get("platform"),
+                Some(&vec!["linux-remote-execution".to_owned()]),
+            );
+
+            let provider =
+                StarlarkEvaluatorProvider::passthrough(StarlarkEvalKind::Unknown("test".into()));
+            let (finished_eval, ()) = provider.with_evaluator(
+                &module,
+                CancellationContext::testing().into(),
+                |_eval, _| Ok(()),
+            )?;
+            let (profiling, _) = finished_eval.finish()?;
+            Ok((profiling, ()))
+        })
+    }
 }

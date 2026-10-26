@@ -44,6 +44,7 @@ use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::dep_file_state::DepFileStore;
@@ -52,21 +53,24 @@ use buck2_execute::execute::action_digest_and_blobs::ActionDigestAndBlobs;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::cache_uploader::CacheUploadResults;
 use buck2_execute::execute::cache_uploader::IntoRemoteDepFile;
+use buck2_execute::execute::low_pass_filter::LowPassFilter;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::prepared::PreparedAction;
 use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::request::ExecutorPreference;
 use buck2_execute::execute::result::CommandExecutionResult;
+use buck2_execute::execute::write_action_cache::WriteActionCache;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::manager::UnconfiguredRemoteExecutionClient;
 use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
 use buck2_file_watcher::dep_files::DepFileCache;
 use buck2_file_watcher::mergebase::Mergebase;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_hash::BuckIndexMap;
-use buck2_hash::BuckIndexSet;
+use buck2_hash::BuckMutInsertionMap;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_hash::BuckMutMap;
-use buck2_hash::buck_indexmap;
+use buck2_hash::BuckMutSet;
+use buck2_hash::buck_mut_insertion_map;
 use buck2_http::HttpClient;
 use derivative::Derivative;
 use derive_more::Display;
@@ -109,7 +113,7 @@ pub trait UnregisteredAction: Allocative + Send {
     /// and no longer bindable to any other 'Artifact's.
     fn register(
         self: Box<Self>,
-        outputs: BuckIndexSet<BuildArtifact>,
+        outputs: BuckMutInsertionSet<BuildArtifact>,
         starlark_data: Option<OwnedFrozen<Value<'static>>>,
         error_handler: Option<OwnedFrozen<Value<'static>>>,
     ) -> buck2_error::Result<Box<dyn Action>>;
@@ -179,12 +183,17 @@ pub trait Action: PagableTagged + Allocative + Debug + Send + Sync + 'static {
         &self,
         _fs: &ExecutorFs,
         _artifact_path_mapping: &dyn ArtifactPathMapper,
-    ) -> buck2_error::Result<BuckIndexMap<String, String>> {
-        Ok(buck_indexmap! {})
+    ) -> buck2_error::Result<BuckMutInsertionMap<String, String>> {
+        Ok(buck_mut_insertion_map! {})
     }
 
     fn error_handler(&self) -> Option<&OwnedFrozen<Value<'static>>> {
         None
+    }
+
+    /// The outputs the error handler reads, put on disk before it runs.
+    fn outputs_for_error_handler(&self) -> buck2_error::Result<Vec<BuildArtifactPath>> {
+        Ok(Vec::new())
     }
 
     fn failed_action_output_artifacts<'v>(
@@ -307,10 +316,24 @@ pub trait ActionExecutionCtx: Send + Sync {
     /// as an input to the associated action or a panic will be raised.
     fn artifact_values(&self, input: &ArtifactGroup) -> &ArtifactGroupValues;
 
+    /// Content-based path hashes of the action's inputs, restricted to the groups in
+    /// `filter` when given.
     fn artifact_path_mapping(
         &self,
-        filter: Option<BuckIndexSet<ArtifactGroup>>,
+        filter: Option<&BuckMutInsertionSet<ArtifactGroup>>,
     ) -> BuckMutMap<&Artifact, ContentBasedPathHash>;
+
+    /// Like `artifact_path_mapping` over the union of `rendered` and `path_only`,
+    /// also returning the artifacts that belong to a `path_only` group. One pass over
+    /// the inputs serves both.
+    fn artifact_path_mapping_with_path_only(
+        &self,
+        rendered: &BuckMutInsertionSet<ArtifactGroup>,
+        path_only: &BuckMutInsertionSet<ArtifactGroup>,
+    ) -> (
+        BuckMutMap<&Artifact, ContentBasedPathHash>,
+        BuckMutSet<&Artifact>,
+    );
 
     fn blocking_executor(&self) -> &dyn BlockingExecutor;
 
@@ -323,6 +346,22 @@ pub trait ActionExecutionCtx: Send + Sync {
 
     /// Whether there is a CAS to talk to at all, independent of how this action executes.
     fn cas_configured(&self) -> bool;
+
+    /// Whether this action may ask the CAS whether it already holds content it would otherwise
+    /// produce, a write's or a copy's: false without a CAS, and under `--local-only` and
+    /// `--no-remote-cache`, which forgo what remote caches hold. `download_file` asks under
+    /// [`Self::cas_configured`] instead: its content is named by the user's checksum, and the
+    /// CAS serves it in place of the URL rather than in place of a cache.
+    fn may_probe_cas(&self) -> bool;
+
+    /// The action cache as write actions use it, under this action's executor configuration;
+    /// `None` where that executor reads no cache.
+    fn write_action_cache(&self) -> Option<&dyn WriteActionCache>;
+
+    /// The command's gate on local work: the hybrid executor runs a command locally only when
+    /// there is room behind it, and a write that could as well be uploaded is written locally
+    /// on the same terms.
+    fn low_pass_filter(&self) -> &LowPassFilter;
 
     fn re_platform(&self) -> &remote_execution::Platform;
 
@@ -456,14 +495,14 @@ impl Deref for RegisteredAction {
 #[derive(Allocative)]
 struct ActionToBeRegistered {
     key: ActionKey,
-    outputs: BuckIndexSet<BuildArtifact>,
+    outputs: BuckMutInsertionSet<BuildArtifact>,
     action: Box<dyn UnregisteredAction>,
 }
 
 impl ActionToBeRegistered {
     fn new<A: UnregisteredAction + 'static>(
         key: ActionKey,
-        outputs: BuckIndexSet<BuildArtifact>,
+        outputs: BuckMutInsertionSet<BuildArtifact>,
         a: A,
     ) -> Self {
         Self {

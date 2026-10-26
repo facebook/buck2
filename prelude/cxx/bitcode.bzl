@@ -6,7 +6,11 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
+load("@prelude//cxx:attrs.bzl", "cxx_common")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "LinkerInfo")
+load("@prelude//decls:common.bzl", "buck")
+load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:utils.bzl", "value_or")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
@@ -90,3 +94,46 @@ def llvm_link_bitcode_impl(ctx: AnalysisContext) -> list[Provider]:
         return [DefaultInfo(default_output = result.artifact), BitcodeBundleInfo(bitcode_bundle = result)]
     else:
         return [DefaultInfo()]
+
+llvm_link_bitcode = prelude_rule(
+    name = "llvm_link_bitcode",
+    impl = llvm_link_bitcode_impl,
+    docs = """
+        An `llvm_link_bitcode()` rule combines a set of LLVM bitcode
+        inputs into a single bitcode object using `llvm-link`.
+
+        LLVM bitcode is the intermediate representation produced by Clang
+        when compiling with `-emit-llvm`; merging multiple bitcode files
+        into one allows downstream rules to perform whole-program
+        optimization, link-time optimization (LTO), or other
+        bitcode-level analyses on the combined module.
+
+        Inputs can be other `llvm_link_bitcode()` outputs, raw `.bc` /
+        `.o` files containing bitcode, or `cxx_library()` rules producing
+        bitcode artifacts.
+    """,
+    examples = """
+        ```
+        # A rule that builds and runs C/C++ test using gtest.
+        llvm_link_bitcode(
+          name = 'echo_test',
+          srcs = [
+            'echo_test.o',  // Where this is a LLVM bitcode object.
+            'echo_other.o', // And this is another LLVM bitcode object.
+          ],
+        )
+        ```
+    """,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        cxx_common.srcs_arg()
+        | buck.deps_query_arg()
+        | {
+            "deps": attrs.list(attrs.dep(), default = []),
+        }
+        | {
+            "_cxx_toolchain": toolchains_common.cxx(),
+        }
+    ),
+)

@@ -13,8 +13,11 @@ use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 
 use allocative::Allocative;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_error::BuckErrorOptionContext;
+use buck2_execute::materialize::materializer::ReadLease;
 use buck2_hash::BuckDashMap;
 use buck2_test_api::data::ConfiguredTargetHandle;
 use dupe::Dupe;
@@ -50,6 +53,10 @@ pub struct TestSession {
     /// Options overriding the behavior of tests executed in this session. This is primarily
     /// intended for unstable or debugging features.
     options: TestSessionOptions,
+    /// Leases over what the test runner reads out of process, by the output root of the
+    /// execution they belong to: a run's outputs, or the inputs of a command the runner executes
+    /// itself. Each is held until the runner comes back to its root or the session ends.
+    held: BuckDashMap<ProjectRelativePathBuf, ReadLease>,
 }
 
 impl TestSession {
@@ -58,7 +65,23 @@ impl TestSession {
             next_id: AtomicU64::new(0),
             labels: BuckDashMap::default(),
             options,
+            held: BuckDashMap::default(),
         }
+    }
+
+    /// Holds `lease` for the execution at `root`, in place of whatever was held for it.
+    pub fn hold(&self, root: ProjectRelativePathBuf, lease: ReadLease) {
+        self.held.insert(root, lease);
+    }
+
+    /// Releases what is held for the execution at `root`, ahead of producing there again.
+    pub fn release(&self, root: &ProjectRelativePath) {
+        self.held.remove(root);
+    }
+
+    /// Releases everything held: the runner is done reading.
+    pub fn release_all(&self) {
+        self.held.clear();
     }
 
     pub fn options(&self) -> TestSessionOptions {

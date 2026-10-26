@@ -11,6 +11,7 @@
 use std::fmt::Debug;
 use std::future::Future;
 use std::sync::Arc as StdArc;
+use std::time::Duration;
 
 use allocative::Allocative;
 use dice_core::BranchId;
@@ -18,6 +19,7 @@ use dice_core::Version;
 use dupe::Dupe;
 use pagable::StorageContext;
 use pagable::storage::handle::PagableStorageHandle;
+use parking_lot::RwLock;
 
 use crate::DiceTransactionUpdater;
 use crate::HashMap;
@@ -28,6 +30,7 @@ use crate::arc::Arc;
 use crate::core::state::CoreStateHandle;
 use crate::core::state::init_state;
 use crate::introspection::graph::GraphIntrospectable;
+use crate::key::DiceKey;
 use crate::key_index::DiceKeyIndex;
 use crate::metrics::Metrics;
 use crate::metrics::PageInKeyTypeMetrics;
@@ -41,6 +44,10 @@ use crate::updater::TransactionUpdater;
 /// into each page-out worker.
 pub type PageOutCancel = fn() -> bool;
 
+/// How soon after a version's computations stop making progress they are first checked for
+/// dependency cycles, unless configured otherwise.
+pub(crate) const DEFAULT_CYCLE_CHECK_INTERVAL: Duration = Duration::from_secs(1);
+
 /// An incremental computation engine that executes arbitrary computations that
 /// maps `Key`s to values.
 ///
@@ -50,8 +57,12 @@ pub type PageOutCancel = fn() -> bool;
 pub struct Dice {
     pub(crate) key_index: DiceKeyIndex,
     pub(crate) state_handle: CoreStateHandle,
-    pub(crate) global_data: DiceData,
+    pub(crate) global_data: StdArc<DiceData>,
+    branch_data: StdArc<RwLock<HashMap<BranchId, StdArc<DiceData>>>>,
     pub(crate) pagable_storage: Option<DiceStorage>,
+    /// How soon after a version's computations stop making progress they are first checked for
+    /// dependency cycles, or `None` to never check. See `epoch::cycles`.
+    pub(crate) cycle_check_interval: Option<Duration>,
 }
 
 // SAFETY: as for `DiceComputations`.
@@ -63,14 +74,18 @@ fn _assert_send_sync(
         key_index,
         state_handle,
         global_data,
+        branch_data,
         pagable_storage,
+        cycle_check_interval,
     }: &Dice,
 ) {
     fn assert<T: Send + Sync>(_: &T) {}
     assert(key_index);
     assert(state_handle);
     assert(global_data);
+    assert(branch_data);
     assert(pagable_storage);
+    assert(cycle_check_interval);
 }
 
 impl Debug for Dice {
@@ -82,6 +97,16 @@ impl Debug for Dice {
 pub struct DiceDataBuilder {
     data: DiceData,
     pagable_storage: Option<DiceStorage>,
+    cycle_check_interval: Duration,
+}
+
+impl From<DiceData> for DiceDataBuilder {
+    fn from(data: DiceData) -> Self {
+        Self {
+            data,
+            ..Self::new()
+        }
+    }
 }
 
 impl DiceDataBuilder {
@@ -89,6 +114,7 @@ impl DiceDataBuilder {
         Self {
             data: DiceData::new(),
             pagable_storage: None,
+            cycle_check_interval: DEFAULT_CYCLE_CHECK_INTERVAL,
         }
     }
 
@@ -102,25 +128,47 @@ impl DiceDataBuilder {
         self.pagable_storage = Some(storage);
     }
 
-    pub fn build(self, _detect_cycles: DetectCycles) -> StdArc<Dice> {
-        Dice::new(self.data, self.pagable_storage)
+    /// Sets how soon after a version's computations stop making progress they are first checked
+    /// for dependency cycles, when [`DetectCycles::Enabled`] is passed to `build`; while they
+    /// stay stalled without a cycle, further checks come less and less often, up to 16 times
+    /// this. See [`DetectCycles`] for the tradeoff. Defaults to one second.
+    pub fn set_cycle_check_interval(&mut self, interval: Duration) {
+        self.cycle_check_interval = interval;
+    }
+
+    pub fn build(self, detect_cycles: DetectCycles) -> StdArc<Dice> {
+        let cycle_check_interval = match detect_cycles {
+            DetectCycles::Enabled => Some(self.cycle_check_interval),
+            DetectCycles::Disabled => None,
+        };
+        Dice::new(self.data, self.pagable_storage, cycle_check_interval)
     }
 }
 
 impl Dice {
-    pub(crate) fn new(global_data: DiceData, pagable_storage: Option<DiceStorage>) -> StdArc<Self> {
-        let state_handle = init_state(
-            pagable_storage
-                .as_ref()
-                .map(|storage| storage.paging_memory_metrics()),
-        );
+    pub(crate) fn new(
+        global_data: DiceData,
+        pagable_storage: Option<DiceStorage>,
+        cycle_check_interval: Option<Duration>,
+    ) -> StdArc<Self> {
+        let state_handle = init_state(pagable_storage.as_ref().map(DiceStorage::paging_setup));
+
+        let global_data = StdArc::new(global_data);
 
         StdArc::new(Dice {
             key_index: Default::default(),
             state_handle,
             global_data,
+            branch_data: StdArc::new(RwLock::new(HashMap::default())),
             pagable_storage,
+            cycle_check_interval,
         })
+    }
+
+    /// A `Dice` without pagable storage that detects cycles at the default interval.
+    #[cfg(test)]
+    pub(crate) fn testing_new(global_data: DiceData) -> StdArc<Self> {
+        Self::new(global_data, None, Some(DEFAULT_CYCLE_CHECK_INTERVAL))
     }
 
     pub fn builder() -> DiceDataBuilder {
@@ -132,7 +180,14 @@ impl Dice {
     /// branch, its head included. Dropping the future before it yields the branch does not leak
     /// one.
     pub fn fork(&self, from: Version) -> impl Future<Output = BranchId> + use<> {
-        self.state_handle.fork(from)
+        let data = self.data_for_branch(from.branch());
+        let branch_data = self.branch_data.dupe();
+        let branch = self.state_handle.fork(from);
+        async move {
+            let branch = branch.await;
+            branch_data.write().insert(branch, data);
+            branch
+        }
     }
 
     /// Starts a branch with no parent. It starts out with no injected values, and it shares with
@@ -140,7 +195,28 @@ impl Dice {
     /// premises hold at it, once the same inputs have been injected. Dropping the future before
     /// it yields the branch does not leak one.
     pub fn new_root(&self) -> impl Future<Output = BranchId> + use<> {
-        self.state_handle.new_root()
+        let data = self.global_data.dupe();
+        let branch_data = self.branch_data.dupe();
+        let branch = self.state_handle.new_root();
+        async move {
+            let branch = branch.await;
+            branch_data.write().insert(branch, data);
+            branch
+        }
+    }
+
+    /// Starts a root whose computations use `data`. Certificates are shared with other roots
+    /// under the same rules as [`Self::new_root`]. Any differences in this untracked data that
+    /// affect computed values must be represented by keys or tracked dependencies. Dropping
+    /// the future before it yields the branch does not leak one.
+    pub fn new_root_with_data(&self, data: DiceData) -> impl Future<Output = BranchId> + use<> {
+        let branch_data = self.branch_data.dupe();
+        let branch = self.state_handle.new_root();
+        async move {
+            let branch = branch.await;
+            branch_data.write().insert(branch, StdArc::new(data));
+            branch
+        }
     }
 
     /// The branch's newest version.
@@ -158,7 +234,8 @@ impl Dice {
     /// be idle first ([`Self::wait_for_idle_on`]). Starting a transaction on the branch,
     /// committing to it or forking from it afterwards is an error that panics.
     pub fn delete_branch(&self, branch: BranchId) {
-        self.state_handle.delete_branch(branch)
+        self.state_handle.delete_branch(branch);
+        self.branch_data.write().remove(&branch);
     }
 
     /// An updater for `branch`: its commits extend that branch, and its transactions run at that
@@ -178,6 +255,16 @@ impl Dice {
             branch,
             Arc::new(extra),
         ))
+    }
+
+    pub(crate) fn data_for_branch(&self, branch: BranchId) -> StdArc<DiceData> {
+        self.branch_data
+            .read()
+            .get(&branch)
+            .map(Dupe::dupe)
+            // Constructing an updater for a deleted branch remains cheap; the core rejects any
+            // attempt to start a transaction on it before this fallback data can be observed.
+            .unwrap_or_else(|| self.global_data.dupe())
     }
 
     pub fn metrics(&self) -> Metrics {
@@ -275,13 +362,6 @@ impl Dice {
             version_data: version_introspectable,
             key_map: key_index,
         }
-    }
-
-    /// Note: modern dice does not support cycle detection yet
-    pub fn detect_cycles(&self) -> &DetectCycles {
-        // TODO(bobyf) actually have cycles for dice modern
-        const CYCLES: DetectCycles = DetectCycles::Disabled;
-        &CYCLES
     }
 
     /// Waits until dice is idle. See [`Dice::is_idle`] for what that means.
@@ -414,6 +494,19 @@ impl Dice {
             .await
     }
 
+    /// Drops the resident values whose rows already hold them, one read back or written by an
+    /// earlier page-out, without writing anything; for reclaiming memory under pressure. Bounded
+    /// by the values backed when the call starts: ones a concurrent computation reads back
+    /// meanwhile are left for the next eviction. Returns how many values were evicted.
+    ///
+    /// No-op if `DiceStorage` was not configured on the builder.
+    pub async fn evict_backed(&self) -> u64 {
+        match self.pagable_storage.as_ref() {
+            Some(storage) => storage.evict_backed(&self.state_handle).await,
+            None => 0,
+        }
+    }
+
     /// Page in (rehydrate) all paged-out values from the
     /// configured `DiceStorage`, used for debugging.
     ///
@@ -445,27 +538,23 @@ impl Dice {
         // `key_index.get` can't panic here: keys are interned before their node
         // enters the graph, and we snapshot the graph before resolving keys (the
         // dual of `to_introspectable`'s ordering). Don't reorder those two steps.
-        let mut counts: HashMap<&'static str, (usize, usize)> = HashMap::default();
-        for key in &raw.resident {
-            counts
-                .entry(self.key_index.get(*key).key_type_name())
-                .or_default()
-                .0 += 1;
-        }
-        for key in &raw.paged_out {
-            counts
-                .entry(self.key_index.get(*key).key_type_name())
-                .or_default()
-                .1 += 1;
-        }
-        let mut by_type: Vec<PagableTypeStat> = counts
-            .into_iter()
-            .map(|(key_type, (resident, paged_out))| PagableTypeStat {
-                key_type,
-                resident,
-                paged_out,
-            })
-            .collect();
+        let mut counts: HashMap<&'static str, PagableTypeStat> = HashMap::default();
+        let mut tally = |keys: &[DiceKey], count: fn(&mut PagableTypeStat) -> &mut usize| {
+            for key in keys {
+                let key_type = self.key_index.get(*key).key_type_name();
+                let stat = counts.entry(key_type).or_insert(PagableTypeStat {
+                    key_type,
+                    resident: 0,
+                    paged_out: 0,
+                    backed: 0,
+                });
+                *count(stat) += 1;
+            }
+        };
+        tally(&raw.resident, |t| &mut t.resident);
+        tally(&raw.paged_out, |t| &mut t.paged_out);
+        tally(&raw.backed, |t| &mut t.backed);
+        let mut by_type: Vec<PagableTypeStat> = counts.into_values().collect();
         // Biggest contributors first, with a name tie-break so output is stable
         // across runs (the underlying HashMap iteration order is not).
         by_type.sort_by(|a, b| {
@@ -479,6 +568,7 @@ impl Dice {
             resident_count: raw.counts.resident,
             paged_out_count: raw.counts.paged_out,
             candidate_count: raw.counts.candidates,
+            backed_count: raw.counts.backed,
             by_type,
         }
     }
@@ -519,13 +609,15 @@ impl StorageIoSnapshot {
     }
 }
 
-/// Resident, paged-out, and page-out-candidate DICE node counts. `candidates` is the
-/// subset of `resident` never paged out.
+/// Resident, paged-out, page-out-candidate, and backed DICE node counts. `candidates`, the
+/// subset of `resident` the next page-out serializes, and `backed`, the subset a row already
+/// holds, are disjoint.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PagableNodeCounts {
     pub resident: usize,
     pub paged_out: usize,
     pub candidates: usize,
+    pub backed: usize,
 }
 
 /// Summary of how many DICE node values are resident in memory vs paged out to
@@ -536,9 +628,11 @@ pub struct PagableStatus {
     pub total_nodes: usize,
     pub resident_count: usize,
     pub paged_out_count: usize,
-    /// Resident nodes eligible for page-out (never paged out); a subset of
-    /// `resident_count`.
+    /// Resident nodes the next page-out serializes; a subset of `resident_count`.
     pub candidate_count: usize,
+    /// Resident nodes a row already holds; a subset of `resident_count`, disjoint from the
+    /// candidates.
+    pub backed_count: usize,
     /// Per-key-type counts, sorted by total (resident + paged-out) descending.
     pub by_type: Vec<PagableTypeStat>,
 }
@@ -549,6 +643,8 @@ pub struct PagableTypeStat {
     pub key_type: &'static str,
     pub resident: usize,
     pub paged_out: usize,
+    /// Resident values a row already holds; a subset of `resident`.
+    pub backed: usize,
 }
 
 #[cfg(test)]

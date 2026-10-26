@@ -188,7 +188,7 @@ pub(crate) fn inline_def_body<'f>(
     params: &ParametersCompiled<'f, IrSpanned<'f, ExprCompiled<'f>>>,
     body: &StmtsCompiled<'f>,
 ) -> Option<InlineDefBody<'f>> {
-    if params.params.len() == 1 && params.params[0].accepts_positional() {
+    if params.params.len() == 1 && params.indices.num_positional == 1 {
         if let Some(t) = is_return_type_is(body) {
             return Some(InlineDefBody::ReturnTypeIs(t));
         }

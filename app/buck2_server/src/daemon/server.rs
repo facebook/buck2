@@ -86,7 +86,6 @@ use buck2_util::system_stats::num_cores;
 use buck2_util::system_stats::system_memory_stats;
 use buck2_util::threads::thread_spawn;
 use dice::BranchId;
-use dice::DetectCycles;
 use dice::Dice;
 use dice_futures::cancellation::CancellationContext;
 use dice_futures::drop::DropTogether;
@@ -237,7 +236,6 @@ impl DaemonShutdown {
 
 #[derive(Allocative)]
 pub struct BuckdServerInitPreferences {
-    pub detect_cycles: Option<DetectCycles>,
     pub enable_trace_io: bool,
     pub reject_materializer_state: Option<SqliteIdentity>,
     pub daemon_startup_config: DaemonStartupConfig,
@@ -247,7 +245,6 @@ pub struct BuckdServerInitPreferences {
 
 #[derive(Allocative)]
 pub(crate) struct TenantStateInitPreferences {
-    pub(crate) detect_cycles: Option<DetectCycles>,
     pub(crate) enable_trace_io: bool,
     pub(crate) reject_materializer_state: Option<SqliteIdentity>,
     pub(crate) daemon_startup_config: DaemonStartupConfig,
@@ -256,7 +253,6 @@ pub(crate) struct TenantStateInitPreferences {
 impl BuckdServerInitPreferences {
     pub(crate) fn split(self) -> (TenantStateInitPreferences, Option<String>) {
         let Self {
-            detect_cycles,
             enable_trace_io,
             reject_materializer_state,
             daemon_startup_config,
@@ -265,7 +261,6 @@ impl BuckdServerInitPreferences {
         } = self;
         (
             TenantStateInitPreferences {
-                detect_cycles,
                 enable_trace_io,
                 reject_materializer_state,
                 daemon_startup_config,
@@ -291,11 +286,12 @@ impl TenantStateInitPreferences {
             io,
             digest_config,
             Some(root_config),
-            self.detect_cycles,
             tenting_acl_provider,
             self.daemon_startup_config.buck_settings.dupe(),
             hydration.map(|_| dice_state_path),
             hydration.map_or_else(Default::default, |h| h.pagable_storage_backend),
+            hydration.map_or_else(Default::default, |h| h.page_out_policy),
+            hydration.map_or_else(Default::default, |h| h.eviction_policy),
             self.daemon_startup_config
                 .buck_settings
                 .hydration
@@ -372,6 +368,7 @@ impl BuckdServer {
         listener: Pin<Box<dyn Stream<Item = Result<tokio::net::TcpStream, io::Error>> + Send>>,
         rt: Handle,
         daemon_id: DaemonId,
+        ready: Box<dyn FnOnce() + Send>,
     ) -> buck2_error::Result<()> {
         let now = SystemTime::now();
         let now = now.duration_since(SystemTime::UNIX_EPOCH)?;
@@ -483,6 +480,9 @@ impl BuckdServer {
             tokio::time::sleep(Duration::from_secs(sleep_secs)).await;
         }
 
+        // The listener accepted connections since before the daemon state existed, but answers
+        // them only from here on.
+        ready();
         let server_result = server.await;
 
         let shutdown_deadline = shutdown_deadline
@@ -1610,6 +1610,34 @@ impl DaemonApi for BuckdServer {
         Ok(Response::new(UnstableHeapDumpResponse {}))
     }
 
+    async fn unstable_recent_alloc_dump(
+        &self,
+        req: Request<UnstableRecentAllocDumpRequest>,
+    ) -> Result<Response<UnstableRecentAllocDumpResponse>, Status> {
+        self.check_if_accepting_requests()?;
+        let req = req.into_inner();
+
+        // Producing the dump and streaming it to disk are blocking; run them off
+        // the async runtime so a large dump can't stall the daemon.
+        tokio::task::spawn_blocking(move || {
+            memory::write_recent_alloc_to_file(&req.destination_path)
+        })
+        .await
+        .map_err(|e| Status::internal(format!("recent alloc dump task failed: {e}")))?
+        .map_err(|e| {
+            // `Input`-tagged errors are unmet preconditions (jemalloc isn't the
+            // allocator, or profiling / the recent-alloc ring isn't enabled);
+            // anything else (mallctl or file-IO failure) is an internal error.
+            let msg = format!("failed to dump recent allocations: {e:#}");
+            if e.has_tag(buck2_error::ErrorTag::Input) {
+                Status::failed_precondition(msg)
+            } else {
+                Status::internal(msg)
+            }
+        })?;
+        Ok(Response::new(UnstableRecentAllocDumpResponse {}))
+    }
+
     async fn unstable_flush_pgo_profile(
         &self,
         _req: Request<UnstableFlushPgoProfileRequest>,
@@ -1641,6 +1669,27 @@ impl DaemonApi for BuckdServer {
             Ok(response) => Ok(Response::new(UnstableAllocatorStatsResponse { response })),
             Err(e) => Err(Status::invalid_argument(format!("{e:#}"))),
         }
+    }
+
+    async fn unstable_list_tenants(
+        &self,
+        _req: Request<UnstableListTenantsRequest>,
+    ) -> Result<Response<UnstableListTenantsResponse>, Status> {
+        self.check_if_accepting_requests()?;
+        let tenants = self
+            .0
+            .daemon_state
+            .data()
+            .tenants()
+            .into_iter()
+            .map(|tenant| UnstableTenantInfo {
+                project_root: tenant.key.project_root().display().to_string(),
+                isolation: tenant.key.isolation().as_str().to_owned(),
+                generation: tenant.generation,
+                initialized: tenant.initialized,
+            })
+            .collect();
+        Ok(Response::new(UnstableListTenantsResponse { tenants }))
     }
 
     async fn unstable_dice_dump(

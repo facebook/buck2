@@ -43,7 +43,12 @@ impl NativeCallableComponents {
     /// `heap` is the builder's, for the default values to render.
     fn doc_params(&self, heap: FrozenHeap<'_>) -> DocParams {
         let doc_param = |p: &NativeCallableParam| {
-            let NativeCallableParam { name, ty, required } = p;
+            let NativeCallableParam {
+                name,
+                ty,
+                required,
+                doc_hidden: _,
+            } = p;
             DocParam {
                 name: name.as_str().to_owned(),
                 docs: None,
@@ -60,12 +65,37 @@ impl NativeCallableComponents {
             }
         };
 
+        let visible = |p: &&NativeCallableParam| !p.doc_hidden;
+
         DocParams {
-            pos_only: self.param_spec.pos_only.iter().map(doc_param).collect(),
-            pos_or_named: self.param_spec.pos_or_named.iter().map(doc_param).collect(),
-            args: self.param_spec.args.as_ref().map(doc_param),
-            named_only: self.param_spec.named_only.iter().map(doc_param).collect(),
-            kwargs: self.param_spec.kwargs.as_ref().map(doc_param),
+            pos_only: self
+                .param_spec
+                .pos_only
+                .iter()
+                .filter(visible)
+                .map(doc_param)
+                .collect(),
+            pos_or_named: self
+                .param_spec
+                .pos_or_named
+                .iter()
+                .filter(visible)
+                .map(doc_param)
+                .collect(),
+            args: self.param_spec.args.as_ref().filter(visible).map(doc_param),
+            named_only: self
+                .param_spec
+                .named_only
+                .iter()
+                .filter(visible)
+                .map(doc_param)
+                .collect(),
+            kwargs: self
+                .param_spec
+                .kwargs
+                .as_ref()
+                .filter(visible)
+                .map(doc_param),
         }
     }
 

@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-#![feature(used_with_arg)]
-
 //!
 //! Events and event streams for Buck2.
 //!

@@ -9,6 +9,7 @@
  */
 
 use std::cell::RefCell;
+use std::cell::RefMut;
 use std::fmt;
 use std::fmt::Debug;
 
@@ -18,7 +19,6 @@ use buck2_core::cells::CellResolver;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedRelativeDir;
 use buck2_core::cells::name::CellName;
-use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::package_relative_path::PackageRelativePathBuf;
@@ -30,26 +30,29 @@ use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::soft_error;
-use buck2_node::attrs::coerced_attr::CoercedAttr;
+use buck2_node::attrs::arena::AttrToken;
+use buck2_node::attrs::arena::CoercedAttrArenaBuilder;
 use buck2_node::attrs::coerced_path::CoercedDirectory;
 use buck2_node::attrs::coerced_path::CoercedPath;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
-use buck2_node::configuration::resolved::ConfigurationSettingKey;
+use buck2_node::attrs::coercion_context::CoerceMemoKey;
+use buck2_node::attrs::coercion_context::CoerceMemoTable;
+use buck2_node::modifiers::CfgModifiers;
+use buck2_node::modifiers::ModifierLabelParser;
 use buck2_node::query::query_functions::CONFIGURED_GRAPH_QUERY_FUNCTIONS;
 use buck2_query::query::syntax::simple::eval::error::QueryError;
 use buck2_query::query::syntax::simple::functions::QueryLiteralVisitor;
 use buck2_query_parser::Expr;
 use buck2_query_parser::spanned::Spanned;
-use buck2_util::arc_str::ArcSlice;
 use buck2_util::arc_str::ArcStr;
 use bumpalo::Bump;
 use dupe::Dupe;
 use dupe::IterDupedExt;
 use hashbrown::HashTable;
 use hashbrown::hash_table;
+use starlark::values::Value;
 use tracing::info;
 
-use super::interner::AttrCoercionInterner;
 use crate::attrs::coerce::arc_str_interner::ArcStrInterner;
 use crate::attrs::coerce::str_hash::str_hash;
 
@@ -96,15 +99,15 @@ pub struct BuildAttrCoercionContext {
     /// allocating a key to perform a query using `entry` API.
     /// Strings are owned by `alloc`, using bump allocator makes evaluation 0.5% faster.
     label_cache: RefCell<HashTable<(u64, *const str, ProvidersLabel)>>,
+    /// Interns strings embedded as `ArcStr` fields inside composite values
+    /// (macro `Arg` parts, `select_fail`/`select_incompatible` messages),
+    /// which have no arena node of their own.
     str_interner: ArcStrInterner,
-    list_interner: AttrCoercionInterner<ArcSlice<CoercedAttr>>,
-    // TODO(scottcao): Dict and selects need separate interners right now because
-    // they have different key types. We can optimize this by interning keys and values
-    // separately and use the same interner for dict and select values. This will also
-    // reduce key duplication in selects since select keys are more likely to be deduplicated
-    // than select values
-    dict_interner: AttrCoercionInterner<ArcSlice<(CoercedAttr, CoercedAttr)>>,
-    select_interner: AttrCoercionInterner<ArcSlice<(ConfigurationSettingKey, CoercedAttr)>>,
+    /// The node constructors (`build_*_attr`) encode attribute values into
+    /// this arena as coercion proceeds. Package contexts seal it into the
+    /// package's shared storage; bzl contexts (rule defaults) seal it into
+    /// the value's own storage.
+    attr_arena_builder: RefCell<CoercedAttrArenaBuilder>,
 }
 
 impl Debug for BuildAttrCoercionContext {
@@ -135,10 +138,26 @@ impl BuildAttrCoercionContext {
             alloc: Bump::new(),
             label_cache: RefCell::new(HashTable::new()),
             str_interner: ArcStrInterner::new(),
-            list_interner: AttrCoercionInterner::new(),
-            dict_interner: AttrCoercionInterner::new(),
-            select_interner: AttrCoercionInterner::new(),
+            attr_arena_builder: RefCell::new(CoercedAttrArenaBuilder::default()),
         }
+    }
+
+    pub(crate) fn with_attr_arena_builder<R>(
+        &self,
+        f: impl FnOnce(&mut CoercedAttrArenaBuilder) -> R,
+    ) -> R {
+        f(&mut self.attr_arena_builder.borrow_mut())
+    }
+
+    pub(crate) fn with_attr_arena_ref<R>(
+        &self,
+        f: impl FnOnce(&CoercedAttrArenaBuilder) -> R,
+    ) -> R {
+        f(&self.attr_arena_builder.borrow())
+    }
+
+    pub(crate) fn take_attr_arena_builder(self) -> CoercedAttrArenaBuilder {
+        self.attr_arena_builder.into_inner()
     }
 
     pub fn new_no_package(
@@ -153,9 +172,8 @@ impl BuildAttrCoercionContext {
             cell_alias_resolver,
             None,
             false,
-            CellPathWithAllowedRelativeDir::backwards_relative_not_supported(CellPath::new(
+            CellPathWithAllowedRelativeDir::backwards_relative_not_supported(CellPath::empty(
                 cell_name,
-                CellRelativePathBuf::unchecked_new("".into()),
             )),
             infer_target_names,
         )
@@ -229,7 +247,11 @@ impl BuildAttrCoercionContext {
     }
 }
 
-impl AttrCoercionContext for BuildAttrCoercionContext {
+impl<'v> AttrCoercionContext<'v> for BuildAttrCoercionContext {
+    fn attr_arena(&self) -> RefMut<'_, CoercedAttrArenaBuilder> {
+        self.attr_arena_builder.borrow_mut()
+    }
+
     fn coerce_providers_label(&self, value: &str) -> buck2_error::Result<ProvidersLabel> {
         let hash = str_hash(value);
         let mut label_cache = self.label_cache.borrow_mut();
@@ -249,26 +271,12 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
         }
     }
 
+    fn coerce_cfg_modifiers(&self, value: Value<'v>) -> CfgModifiers {
+        CfgModifiers::from_target(value, &ModifierLabelParser::new(&self.cell_resolver))
+    }
+
     fn intern_str(&self, value: &str) -> ArcStr {
         self.str_interner.intern(value)
-    }
-
-    fn intern_list(&self, value: Vec<CoercedAttr>) -> ArcSlice<CoercedAttr> {
-        self.list_interner.intern(value)
-    }
-
-    fn intern_dict(
-        &self,
-        value: Vec<(CoercedAttr, CoercedAttr)>,
-    ) -> ArcSlice<(CoercedAttr, CoercedAttr)> {
-        self.dict_interner.intern(value)
-    }
-
-    fn intern_select(
-        &self,
-        value: Vec<(ConfigurationSettingKey, CoercedAttr)>,
-    ) -> ArcSlice<(ConfigurationSettingKey, CoercedAttr)> {
-        self.select_interner.intern(value)
     }
 
     fn coerce_path(&self, value: &str, allow_directory: bool) -> buck2_error::Result<CoercedPath> {
@@ -335,5 +343,60 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
             .visit_literals(visitor, expr)
             .map_err(|e| QueryError::convert_error(e, query))?;
         Ok(())
+    }
+}
+
+/// Coercion context for one buildfile evaluation: delegates to the package's
+/// `BuildAttrCoercionContext` and memoizes per-value results in the module's
+/// heap-scoped table, which is what proves the memo cannot outlive the
+/// values it keys.
+pub struct MemoizedCoercionCtx<'c, 'v> {
+    pub base: &'c BuildAttrCoercionContext,
+    pub memo: &'v CoerceMemoTable<'v>,
+}
+
+impl<'c, 'v> AttrCoercionContext<'v> for MemoizedCoercionCtx<'c, 'v> {
+    fn attr_arena(&self) -> RefMut<'_, CoercedAttrArenaBuilder> {
+        AttrCoercionContext::attr_arena(self.base)
+    }
+
+    fn coerce_providers_label(&self, value: &str) -> buck2_error::Result<ProvidersLabel> {
+        AttrCoercionContext::coerce_providers_label(self.base, value)
+    }
+
+    fn coerce_memo_lookup(&self, key: CoerceMemoKey<'v>) -> Option<AttrToken> {
+        self.memo.lookup(key)
+    }
+
+    fn coerce_memo_insert(&self, key: CoerceMemoKey<'v>, value: AttrToken) {
+        self.memo.insert(key, value);
+    }
+
+    fn coerce_cfg_modifiers(&self, value: Value<'v>) -> CfgModifiers {
+        AttrCoercionContext::coerce_cfg_modifiers(self.base, value)
+    }
+
+    fn intern_str(&self, value: &str) -> ArcStr {
+        AttrCoercionContext::intern_str(self.base, value)
+    }
+
+    fn coerce_path(&self, value: &str, allow_directory: bool) -> buck2_error::Result<CoercedPath> {
+        AttrCoercionContext::coerce_path(self.base, value, allow_directory)
+    }
+
+    fn coerce_target_pattern(
+        &self,
+        pattern: &str,
+    ) -> buck2_error::Result<ParsedPattern<TargetPatternExtra>> {
+        AttrCoercionContext::coerce_target_pattern(self.base, pattern)
+    }
+
+    fn visit_query_function_literals<'q>(
+        &self,
+        visitor: &mut dyn QueryLiteralVisitor<'q>,
+        expr: &Spanned<Expr<'q>>,
+        query: &'q str,
+    ) -> buck2_error::Result<()> {
+        AttrCoercionContext::visit_query_function_literals(self.base, visitor, expr, query)
     }
 }

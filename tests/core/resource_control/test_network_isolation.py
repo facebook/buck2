@@ -11,47 +11,45 @@
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test(skip_for_os=["windows", "darwin"], disable_daemon_cgroup=False)
-async def test_network_isolated(buck: Buck) -> None:
-    """Verify that network_access='none' blocks network in a new network namespace."""
-    # The test command tries to bind to localhost. With network isolation the
-    # loopback interface is DOWN, so the bind fails and the test exits non-zero.
-    await expect_failure(
-        buck.test(
-            "root//:network_isolated",
+class NetworkIsolationTest(BuckTestCase):
+    @buck_test(skip_for_os=["windows", "darwin"], disable_daemon_cgroup=False)
+    async def test_network_isolated(self, buck: Buck) -> None:
+        """Verify that network_access='none' blocks network in a new network namespace."""
+        # The test command tries to bind to localhost. With network isolation the
+        # loopback interface is DOWN, so the bind fails and the test exits non-zero.
+        await expect_failure(
+            buck.test(
+                "root//:network_isolated",
+                "--local-only",
+                "--no-remote-cache",
+            ),
+        )
+
+    @buck_test(skip_for_os=["windows", "darwin"], disable_daemon_cgroup=False)
+    async def test_network_accessible(self, buck: Buck) -> None:
+        """Control: verify network works when network_access is not set."""
+        await buck.test(
+            "root//:network_accessible",
             "--local-only",
             "--no-remote-cache",
-        ),
-    )
+        )
 
+    @buck_test(skip_for_os=["windows", "darwin"])
+    async def test_network_isolated_without_cgroups(self, buck: Buck) -> None:
+        """Isolation applies even when daemon cgroups are off."""
+        # disable_daemon_cgroup defaults to True — no daemon-level cgroups.
+        await expect_failure(
+            buck.test(
+                "root//:network_isolated",
+                "--local-only",
+                "--no-remote-cache",
+            ),
+        )
 
-@buck_test(skip_for_os=["windows", "darwin"], disable_daemon_cgroup=False)
-async def test_network_accessible(buck: Buck) -> None:
-    """Control: verify network works when network_access is not set."""
-    await buck.test(
-        "root//:network_accessible",
-        "--local-only",
-        "--no-remote-cache",
-    )
-
-
-@buck_test(skip_for_os=["windows", "darwin"])
-async def test_network_isolated_without_cgroups(buck: Buck) -> None:
-    """Isolation applies even when daemon cgroups are off."""
-    # disable_daemon_cgroup defaults to True — no daemon-level cgroups.
-    await expect_failure(
-        buck.test(
-            "root//:network_isolated",
-            "--local-only",
-            "--no-remote-cache",
-        ),
-    )
-
-
-@buck_test()
-def test_nop(buck: Buck) -> None:
-    # Pytest gets upset if we have no windows or mac tests in this file
-    pass
+    @buck_test()
+    def test_nop(self, buck: Buck) -> None:
+        # Pytest gets upset if we have no windows or mac tests in this file
+        pass

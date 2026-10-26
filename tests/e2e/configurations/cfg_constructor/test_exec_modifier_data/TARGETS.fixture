@@ -1,5 +1,14 @@
 load("@prelude//cfg/modifier:conditional_modifier.bzl", "conditional_modifier")
-load(":defs.bzl", "labeled_dummy", "labeled_tool", "labeled_toolchain")
+load(
+    ":defs.bzl",
+    "get_exec_marker_label",
+    "get_labels",
+    "labeled_dummy",
+    "labeled_tool",
+    "labeled_toolchain",
+    "tool_with_single_transition_dep",
+    "tool_with_split_transition_dep",
+)
 
 # Tool target - this will be built as an exec_dep
 # It produces a simple output file
@@ -162,4 +171,68 @@ labeled_dummy(
     exec_deps = [":tool_with_cpu_conditional_compiler"],
     exec_compatible_with = ["root//cfg:cpu[arm64]"],
     default_target_platform = "root//cfg:debug_platform",
+)
+
+# ============================================================================
+# Targets for testing exec marker preservation across transitions
+# ============================================================================
+
+# Inner dep that goes through a transition.
+# has is_exec to select on exec marker, verifying the marker survives the transition.
+labeled_tool(
+    name = "inner_dep_for_transition",
+    is_exec = get_exec_marker_label(),
+)
+
+# Tool (used as exec_dep) that has a single transition dep inside it.
+# When used as exec_dep, this tool is configured with exec platform config.
+# Its transitioned_dep receives the exec config and goes through the transition.
+tool_with_single_transition_dep(
+    name = "tool_with_single_transition",
+    is_exec = get_exec_marker_label(),
+    labels = get_labels(),
+    set_false_marker = read_config("test", "replace_transition_marker", "false") == "true",
+    transitioned_dep = ":inner_dep_for_transition",
+)
+
+# Binary that uses tool_with_single_transition as an exec dep
+labeled_dummy(
+    name = "binary_with_single_transition_exec_dep",
+    deps = [],
+    exec_deps = [":tool_with_single_transition"],
+    default_target_platform = "root//cfg:debug_platform",
+)
+
+labeled_dummy(
+    name = "binary_with_single_transition_target_dep",
+    deps = [":tool_with_single_transition"],
+    default_target_platform = "root//cfg:debug_platform",
+)
+
+# Tool (used as exec_dep) that has a split transition dep inside it.
+tool_with_split_transition_dep(
+    name = "tool_with_split_transition",
+    is_exec = get_exec_marker_label(),
+    labels = get_labels(),
+    set_false_marker = read_config("test", "replace_transition_marker", "false") == "true",
+    transitioned_dep = ":inner_dep_for_transition",
+)
+
+# Binary that uses tool_with_split_transition as an exec dep
+labeled_dummy(
+    name = "binary_with_split_transition_exec_dep",
+    deps = [],
+    exec_deps = [":tool_with_split_transition"],
+    default_target_platform = "root//cfg:debug_platform",
+)
+
+platform(
+    name = "target_with_exec_marker_constraint",
+    constraint_values = ["prelude//cfg/exec_platform/marker:is_exec_platform[true]"],
+)
+
+labeled_dummy(
+    name = "binary_with_marker_constraint_target_dep",
+    deps = [":tool_with_split_transition"],
+    default_target_platform = ":target_with_exec_marker_constraint",
 )

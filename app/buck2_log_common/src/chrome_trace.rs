@@ -208,6 +208,7 @@ impl ChromeTraceFirstPass {
                             Some(Stage::Execute(..)) => true,
                             Some(Stage::MaterializeInputs(..)) => false,
                             Some(Stage::PrepareOutputs(..)) => false,
+                            Some(Stage::FinalizeOutputs(..)) => false,
                             Some(Stage::AcquireLocalResource(..)) => false,
                             Some(Stage::WorkerInit(..)) => false,
                             Some(Stage::WorkerExecute(..)) => true,

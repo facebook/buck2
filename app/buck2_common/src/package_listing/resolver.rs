@@ -9,7 +9,7 @@
  */
 
 use async_trait::async_trait;
-use buck2_core::cells::cell_path::CellPathRef;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::package::PackageLabel;
 
 use crate::package_listing::listing::PackageListing;
@@ -18,14 +18,11 @@ use crate::package_listing::listing::PackageListing;
 pub trait PackageListingResolver: Send + Sync {
     async fn resolve(&mut self, package: PackageLabel) -> buck2_error::Result<PackageListing>;
 
-    async fn get_enclosing_package(
-        &mut self,
-        path: CellPathRef<'async_trait>,
-    ) -> buck2_error::Result<PackageLabel>;
+    async fn get_enclosing_package(&mut self, path: CellPath) -> buck2_error::Result<PackageLabel>;
 
     async fn get_enclosing_packages(
         &mut self,
-        path: CellPathRef<'async_trait>,
-        enclosing_path: CellPathRef<'async_trait>,
+        path: CellPath,
+        enclosing_path: CellPath,
     ) -> buck2_error::Result<Vec<PackageLabel>>;
 }

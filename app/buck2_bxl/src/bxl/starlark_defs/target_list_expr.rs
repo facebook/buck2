@@ -13,7 +13,7 @@ use std::iter;
 
 use allocative::Allocative;
 use buck2_build_api::configure_targets::get_maybe_compatible_targets;
-use buck2_core::cells::cell_path::CellPathRef;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::configuration::compatibility::IncompatiblePlatformReason;
 use buck2_core::configuration::compatibility::MaybeCompatible;
@@ -25,6 +25,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::soft_error;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_error::BuckErrorContext;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_node::load_patterns::MissingTargetBehavior;
@@ -41,7 +42,6 @@ use dice::DiceComputations;
 use dupe::Dupe;
 use dupe::IterDupedExt;
 use either::Either;
-use starlark::collections::SmallSet;
 use starlark::values::Heap;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
@@ -74,7 +74,7 @@ pub(crate) fn filter_incompatible<T: ErrorPrinter>(
     error_printer: &T,
 ) -> buck2_error::Result<TargetSet<ConfiguredTargetNode>> {
     let mut target_set = TargetSet::new();
-    let mut incompatible_targets = SmallSet::new();
+    let mut incompatible_targets = BuckMutInsertionSet::new();
 
     for res in targets {
         match res {
@@ -402,7 +402,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         match ParsedPattern::<TargetPatternExtra>::parse_relaxed(
             ctx.target_alias_resolver(),
             // TODO(nga): Parse relaxed relative to cell root is incorrect.
-            CellPathRef::new(ctx.cell_name(), CellRelativePath::empty()),
+            CellPath::new(ctx.cell_name(), CellRelativePath::empty()),
             val,
             ctx.cell_resolver(),
             ctx.cell_alias_resolver(),
@@ -566,7 +566,7 @@ impl<'v> TargetListExpr<'v, TargetNode> {
                 match ParsedPattern::<TargetPatternExtra>::parse_relaxed(
                     ctx.target_alias_resolver(),
                     // TODO(nga): Parse relaxed relative to cell root is incorrect.
-                    CellPathRef::new(ctx.cell_name(), CellRelativePath::empty()),
+                    CellPath::new(ctx.cell_name(), CellRelativePath::empty()),
                     s,
                     ctx.cell_resolver(),
                     ctx.cell_alias_resolver(),
@@ -655,7 +655,7 @@ async fn unpack_string_literal(
     match ParsedPattern::<TargetPatternExtra>::parse_relaxed(
         ctx.target_alias_resolver(),
         // TODO(nga): Parse relaxed relative to cell root is incorrect.
-        CellPathRef::new(ctx.cell_name(), CellRelativePath::empty()),
+        CellPath::new(ctx.cell_name(), CellRelativePath::empty()),
         val,
         ctx.cell_resolver(),
         ctx.cell_alias_resolver(),
@@ -831,7 +831,7 @@ impl OwnedTargetNodeArg {
             OwnedTargetNodeArg::String(str) => {
                 match ParsedPattern::<TargetPatternExtra>::parse_relaxed(
                     ctx.target_alias_resolver(),
-                    CellPathRef::new(ctx.cell_name(), CellRelativePath::empty()),
+                    CellPath::new(ctx.cell_name(), CellRelativePath::empty()),
                     str,
                     ctx.cell_resolver(),
                     ctx.cell_alias_resolver(),

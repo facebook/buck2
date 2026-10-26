@@ -18,10 +18,10 @@
 //! Focused regressions for Starlark operations that previously failed under Miri.
 //! Each test covers an unsafe layout or interpreter path fixed in the preceding stack.
 //!
-//! This is deliberately a standalone Cargo integration test rather than a module under
-//! `src/tests`: the latter would compile the complete unit-test harness, which is far too
-//! expensive under Miri. It is not exposed as a Buck test because Buck does not support
-//! running Rust tests through Miri; CI invokes it with `cargo miri test --test miri`.
+//! This is deliberately a standalone test crate rather than a module under `src/tests`: the
+//! latter would compile the complete unit-test harness, which is far too expensive under Miri.
+//! starlark-rust's GitHub CI runs it with `cargo miri test --test miri`; buck2's CI runs it as
+//! `//buck2/starlark-rust/starlark:miri_regressions-miri`.
 //!
 //! This file is compiled both from the `starlark-rust` export, where the `pagable` feature
 //! is off, and from the `buck2` workspace, where `fbcode/buck2/Cargo.toml` turns it on for

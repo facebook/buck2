@@ -49,44 +49,114 @@ def _extract_symbol_names(
     nm = cxx_toolchain.binary_utilities_info.nm
     output = ctx.actions.declare_output(paths.join("__symbols__", name), has_content_based_path = True)
 
-    # -A: Prepend all lines with the name of the input file to which it
-    # corresponds.  Added only to make parsing the output a bit easier.
-    # -P: Generate portable output format
-    nm_flags = "-AP"
+    nm_flag_suffix = ""
     if global_only:
-        nm_flags += "g"
+        nm_flag_suffix += "g"
     if undefined_only:
-        nm_flags += "u"
+        nm_flag_suffix += "u"
 
     # darwin objects don't have dynamic symbol tables.
     if dynamic and cxx_toolchain.linker_info.type != LinkerType("darwin"):
-        nm_flags += "D"
+        nm_flag_suffix += "D"
 
     # llvm-nm supports -U for this but gnu nm doesn't.
     if defined_only:
-        nm_flags += " --defined-only"
+        nm_flag_suffix += " --defined-only"
+
+    # -A: Prepend all lines with the name of the input file to which it
+    # corresponds.  Added only to make parsing the output a bit easier.
+    # -P: Generate portable output format
+    nm_flags = "-AP" + nm_flag_suffix
 
     is_windows = hasattr(ctx.attrs, "_exec_os_type") and ctx.attrs._exec_os_type[OsLookup].os == Os("windows")
 
     if is_windows:
-        script = """& {{
-                $result = & $args[0] {} $($args[1..($args.Length-1)] -join " ")
-                $lines = $result -split '`n'
-                $lines = $lines | ForEach-Object {{ ($_ -split ' ')[1] }}
-                $lines = $lines | ForEach-Object {{ ($_ -split '@')[0] }}
-                $lines = $lines | Where-Object {{ $_ -notmatch '__odr_asan_gen_.*' }}
-                $lines = $lines | Sort-Object -Unique -CaseSensitive
-                # Avoid a trailing newline for empty symbol lists
-                if ($lines.count -eq 0) {{
-                    [IO.File]::WriteAllText('{{}}', $lines)
-                }} else {{
-                    [IO.File]::WriteAllLines('{{}}', $lines)
-                }}
-            }}""".format(nm_flags)
+        # Each invocation handles one object, so omit -A. With -P, llvm-nm output
+        # starts with the invariant "name type value size", making token 1 the symbol.
+        windows_nm_flags = "-P" + nm_flag_suffix
+        script = ctx.actions.write(
+            paths.join("__symbols__", name + ".extract_symbols.bat"),
+            """@echo off
+set "OUT=%~1"
+set "NM=%~2"
+set "RAW=%OUT%.raw"
+set "NM_RAW=%OUT%.nm.raw"
+"""
+            +
+            # Buck does not pre-create parent directories for nested declared outputs.
+            """for %%D in ("%OUT%") do (
+  if not exist "%%~dpD" (
+    mkdir "%%~dpD"
+    if errorlevel 1 if not exist "%%~dpD" goto extract_failed
+  )
+)
+if exist "%RAW%" (
+  del /F /Q "%RAW%"
+  if errorlevel 1 goto extract_failed
+)
+if exist "%NM_RAW%" (
+  del /F /Q "%NM_RAW%"
+  if errorlevel 1 goto extract_failed
+)
+shift
+shift
+:objects_loop
+if "%~1"=="" goto objects_done
+"""
+            +
+            # Capture nm output first so quoted paths stay intact and nm failures propagate.
+            '"%NM%" '
+            + windows_nm_flags
+            + """ "%~1" > "%NM_RAW%"
+if errorlevel 1 goto extract_failed
+for /F "usebackq tokens=1 delims= " %%S in ("%NM_RAW%") do (
+  for /F "tokens=1 delims=@" %%T in ("%%S") do (
+    echo(%%T | findstr /C:"__odr_asan_gen_" >NUL
+    if errorlevel 2 goto extract_failed
+"""
+            +
+            # Prefix the redirection so a trailing 1 or 2 in a symbol name is not
+            # parsed as a stream number.
+            """    if errorlevel 1 (
+      ver >NUL
+      >>"%RAW%" echo(%%T
+      if errorlevel 1 goto extract_failed
+    )
+  )
+)
+shift
+goto objects_loop
+
+:objects_done
+if not exist "%RAW%" (
+  type nul > "%RAW%"
+  if errorlevel 1 goto extract_failed
+)
+"""
+            +
+            # Windows sort has no /unique switch. Keep duplicates rather than
+            # dropping symbols that differ only by case; downstream symbol
+            # aggregation does the final unique sort. Use shell redirection
+            # because sort's /O option cannot open long Buck output paths. Use
+            # the full path because CI hosts put a GNU sort earlier on PATH.
+            """"%SystemRoot%\\System32\\sort.exe" /L C < "%RAW%" > "%OUT%"
+if errorlevel 1 goto extract_failed
+del /F /Q "%RAW%" "%NM_RAW%" >NUL 2>NUL
+exit /b 0
+
+:extract_failed
+del /F /Q "%RAW%" "%NM_RAW%" >NUL 2>NUL
+exit /b 1
+""",
+        )
         symbol_extraction_args = [
-            "powershell",
-            "-Command",
-            cmd_args(output.as_output(), format = script),
+            "cmd.exe",
+            "/e:on",
+            "/v:off",
+            "/d",
+            "/c",
+            script,
+            output.as_output(),
         ]
     else:
         script = (

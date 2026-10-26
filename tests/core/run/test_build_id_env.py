@@ -10,9 +10,10 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_build_id(buck: Buck) -> None:
-    await buck.run("root//:check_run_uuid")
+class BuildIdEnvTest(BuckTestCase):
+    @buck_test()
+    async def test_build_id(self, buck: Buck) -> None:
+        await buck.run("root//:check_run_uuid")

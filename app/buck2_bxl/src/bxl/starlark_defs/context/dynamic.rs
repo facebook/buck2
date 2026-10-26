@@ -39,7 +39,7 @@ use buck2_error::internal_error;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
-use buck2_hash::BuckIndexMap;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_hash::BuckMutMap;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::factory::BuckStarlarkModule;
@@ -50,7 +50,6 @@ use dice::DiceComputations;
 use dice_futures::cancellation::CancellationObserver;
 use dupe::Dupe;
 use itertools::Itertools;
-use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
 use starlark::values::OwnedFrozenRef;
@@ -72,7 +71,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
     dynamic_lambda: OwnedFrozenRef<'v, &'static FrozenDynamicLambdaParams<'static>>,
     dice_ctx: &'v mut DiceComputations<'_>,
     input_artifacts_materialized: InputArtifactsMaterialized,
-    ensured_artifacts: &'v BuckIndexMap<&'v Artifact, &'v ArtifactValue>,
+    ensured_artifacts: &'v BuckMutInsertionMap<&'v Artifact, &'v ArtifactValue>,
     resolved_dynamic_values: BuckMutMap<DynamicValue, FrozenProviderCollectionValue>,
     _digest_config: DigestConfig,
     liveness: CancellationObserver,
@@ -157,7 +156,7 @@ struct BxlDynamicOutputEvaluator<'f> {
     dynamic_data: DynamicBxlContextData,
     digest_config: DigestConfig,
     input_artifacts_materialized: InputArtifactsMaterialized,
-    ensured_artifacts: &'f BuckIndexMap<&'f Artifact, &'f ArtifactValue>,
+    ensured_artifacts: &'f BuckMutInsertionMap<&'f Artifact, &'f ArtifactValue>,
     resolved_dynamic_values: BuckMutMap<DynamicValue, FrozenProviderCollectionValue>,
     artifact_fs: ArtifactFs,
     print: EventDispatcherPrintHandler,
@@ -296,7 +295,10 @@ pub(crate) fn register_dynamic_actions(globals: &mut GlobalsBuilder) {
             DynamicActionsCallbackParamSpec,
             DynamicActionsCallbackReturnType,
         >,
-        #[starlark(require = named)] attrs: SmallMap<String, &'v StarlarkDynamicAttrType<'v>>,
+        #[starlark(require = named)] attrs: BuckMutInsertionMap<
+            String,
+            &'v StarlarkDynamicAttrType<'v>,
+        >,
     ) -> starlark::Result<DynamicActionsCallable<'v>> {
         Ok(new_dynamic_actions_callable(r#impl, attrs, &P_BXLCTX)?)
     }

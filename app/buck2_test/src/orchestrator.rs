@@ -54,6 +54,7 @@ use buck2_build_api::interpreter::rule_defs::required_test_local_resource::Starl
 use buck2_build_api::keep_going::KeepGoing;
 use buck2_build_api::materialize::invocation_re_use_case;
 use buck2_build_signals::env::NodeDuration;
+use buck2_build_signals::env::WaitingCategory;
 use buck2_build_signals::env::WaitingData;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::events::HasEvents;
@@ -128,6 +129,7 @@ use buck2_execute::execute::target::CommandExecutionTarget;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_execute::materialize::materializer::MaterializationPurpose;
 use buck2_execute::materialize::materializer::MaterializeRequest;
+use buck2_execute::materialize::materializer::ReadLease;
 use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_execute_impl::executors::local::EnvironmentBuilder;
 use buck2_execute_impl::executors::local::apply_local_execution_environment;
@@ -137,11 +139,12 @@ use buck2_execute_impl::executors::local::output_paths;
 use buck2_execute_impl::executors::local::prep_scratch_path;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_hash::BuckIndexMap;
-use buck2_hash::BuckIndexSet;
+use buck2_hash::BuckFixedSortedMap;
+use buck2_hash::BuckMutInsertionMap;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_hash::BuckMutMap;
 use buck2_hash::BuckMutSet;
-use buck2_hash::buck_indexset;
+use buck2_hash::buck_mut_insertion_set;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_resource_control::HasResourceControl;
@@ -185,7 +188,6 @@ use host_sharing::HostSharingRequirements;
 use itertools::Itertools;
 use pagable::Pagable;
 use pagable::pagable_typetag;
-use sorted_vector_map::SortedVectorMap;
 
 use crate::command::InternalRunnerConfig;
 use crate::local_resource_api::LocalResourcesSetupResult;
@@ -259,7 +261,7 @@ impl OwnedTestInfo {
         }
     }
 
-    fn local_resources(&self) -> BuckIndexMap<&str, Option<&ConfiguredProvidersLabel>> {
+    fn local_resources(&self) -> BuckMutInsertionMap<&str, Option<&ConfiguredProvidersLabel>> {
         match self {
             Self::External(info) => info.as_ref().value().as_ref().local_resources(),
             Self::Internal(info) => info.as_ref().value().as_ref().local_resources(),
@@ -450,7 +452,7 @@ impl<'a> BuckTestOrchestrator<'a> {
         stage: TestStage,
         test_target: ConfiguredTargetHandle,
         cmd: Vec<ArgValue>,
-        env: SortedVectorMap<String, ArgValue>,
+        env: BuckFixedSortedMap<String, ArgValue>,
         timeout: Duration,
         host_sharing_requirements: HostSharingRequirements,
         pre_create_dirs: Vec<DeclaredOutput>,
@@ -461,6 +463,14 @@ impl<'a> BuckTestOrchestrator<'a> {
         Self::require_alive(self.liveliness_observer.dupe()).await?;
 
         let test_target = self.session.get(test_target)?;
+
+        // The runner reads a run's outputs out of process, so their lease lives in the session
+        // until the runner comes back to this root; the rerun then takes the root for writing,
+        // which the lease it replaces would block.
+        let output_root = ProjectRelativePathBuf::from(
+            resolve_output_root(&mut self.dice.dupe().ctx(), &test_target, &stage).await?,
+        );
+        self.session.release(&output_root);
 
         let fs = self.dice.ctx().get_artifact_fs().await?;
         let pre_create_dirs = Arc::new(pre_create_dirs);
@@ -473,6 +483,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             execution_kind,
             outputs,
             command_execution,
+            ..
         } = prepare_and_execute(
             &mut self.dice.dupe().ctx(),
             self.cancellations,
@@ -561,9 +572,7 @@ impl<'a> BuckTestOrchestrator<'a> {
         for result in response.results {
             result.buck_error_context("Error materializing test outputs")?;
         }
-        // The test runner reads these out of process after this returns; there is no scope
-        // here to hold the lease over.
-        drop(response.lease);
+        self.session.hold(output_root, response.lease);
 
         Ok(ExecutionResult2 {
             status,
@@ -600,6 +609,11 @@ impl<'a> BuckTestOrchestrator<'a> {
             host_sharing_requirements,
             disable_test_execution_caching,
         } = key;
+        // The test executor decides when to ask buck2 to run a test, so the time from the test's
+        // dependencies finishing until now is the executor's scheduling.
+        let mut waiting_data =
+            WaitingData::with_initial_category(WaitingCategory::TestExecutorScheduling);
+        waiting_data.start_waiting_category_now(WaitingCategory::PreparingAction);
         let fs = dice.get_artifact_fs().await?;
         let test_info = Self::get_test_info(dice, &test_target, internal_runner_config).await?;
         let effective_test_execution_caching =
@@ -714,6 +728,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             liveliness_observer.dupe(),
             test_executor.re_cache_enabled(),
             effective_test_execution_caching,
+            waiting_data,
         )
         .boxed()
         .await?;
@@ -732,6 +747,7 @@ impl<'a> BuckTestOrchestrator<'a> {
                         suite.to_owned(),
                         duration.to_owned(),
                         &input_deps_action_keys,
+                        result.waiting_data.clone(),
                     );
                 }
                 TestStage::Testing {
@@ -747,6 +763,7 @@ impl<'a> BuckTestOrchestrator<'a> {
                         variant.to_owned(),
                         duration,
                         &input_deps_action_keys,
+                        result.waiting_data.clone(),
                     );
                 }
             }
@@ -761,7 +778,7 @@ impl<'a> BuckTestOrchestrator<'a> {
 struct TestExecutionKey {
     test_target: ConfiguredProvidersLabel,
     cmd: Arc<Vec<ArgValue>>,
-    env: Arc<SortedVectorMap<String, ArgValue>>,
+    env: Arc<BuckFixedSortedMap<String, ArgValue>>,
     executor_override: Option<Arc<ExecutorConfigOverride>>,
     required_local_resources: Arc<RequiredLocalResources>,
     pre_create_dirs: Arc<Vec<DeclaredOutput>>,
@@ -901,7 +918,7 @@ impl Display for TestExecutionKey {
 struct PreparedLocalResourceSetupContext {
     pub target: ConfiguredTargetLabel,
     pub execution_request: CommandExecutionRequest,
-    pub env_var_mapping: BuckIndexMap<String, String>,
+    pub env_var_mapping: BuckMutInsertionMap<String, String>,
 }
 
 #[derive(Clone, Dupe, Allocative)]
@@ -929,7 +946,7 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
         stage: TestStage,
         test_target: ConfiguredTargetHandle,
         cmd: Vec<ArgValue>,
-        env: SortedVectorMap<String, ArgValue>,
+        env: BuckFixedSortedMap<String, ArgValue>,
         timeout: Duration,
         host_sharing_requirements: HostSharingRequirements,
         pre_create_dirs: Vec<DeclaredOutput>,
@@ -1018,6 +1035,7 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
     }
 
     async fn end_of_test_results(&self, exit_code: i32) -> buck2_error::Result<()> {
+        self.session.release_all();
         self.events.instant_event(EndOfTestResults { exit_code });
         self.results_channel
             .unbounded_send(Ok(ExecutorMessage::ExitCode(exit_code)))
@@ -1031,11 +1049,18 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
         stage: TestStage,
         test_target: ConfiguredTargetHandle,
         cmd: Vec<ArgValue>,
-        env: SortedVectorMap<String, ArgValue>,
+        env: BuckFixedSortedMap<String, ArgValue>,
         pre_create_dirs: Vec<DeclaredOutput>,
         required_local_resources: RequiredLocalResources,
     ) -> buck2_error::Result<PrepareForLocalExecutionResult> {
         let test_target = self.session.get(test_target)?;
+
+        // As in `execute2`: the runner reads the inputs out of process, under a lease the
+        // session holds until the runner comes back to this root.
+        let output_root = ProjectRelativePathBuf::from(
+            resolve_output_root(&mut self.dice.dupe().ctx(), &test_target, &stage).await?,
+        );
+        self.session.release(&output_root);
 
         let fs = self.dice.ctx().get_artifact_fs().await?;
 
@@ -1135,9 +1160,8 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
         let re_use_case = invocation_re_use_case(&self.dice.ctx());
 
         // This prepares a command that the test runner executes out of process after this
-        // returns; buck2 never sees that process, so neither lease has a scope to cover here
-        // and both go with the result. Tests buck2 runs itself go through the local executor,
-        // which holds its leases across the run.
+        // returns. Tests buck2 runs itself go through the local executor, which holds its leases
+        // across the run.
         let materialized_inputs = materialize_inputs(
             fs,
             materializer,
@@ -1157,6 +1181,14 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
             self.cancellations,
         )
         .await?;
+        // FIXME(materializer): The runner writes the outputs after this returns, so nothing
+        // here can report them: what it writes is untracked content under buck-out that no
+        // core serves, keeps or cleans. Closing that needs the runner to report what it wrote,
+        // or buck2 to collect it once the runner is done with the command.
+        if let Some(lease) = materialized_inputs.outputs {
+            lease.abandon();
+        }
+        let mut held = vec![materialized_inputs.lease];
 
         for local_resource_setup_command in setup_commands.iter() {
             let materialized_inputs = materialize_inputs(
@@ -1179,7 +1211,13 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
                 self.cancellations,
             )
             .await?;
+            // FIXME(materializer): As for the test command above.
+            if let Some(lease) = materialized_inputs.outputs {
+                lease.abandon();
+            }
+            held.push(materialized_inputs.lease);
         }
+        self.session.hold(output_root, ReadLease::join(held));
 
         Ok(create_prepare_for_local_execution_result(
             fs,
@@ -1221,6 +1259,8 @@ struct ExecuteData {
     pub execution_kind: Option<CommandExecutionKind>,
     pub outputs: Vec<(BuckOutTestPath, ArtifactValue)>,
     pub command_execution: Option<buck2_data::CommandExecution>,
+    #[allocative(skip)]
+    pub waiting_data: WaitingData,
 }
 
 impl BuckTestOrchestrator<'_> {
@@ -1255,13 +1295,14 @@ impl BuckTestOrchestrator<'_> {
         liveliness_observer: Arc<dyn LivelinessObserver>,
         re_cache_enabled: bool,
         supports_test_execution_caching: bool,
+        waiting_data: WaitingData,
     ) -> Result<ExecuteData, ExecuteError> {
         let events = dice.per_transaction_data().get_dispatcher().dupe();
         let manager = CommandExecutionManager::new(
             Box::new(MutexClaimManager::new()),
             events.dupe(),
             liveliness_observer.dupe(),
-            WaitingData::new(),
+            waiting_data,
         );
         let digest_config = dice.global_data().get_digest_config();
 
@@ -1419,6 +1460,7 @@ impl BuckTestOrchestrator<'_> {
                     timing,
                     ..
                 },
+            waiting_data,
             ..
         } = command_exec_result;
 
@@ -1449,6 +1491,7 @@ impl BuckTestOrchestrator<'_> {
                 execution_kind: Some(execution_kind),
                 outputs,
                 command_execution,
+                waiting_data,
             },
             CommandExecutionStatus::Failure { execution_kind, .. }
             | CommandExecutionStatus::WorkerFailure { execution_kind } => ExecuteData {
@@ -1461,6 +1504,7 @@ impl BuckTestOrchestrator<'_> {
                 execution_kind: Some(execution_kind),
                 outputs,
                 command_execution,
+                waiting_data,
             },
             CommandExecutionStatus::TimedOut {
                 duration,
@@ -1473,6 +1517,7 @@ impl BuckTestOrchestrator<'_> {
                 execution_kind: Some(execution_kind),
                 outputs,
                 command_execution,
+                waiting_data,
             },
             CommandExecutionStatus::Error {
                 error,
@@ -1488,6 +1533,7 @@ impl BuckTestOrchestrator<'_> {
                 execution_kind,
                 outputs,
                 command_execution,
+                waiting_data,
             },
             CommandExecutionStatus::Cancelled {
                 execution_kind: _,
@@ -1554,6 +1600,7 @@ impl BuckTestOrchestrator<'_> {
             remote_dep_file_cache_checker: _,
             cache_uploader,
             output_trees_download_config: _,
+            write_action_cache: _,
         } = dice.get_command_executor_from_dice(fs, executor_config)?;
 
         let (cache_uploader, action_cache_checker) = match stage {
@@ -1576,6 +1623,7 @@ impl BuckTestOrchestrator<'_> {
             action_cache_checker,
             Arc::new(NoOpCommandOptionalExecutor {}),
             cache_uploader,
+            None,
             fs.dupe(),
             executor_config.options,
             platform,
@@ -1603,12 +1651,14 @@ impl BuckTestOrchestrator<'_> {
             remote_dep_file_cache_checker: _,
             cache_uploader: _,
             output_trees_download_config: _,
+            write_action_cache: _,
         } = dice.get_command_executor_from_dice(fs, &executor_config)?;
         let executor = CommandExecutor::new(
             executor,
             Arc::new(NoOpCommandOptionalExecutor {}),
             Arc::new(NoOpCommandOptionalExecutor {}),
             Arc::new(NoOpCacheUploader {}),
+            None,
             fs.dupe(),
             executor_config.options,
             platform,
@@ -1784,7 +1834,7 @@ impl BuckTestOrchestrator<'_> {
         test_target: &ConfiguredProvidersLabel,
         test_info: &OwnedTestInfo,
         cmd: Cow<'a, [ArgValue]>,
-        env: Cow<'a, SortedVectorMap<String, ArgValue>>,
+        env: Cow<'a, BuckFixedSortedMap<String, ArgValue>>,
         pre_create_dirs: Cow<'a, [DeclaredOutput]>,
         executor_fs: &ExecutorFs<'_>,
         stage: &TestStage,
@@ -1795,7 +1845,8 @@ impl BuckTestOrchestrator<'_> {
 
         let output_root = resolve_output_root(dice, test_target, stage).await?;
 
-        let mut declared_outputs = BuckIndexMap::<BuckOutTestPath, OutputCreationBehavior>::new();
+        let mut declared_outputs =
+            BuckMutInsertionMap::<BuckOutTestPath, OutputCreationBehavior>::new();
 
         let mut supports_re = true;
 
@@ -1864,9 +1915,9 @@ impl BuckTestOrchestrator<'_> {
         dice: &mut DiceComputations<'_>,
         cwd: ProjectRelativePathBuf,
         cmd: Vec<String>,
-        env: SortedVectorMap<String, String>,
+        env: BuckFixedSortedMap<String, String>,
         ensured_inputs: Vec<(ArtifactGroup, ArtifactGroupValues)>,
-        declared_outputs: BuckIndexMap<BuckOutTestPath, OutputCreationBehavior>,
+        declared_outputs: BuckMutInsertionMap<BuckOutTestPath, OutputCreationBehavior>,
         argsfile_inputs: Vec<CommandExecutionInput>,
         fs: &ArtifactFs,
         timeout: Option<Duration>,
@@ -2056,7 +2107,7 @@ impl BuckTestOrchestrator<'_> {
             .collect();
         let paths = CommandExecutionPaths::new(
             inputs,
-            buck_indexset![],
+            buck_mut_insertion_set![],
             fs,
             digest_config,
             dice.per_transaction_data()
@@ -2205,10 +2256,10 @@ struct Execute2RequestExpander<'a> {
     test_info: &'a OwnedTestInfo,
     stage: &'a TestStage,
     output_root: &'a ForwardRelativePath,
-    declared_outputs: &'a mut BuckIndexMap<BuckOutTestPath, OutputCreationBehavior>,
+    declared_outputs: &'a mut BuckMutInsertionMap<BuckOutTestPath, OutputCreationBehavior>,
     fs: &'a ExecutorFs<'a>,
     cmd: Vec<ExpandableArg>,
-    env: Cow<'a, SortedVectorMap<String, ArgValue>>,
+    env: Cow<'a, BuckFixedSortedMap<String, ArgValue>>,
     digest_config: DigestConfig,
 }
 
@@ -2241,7 +2292,7 @@ fn make_visit_arg_artifacts<'v>(
 }
 
 impl<'a> Execute2RequestExpander<'a> {
-    fn get_inputs(&self) -> buck2_error::Result<BuckIndexSet<ArtifactGroup>> {
+    fn get_inputs(&self) -> buck2_error::Result<BuckMutInsertionSet<ArtifactGroup>> {
         let Execute2RequestExpander {
             test_info,
             stage,
@@ -2275,7 +2326,7 @@ impl<'a> Execute2RequestExpander<'a> {
 
     fn expand_arg_value<'v>(
         fmt: &mut CommandLineBuilder<'v, '_>,
-        declared_outputs: &mut BuckIndexMap<BuckOutTestPath, OutputCreationBehavior>,
+        declared_outputs: &mut BuckMutInsertionMap<BuckOutTestPath, OutputCreationBehavior>,
         value: &'v ArgValue,
         cli_args_for_interpolation: &[&dyn CommandLineArgLike<'v>],
         env_for_interpolation: &BuckMutMap<&str, &dyn CommandLineArgLike<'v>>,
@@ -2331,7 +2382,7 @@ impl<'a> Execute2RequestExpander<'a> {
         absolute: bool,
     ) -> buck2_error::Result<(
         Vec<String>,
-        SortedVectorMap<String, String>,
+        BuckFixedSortedMap<String, String>,
         Option<WorkerSpec>,
     )> {
         let Execute2RequestExpander {
@@ -2397,7 +2448,7 @@ impl<'a> Execute2RequestExpander<'a> {
                 fmt.pop_scope();
                 buck2_error::Ok((k.to_owned(), curr_env.finalize()?))
             })
-            .collect::<Result<SortedVectorMap<_, _>, _>>()?;
+            .collect::<Result<BuckFixedSortedMap<_, _>, _>>()?;
 
         let expanded_worker = match test_info.worker() {
             Some(worker) => {
@@ -2406,7 +2457,7 @@ impl<'a> Execute2RequestExpander<'a> {
                 let mut fmt =
                     CommandLineBuilder::new(&mut worker_rendered, &artifact_path_mapping, self.fs);
                 worker_exe.add_to_command_line(&mut fmt)?;
-                let worker_env: buck2_error::Result<SortedVectorMap<_, _>> = worker
+                let worker_env: buck2_error::Result<BuckFixedSortedMap<_, _>> = worker
                     .env()
                     .into_iter()
                     .map(|(k, v)| {
@@ -2430,7 +2481,7 @@ impl<'a> Execute2RequestExpander<'a> {
                     // TODO(ianc): Support input_paths on test workers
                     input_paths: CommandExecutionPaths::new(
                         vec![],
-                        buck_indexset![],
+                        buck_mut_insertion_set![],
                         fs.fs(),
                         digest_config,
                         None,
@@ -2481,10 +2532,10 @@ async fn resolve_output_root(
 struct ExpandedTestExecutable {
     cwd: ProjectRelativePathBuf,
     cmd: Vec<String>,
-    env: SortedVectorMap<String, String>,
+    env: BuckFixedSortedMap<String, String>,
     ensured_inputs: Vec<(ArtifactGroup, ArtifactGroupValues)>,
     supports_re: bool,
-    declared_outputs: BuckIndexMap<BuckOutTestPath, OutputCreationBehavior>,
+    declared_outputs: BuckMutInsertionMap<BuckOutTestPath, OutputCreationBehavior>,
     /// Argsfiles the runner supplied, already written; these become inputs of the action.
     argsfile_inputs: Vec<CommandExecutionInput>,
     worker: Option<WorkerSpec>,
@@ -2548,18 +2599,18 @@ fn local_resource_setup_command_prepared_for_local_execution(
 }
 
 struct LossyEnvironment {
-    inner: SortedVectorMap<String, String>,
+    inner: BuckMutInsertionMap<String, String>,
 }
 
 impl LossyEnvironment {
     fn new() -> Self {
         Self {
-            inner: SortedVectorMap::new(),
+            inner: BuckMutInsertionMap::new(),
         }
     }
 
-    fn into_inner(self) -> SortedVectorMap<String, String> {
-        self.inner
+    fn into_inner(self) -> BuckFixedSortedMap<String, String> {
+        self.inner.into()
     }
 }
 
@@ -2583,7 +2634,7 @@ impl EnvironmentBuilder for LossyEnvironment {
     where
         K: AsRef<OsStr>,
     {
-        self.inner.remove(&*key.as_ref().to_string_lossy());
+        self.inner.shift_remove(&*key.as_ref().to_string_lossy());
     }
 }
 
@@ -2804,7 +2855,7 @@ mod tests {
             let kind = CommandExecutionKind::Local {
                 digest: command.prepared_action.digest(),
                 command: vec![],
-                env: SortedVectorMap::new(),
+                env: BuckFixedSortedMap::new(),
             };
             manager.claim().await.failure(
                 kind,
@@ -2857,6 +2908,7 @@ mod tests {
             Arc::new(NoOpCommandOptionalExecutor {}),
             Arc::new(NoOpCommandOptionalExecutor {}),
             Arc::new(NoOpCacheUploader {}),
+            None,
             fs.dupe(),
             CommandGenerationOptions {
                 path_separator: PathSeparatorKind::system_default(),
@@ -2866,13 +2918,18 @@ mod tests {
             },
             remote_execution::Platform { properties: vec![] },
         );
-        let paths =
-            CommandExecutionPaths::new(vec![], BuckIndexSet::default(), &fs, digest_config, None)?;
+        let paths = CommandExecutionPaths::new(
+            vec![],
+            BuckMutInsertionSet::default(),
+            &fs,
+            digest_config,
+            None,
+        )?;
         let request = CommandExecutionRequest::new(
             vec![],
             vec!["false".to_owned()],
             paths,
-            SortedVectorMap::new(),
+            BuckFixedSortedMap::new(),
         );
         let label = ConfiguredProvidersLabel::new(
             ConfiguredTargetLabel::testing_parse("cell//pkg:foo", ConfigurationData::testing_new()),
@@ -2898,6 +2955,7 @@ mod tests {
                 NoopLivelinessObserver::create(),
                 false,
                 false,
+                WaitingData::new(),
             ),
         )
         .await

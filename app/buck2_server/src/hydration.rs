@@ -35,6 +35,7 @@ use starlark::pagable::starlark_serialization_state_retained_bytes;
 
 use crate::ctx::ServerCommandContext;
 use crate::paging::cancel_active_page_out;
+use crate::paging::evict_backed_measured;
 use crate::paging::page_out_in_progress;
 use crate::paging::page_out_measured;
 use crate::paging::wait_for_idle_page_out;
@@ -77,7 +78,7 @@ impl ServerCommandTemplate for HydrationServerCommand {
             HydrationSubcommand::PageOut | HydrationSubcommand::PageIn => {
                 Some("hydration".to_owned())
             }
-            HydrationSubcommand::Status => None,
+            HydrationSubcommand::Status | HydrationSubcommand::Evict => None,
         }
     }
 
@@ -109,6 +110,13 @@ impl ServerCommandTemplate for HydrationServerCommand {
                     .await
                     .map_err(|e| from_any_with_tag(e, ErrorTag::Environment))?;
                 Ok(buck2_cli_proto::HydrationResponse::default())
+            }
+            HydrationSubcommand::Evict => {
+                let evicted = evict_backed_measured(&self.dice).await;
+                Ok(buck2_cli_proto::HydrationResponse {
+                    summary: Some(format!("evicted {evicted} backed DICE values\n")),
+                    ..Default::default()
+                })
             }
             HydrationSubcommand::Status => {
                 if self.wait {
@@ -151,12 +159,13 @@ fn format_status_summary(
         .saturating_sub(status.resident_count)
         .saturating_sub(status.paged_out_count);
     let mut summary = format!(
-        "DICE hydration: {} nodes ({} resident, {} paged out, {} other; {} page-out candidates)\n",
+        "DICE hydration: {} nodes ({} resident, {} paged out, {} other; {} page-out candidates, {} backed)\n",
         status.total_nodes,
         status.resident_count,
         status.paged_out_count,
         other,
         status.candidate_count,
+        status.backed_count,
     );
     summary.push_str(&format!(
         "idle page-out in progress: {}\n",
@@ -175,13 +184,13 @@ fn format_status_summary(
     if !status.by_type.is_empty() {
         summary.push('\n');
         summary.push_str(&format!(
-            "{:>12}  {:>12}  {}\n",
-            "resident", "paged-out", "key type"
+            "{:>12}  {:>12}  {:>12}  {}\n",
+            "resident", "paged-out", "backed", "key type"
         ));
         for t in &status.by_type {
             summary.push_str(&format!(
-                "{:>12}  {:>12}  {}\n",
-                t.resident, t.paged_out, t.key_type
+                "{:>12}  {:>12}  {:>12}  {}\n",
+                t.resident, t.paged_out, t.backed, t.key_type
             ));
         }
     }

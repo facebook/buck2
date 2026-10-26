@@ -11,6 +11,7 @@
 //! End-to-end tests for DICE paging (`page_out` / on-demand page-in) through the
 //! public API.
 
+use std::path::Path;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::atomic::AtomicUsize;
@@ -28,8 +29,10 @@ use dice::DiceEventListener;
 use dice::DiceKeyDyn;
 use dice::DiceStorage;
 use dice::EqualityBehavior;
+use dice::EvictionPolicy;
 use dice::Key;
 use dice::PagableStorageBackend;
+use dice::PageOutPolicy;
 use dice::UserComputationData;
 use dice::ValueSerialize;
 use dice_futures::cancellation::CancellationContext;
@@ -43,6 +46,15 @@ use pagable::pagable_typetag;
 use tempfile::tempdir;
 
 mod recovery;
+
+/// Storage paging each key out once and evicting at page-out, the semantics the tests here are
+/// written against.
+fn test_storage(path: &Path) -> anyhow::Result<DiceStorage> {
+    let mut storage = DiceStorage::open(path, PagableStorageBackend::Sqlite)?;
+    storage.set_page_out_policy(PageOutPolicy::OncePerKey);
+    storage.set_eviction_policy(EvictionPolicy::OnIdle);
+    Ok(storage)
+}
 
 /// A `ValueSerialize` that serializes successfully — so the node pages out — but
 /// always fails to deserialize. This mimics a serialize/deserialize asymmetry
@@ -141,7 +153,7 @@ impl Key for FailTransientlyToHydrateKey {
 #[tokio::test]
 async fn failed_hydrate_of_asserted_value_returns_error() -> anyhow::Result<()> {
     let tmp = tempdir()?;
-    let storage = DiceStorage::open(tmp.path(), PagableStorageBackend::Sqlite)?;
+    let storage = test_storage(tmp.path())?;
     let dice = {
         let mut builder = Dice::builder();
         builder.set_pagable_storage(storage);
@@ -216,7 +228,7 @@ impl DiceEventListener for CapturingListener {
 /// hydration failures reported.
 async fn hydration_failures_of<K: Key<Value = u64>>(key: K) -> anyhow::Result<Vec<(String, bool)>> {
     let tmp = tempdir()?;
-    let storage = DiceStorage::open(tmp.path(), PagableStorageBackend::Sqlite)?;
+    let storage = test_storage(tmp.path())?;
     let dice = {
         let mut builder = Dice::builder();
         builder.set_pagable_storage(storage);
@@ -278,10 +290,7 @@ async fn transient_hydrate_failure_is_reported_as_such() -> anyhow::Result<()> {
 async fn concurrent_failed_page_ins_of_asserted_values_share_the_error() -> anyhow::Result<()> {
     let tmp = tempdir()?;
     let mut builder = Dice::builder();
-    builder.set_pagable_storage(DiceStorage::open(
-        tmp.path(),
-        PagableStorageBackend::Sqlite,
-    )?);
+    builder.set_pagable_storage(test_storage(tmp.path())?);
     let dice = builder.build(DetectCycles::Disabled);
     let root = dice.new_root().await;
     let counter = Arc::new(AtomicUsize::new(0));

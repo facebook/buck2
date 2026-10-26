@@ -20,8 +20,8 @@ use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
+use buck2_hash::BuckMutInsertionMap;
 use starlark::any::ProvidesStaticType;
-use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
@@ -94,11 +94,11 @@ fn json_convert<'v>(v: serde_json::Value, heap: Heap<'v>) -> starlark::Result<Va
                 .collect::<Result<Vec<_>, _>>()?,
         )),
         serde_json::Value::Object(mp) => {
-            let mut res = SmallMap::with_capacity(mp.len());
+            let mut res = BuckMutInsertionMap::with_capacity(mp.len());
             for (k, v) in mp.into_iter() {
                 res.insert_hashed(heap.alloc(k).get_hashed()?, json_convert(v, heap)?);
             }
-            Ok(heap.alloc_dict(res))
+            Ok(heap.alloc(res))
         }
     }
 }

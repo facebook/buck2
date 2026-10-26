@@ -6,9 +6,13 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
 load("@prelude//cxx:cxx_context.bzl", "get_opt_cxx_toolchain_info")
 load("@prelude//cxx:headers.bzl", "CxxHeadersLayout", "CxxHeadersNaming")
 load("@prelude//cxx:target_sdk_version.bzl", "get_target_sdk_version_flags")
+load("@prelude//decls:common.bzl", "buck")
+load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
+load("@prelude//go/transitions:defs.bzl", "build_tags_attr", "cgo_enabled_attr", "go_stdlib_transition")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//utils:graph_utils.bzl", "post_order_traversal")
 load(
@@ -231,3 +235,24 @@ def get_cgo_build_context(ctx: AnalysisContext) -> CGoBuildContext | None:
         inherited_preprocessor_infos = [],
         _cxx_toolchain = ctx.attrs._cxx_toolchain,
     )
+
+go_stdlib = prelude_rule(
+    name = "go_stdlib",
+    impl = go_stdlib_impl,
+    docs = """
+        A `go_stdlib()` rule represents the Go standard library for the
+        target configuration. It has no user-facing attributes and is
+        consumed implicitly by other Go rules.
+    """,
+    attrs = (
+        {}
+        | {
+            "_build_tags": build_tags_attr,
+            "_cgo_enabled": cgo_enabled_attr,
+            "_cxx_toolchain": toolchains_common.cxx(),
+            "_exec_os_type": buck.exec_os_type_arg(),
+            "_go_toolchain": toolchains_common.go(),
+        }
+    ),
+    cfg = go_stdlib_transition,
+)

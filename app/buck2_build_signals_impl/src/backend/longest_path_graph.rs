@@ -120,7 +120,7 @@ impl BuildListenerBackend for LongestPathGraphBackend {
 
     fn finish(
         self,
-        anon_target_discovery_edges: BuckMutMap<NodeKey, NodeKey>,
+        discovery_edges: BuckMutMap<NodeKey, NodeKey>,
     ) -> Result<BuildInfo, CriticalPathError> {
         let (graph, keys, data) = {
             let (graph, keys, data) = self.builder?.finish();
@@ -196,19 +196,20 @@ impl BuildListenerBackend for LongestPathGraphBackend {
                 }
             }
 
-            // Add discovery edges for anon targets: each anon target node depends on
-            // the analysis Part 1 that first discovered it.
-            for (anon_target_key, discovering_analysis_key) in &anon_target_discovery_edges {
-                let anon_vertex = match keys.get(anon_target_key) {
+            // Discovery edges: each discovered node depends on its discoverer (an anon target
+            // on the analysis Part 1 that first discovered it; a package load on the load of
+            // the package whose computation first requested it).
+            for (discovered_key, discoverer_key) in &discovery_edges {
+                let discovered_vertex = match keys.get(discovered_key) {
                     Some(v) => v,
                     None => continue,
                 };
-                let analysis_vertex = match keys.get(discovering_analysis_key) {
+                let discoverer_vertex = match keys.get(discoverer_key) {
                     Some(v) => v,
                     None => continue,
                 };
-                if !first_analysis[anon_vertex].is_some() {
-                    first_analysis[anon_vertex] = analysis_vertex.into();
+                if !first_analysis[discovered_vertex].is_some() {
+                    first_analysis[discovered_vertex] = discoverer_vertex.into();
                     n += 1;
                 }
             }

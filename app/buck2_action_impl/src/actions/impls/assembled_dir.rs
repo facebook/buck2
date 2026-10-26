@@ -35,16 +35,16 @@ use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::CopiedArtifact;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_hash::BuckIndexSet;
+use buck2_hash::BuckMutInsertionSet;
 use dupe::Dupe;
 use itertools::Itertools;
+use mini_vec::MiniBoxSlice;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use starlark::values::OwnedFrozen;
 use starlark::values::Value;
 use starlark::values::ValueError;
 use starlark::values::dict::UnpackDictEntries;
-use starlark_map::small_set::SmallSet;
 
 use crate::actions::impls::copy::CopyMode;
 
@@ -133,7 +133,7 @@ impl UnregisteredAssembledDirAction {
         copy: CopyMode,
     ) -> buck2_error::Result<(
         Vec<(ArtifactGroup, Box<ForwardRelativePath>, CopyMode)>,
-        SmallSet<ArtifactGroup>,
+        BuckMutInsertionSet<ArtifactGroup>,
     )> {
         // This assignment doesn't look like it should be necessary, but we get an error if we
         // don't do it.
@@ -154,7 +154,7 @@ impl UnregisteredAssembledDirAction {
                 ))
             })
             .fold_ok(
-                (Vec::with_capacity(len), SmallSet::new()),
+                (Vec::with_capacity(len), BuckMutInsertionSet::new()),
                 |(mut aps, mut assocs), (ap, assoc)| {
                     aps.push(ap);
                     assoc.iter().flat_map(|v| v.iter()).for_each(|a| {
@@ -197,7 +197,7 @@ impl UnregisteredAssembledDirAction {
         contents: Vec<(&'v str, ValueAsInputArtifactLike<'v>, CopyMode)>,
     ) -> buck2_error::Result<Self> {
         let mut args = Vec::with_capacity(contents.len());
-        let mut assocs = SmallSet::new();
+        let mut assocs = BuckMutInsertionSet::new();
         for (k, as_artifact, mode) in contents {
             let associates = as_artifact.0.get_associated_artifacts();
             args.push((
@@ -227,12 +227,12 @@ impl UnregisteredAssembledDirAction {
 impl UnregisteredAction for UnregisteredAssembledDirAction {
     fn register(
         self: Box<Self>,
-        outputs: BuckIndexSet<BuildArtifact>,
+        outputs: BuckMutInsertionSet<BuildArtifact>,
         _starlark_data: Option<OwnedFrozen<Value<'static>>>,
         _error_handler: Option<OwnedFrozen<Value<'static>>>,
     ) -> buck2_error::Result<Box<dyn Action>> {
         Ok(Box::new(AssembledDirAction {
-            args: self.args,
+            args: self.args.into(),
             outputs: BoxSliceSet::from(outputs),
             category: self.category,
         }))
@@ -241,7 +241,7 @@ impl UnregisteredAction for UnregisteredAssembledDirAction {
 
 #[derive(Debug, Allocative, Pagable)]
 struct AssembledDirAction {
-    args: Vec<(ArtifactGroup, Box<ForwardRelativePath>, CopyMode)>,
+    args: MiniBoxSlice<(ArtifactGroup, Box<ForwardRelativePath>, CopyMode)>,
     outputs: BoxSliceSet<BuildArtifact>,
     category: DirActionCategory,
 }
@@ -338,7 +338,9 @@ impl Action for AssembledDirAction {
             };
         }
 
-        let value = builder.build(temp_output.as_ref())?;
+        // The action defines the whole of the output directory, which is what lets the
+        // materializer clear what a previous run left under it.
+        let value = builder.build_exhaustive(temp_output.as_ref())?;
         let actual_output = ctx.fs().resolve_build(
             self.output().get_path(),
             if self.output().get_path().is_content_based_path() {

@@ -139,3 +139,9 @@ impl SetDigestConfig for DiceDataBuilder {
         self.set(digest_config)
     }
 }
+
+impl SetDigestConfig for DiceData {
+    fn set_digest_config(&mut self, digest_config: DigestConfig) {
+        self.set(digest_config)
+    }
+}

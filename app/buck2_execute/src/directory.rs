@@ -51,6 +51,7 @@ use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::file_name::FileNameBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_hash::BuckMutMap;
 use buck2_hash::BuckMutSet;
 use derive_more::Display;
@@ -58,7 +59,6 @@ use dupe::Dupe;
 use pagable::Pagable;
 use ref_cast::RefCast;
 use remote_execution as RE;
-use starlark_map::small_map::SmallMap;
 
 use crate::artifact_value::ArtifactValue;
 use crate::digest::CasDigestFromReExt;
@@ -356,14 +356,14 @@ pub fn re_tree_to_directory(
     /// but the pointers are hashes, so we need to first see a hash before we can work out what
     /// hashing mechanism to use here.
     struct DirMap<'a> {
-        by_kind: SmallMap<DigestAlgorithm, BuckMutMap<FileDigest, &'a RE::Directory>>,
+        by_kind: BuckMutInsertionMap<DigestAlgorithm, BuckMutMap<FileDigest, &'a RE::Directory>>,
         directories: &'a [RE::Directory],
     }
 
     impl<'a> DirMap<'a> {
         fn new(directories: &'a [RE::Directory]) -> Self {
             Self {
-                by_kind: SmallMap::new(),
+                by_kind: BuckMutInsertionMap::new(),
                 directories,
             }
         }

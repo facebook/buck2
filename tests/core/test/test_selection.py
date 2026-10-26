@@ -11,49 +11,45 @@
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_ok(buck: Buck) -> None:
-    await buck.test("//:ok")
+class SelectionTest(BuckTestCase):
+    @buck_test()
+    async def test_ok(self, buck: Buck) -> None:
+        await buck.test("//:ok")
 
+    @buck_test()
+    async def test_fail(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.test("//:fail"), stderr_regex="Fail: root//:fail - unmanaged"
+        )
 
-@buck_test()
-async def test_fail(buck: Buck) -> None:
-    await expect_failure(
-        buck.test("//:fail"), stderr_regex="Fail: root//:fail - unmanaged"
-    )
+    @buck_test()
+    async def test_tests_attribute(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.test("//:noop_references_fail"),
+            stderr_regex="Fail: root//:fail - unmanaged",
+        )
 
+    @buck_test()
+    async def test_tests_attribute_transitive(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.test(
+                "//:noop_transitively_references_fail",
+            ),
+            stderr_regex="Fail: root//:fail - unmanaged",
+        )
 
-@buck_test()
-async def test_tests_attribute(buck: Buck) -> None:
-    await expect_failure(
-        buck.test("//:noop_references_fail"),
-        stderr_regex="Fail: root//:fail - unmanaged",
-    )
-
-
-@buck_test()
-async def test_tests_attribute_transitive(buck: Buck) -> None:
-    await expect_failure(
+    @buck_test()
+    async def test_tests_attribute_cycle(self, buck: Buck) -> None:
         buck.test(
-            "//:noop_transitively_references_fail",
-        ),
-        stderr_regex="Fail: root//:fail - unmanaged",
-    )
+            "//:noop_cycle1",
+        )
 
-
-@buck_test()
-async def test_tests_attribute_cycle(buck: Buck) -> None:
-    buck.test(
-        "//:noop_cycle1",
-    )
-
-
-@buck_test()
-async def test_tests_attribute_self_transition(buck: Buck) -> None:
-    await expect_failure(
-        buck.test("//:noop_self_transition_references_fail"),
-        stderr_regex="Fail: root//:fail - unmanaged",
-    )
+    @buck_test()
+    async def test_tests_attribute_self_transition(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.test("//:noop_self_transition_references_fail"),
+            stderr_regex="Fail: root//:fail - unmanaged",
+        )

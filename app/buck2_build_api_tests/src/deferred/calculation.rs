@@ -36,7 +36,7 @@ use buck2_core::fs::project::ProjectRootTemp;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::SetDigestConfig;
-use buck2_hash::BuckIndexSet;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_hash::BuckMutMap;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use dice::DiceComputations;
@@ -48,7 +48,7 @@ use indoc::indoc;
 use crate::interpreter::rule_defs::provider::testing::FrozenProviderCollectionValueExt;
 
 #[derive(Debug, Allocative)]
-struct FakeDeferred(usize, BuckIndexSet<DeferredInput>, Arc<AtomicBool>);
+struct FakeDeferred(usize, BuckMutInsertionSet<DeferredInput>, Arc<AtomicBool>);
 
 impl provider::Provider for FakeDeferred {
     fn provide<'a>(&'a self, _demand: &mut provider::Demand<'a>) {}
@@ -96,8 +96,16 @@ async fn lookup_deferred_from_analysis() -> buck2_error::Result<()> {
 
     let executed0 = Arc::new(AtomicBool::new(false));
     let executed1 = Arc::new(AtomicBool::new(false));
-    let data0 = deferred.defer(FakeDeferred(1, BuckIndexSet::default(), executed0.dupe()));
-    let data1 = deferred.defer(FakeDeferred(5, BuckIndexSet::default(), executed1.dupe()));
+    let data0 = deferred.defer(FakeDeferred(
+        1,
+        BuckMutInsertionSet::default(),
+        executed0.dupe(),
+    ));
+    let data1 = deferred.defer(FakeDeferred(
+        5,
+        BuckMutInsertionSet::default(),
+        executed1.dupe(),
+    ));
     let (deferred_result, analysis_values) = deferred.take_result()?;
 
     let fs = ProjectRootTemp::new()?;
@@ -158,7 +166,7 @@ async fn lookup_deferred_from_analysis() -> buck2_error::Result<()> {
 #[tokio::test]
 async fn lookup_deferred_that_has_deferreds() -> buck2_error::Result<()> {
     #[derive(Debug, Allocative)]
-    struct TestDeferringDeferred(usize, BuckIndexSet<DeferredInput>, Arc<AtomicBool>);
+    struct TestDeferringDeferred(usize, BuckMutInsertionSet<DeferredInput>, Arc<AtomicBool>);
 
     impl provider::Provider for TestDeferringDeferred {
         fn provide<'a>(&'a self, _demand: &mut provider::Demand<'a>) {}
@@ -202,7 +210,7 @@ async fn lookup_deferred_that_has_deferreds() -> buck2_error::Result<()> {
     let executed = Arc::new(AtomicBool::new(false));
     let data = deferred.defer(TestDeferringDeferred(
         8,
-        BuckIndexSet::default(),
+        BuckMutInsertionSet::default(),
         executed.dupe(),
     ));
     let (deferred_result, analysis_values) = deferred.take_result()?;

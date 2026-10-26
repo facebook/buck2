@@ -169,7 +169,8 @@ impl<T: LabeledNode> Graph<T> {
         let mut push = |queue: &mut FuturesUnordered<_>,
                         target_ref: &T::Key,
                         target_index: u32,
-                        parent: Option<u32>| {
+                        parent: Option<u32>,
+                        requester: Option<&T::Key>| {
             if visited.contains_key(target_index) {
                 return;
             }
@@ -177,9 +178,10 @@ impl<T: LabeledNode> Graph<T> {
             visited.insert(target_index, parent);
 
             let target_ref = target_ref.clone();
+            let requester = requester.cloned();
 
             queue.push(async move {
-                let result = nodes.get(&target_ref).await;
+                let result = nodes.get_from(&target_ref, requester.as_ref()).await;
                 (target_index, result)
             })
         };
@@ -188,7 +190,7 @@ impl<T: LabeledNode> Graph<T> {
 
         for target in root {
             let index = graph.get_or_create_node(&target);
-            push(&mut queue, &target, index, None);
+            push(&mut queue, &target, index, None, None);
         }
 
         // TODO(cjhopman): FuturesOrdered/Unordered interacts poorly with tokio cooperative scheduling
@@ -209,7 +211,13 @@ impl<T: LabeledNode> Graph<T> {
                             .unwrap()
                             .children
                             .push(child_index);
-                        push(&mut queue, child, child_index, Some(target_index));
+                        push(
+                            &mut queue,
+                            child,
+                            child_index,
+                            Some(target_index),
+                            Some(node.node_key()),
+                        );
                         Ok(())
                     })
                     .await?;

@@ -26,12 +26,12 @@ num-bigint = { version = "0.5.1", optional = true }
 once_cell = { version = "1.21.4", optional = true }
 parking_lot = { version = "0.12.1", optional = true }
 prost-types = { version = "0.14.4", optional = true, default-features = false }
-serde_json = { version = "1.0.151", optional = true }
+serde_json = { version = "1.0.154", optional = true }
 slab = { version = "0.4.12", optional = true }
 smallvec = { version = "1.16.2", optional = true }
 sorted_vector_map = { version = "0.2.1", optional = true }
 tokio = { version = "1.53.2", features = ["sync"], optional = true }
-triomphe = { version = "0.1.16", optional = true }
+triomphe = { version = "0.1.17", optional = true }
 
 [dev-dependencies]
 inferno.workspace = true
@@ -190,3 +190,6 @@ unused_imports = { level = "warn" }
 unused_macros = { level = "warn" }
 unused_must_use = { level = "warn", priority = -2 }
 unused_variables = { level = "warn" }
+
+[lints.rustdoc]
+private_intra_doc_links = { level = "allow" }

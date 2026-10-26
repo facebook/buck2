@@ -86,6 +86,10 @@ pub(crate) fn golden_test_impl<T: Allocative>(value: &T, type_name: &str) {
     let flamegraph_svg_path = format!("{manifest_dir}/src/{path}.svg");
 
     let (flamegraph, flamegraph_svg) = make_golden(value);
+    if cfg!(miri) {
+        // Miri's isolation has no filesystem. Visiting `value` was the point.
+        return;
+    }
     if env::var(REGENERATE_VAR_NAME).is_ok() {
         fs::write(flamegraph_src_path, &flamegraph).unwrap();
         fs::write(flamegraph_svg_path, flamegraph_svg).unwrap();

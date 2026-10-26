@@ -8,6 +8,8 @@
  * above-listed licenses.
  */
 
+use std::hash::Hasher;
+
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCommandLineInputs;
@@ -25,6 +27,7 @@ use buck2_interpreter::types::regex::register_buck_regex;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
 use buck2_interpreter_for_build::interpreter::testing::cells;
 use buck2_interpreter_for_build::label::testing::label_creator;
+use buck2_util::strong_hasher::Blake3StrongHasher;
 use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
 use starlark::values::UnpackValue;
@@ -78,6 +81,25 @@ pub(crate) fn command_line_stringifier(builder: &mut GlobalsBuilder) {
             .add_to_command_line(&mut fmt)?;
         assert_eq!(1, cli.len());
         Ok(cli.first().unwrap().clone())
+    }
+
+    /// A hash of `parts` in order, in hex; prefix-free, so moving a boundary changes it.
+    fn blake3_hex<'v>(parts: UnpackListOrTuple<String>) -> starlark::Result<String> {
+        let mut hasher = Blake3StrongHasher::new();
+        for part in parts {
+            hasher.write_usize(part.len());
+            hasher.write(part.as_bytes());
+        }
+        Ok(hasher.finalize().to_hex().to_string())
+    }
+
+    /// `CommandLineBuilder::new_hashing`'s hash of a command line, in hex.
+    fn hash_cli_args<'v>(value: Value<'v>) -> starlark::Result<String> {
+        let mut hasher = Blake3StrongHasher::new();
+        ValueAsCommandLineLike::unpack_value_err(value)?
+            .0
+            .add_to_command_line(&mut CommandLineBuilder::new_hashing(&mut hasher))?;
+        Ok(hasher.finalize().to_hex().to_string())
     }
 }
 

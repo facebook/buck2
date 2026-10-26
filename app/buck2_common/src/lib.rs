@@ -11,7 +11,6 @@
 //! Common core components of buck2
 
 #![feature(map_try_insert)]
-#![feature(used_with_arg)]
 
 pub mod argv;
 pub mod buckd_connection;

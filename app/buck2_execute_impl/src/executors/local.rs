@@ -88,7 +88,7 @@ use buck2_fs::async_fs_util;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::abs_path::AbsPath;
-use buck2_hash::BuckIndexMap;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_resource_control::ActionFreezeEvent;
 use buck2_resource_control::ActionFreezeEventReceiver;
 use buck2_resource_control::CommandType;
@@ -339,6 +339,7 @@ impl LocalExecutor {
                             action_digest: action_digest.to_string(),
                             argv: args.to_vec(),
                             env,
+                            ..Default::default()
                         }),
                     }
                     .into(),
@@ -587,6 +588,11 @@ impl LocalExecutor {
                     // if the paths already exist on disk, should explore that
                     self.prepare_content_based_incremental_actions(request, cancellations)
                         .await?;
+                    // The run writes its previous outputs in place, which the store may hold by
+                    // hardlink and the core may have made read-only.
+                    self.materializer
+                        .make_outputs_writable(output_paths(&self.artifact_fs, request)?)
+                        .await?;
                 }
 
                 buck2_error::Ok((materialized_inputs, Instant::now() - start))
@@ -609,193 +615,226 @@ impl LocalExecutor {
         } = materialized_inputs;
         // An action with neither outputs nor a scratch path has nothing to report under it.
         let outputs_lease = outputs_lease.unwrap_or_else(WriteLease::noop);
+        // Set once the run's outputs have been collected: that report settles every root of the
+        // lease, what the run produced tracked and what it did not left, and the leases over
+        // published content join the outputs lease for the result's readers. Every other way
+        // out leaves the run's partial content untracked, for the next run of the action to
+        // clear.
+        let mut reported = false;
+        let mut published = Vec::new();
 
-        manager.start_waiting_category(WaitingCategory::Unknown);
+        let mut result = async {
+            manager.start_waiting_category(WaitingCategory::Unknown);
 
-        // TODO: Release here.
-        let manager = manager.claim().boxed().await;
+            // TODO: Release here.
+            let manager = manager.claim().boxed().await;
 
-        info!(
-            "Local execution command line:\n```\n$ {}\n```",
-            args.join(" "),
-        );
+            info!(
+                "Local execution command line:\n```\n$ {}\n```",
+                args.join(" "),
+            );
 
-        let dispatcher = match get_dispatcher_opt() {
-            Some(dispatcher) => dispatcher,
-            None => {
-                return manager.error(
-                    "no_dispatcher",
-                    buck2_error!(
-                        buck2_error::ErrorTag::DispatcherUnavailable,
-                        "No dispatcher available"
-                    ),
-                );
-            }
-        };
-        let build_id: &str = &dispatcher.trace_id().to_string();
-
-        let mut env = vec![];
-
-        let scratch_path_abs;
-
-        if let Some(scratch_path) = &scratch_path.0 {
-            // For the $TMPDIR - important it is absolute
-            scratch_path_abs = self.artifact_fs.fs().resolve(scratch_path);
-
-            if cfg!(windows) {
-                const MAX_PATH: usize = 260;
-                if scratch_path_abs.as_os_str().len() > MAX_PATH {
+            let dispatcher = match get_dispatcher_opt() {
+                Some(dispatcher) => dispatcher,
+                None => {
                     return manager.error(
-                        "scratch_dir_too_long",
+                        "no_dispatcher",
                         buck2_error!(
-                            buck2_error::ErrorTag::Environment,
-                            "Scratch directory path is longer than MAX_PATH: {}",
-                            scratch_path_abs
+                            buck2_error::ErrorTag::DispatcherUnavailable,
+                            "No dispatcher available"
                         ),
                     );
                 }
-                env.push(("TEMP", StrOrOsStr::OsStr(scratch_path_abs.as_os_str())));
-                env.push(("TMP", StrOrOsStr::OsStr(scratch_path_abs.as_os_str())));
-            } else {
-                env.push(("TMPDIR", StrOrOsStr::OsStr(scratch_path_abs.as_os_str())));
-            }
-        }
-        env.extend(
-            request
-                .env()
-                .iter()
-                .map(|(k, v)| (k.as_str(), StrOrOsStr::from(v.as_str()))),
-        );
+            };
+            let build_id: &str = &dispatcher.trace_id().to_string();
 
-        env.extend(local_resource_holders.iter().flat_map(|h| {
-            h.as_ref().0.iter().map(|env_var| {
-                (
-                    env_var.key.as_str(),
-                    StrOrOsStr::from(env_var.value.as_str()),
-                )
-            })
-        }));
-        let daemon_id = self.daemon_id.to_string();
-        env.push(("BUCK2_DAEMON_UUID", StrOrOsStr::from(&*daemon_id)));
-        env.push(("BUCK_BUILD_ID", StrOrOsStr::from(build_id)));
+            let mut env = vec![];
 
-        let liveliness_observer = manager.inner.liveliness_observer.dupe().and(cancellation);
+            let scratch_path_abs;
 
-        let (worker, manager) = self
-            .initialize_worker(request, manager, dispatcher.dupe())
-            .boxed()
-            .await?;
+            if let Some(scratch_path) = &scratch_path.0 {
+                // For the $TMPDIR - important it is absolute
+                scratch_path_abs = self.artifact_fs.fs().resolve(scratch_path);
 
-        let execution_kind = match worker {
-            None => CommandExecutionKind::Local {
-                digest: action_digest.dupe(),
-                command: args.to_vec(),
-                env: request.env().clone(),
-            },
-            Some(_) => CommandExecutionKind::LocalWorker {
-                digest: action_digest.dupe(),
-                command: request.args().to_vec(),
-                env: request.env().clone(),
-                fallback_exe: request.exe().to_vec(),
-            },
-        };
-
-        let (time_span, start_time, res, manager) = match self
-            .exec_with_resource_control(
-                action_digest,
-                request,
-                manager,
-                cancellations,
-                liveliness_observer,
-                &scratch_path,
-                args,
-                worker.as_deref(),
-                &env,
-                network_access,
-            )
-            .await
-        {
-            Ok(x) => x,
-            Err(e) => return e,
-        };
-
-        let CommandResult {
-            status,
-            stdout,
-            stderr,
-            cgroup_result,
-            ..
-        } = res;
-
-        let std_streams = CommandStdStreams::Local { stdout, stderr };
-
-        let mut timing = Box::new(CommandExecutionMetadata {
-            time_span,
-            execution_time: time_span.duration(),
-            start_time,
-            execution_stats: None, // We fill this in later if available.
-            input_materialization_duration,
-            hashing_duration: Duration::ZERO, // We fill hashing info in later if available.
-            hashed_artifacts_count: 0,
-            queue_duration: None,
-            suspend_duration: None,
-            suspend_count: None,
-        });
-
-        let result = match status {
-            GatherOutputStatus::Finished {
-                exit_code,
-                execution_stats,
-            } => {
-                // N.B. calculate_and_declare_output_values ignores missing
-                // output files in order to guarantee we run the accounting
-                // checks below. If the output is missing because the action
-                // failed, we'll run the `exit_code != 0` branch below, allowing
-                // us to detect corrupted materializer state in check_inputs. If
-                // the output is just missing because the action didn't produce
-                // it, that's detected when BuckActionExecutor.execute validates
-                // that all outputs were actually returned.
-                let (outputs, hashing_time) = match self
-                    .calculate_and_declare_output_values(request, digest_config, &outputs_lease)
-                    .boxed()
-                    .await
-                {
-                    Ok((output_values, hashing_time)) => (output_values, hashing_time),
-                    Err(e) => {
-                        return manager.error("calculate_output_values_failed", e);
+                if cfg!(windows) {
+                    const MAX_PATH: usize = 260;
+                    if scratch_path_abs.as_os_str().len() > MAX_PATH {
+                        return manager.error(
+                            "scratch_dir_too_long",
+                            buck2_error!(
+                                buck2_error::ErrorTag::Environment,
+                                "Scratch directory path is longer than MAX_PATH: {}",
+                                scratch_path_abs
+                            ),
+                        );
                     }
-                };
-
-                let mut execution_stats =
-                    execution_stats.map(|s| buck2_data::CommandExecutionStats {
-                        cpu_instructions_user: s.cpu_instructions_user,
-                        cpu_instructions_kernel: s.cpu_instructions_kernel,
-                        userspace_events: s.userspace_events,
-                        kernel_events: s.kernel_events,
-                        memory_peak: None,
-                    });
-
-                if let Some(memory_peak) =
-                    cgroup_result.as_ref().and_then(|r| r.memory_peak.as_ref())
-                {
-                    execution_stats.get_or_insert_default().memory_peak = Some(*memory_peak);
-                }
-
-                timing.execution_stats = execution_stats;
-                if let Some(cgroup_result) = cgroup_result {
-                    if let Some(e) = cgroup_result.error {
-                        let _unused = soft_error!("action_cgroup_error", e);
-                    }
-                    timing.suspend_duration = cgroup_result.suspend_duration;
-                    timing.suspend_count = Some(cgroup_result.suspend_count);
-                }
-
-                timing.hashing_duration = hashing_time.hashing_duration;
-                timing.hashed_artifacts_count = hashing_time.hashed_artifacts_count;
-
-                if exit_code == 0 {
-                    manager.success(execution_kind, outputs, std_streams, *timing)
+                    env.push(("TEMP", StrOrOsStr::OsStr(scratch_path_abs.as_os_str())));
+                    env.push(("TMP", StrOrOsStr::OsStr(scratch_path_abs.as_os_str())));
                 } else {
+                    env.push(("TMPDIR", StrOrOsStr::OsStr(scratch_path_abs.as_os_str())));
+                }
+            }
+            env.extend(
+                request
+                    .env()
+                    .iter()
+                    .map(|(k, v)| (k.as_str(), StrOrOsStr::from(v.as_str()))),
+            );
+
+            env.extend(local_resource_holders.iter().flat_map(|h| {
+                h.as_ref().0.iter().map(|env_var| {
+                    (
+                        env_var.key.as_str(),
+                        StrOrOsStr::from(env_var.value.as_str()),
+                    )
+                })
+            }));
+            let daemon_id = self.daemon_id.to_string();
+            env.push(("BUCK2_DAEMON_UUID", StrOrOsStr::from(&*daemon_id)));
+            env.push(("BUCK_BUILD_ID", StrOrOsStr::from(build_id)));
+
+            let liveliness_observer = manager.inner.liveliness_observer.dupe().and(cancellation);
+
+            let (worker, manager) = self
+                .initialize_worker(request, manager, dispatcher.dupe())
+                .boxed()
+                .await?;
+
+            let execution_kind = match worker {
+                None => CommandExecutionKind::Local {
+                    digest: action_digest.dupe(),
+                    command: args.to_vec(),
+                    env: request.env().clone(),
+                },
+                Some(_) => CommandExecutionKind::LocalWorker {
+                    digest: action_digest.dupe(),
+                    command: request.args().to_vec(),
+                    env: request.env().clone(),
+                    fallback_exe: request.exe().to_vec(),
+                },
+            };
+
+            let (time_span, start_time, res, manager) = match self
+                .exec_with_resource_control(
+                    action_digest,
+                    request,
+                    manager,
+                    cancellations,
+                    liveliness_observer,
+                    &scratch_path,
+                    args,
+                    worker.as_deref(),
+                    &env,
+                    network_access,
+                )
+                .await
+            {
+                Ok(x) => x,
+                Err(e) => return e,
+            };
+
+            let CommandResult {
+                status,
+                stdout,
+                stderr,
+                cgroup_result,
+                ..
+            } = res;
+
+            let std_streams = CommandStdStreams::Local { stdout, stderr };
+
+            let mut timing = Box::new(CommandExecutionMetadata {
+                time_span,
+                execution_time: time_span.duration(),
+                start_time,
+                execution_stats: None, // We fill this in later if available.
+                input_materialization_duration,
+                hashing_duration: Duration::ZERO, // We fill hashing info in later if available.
+                hashed_artifacts_count: 0,
+                queue_duration: None,
+                suspend_duration: None,
+                suspend_count: None,
+            });
+
+            match status {
+                GatherOutputStatus::Finished {
+                    exit_code,
+                    execution_stats,
+                } => {
+                    // N.B. calculate_and_declare_output_values ignores missing
+                    // output files in order to guarantee we run the accounting
+                    // checks below. If the output is missing because the action
+                    // failed, we'll run the `exit_code != 0` branch below, allowing
+                    // us to detect corrupted materializer state in check_inputs. If
+                    // the output is just missing because the action didn't produce
+                    // it, that's detected when BuckActionExecutor.execute validates
+                    // that all outputs were actually returned.
+                    let (outputs, hashing_time) = match self
+                        .calculate_and_declare_output_values(request, digest_config, &outputs_lease)
+                        .boxed()
+                        .await
+                    {
+                        Ok((output_values, hashing_time, leases)) => {
+                            reported = true;
+                            published = leases;
+                            (output_values, hashing_time)
+                        }
+                        Err(e) => {
+                            return manager.error("calculate_output_values_failed", e);
+                        }
+                    };
+
+                    let mut execution_stats =
+                        execution_stats.map(|s| buck2_data::CommandExecutionStats {
+                            cpu_instructions_user: s.cpu_instructions_user,
+                            cpu_instructions_kernel: s.cpu_instructions_kernel,
+                            userspace_events: s.userspace_events,
+                            kernel_events: s.kernel_events,
+                            memory_peak: None,
+                        });
+
+                    if let Some(memory_peak) =
+                        cgroup_result.as_ref().and_then(|r| r.memory_peak.as_ref())
+                    {
+                        execution_stats.get_or_insert_default().memory_peak = Some(*memory_peak);
+                    }
+
+                    timing.execution_stats = execution_stats;
+                    if let Some(cgroup_result) = cgroup_result {
+                        if let Some(e) = cgroup_result.error {
+                            let _unused = soft_error!("action_cgroup_error", e);
+                        }
+                        timing.suspend_duration = cgroup_result.suspend_duration;
+                        timing.suspend_count = Some(cgroup_result.suspend_count);
+                    }
+
+                    timing.hashing_duration = hashing_time.hashing_duration;
+                    timing.hashed_artifacts_count = hashing_time.hashed_artifacts_count;
+
+                    if exit_code == 0 {
+                        manager.success(execution_kind, outputs, std_streams, *timing)
+                    } else {
+                        let (manager, missing_materialized_inputs) = check_inputs(
+                            manager,
+                            &self.artifact_fs,
+                            self.blocking_executor.as_ref(),
+                            request,
+                        )
+                        .boxed()
+                        .await?;
+
+                        manager.failure(
+                            execution_kind,
+                            outputs,
+                            std_streams,
+                            Some(exit_code),
+                            *timing,
+                            None,
+                            missing_materialized_inputs,
+                        )
+                    }
+                }
+                GatherOutputStatus::SpawnFailed(reason) => {
                     let (manager, missing_materialized_inputs) = check_inputs(
                         manager,
                         &self.artifact_fs,
@@ -805,83 +844,77 @@ impl LocalExecutor {
                     .boxed()
                     .await?;
 
-                    manager.failure(
+                    // We are lying about the std streams here because we don't have a good mechanism
+                    // to report that the command does not exist, and because that's exactly what RE
+                    // also does when this happens.
+                    if matches!(execution_kind, CommandExecutionKind::Local { .. }) {
+                        manager.failure(
+                            execution_kind,
+                            Default::default(),
+                            CommandStdStreams::Local {
+                                stdout: Default::default(),
+                                stderr: format!(
+                                    "Spawning executable `{}` failed: {}",
+                                    args[0], reason
+                                )
+                                .into_bytes(),
+                            },
+                            None,
+                            *timing,
+                            None,
+                            missing_materialized_inputs,
+                        )
+                    } else {
+                        // Workers executing tests often employ a health check to avoid producing
+                        // invalid test results. Differentiating a worker spawn failure from a normal
+                        // spawn or execution failure allows the test runner to handle this case
+                        // accordingly.
+                        manager.worker_failure(
+                            execution_kind,
+                            // Could probably use a better error message.
+                            format!("Spawning executable `{}` failed: {}", args[0], reason),
+                            *timing,
+                        )
+                    }
+                }
+                GatherOutputStatus::TimedOut(duration) => {
+                    let (outputs, hashing_time) = match self
+                        .calculate_and_declare_output_values(request, digest_config, &outputs_lease)
+                        .boxed()
+                        .await
+                    {
+                        Ok((output_values, hashing_time, leases)) => {
+                            reported = true;
+                            published = leases;
+                            (output_values, hashing_time)
+                        }
+                        Err(e) => {
+                            return manager.error("calculate_output_values_failed", e);
+                        }
+                    };
+
+                    timing.hashing_duration = hashing_time.hashing_duration;
+                    timing.hashed_artifacts_count = hashing_time.hashed_artifacts_count;
+
+                    manager.timeout(
                         execution_kind,
                         outputs,
+                        duration,
                         std_streams,
-                        Some(exit_code),
                         *timing,
                         None,
-                        missing_materialized_inputs,
                     )
                 }
+                GatherOutputStatus::Cancelled => manager.cancel_claim(execution_kind, *timing),
             }
-            GatherOutputStatus::SpawnFailed(reason) => {
-                let (manager, missing_materialized_inputs) = check_inputs(
-                    manager,
-                    &self.artifact_fs,
-                    self.blocking_executor.as_ref(),
-                    request,
-                )
-                .boxed()
-                .await?;
-
-                // We are lying about the std streams here because we don't have a good mechanism
-                // to report that the command does not exist, and because that's exactly what RE
-                // also does when this happens.
-                if matches!(execution_kind, CommandExecutionKind::Local { .. }) {
-                    manager.failure(
-                        execution_kind,
-                        Default::default(),
-                        CommandStdStreams::Local {
-                            stdout: Default::default(),
-                            stderr: format!("Spawning executable `{}` failed: {}", args[0], reason)
-                                .into_bytes(),
-                        },
-                        None,
-                        *timing,
-                        None,
-                        missing_materialized_inputs,
-                    )
-                } else {
-                    // Workers executing tests often employ a health check to avoid producing
-                    // invalid test results. Differentiating a worker spawn failure from a normal
-                    // spawn or execution failure allows the test runner to handle this case
-                    // accordingly.
-                    manager.worker_failure(
-                        execution_kind,
-                        // Could probably use a better error message.
-                        format!("Spawning executable `{}` failed: {}", args[0], reason),
-                        *timing,
-                    )
-                }
-            }
-            GatherOutputStatus::TimedOut(duration) => {
-                let (outputs, hashing_time) = match self
-                    .calculate_and_declare_output_values(request, digest_config, &outputs_lease)
-                    .boxed()
-                    .await
-                {
-                    Ok((output_values, hashing_time)) => (output_values, hashing_time),
-                    Err(e) => {
-                        return manager.error("calculate_output_values_failed", e);
-                    }
-                };
-
-                timing.hashing_duration = hashing_time.hashing_duration;
-                timing.hashed_artifacts_count = hashing_time.hashed_artifacts_count;
-
-                manager.timeout(
-                    execution_kind,
-                    outputs,
-                    duration,
-                    std_streams,
-                    *timing,
-                    None,
-                )
-            }
-            GatherOutputStatus::Cancelled => manager.cancel_claim(execution_kind, *timing),
-        };
+        }
+        .await;
+        if reported {
+            published.push(outputs_lease.into_read_lease());
+            result.outputs_lease = Some(ReadLease::join(published));
+        } else {
+            outputs_lease.abandon();
+        }
 
         if let Some(run_action_key) = request.run_action_key()
             && !request.outputs_cleanup
@@ -903,8 +936,9 @@ impl LocalExecutor {
         digest_config: DigestConfig,
         outputs_lease: &WriteLease,
     ) -> buck2_error::Result<(
-        BuckIndexMap<CommandExecutionOutput, ArtifactValue>,
+        BuckMutInsertionMap<CommandExecutionOutput, ArtifactValue>,
         HashingInfo,
+        Vec<ReadLease>,
     )> {
         let mut builder = inputs_directory(request.inputs(), digest_config, &self.artifact_fs)?;
 
@@ -933,43 +967,36 @@ impl LocalExecutor {
             if let Some(entry) = entry {
                 insert_entry(&mut builder, path.clone(), entry)?;
                 entries.push((output.cloned(), path));
+            } else {
+                outputs_lease.leave_untracked(&path)?;
             }
         }
 
         let mut to_declare = vec![];
         let mut to_publish = vec![];
-        let mut mapped_outputs = BuckIndexMap::with_capacity(entries.len());
+        let mut mapped_outputs = BuckMutInsertionMap::with_capacity(entries.len());
 
+        // Test outputs are reported like build outputs: the test orchestrator asks the
+        // materializer for them by value before it hands them to the test runner.
         for (output, output_path) in entries {
             let value = extract_artifact_value(&builder, &output_path, digest_config)?;
             if let Some(value) = value {
-                match output {
-                    CommandExecutionOutput::BuildArtifact { .. } => {
-                        if output.as_ref().has_content_based_path() {
-                            // A content-based output is produced at a placeholder path, since
-                            // its real path is only known once the content is hashed, and is
-                            // published to that path now. The placeholder is scratch shared by
-                            // every configuration of this action; `HostSharingRequirements`
-                            // keeps their runs from overlapping there, and this run still holds
-                            // that permit.
-                            let content_path = output
-                                .as_ref()
-                                .resolve(&self.artifact_fs, Some(&value.content_based_path_hash()))?
-                                .into_path();
-                            to_publish.push((output_path, content_path, value.dupe()));
-                        } else {
-                            to_declare.push(DeclareArtifactPayload {
-                                path: output_path,
-                                artifact: value.dupe(),
-                            });
-                        }
-                    }
-                    CommandExecutionOutput::TestPath { .. } => {
-                        // Don't declare those as we don't currently have any form of GC so this
-                        // would take up space for nothing, and most importantly, we will never
-                        // need them to be in materializer state for e.g. matching as nothing
-                        // should depend on them.
-                    }
+                if output.as_ref().has_content_based_path() {
+                    // A content-based output is produced at a placeholder path, since its real
+                    // path is only known once the content is hashed, and is published to that
+                    // path now. The placeholder is scratch shared by every configuration of this
+                    // action; `HostSharingRequirements` keeps their runs from overlapping there,
+                    // and this run still holds that permit.
+                    let content_path = output
+                        .as_ref()
+                        .resolve(&self.artifact_fs, Some(&value.content_based_path_hash()))?
+                        .into_path();
+                    to_publish.push((output_path, content_path, value.dupe()));
+                } else {
+                    to_declare.push(DeclareArtifactPayload {
+                        path: output_path,
+                        artifact: value.dupe(),
+                    });
                 }
 
                 mapped_outputs.insert(output, value);
@@ -979,12 +1006,11 @@ impl LocalExecutor {
         self.materializer
             .declare_existing(outputs_lease, to_declare)
             .await?;
-        buck2_util::future::try_join_all(
-            to_publish.into_iter().map(|(src, dest, value)| {
+        let published =
+            buck2_util::future::try_join_all(to_publish.into_iter().map(|(src, dest, value)| {
                 self.materializer.publish(outputs_lease, src, dest, value)
-            }),
-        )
-        .await?;
+            }))
+            .await?;
 
         Ok((
             mapped_outputs,
@@ -992,6 +1018,7 @@ impl LocalExecutor {
                 hashing_duration: total_hashing_time,
                 hashed_artifacts_count: total_hashed_outputs,
             },
+            published,
         ))
     }
 
@@ -1426,6 +1453,11 @@ pub async fn materialize_inputs(
         }
         Err(e) => return Err(e.into()),
     };
+
+    // Scratch content is never an artifact: nothing reports it.
+    if let (Some(lease), Some(scratch)) = (&outputs, &scratch.0) {
+        lease.leave_untracked(scratch)?;
+    }
 
     Ok(MaterializedInputPaths {
         scratch,

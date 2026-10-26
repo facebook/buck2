@@ -122,6 +122,9 @@ def _archive_locally(ctx: AnalysisContext, linker_info: LinkerInfo) -> bool:
 def _archive_allow_cache_upload(ctx: AnalysisContext) -> bool:
     return getattr(ctx.attrs, "archive_allow_cache_upload", False)
 
+def _archive_contents(ctx: AnalysisContext, linker_info: LinkerInfo) -> str:
+    return getattr(ctx.attrs, "archive_contents", None) or linker_info.archive_contents
+
 # Creates a static library given a list of object files.
 def make_archive(
     ctx: AnalysisContext, name: str, objects: list[Artifact], hidden: list[Artifact] = [], force_disable_content_based_path: bool = False
@@ -130,7 +133,8 @@ def make_archive(
         fail("no objects to archive")
 
     linker_info = get_cxx_toolchain_info(ctx).linker_info
-    thin = linker_info.archive_contents == "thin"
+    archive_contents = _archive_contents(ctx, linker_info)
+    thin = archive_contents == "thin"
     object_args = cmd_args(objects)
     args = cmd_args(object_args, hidden = hidden)
     archive = _archive(
@@ -150,6 +154,6 @@ def make_archive(
 
     return Archive(
         artifact = archive,
-        archive_contents_type = ArchiveContentsType(linker_info.archive_contents),
+        archive_contents_type = ArchiveContentsType(archive_contents),
         external_objects = objects,
     )

@@ -41,6 +41,13 @@ impl LoggingBackend {
     }
 }
 
+/// A discovery edge logged for debugging/testing the critical path: `key` depends on `dep`.
+#[derive(Serialize, Deserialize)]
+struct Edge {
+    key: String,
+    dep: String,
+}
+
 /// Node data logged for debugging/testing the critical path.
 #[derive(Serialize, Deserialize)]
 struct Node {
@@ -91,8 +98,18 @@ impl BuildListenerBackend for LoggingBackend {
 
     fn finish(
         self,
-        _anon_target_discovery_edges: BuckMutMap<NodeKey, NodeKey>,
+        discovery_edges: BuckMutMap<NodeKey, NodeKey>,
     ) -> Result<BuildInfo, CriticalPathError> {
+        for (key, dep) in &discovery_edges {
+            self.events.instant_event(QuickUnstableE2eData {
+                key: "critical_path_logging_edge".to_owned(),
+                data: serde_json::to_string(&Edge {
+                    key: key.to_string(),
+                    dep: dep.to_string(),
+                })
+                .unwrap(),
+            });
+        }
         Ok(BuildInfo {
             critical_path: DetailedCriticalPath::empty(),
             slowest_path: DetailedCriticalPath::empty(),

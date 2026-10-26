@@ -13,13 +13,13 @@ use std::fmt::Display;
 
 use allocative::Allocative;
 use buck2_error::BuckErrorContext;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_interpreter::types::select_fail::StarlarkSelectFail;
 use buck2_interpreter::types::select_incompatible::StarlarkSelectIncompatible;
 use serde::Serialize;
 use serde::Serializer;
 use serde::ser::SerializeMap;
 use starlark::any::ProvidesStaticType;
-use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
@@ -155,7 +155,7 @@ impl<'v> StarlarkSelector<'v> {
             match *selector {
                 StarlarkSelector::Primary(selector) => {
                     let selector = DictRef::from_value(selector.get()).unwrap();
-                    let mut mapped = SmallMap::with_capacity(selector.len());
+                    let mut mapped = BuckMutInsertionMap::with_capacity(selector.len());
                     for (k, v) in selector.iter_hashed() {
                         if StarlarkSelectFail::from_value(v).is_some()
                             || StarlarkSelectIncompatible::from_value(v).is_some()
@@ -174,7 +174,7 @@ impl<'v> StarlarkSelector<'v> {
                         }
                     }
                     Ok(eval.heap().alloc(StarlarkSelector::new(
-                        ValueOf::unpack_value_err(eval.heap().alloc_dict(mapped))
+                        ValueOf::unpack_value_err(eval.heap().alloc(mapped))
                             .internal_error("validated at construction")?,
                     )))
                 }

@@ -10,7 +10,6 @@
 
 use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::package::PackageLabel;
 use buck2_core::package::package_relative_path::PackageRelativePath;
@@ -21,7 +20,6 @@ use dice::DiceComputations;
 use dupe::Dupe;
 use futures::FutureExt;
 use futures::future::BoxFuture;
-use starlark_map::sorted_set::SortedSet;
 use starlark_map::sorted_vec::SortedVec;
 
 use crate::file_ops::dice::DiceFileComputations;
@@ -45,10 +43,7 @@ impl PackageListingResolver for InterpreterPackageListingResolver<'_, '_> {
         Ok(self.gather_package_listing(package.dupe()).await?)
     }
 
-    async fn get_enclosing_package(
-        &mut self,
-        path: CellPathRef<'async_trait>,
-    ) -> buck2_error::Result<PackageLabel> {
+    async fn get_enclosing_package(&mut self, path: CellPath) -> buck2_error::Result<PackageLabel> {
         let buildfile_candidates = DiceFileComputations::buildfiles(self.ctx, path.cell()).await?;
         if let Some(path) = path.parent() {
             for path in path.ancestors() {
@@ -58,38 +53,33 @@ impl PackageListingResolver for InterpreterPackageListingResolver<'_, '_> {
                 }
             }
         }
-        Err(PackageListingError::NoContainingPackage(
-            path.to_owned(),
-            buildfile_candidates.to_vec(),
-        )
-        .into())
+        Err(PackageListingError::NoContainingPackage(path, buildfile_candidates.to_vec()).into())
     }
 
     async fn get_enclosing_packages(
         &mut self,
-        path: CellPathRef<'async_trait>,
-        enclosing_path: CellPathRef<'async_trait>,
+        path: CellPath,
+        enclosing_path: CellPath,
     ) -> buck2_error::Result<Vec<PackageLabel>> {
         let buildfile_candidates = DiceFileComputations::buildfiles(self.ctx, path.cell()).await?;
         if let Some(path) = path.parent() {
             let mut packages = Vec::new();
             for path in path.ancestors() {
-                if !path.starts_with(enclosing_path.dupe()) {
+                if !path.starts_with(enclosing_path) {
                     // stop when we are no longer within the enclosing path
                     break;
                 }
-                let listing = DiceFileComputations::read_dir(self.ctx, path.dupe()).await?;
+                let listing = DiceFileComputations::read_dir(self.ctx, path).await?;
                 if find_buildfile(buildfile_candidates, &listing.included).is_some() {
                     packages.push(PackageLabel::from_cell_path(path)?);
                 }
             }
             Ok(packages)
         } else {
-            Err(PackageListingError::NoContainingPackage(
-                path.to_owned(),
-                buildfile_candidates.to_vec(),
+            Err(
+                PackageListingError::NoContainingPackage(path, buildfile_candidates.to_vec())
+                    .into(),
             )
-            .into())
         }
     }
 }
@@ -133,54 +123,51 @@ pub enum GatherPackageListingError {
 
 impl GatherPackageListingError {
     fn error<E: Into<buck2_error::Error>>(
-        package_path: CellPathRef<'_>,
+        package_path: CellPath,
         err: E,
     ) -> GatherPackageListingError {
         GatherPackageListingError::Error {
-            package: package_path.to_owned(),
+            package: package_path,
             error: err.into(),
         }
     }
 
-    fn from_read_dir(
-        package_path: CellPathRef<'_>,
-        err: ReadDirError,
-    ) -> GatherPackageListingError {
+    fn from_read_dir(package_path: CellPath, err: ReadDirError) -> GatherPackageListingError {
         match err {
             ReadDirError::DirectoryDoesNotExist { path, suggestion } => {
                 GatherPackageListingError::DirectoryDoesNotExist {
-                    package: package_path.to_owned(),
+                    package: package_path,
                     expected_path: path,
                     suggestion,
                 }
             }
             ReadDirError::DirectoryIsIgnored(path, ignore_reason) => {
                 GatherPackageListingError::DirectoryIsIgnored {
-                    package: package_path.to_owned(),
+                    package: package_path,
                     path,
                     ignore_reason,
                 }
             }
             ReadDirError::NotADirectory(path, node_type) => {
                 GatherPackageListingError::NotADirectory {
-                    package: package_path.to_owned(),
+                    package: package_path,
                     path,
                     node_type,
                 }
             }
             ReadDirError::Error(e) => GatherPackageListingError::Error {
-                package: package_path.to_owned(),
+                package: package_path,
                 error: e,
             },
         }
     }
 
     fn no_build_file(
-        package_path: CellPathRef<'_>,
+        package_path: CellPath,
         candidates: Vec<FileNameBuf>,
     ) -> GatherPackageListingError {
         GatherPackageListingError::NoBuildFile {
-            package: package_path.to_owned(),
+            package: package_path,
             candidates,
         }
     }
@@ -339,10 +326,9 @@ impl std::fmt::Display for GatherPackageListingError {
             } => {
                 let path_as_str = path.to_string();
                 let corrected = {
-                    match package.strip_prefix(path.as_ref()) {
+                    match package.strip_prefix(*path) {
                         Ok(fixed) => {
-                            CellPath::new(*cell_name, CellRelativePath::new(fixed).to_owned())
-                                .to_string()
+                            CellPath::new(*cell_name, CellRelativePath::new(fixed)).to_string()
                         }
                         _ => format!("{cell_name}//"),
                     }
@@ -394,21 +380,21 @@ impl Directory {
     async fn gather(
         ctx: &mut DiceComputations<'_>,
         buildfile_candidates: &[FileNameBuf],
-        root: CellPathRef<'_>,
+        root: CellPath,
         path: &PackageRelativePath,
         is_root: bool,
     ) -> Result<Option<Directory>, GatherPackageListingError> {
         let cell_path = root.join(path.as_forward_rel_path());
-        let entries = DiceFileComputations::read_dir_ext(ctx, cell_path.as_ref())
+        let entries = DiceFileComputations::read_dir_ext(ctx, cell_path)
             .await
-            .map_err(|e| GatherPackageListingError::from_read_dir(cell_path.as_ref(), e))?
+            .map_err(|e| GatherPackageListingError::from_read_dir(cell_path, e))?
             .included;
         let buildfile = find_buildfile(buildfile_candidates, &entries);
 
         match (is_root, buildfile) {
             (true, None) => {
                 return Err(GatherPackageListingError::no_build_file(
-                    cell_path.as_ref(),
+                    cell_path,
                     buildfile_candidates.to_vec(),
                 ));
             }
@@ -457,7 +443,7 @@ impl Directory {
     fn gather_subdirs<'a>(
         ctx: &'a mut DiceComputations<'_>,
         buildfile_candidates: &'a [FileNameBuf],
-        root: CellPathRef<'a>,
+        root: CellPath,
         subdirs: Vec<PackageRelativePathBuf>,
     ) -> BoxFuture<
         'a,
@@ -511,14 +497,12 @@ impl Directory {
         self.collect_into(&mut files, &mut dirs, &mut subpackages);
 
         // The files are discovered in a deterministic order but not necessarily sorted.
-        // TODO(cjhopman): Do we require that they be sorted for anything?
-        let files = SortedVec::from(files);
-        let dirs = SortedVec::from(dirs);
+        // TODO(cjhopman): Do we require that subpackages be sorted for anything?
         let subpackages = SortedVec::from(subpackages);
 
         PackageListing::new(
-            SortedSet::from(files),
-            SortedSet::from(dirs),
+            files.into_iter().collect(),
+            dirs.into_iter().collect(),
             subpackages,
             buildfile,
         )

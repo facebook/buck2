@@ -19,7 +19,9 @@ use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileName;
 #[cfg(fbcode_build)]
 use buck2_http::ProxyHostAllowlist;
+use dice::EvictionPolicy;
 use dice::PagableStorageBackend;
+use dice::PageOutPolicy;
 use dupe::Dupe;
 use serde::Deserialize;
 use serde::Serialize;
@@ -555,6 +557,10 @@ pub struct HydrationConfig {
     /// Idle page-out only runs when at least this many GiB of disk are free to
     /// write the paged-out values to.
     pub page_out_min_free_disk_gb: u64,
+    /// Which values a page-out writes; see [`PageOutPolicy`].
+    pub page_out_policy: PageOutPolicy,
+    /// When the values a page-out writes leave memory; see [`EvictionPolicy`].
+    pub eviction_policy: EvictionPolicy,
 }
 
 impl HydrationConfig {
@@ -606,6 +612,8 @@ impl HydrationConfig {
                     property: "page_out_min_free_disk_gb",
                 })?
                 .unwrap_or(100),
+            page_out_policy: settings.hydration.page_out_policy(),
+            eviction_policy: settings.hydration.eviction_policy(),
         }))
     }
 }
@@ -629,6 +637,9 @@ pub struct DaemonStartupConfig {
     pub source_digest_algorithm: Option<String>,
     pub paranoid: bool,
     pub materializations: Option<String>,
+    /// Which materializer implementation the daemon runs (`buck2.materializer`); `None` is the
+    /// deferred one.
+    pub materializer: Option<String>,
     pub http: HttpConfig,
     pub resource_control: ResourceControlConfig,
     pub log_download_method: LogDownloadMethod,
@@ -721,6 +732,12 @@ impl DaemonStartupConfig {
                     property: "materializations",
                 })
                 .map(ToOwned::to_owned),
+            materializer: config
+                .get(BuckconfigKeyRef {
+                    section: "buck2",
+                    property: "materializer",
+                })
+                .map(ToOwned::to_owned),
             http: HttpConfig::from_config(config)?,
             resource_control: ResourceControlConfig::from_config(config)?,
             log_download_method,
@@ -798,6 +815,7 @@ impl DaemonStartupConfig {
             source_digest_algorithm: None,
             paranoid: false,
             materializations: None,
+            materializer: None,
             http: HttpConfig::default(),
             resource_control: ResourceControlConfig::testing_default(),
             log_download_method: if cfg!(fbcode_build) {
@@ -862,6 +880,22 @@ mod tests {
             )
             .expect("Idle page-out should enable hydration");
         assert!(hydration.page_out_on_idle);
+        Ok(())
+    }
+
+    #[test]
+    fn test_hydration_settings_page_out_policy() -> buck2_error::Result<()> {
+        let config = parse(&[("config", "")], "config")?;
+        let settings = resolve_setting_flags(vec![table(
+            "[hydration]\nenable_paging = true\npage_out_policy = \"once_per_key\"\neviction_policy = \"on_idle\"",
+        )])?;
+
+        let startup_config = DaemonStartupConfig::new(&config, &settings, false)?;
+        let hydration = startup_config
+            .hydration
+            .expect("enable_paging should enable pagable storage");
+        assert_eq!(hydration.page_out_policy, PageOutPolicy::OncePerKey);
+        assert_eq!(hydration.eviction_policy, EvictionPolicy::OnIdle);
         Ok(())
     }
 

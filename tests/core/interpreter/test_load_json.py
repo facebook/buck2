@@ -12,7 +12,7 @@ import ast
 from typing import Any
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
 def extract_test_output(stderr: str) -> dict[str, Any]:
@@ -49,20 +49,21 @@ def assert_common_fruits(data: dict[str, Any]) -> None:
     assert fruits[1]["name"] == "banana"
 
 
-@buck_test()
-async def test_load_json(buck: Buck) -> None:
-    result = await buck.targets("root//:")
+class LoadJsonTest(BuckTestCase):
+    @buck_test()
+    async def test_load_json(self, buck: Buck) -> None:
+        result = await buck.targets("root//:")
 
-    # Original tests: list and object loading
-    assert '[{"name": "item-0"}, {"name": "item-1"}]' in result.stderr
-    assert '{"name": "example", "object": {"foo": "bar"}}' in result.stderr
+        # Original tests: list and object loading
+        assert '[{"name": "item-0"}, {"name": "item-1"}]' in result.stderr
+        assert '{"name": "example", "object": {"foo": "bar"}}' in result.stderr
 
-    # Type coverage
-    data = extract_test_output(result.stderr)
+        # Type coverage
+        data = extract_test_output(result.stderr)
 
-    assert_common_types(data["types"])
-    assert_common_fruits(data)
+        assert_common_types(data["types"])
+        assert_common_fruits(data)
 
-    # JSON-specific: null and mixed arrays
-    assert data["types"]["null_val"] is None
-    assert data["types"]["mixed_array"] == [1, "two", True, None]
+        # JSON-specific: null and mixed arrays
+        assert data["types"]["null_val"] is None
+        assert data["types"]["mixed_array"] == [1, "two", True, None]

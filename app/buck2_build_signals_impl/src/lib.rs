@@ -47,6 +47,7 @@ use buck2_build_signals::node_key::BuildSignalsNodeKeyImpl;
 use buck2_common::package_listing::dice::PackageListingKey;
 use buck2_common::package_listing::dice::PackageListingKeyActivationData;
 use buck2_core::package::PackageLabel;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_data::ToProtoMessage;
 use buck2_events::dispatch::EventDispatcher;
@@ -58,7 +59,6 @@ use buck2_hash::BuckDashSet;
 use buck2_hash::BuckMutMap;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterResultsKey;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterResultsKeyActivationData;
-use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_util::early_command_timing::EarlyCommandTiming;
 use buck2_util::size_assert;
 use buck2_util::time_span::TimeSpan;
@@ -69,7 +69,6 @@ use dice::PageInPhase;
 use dupe::Dupe;
 use ref_cast::RefCast;
 use smallvec::SmallVec;
-use starlark_map::ordered_set::OrderedSet;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::task::JoinHandle;
@@ -81,6 +80,8 @@ use crate::backend::backend::BuildListenerBackend;
 use crate::backend::logging::LoggingBackend;
 use crate::backend::longest_path_graph::LongestPathGraphBackend;
 use crate::enhancement::CriticalPathProtoEnhancer;
+use crate::test_signals::InstallBuildSignalKey;
+use crate::test_signals::InstallSignal;
 use crate::test_signals::TestExecutionBuildSignalKey;
 use crate::test_signals::TestExecutionSignal;
 use crate::test_signals::TestListingBuildSignalKey;
@@ -108,6 +109,7 @@ enum NodeKey {
     // Keys for test not on DICE.
     TestExecution(TestExecutionBuildSignalKey),
     TestListing(TestListingBuildSignalKey),
+    Install(InstallBuildSignalKey),
 
     // Dynamically-typed.
     Dyn(&'static str, BuildSignalsNodeKey),
@@ -136,6 +138,18 @@ size_assert::words_of_type!(BuildArtifact, 6);
 size_assert::words_of_type!(NodeKey, 7);
 
 impl NodeKey {
+    /// The package this computation belongs to: the loaded package itself, or the package of
+    /// the target a configured-node, analysis, or configuration-node computation runs on
+    /// behalf of. Only computations with a package take part in load discovery.
+    fn package(&self) -> Option<PackageLabel> {
+        match self {
+            NodeKey::InterpreterResultsKey(InterpreterResultsKey(pkg)) => Some(pkg.dupe()),
+            NodeKey::AnalysisKey(key) => Some(key.0.unconfigured().pkg()),
+            NodeKey::Dyn(_, key) => key.package(),
+            _ => None,
+        }
+    }
+
     fn from_dyn_key(key: &DynKey) -> Option<Self> {
         let key = if let Some(key) = key.downcast_ref::<BuildKey>() {
             Self::BuildKey(key.dupe())
@@ -258,6 +272,12 @@ impl NodeKey {
             }
             .into(),
 
+            NodeKey::Install(t) => buck2_data::critical_path_entry2::Install {
+                installer_label: Some(t.installer.target().as_proto()),
+                target_labels: t.targets.iter().map(|t| t.as_proto()).collect(),
+            }
+            .into(),
+
             key @ NodeKey::PageInConnector(..) => key.into_generic_entry(),
 
             NodeKey::EvaluationWork(inner) => inner
@@ -303,6 +323,7 @@ impl fmt::Display for NodeKey {
             Self::FinalMaterialization(k) => write!(f, "FinalMaterialization({k})"),
             Self::TestExecution(k) => write!(f, "TestExecution({k:?})"),
             Self::TestListing(k) => write!(f, "TestListing({k:?})"),
+            Self::Install(k) => write!(f, "Install({k:?})"),
             Self::Dyn(name, k) => write!(f, "{name}({k})"),
             Self::PageInConnector(key) => write!(f, "{}({key})", key.key_type_name()),
             Self::EvaluationWork(k) => write!(f, "EvaluationWork({k})"),
@@ -348,8 +369,18 @@ enum BuildSignal {
     FinalMaterialization(FinalMaterializationSignal),
     TestExecution(TestExecutionSignal),
     TestListing(TestListingSignal),
+    Install(InstallSignal),
     PageIn(PageInSignal),
+    LoadDiscovery(LoadDiscoverySignal),
     BuildFinished,
+}
+
+/// A package load requested on behalf of a node of another package by code
+/// outside any tracked computation; see `BuildSignals::load_discovered`.
+struct LoadDiscoverySignal {
+    package: PackageLabel,
+    discovered_by: PackageLabel,
+    requested_at: Instant,
 }
 
 /// Data for a BuildSignal that is the result of a DICE key evaluation.
@@ -480,6 +511,21 @@ impl BuildSignalSender {
 }
 
 impl BuildSignals for BuildSignalSender {
+    fn load_discovered(
+        &self,
+        package: PackageLabel,
+        discovered_by: PackageLabel,
+        requested_at: Instant,
+    ) {
+        let _ignored = self
+            .sender
+            .send(BuildSignal::LoadDiscovery(LoadDiscoverySignal {
+                package,
+                discovered_by,
+                requested_at,
+            }));
+    }
+
     fn top_level_target(
         &self,
         label: ConfiguredTargetLabel,
@@ -518,6 +564,7 @@ impl BuildSignals for BuildSignalSender {
         suite: String,
         duration: NodeDuration,
         deps: &[ActionKey],
+        waiting_data: WaitingData,
     ) {
         let _ignored = self
             .sender
@@ -526,6 +573,7 @@ impl BuildSignals for BuildSignalSender {
                 suite,
                 deps: deps.to_vec(),
                 duration,
+                waiting_data,
             }));
     }
 
@@ -537,6 +585,7 @@ impl BuildSignals for BuildSignalSender {
         variant: Option<String>,
         duration: NodeDuration,
         deps: &[ActionKey],
+        waiting_data: WaitingData,
     ) {
         let _ignored = self
             .sender
@@ -547,7 +596,25 @@ impl BuildSignals for BuildSignalSender {
                 variant,
                 deps: deps.to_vec(),
                 duration,
+                waiting_data,
             }));
+    }
+
+    fn install(
+        &self,
+        installer: ConfiguredProvidersLabel,
+        targets: Vec<ConfiguredTargetLabel>,
+        duration: NodeDuration,
+        deps: &[ActionKey],
+        waiting_data: WaitingData,
+    ) {
+        let _ignored = self.sender.send(BuildSignal::Install(InstallSignal {
+            installer,
+            targets,
+            deps: deps.to_vec(),
+            duration,
+            waiting_data,
+        }));
     }
 }
 
@@ -703,8 +770,8 @@ impl ActivationTracker for BuildSignalSender {
                     total: time_span,
                     queue: None,
                 };
+                let _ignored = result;
 
-                signal.extra_data = NodeExtraData::Load(result.ok());
                 signal.spans = spans;
             } else if let Some(PackageListingKeyActivationData { time_span, spans }) =
                 downcast_and_take(&mut activation_data)
@@ -816,10 +883,14 @@ fn start_backend(
 
 struct BuildSignalReceiver<T> {
     receiver: UnboundedReceiverStream<BuildSignal>,
-    // Maps a PackageLabel to the first PackageLabel that had an edge to it. When that PackageLabel
-    // shows up, we'll give it a dependency on said first PackageLabel that had an edge to it, which
-    // is how we discovered its existence.
-    first_edge_to_load: BuckMutMap<PackageLabel, PackageLabel>,
+    // Discovered package load -> the package load credited with discovering it, and when;
+    // applied as discovery edges in finish(). See `record_load_discovery`.
+    first_requester_for_load: BuckMutMap<NodeKey, (NodeKey, Instant)>,
+    // Loads made by a computation with no target of its own, until a packaged dependent
+    // claims them. See `record_load_discovery`.
+    discoveries_awaiting_package: BuckMutMap<NodeKey, SmallVec<[PackageLabel; 4]>>,
+    // Span of each package load this command evaluated.
+    load_spans: BuckMutMap<PackageLabel, TimeSpan>,
     // Maps an anon target NodeKey to the analysis Part 1 NodeKey that discovered it
     // (the one whose Part 1 finished earliest). Used to add discovery edges in finish().
     first_analysis_for_anon_target: BuckMutMap<NodeKey, (NodeKey, Instant)>,
@@ -846,7 +917,9 @@ where
         Self {
             receiver: UnboundedReceiverStream::new(receiver),
             backend,
-            first_edge_to_load: BuckMutMap::default(),
+            first_requester_for_load: BuckMutMap::default(),
+            discoveries_awaiting_package: BuckMutMap::default(),
+            load_spans: BuckMutMap::default(),
             first_analysis_for_anon_target: BuckMutMap::default(),
             split_analysis_finish_keys: BuckMutMap::default(),
             pending_page_ins: BuckMutMap::default(),
@@ -869,7 +942,9 @@ where
                     self.process_test_execution(test_execution)
                 }
                 BuildSignal::TestListing(test_listing) => self.process_test_listing(test_listing),
+                BuildSignal::Install(install) => self.process_install(install),
                 BuildSignal::PageIn(page_in) => self.process_page_in(page_in),
+                BuildSignal::LoadDiscovery(discovery) => self.process_load_discovery(discovery),
                 BuildSignal::BuildFinished => {
                     self.flush_unmatched_page_ins();
                     break;
@@ -879,18 +954,19 @@ where
 
         let now = Instant::now();
 
+        let discovery_edges: BuckMutMap<NodeKey, NodeKey> = self
+            .first_analysis_for_anon_target
+            .into_iter()
+            .chain(self.first_requester_for_load)
+            .map(|(k, (v, _instant))| (k, v))
+            .collect();
         let BuildInfo {
             critical_path,
             slowest_path,
             num_nodes,
             num_edges,
             top_level_targets,
-        } = self.backend.finish(
-            self.first_analysis_for_anon_target
-                .into_iter()
-                .map(|(k, (v, _instant))| (k, v))
-                .collect(),
-        )?;
+        } = self.backend.finish(discovery_edges)?;
 
         let critical_path2 = critical_path.into_critical_path_proto(&ctx.early_command_timing, now);
 
@@ -924,7 +1000,13 @@ where
     /// Receive an Evaluation. Do a little enrichment if it's a load, then pass through to the
     /// underlying backend.
     fn process_evaluation(&mut self, mut evaluation: Evaluation) {
-        self.enrich_load(&mut evaluation);
+        if let NodeKey::InterpreterResultsKey(InterpreterResultsKey(pkg)) = &evaluation.key
+            && !matches!(evaluation.extra_data, NodeExtraData::Reused)
+        {
+            self.load_spans
+                .insert(pkg.dupe(), evaluation.duration.total);
+        }
+        self.record_load_discovery(&evaluation);
 
         // Remap deps that point to Part 1 of a split analysis to the finish key (Part 2),
         // since nodes depending on a split analysis can only proceed after it fully completes.
@@ -1031,45 +1113,108 @@ where
         }
     }
 
-    /// If the evaluation is a load (InterpreterResultsKey) and carries a load_result, then inject
-    /// some extra edges that indicate which packages have now become visible as a result of this
-    /// load.
-    fn enrich_load(&mut self, evaluation: &mut Evaluation) {
-        let pkg = match &evaluation.key {
-            NodeKey::InterpreterResultsKey(InterpreterResultsKey(pkg)) => pkg,
-            _ => return,
-        };
-
-        if let NodeExtraData::Load(Some(load_result)) = &evaluation.extra_data {
-            // Only the dep *package* labels are needed here. Use `dep_packages()` (an on-demand
-            // attribute traversal) rather than `deps()` so we don't force every loaded target's
-            // `deps_cache` to materialize on every build.
-            let deps_pkg: OrderedSet<PackageLabel> = load_result
-                .targets()
-                .values()
-                .flat_map(|target| target.dep_packages())
-                .collect();
-
-            for dep_pkg in deps_pkg {
-                if dep_pkg == *pkg {
-                    continue;
+    /// A package is discovered by the earliest-finishing computation about a target of
+    /// another package that depends on it, on its load directly or on one of its nodes; the
+    /// discovered load gets a discovery edge to that target's package load. Matching a
+    /// configuration against a set of select keys is a computation with no target of its own
+    /// (keyed by configuration and key set, shared by every target using those keys), so the
+    /// key-target packages it loads wait in `discoveries_awaiting_package` until a packaged
+    /// computation depends on it. Loads no tracked computation depended on have no
+    /// discoverer here; query traversals report theirs through `process_load_discovery`,
+    /// and target-pattern loads get no edge.
+    ///
+    /// Only a package whose load finished before the discovered load began can have
+    /// discovered it; see `load_could_discover`. Requests from packages that loaded later
+    /// (a package-level cycle, or a load some other request had already started), and
+    /// requests involving a load this command did not evaluate, do not compete.
+    fn record_load_discovery(&mut self, evaluation: &Evaluation) {
+        let end = evaluation.duration.total.end();
+        let from_pkg = evaluation.key.package();
+        let mut discovered: SmallVec<[PackageLabel; 4]> = SmallVec::new();
+        for dep in &evaluation.dep_keys {
+            if let Some(pkg) = dep.package() {
+                if !discovered.contains(&pkg) {
+                    discovered.push(pkg);
                 }
-
-                self.first_edge_to_load
-                    .entry(dep_pkg)
-                    .or_insert_with(|| pkg.dupe());
+            } else if from_pkg.is_some()
+                && let Some(awaiting) = self.discoveries_awaiting_package.get(dep)
+            {
+                for pkg in awaiting {
+                    if !discovered.contains(pkg) {
+                        discovered.push(pkg.dupe());
+                    }
+                }
             }
         }
-
-        let first_edge = self.first_edge_to_load.get(pkg);
-
-        if let Some(first_edge) = first_edge {
-            evaluation
-                .dep_keys
-                .push(NodeKey::InterpreterResultsKey(InterpreterResultsKey(
-                    first_edge.dupe(),
-                )));
+        if discovered.is_empty() {
+            return;
         }
+        let Some(from_pkg) = from_pkg else {
+            self.discoveries_awaiting_package
+                .insert(evaluation.key.dupe(), discovered);
+            return;
+        };
+        for pkg in discovered {
+            if self.load_could_discover(from_pkg, pkg) == Some(true) {
+                self.credit_load_discovery(pkg, from_pkg.dupe(), end);
+            }
+        }
+    }
+
+    /// A query traversal asked for `package` while expanding a node of `discovered_by`;
+    /// nothing tracked encloses that request, so the traversal reports it once the request
+    /// returns. The load has been signaled by then if this command evaluated it, and the
+    /// request started it only if it began no earlier than the request.
+    fn process_load_discovery(&mut self, discovery: LoadDiscoverySignal) {
+        if self
+            .load_spans
+            .get(&discovery.package)
+            .is_some_and(|span| span.start() >= discovery.requested_at)
+        {
+            self.credit_load_discovery(
+                discovery.package,
+                discovery.discovered_by,
+                discovery.requested_at,
+            );
+        }
+    }
+
+    /// Credit `discovered`'s load to `from_pkg`'s load unless an earlier discoverer is
+    /// already on record. A package does not discover itself.
+    fn credit_load_discovery(
+        &mut self,
+        discovered: PackageLabel,
+        from_pkg: PackageLabel,
+        at: Instant,
+    ) {
+        if discovered == from_pkg {
+            return;
+        }
+        let discovered = NodeKey::InterpreterResultsKey(InterpreterResultsKey(discovered));
+        let from = NodeKey::InterpreterResultsKey(InterpreterResultsKey(from_pkg));
+        match self.first_requester_for_load.entry(discovered) {
+            std::collections::hash_map::Entry::Vacant(e) => {
+                e.insert((from, at));
+            }
+            std::collections::hash_map::Entry::Occupied(mut e) => {
+                if at < e.get().1 {
+                    e.insert((from, at));
+                }
+            }
+        }
+    }
+
+    /// Whether `discoverer`'s load finished before `discovered`'s began, or `None` if this
+    /// command did not evaluate one of them. DICE signals a key before releasing its waiters,
+    /// so the loads a requester depended on are signaled before the requester is.
+    fn load_could_discover(
+        &self,
+        discoverer: PackageLabel,
+        discovered: PackageLabel,
+    ) -> Option<bool> {
+        let discoverer = self.load_spans.get(&discoverer)?;
+        let discovered = self.load_spans.get(&discovered)?;
+        Some(discoverer.end() <= discovered.start())
     }
 
     fn process_top_level_target(&mut self, top_level: TopLevelTargetSignal) {
@@ -1135,7 +1280,7 @@ where
             signal.duration,
             deps.chain(listing_key),
             Default::default(),
-            WaitingData::new(),
+            signal.waiting_data,
         );
     }
 
@@ -1162,7 +1307,28 @@ where
             signal.duration,
             deps,
             Default::default(),
-            WaitingData::new(),
+            signal.waiting_data,
+        );
+    }
+
+    fn process_install(&mut self, signal: InstallSignal) {
+        let key = InstallBuildSignalKey {
+            installer: signal.installer,
+            targets: Arc::new(signal.targets),
+        };
+
+        let deps = signal
+            .deps
+            .into_iter()
+            .map(|d| NodeKey::BuildKey(BuildKey(d)));
+
+        self.backend.process_node(
+            NodeKey::Install(key),
+            NodeExtraData::None,
+            signal.duration,
+            deps,
+            Default::default(),
+            signal.waiting_data,
         );
     }
 
@@ -1314,8 +1480,6 @@ enum NodeExtraData {
     /// The data that corresponds to a `NodeKey::BuildKey` Evaluation.
     Action(ActionNodeData),
     Analysis(AnalysisNodeData),
-    /// The Load result that corresponds to a `NodeKey::InterpreterResultsKey` Evaluation if evaluation was successful.
-    Load(Option<Arc<EvaluationResult>>),
     /// The node was not computed in this command: DICE validated its dependencies and reused the
     /// value from a previous command.
     Reused,
@@ -1520,6 +1684,8 @@ pub(crate) fn duration_to_proto_saturating(duration: Duration) -> prost_types::D
 
 #[cfg(test)]
 mod tests {
+    use buck2_core::configuration::data::ConfigurationData;
+
     use super::*;
 
     #[derive(Default)]
@@ -1554,7 +1720,7 @@ mod tests {
 
         fn finish(
             self,
-            _anon_target_discovery_edges: BuckMutMap<NodeKey, NodeKey>,
+            _discovery_edges: BuckMutMap<NodeKey, NodeKey>,
         ) -> Result<BuildInfo, CriticalPathError> {
             unreachable!("topology tests do not finish the backend")
         }
@@ -1605,6 +1771,304 @@ mod tests {
         let (_sender, receiver) = tokio::sync::mpsc::unbounded_channel();
         BuildSignalReceiver::new(receiver, RecordingBackend::default())
     }
+
+    fn load_key(package: &str) -> NodeKey {
+        NodeKey::InterpreterResultsKey(InterpreterResultsKey(PackageLabel::testing_parse(package)))
+    }
+
+    fn analysis_key(target: &str) -> NodeKey {
+        NodeKey::AnalysisKey(AnalysisKey(ConfiguredTargetLabel::testing_parse(
+            target,
+            ConfigurationData::testing_new(),
+        )))
+    }
+
+    fn plain_evaluation(key: NodeKey, dep_keys: Vec<NodeKey>, end: Instant) -> Evaluation {
+        Evaluation {
+            key,
+            duration: NodeDuration {
+                user: Duration::ZERO,
+                total: TimeSpan::new_saturating(end, end),
+                queue: None,
+            },
+            dep_keys,
+            spans: Default::default(),
+            waiting_data: WaitingData::new(),
+            extra_data: NodeExtraData::None,
+            split_discovery: None,
+            page_in: None,
+        }
+    }
+
+    /// A package is discovered by the earliest-finishing computation about a target of
+    /// another package that depends on its load or on one of its nodes; the discovery edge
+    /// points at the load of that target's package. Dependencies within one package, and
+    /// packages no tracked computation depended on, get no edge.
+    #[test]
+    fn load_discovery_edges_point_at_discovering_package_load() {
+        let mut receiver = receiver();
+        let t0 = Instant::now();
+        let later = t0 + Duration::from_secs(1);
+
+        receiver.process_evaluation(plain_evaluation(load_key("cell//a"), vec![], t0));
+        receiver.process_evaluation(plain_evaluation(load_key("cell//b"), vec![], t0));
+        receiver.process_evaluation(plain_evaluation(load_key("cell//c"), vec![], t0));
+        receiver.process_evaluation(plain_evaluation(load_key("cell//d"), vec![], t0));
+        // cell//c's target depends on cell//b's load first in time but is processed later.
+        receiver.process_evaluation(plain_evaluation(
+            analysis_key("cell//a:x"),
+            vec![load_key("cell//b"), load_key("cell//a")],
+            later,
+        ));
+        receiver.process_evaluation(plain_evaluation(
+            analysis_key("cell//c:y"),
+            vec![load_key("cell//b")],
+            t0,
+        ));
+        // Depending on a node of cell//d, not its load, also discovers cell//d.
+        receiver.process_evaluation(plain_evaluation(
+            analysis_key("cell//a:w"),
+            vec![analysis_key("cell//d:leaf")],
+            t0,
+        ));
+        // A computation with no target of its own (matching select keys) leaves its loads
+        // to the packaged computation that depends on it.
+        receiver.process_evaluation(plain_evaluation(load_key("cell//e"), vec![], t0));
+        let nameless = NodeKey::Dyn(
+            "Nameless",
+            BuildSignalsNodeKey::new(Nameless("select keys")),
+        );
+        receiver.process_evaluation(plain_evaluation(
+            nameless.dupe(),
+            vec![load_key("cell//e")],
+            t0,
+        ));
+        receiver.process_evaluation(plain_evaluation(
+            analysis_key("cell//a:v"),
+            vec![nameless],
+            t0,
+        ));
+
+        let edges: BuckMutMap<NodeKey, NodeKey> = receiver
+            .first_requester_for_load
+            .iter()
+            .map(|(k, (v, _))| (k.dupe(), v.dupe()))
+            .collect();
+        assert_eq!(
+            edges.get(&load_key("cell//b")),
+            Some(&load_key("cell//c")),
+            "the earliest-finishing requester's package should win"
+        );
+        assert_eq!(
+            edges.get(&load_key("cell//a")),
+            None,
+            "a request from within the package itself is not a discovery"
+        );
+        assert_eq!(
+            edges.get(&load_key("cell//c")),
+            None,
+            "nothing tracked depended on cell//c"
+        );
+        assert_eq!(
+            edges.get(&load_key("cell//d")),
+            Some(&load_key("cell//a")),
+            "a dependency on another package's node discovers that package"
+        );
+        assert_eq!(
+            edges.get(&load_key("cell//e")),
+            Some(&load_key("cell//a")),
+            "discoveries forward through a package-less computation"
+        );
+    }
+
+    /// Only a package whose load finished before the discovered load began can have
+    /// discovered it, so a package-level cycle yields one edge, not two. A load this command
+    /// did not evaluate gets no edge.
+    #[test]
+    fn load_discovery_requires_the_discoverer_to_have_loaded_first() {
+        let mut receiver = receiver();
+        let t0 = Instant::now();
+        let at = |secs| t0 + Duration::from_secs(secs);
+        let load = |package: &str, start, end| Evaluation {
+            duration: NodeDuration {
+                user: Duration::ZERO,
+                total: TimeSpan::new_saturating(start, end),
+                queue: None,
+            },
+            ..plain_evaluation(load_key(package), vec![], end)
+        };
+
+        receiver.process_evaluation(load("cell//a", at(0), at(1)));
+        receiver.process_evaluation(load("cell//b", at(2), at(3)));
+        // cell//b:y finishes first, but cell//b loaded after cell//a.
+        receiver.process_evaluation(plain_evaluation(
+            analysis_key("cell//b:y"),
+            vec![load_key("cell//a")],
+            at(4),
+        ));
+        receiver.process_evaluation(plain_evaluation(
+            analysis_key("cell//a:x"),
+            vec![load_key("cell//b")],
+            at(5),
+        ));
+        receiver.process_evaluation(load("cell//c", at(0), at(2)));
+        receiver.process_evaluation(plain_evaluation(
+            analysis_key("cell//a:w"),
+            vec![load_key("cell//c")],
+            at(6),
+        ));
+        receiver.process_evaluation(plain_evaluation(
+            analysis_key("cell//a:v"),
+            vec![load_key("cell//d")],
+            at(6),
+        ));
+
+        let edge = |package: &str| {
+            receiver
+                .first_requester_for_load
+                .get(&load_key(package))
+                .map(|(from, _)| from.dupe())
+        };
+        assert_eq!(edge("cell//b"), Some(load_key("cell//a")));
+        assert_eq!(
+            edge("cell//a"),
+            None,
+            "cell//b loaded after cell//a began, so it cannot have discovered it"
+        );
+        assert_eq!(
+            edge("cell//c"),
+            None,
+            "cell//c began loading before cell//a finished"
+        );
+        assert_eq!(
+            edge("cell//d"),
+            None,
+            "this command did not evaluate cell//d's load"
+        );
+    }
+
+    #[test]
+    fn load_discovery_does_not_forward_through_chained_packageless_computations() {
+        let mut receiver = receiver();
+        let t0 = Instant::now();
+        let nameless = |name| NodeKey::Dyn("Nameless", BuildSignalsNodeKey::new(Nameless(name)));
+        let inner = nameless("inner");
+        let outer = nameless("outer");
+
+        receiver.process_evaluation(plain_evaluation(load_key("cell//a"), vec![], t0));
+        receiver.process_evaluation(plain_evaluation(load_key("cell//e"), vec![], t0));
+        receiver.process_evaluation(plain_evaluation(
+            inner.dupe(),
+            vec![load_key("cell//e")],
+            t0,
+        ));
+        receiver.process_evaluation(plain_evaluation(outer.dupe(), vec![inner.dupe()], t0));
+        receiver.process_evaluation(plain_evaluation(
+            analysis_key("cell//a:v"),
+            vec![outer.dupe()],
+            t0,
+        ));
+
+        assert!(
+            receiver.discoveries_awaiting_package.contains_key(&inner),
+            "inner depends on cell//e's load directly, so it holds that discovery"
+        );
+        assert!(
+            !receiver.discoveries_awaiting_package.contains_key(&outer),
+            "outer only depends on another package-less computation, so it holds nothing"
+        );
+        assert_eq!(
+            receiver.first_requester_for_load.get(&load_key("cell//e")),
+            None,
+            "cell//a:v reaches cell//e only through two package-less computations"
+        );
+    }
+
+    /// A query traversal reports which node's expansion requested a package: the first
+    /// report wins, a later one does not displace it, and a package never discovers itself.
+    #[test]
+    fn load_discovery_reports_credit_the_requesting_package() {
+        let mut receiver = receiver();
+        let t0 = Instant::now();
+        let later = t0 + Duration::from_secs(1);
+        let discovery = |package: &str, discovered_by: &str, at: Instant| LoadDiscoverySignal {
+            package: PackageLabel::testing_parse(package),
+            discovered_by: PackageLabel::testing_parse(discovered_by),
+            requested_at: at,
+        };
+
+        receiver.process_evaluation(plain_evaluation(load_key("cell//a"), vec![], t0));
+        receiver.process_evaluation(plain_evaluation(load_key("cell//b"), vec![], t0));
+        receiver.process_load_discovery(discovery("cell//b", "cell//a", t0));
+        receiver.process_load_discovery(discovery("cell//b", "cell//c", later));
+        receiver.process_load_discovery(discovery("cell//a", "cell//a", t0));
+
+        let edges: BuckMutMap<NodeKey, NodeKey> = receiver
+            .first_requester_for_load
+            .iter()
+            .map(|(k, (v, _))| (k.dupe(), v.dupe()))
+            .collect();
+        assert_eq!(
+            edges.get(&load_key("cell//b")),
+            Some(&load_key("cell//a")),
+            "the first reported requester should win"
+        );
+        assert_eq!(
+            edges.get(&load_key("cell//a")),
+            None,
+            "a package does not discover itself"
+        );
+    }
+
+    /// A traversal's request discovered a load only if the load began no earlier than the
+    /// request, and only if this command evaluated it.
+    #[test]
+    fn load_discovery_reports_require_the_request_to_start_the_load() {
+        let mut receiver = receiver();
+        let t0 = Instant::now();
+        let later = t0 + Duration::from_secs(1);
+        let discovery = |package: &str, at: Instant| LoadDiscoverySignal {
+            package: PackageLabel::testing_parse(package),
+            discovered_by: PackageLabel::testing_parse("cell//a"),
+            requested_at: at,
+        };
+
+        receiver.process_evaluation(plain_evaluation(load_key("cell//a"), vec![], t0));
+        receiver.process_evaluation(plain_evaluation(load_key("cell//b"), vec![], t0));
+        receiver.process_evaluation(plain_evaluation(load_key("cell//c"), vec![], later));
+        receiver.process_load_discovery(discovery("cell//b", later));
+        receiver.process_load_discovery(discovery("cell//c", t0));
+        receiver.process_load_discovery(discovery("cell//d", t0));
+
+        let edge = |package: &str| {
+            receiver
+                .first_requester_for_load
+                .get(&load_key(package))
+                .map(|(from, _)| from.dupe())
+        };
+        assert_eq!(
+            edge("cell//b"),
+            None,
+            "cell//b began loading before the request"
+        );
+        assert_eq!(edge("cell//c"), Some(load_key("cell//a")));
+        assert_eq!(
+            edge("cell//d"),
+            None,
+            "this command did not evaluate cell//d's load"
+        );
+    }
+
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    struct Nameless(&'static str);
+
+    impl std::fmt::Display for Nameless {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.0)
+        }
+    }
+
+    impl BuildSignalsNodeKeyImpl for Nameless {}
 
     #[test]
     fn value_demand_records_a_standalone_page_in() {
@@ -1658,46 +2122,5 @@ mod tests {
         assert_eq!(receiver.backend.deps[&completion_key], [page_in_key.dupe()]);
         assert_eq!(receiver.backend.deps[&page_in_key], [work_key.dupe()]);
         assert_eq!(receiver.backend.deps[&work_key], [dep]);
-    }
-
-    fn configured_label(s: &str) -> ConfiguredTargetLabel {
-        ConfiguredTargetLabel::testing_parse(
-            s,
-            buck2_core::configuration::data::ConfigurationData::testing_new(),
-        )
-    }
-
-    fn duration_from(start: Instant, from_ms: u64, to_ms: u64) -> NodeDuration {
-        NodeDuration {
-            user: Duration::from_millis(to_ms - from_ms),
-            total: TimeSpan::new_saturating(
-                start + Duration::from_millis(from_ms),
-                start + Duration::from_millis(to_ms),
-            ),
-            queue: None,
-        }
-    }
-
-    /// A top-level target with two outputs of which only one was rebuilt: the other output's
-    /// key was still valid, so it was never activated and is not in the graph. The cost
-    /// computation fails on the missing artifact and the whole target is left out of
-    /// `top_level_targets` (the code comment expects this only when the command was cancelled).
-    #[test]
-    fn top_level_target_dropped_when_one_output_not_recomputed() {
-        let mut backend = LongestPathGraphBackend::new();
-        let t0 = Instant::now();
-        let built = node_key("cell//built");
-        let untouched = node_key("cell//untouched");
-        backend.process_node(
-            built.dupe(),
-            NodeExtraData::None,
-            duration_from(t0, 0, 50),
-            std::iter::empty::<NodeKey>(),
-            Default::default(),
-            WaitingData::new(),
-        );
-        backend.process_top_level_target(configured_label("cell//pkg:t"), [built, untouched]);
-        let info = backend.finish(Default::default()).unwrap();
-        assert!(info.top_level_targets.is_empty());
     }
 }

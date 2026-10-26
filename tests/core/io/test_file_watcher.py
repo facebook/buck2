@@ -11,24 +11,24 @@
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test, env
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase, env
 
 
-@buck_test(
-    setup_eden=False,
-    extra_buck_config={"buck2": {"file_watcher": "edenfs"}},
-)
-@env("BUCK2_HARD_ERROR", "false")
-async def test_watchman_fallback(buck: Buck) -> None:
-    res = await buck.targets("root//:")
-    # fallback to watchman
-    assert "Watchman fresh instance" in res.stderr
+class FileWatcherTest(BuckTestCase):
+    @buck_test(
+        setup_eden=False,
+        extra_buck_config={"buck2": {"file_watcher": "edenfs"}},
+    )
+    @env("BUCK2_HARD_ERROR", "false")
+    async def test_watchman_fallback(self, buck: Buck) -> None:
+        res = await buck.targets("root//:")
+        # fallback to watchman
+        assert "Watchman fresh instance" in res.stderr
 
-
-@buck_test(
-    setup_eden=False,
-    extra_buck_config={"buck2": {"file_watcher": "edenfs"}},
-)
-async def test_eden_fail(buck: Buck) -> None:
-    res = await expect_failure(buck.targets("root//:"))
-    assert "Couldn't initiate connection to Eden" in res.stderr
+    @buck_test(
+        setup_eden=False,
+        extra_buck_config={"buck2": {"file_watcher": "edenfs"}},
+    )
+    async def test_eden_fail(self, buck: Buck) -> None:
+        res = await expect_failure(buck.targets("root//:"))
+        assert "Couldn't initiate connection to Eden" in res.stderr

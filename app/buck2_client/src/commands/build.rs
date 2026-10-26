@@ -16,6 +16,7 @@ use buck2_cli_proto::BuildRequest;
 use buck2_cli_proto::BuildTarget;
 use buck2_cli_proto::TargetCfg;
 use buck2_cli_proto::build_request::BuildProviders;
+use buck2_cli_proto::build_request::Materializations;
 use buck2_cli_proto::build_request::ResponseOptions;
 use buck2_cli_proto::build_request::build_providers;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
@@ -47,7 +48,6 @@ use dupe::Dupe;
 use crate::commands::build::out::copy_to_out;
 use crate::print::PrintOutputs;
 
-mod advice;
 mod out;
 
 #[derive(Debug, clap::Parser)]
@@ -242,8 +242,17 @@ impl StreamingCommand for BuildCommand {
         ctx: &mut ClientCommandContext<'_>,
         events_ctx: &mut EventsCtx,
     ) -> ExitResult {
-        advice::check_build_intent(&self.patterns, ctx, events_ctx).await?;
         let context = ctx.client_context(matches, &self)?;
+        let return_outputs = self.show_output.format().is_some() || self.output_path.is_some();
+        let skip_materialization_for_agent = self.materializations.is_none()
+            && !return_outputs
+            && ctx.agent_context().is_direct_call()
+            && ctx.buck_settings()?.agent_materialization.enabled();
+        let materializations = if skip_materialization_for_agent {
+            Materializations::Skip
+        } else {
+            self.materializations.to_proto()
+        };
 
         let result = buckd
             .with_flushing()
@@ -258,12 +267,11 @@ impl StreamingCommand for BuildCommand {
                         test_info: self.test_info() as i32,
                     }),
                     response_options: Some(ResponseOptions {
-                        return_outputs: self.show_output.format().is_some()
-                            || self.output_path.is_some(),
+                        return_outputs,
                         return_run_args: false,
                     }),
                     build_opts: Some(self.build_opts.to_proto()),
-                    final_artifact_materializations: self.materializations.to_proto() as i32,
+                    final_artifact_materializations: materializations as i32,
                     final_artifact_uploads: self.upload_final_artifacts.to_proto() as i32,
                     target_universe: self.target_cfg.target_universe,
                     timeout: self.timeout_options.overall_timeout()?,
@@ -291,6 +299,15 @@ impl StreamingCommand for BuildCommand {
             }
         } else {
             print_build_failed(&console)?;
+        }
+
+        if success && skip_materialization_for_agent {
+            console.print_stderr(
+                "Final-output materialization was automatically disabled for this agent build.\n\
+                 For build validation only, no further action is needed.\n\
+                 If you need to inspect, copy, or directly execute the output files locally, \
+                 rebuild with --out <path>, --show-output, or --show-full-output.",
+            )?;
         }
 
         if buck2_env!("BUCK2_TEST_BUILD_ERROR", bool, applicability = testing)? {

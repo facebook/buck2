@@ -71,6 +71,8 @@ use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::span_async;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_hash::BuckFixedSortedMap;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_interpreter::factory::BuckStarlarkModule;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
@@ -81,12 +83,13 @@ use buck2_interpreter_for_build::attrs::coerce::arc_str_interner::ArcStrInterner
 use buck2_interpreter_for_build::rule::FrozenStarlarkRuleCallable;
 use buck2_interpreter_for_build::rule::frozen_rule_attribute_spec;
 use buck2_node::attrs::attr_type::AttrType;
-use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::spec::internal::is_internal_attr;
 use buck2_node::bzl_or_bxl_path::BzlOrBxlPath;
+use buck2_node::rule_type::RuleType;
 use buck2_node::rule_type::StarlarkRuleType;
 use buck2_util::arc_str::ArcStr;
 use buck2_util::time_span::TimeSpan;
+use buck2_util::vec2::Vec2;
 use derive_more::Display;
 use dice::Demand;
 use dice::DiceComputations;
@@ -108,9 +111,6 @@ use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
 use starlark::values::dict::UnpackDictEntries;
-use starlark_map::ordered_map::OrderedMap;
-use starlark_map::small_map::SmallMap;
-use starlark_map::vec2::Vec2;
 
 use crate::anon_promises::AnonPromises;
 use crate::anon_target_attr::AnonTargetAttr;
@@ -256,7 +256,8 @@ impl AnonTargetKey {
         let attrs_spec = rule.attributes();
         let anon_attr_ctx = AnonAttrCtx::new(execution_platform);
 
-        let mut provided: SmallMap<&str, Value> = SmallMap::with_capacity(entries.len());
+        let mut provided: BuckMutInsertionMap<&str, Value> =
+            BuckMutInsertionMap::with_capacity(entries.len());
         for (k, v) in entries {
             if k == "name" {
                 name = Some(Self::coerce_name(v)?);
@@ -281,8 +282,8 @@ impl AnonTargetKey {
             let value = match provided.get(k) {
                 Some(v) => Self::coerce_to_anon_target_attr(a.coercer(), *v, &anon_attr_ctx)
                     .with_buck_error_context(|| format!("Error coercing attribute `{k}`"))?,
-                None => match a.default() {
-                    Some(x) => Self::coerced_to_anon_target_attr(k, x, a.coercer())?,
+                None => match a.default_as_ref() {
+                    Some(x) => AnonTargetAttr::from_attr_ref(k, x, a.coercer())?,
                     None => return Err(AnonTargetsError::MissingAttribute(k.to_owned()).into()),
                 },
             };
@@ -402,14 +403,6 @@ impl AnonTargetKey {
         attr.coerce_item(ctx, x)
     }
 
-    fn coerced_to_anon_target_attr(
-        attr_name: &str,
-        x: &CoercedAttr,
-        ty: &AttrType,
-    ) -> buck2_error::Result<AnonTargetAttr> {
-        AnonTargetAttr::from_coerced_attr(attr_name, x, ty)
-    }
-
     pub(crate) async fn resolve<'d>(
         &self,
         dice: &mut DiceComputations<'d>,
@@ -455,7 +448,7 @@ impl AnonTargetKey {
             ),
             Vec::new(),
         )
-        .finalize(OrderedMap::new());
+        .finalize(BuckFixedSortedMap::new());
 
         span_async(
             buck2_data::AnalysisStart {
@@ -556,7 +549,7 @@ impl AnonTargetKey {
                     // into anon targets
                     Some(
                         eval.heap()
-                            .alloc_typed(AnalysisPlugins::new(SmallMap::new()))
+                            .alloc_typed(AnalysisPlugins::new(BuckMutInsertionMap::new()))
                             .into(),
                     ),
                     registry,
@@ -617,7 +610,8 @@ impl AnonTargetKey {
                         num_declared_artifacts,
                         validations,
                         requested_anon_targets,
-                    ),
+                        RuleType::Starlark(self.0.rule_type().dupe()),
+                    )?,
                     split_instants,
                 ),
             ))

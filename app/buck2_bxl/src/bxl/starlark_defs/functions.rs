@@ -10,6 +10,7 @@
 
 use std::time::Instant;
 
+use buck2_build_api::actions::query::ActionQueryNode;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsInputArtifactLikeUnpack;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_core::cells::CellAliasResolver;
@@ -42,6 +43,7 @@ use super::context::output::get_cmd_line_inputs;
 use super::nodes::unconfigured::StarlarkTargetNode;
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::eval_extra::BxlEvalExtra;
+use crate::bxl::starlark_defs::nodes::action::StarlarkActionQueryNode;
 use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 use crate::bxl::starlark_defs::time::StarlarkInstant;
@@ -88,6 +90,28 @@ pub(crate) fn register_target_function(builder: &mut GlobalsBuilder) {
         Ok(StarlarkTargetSet::from_iter(
             nodes
                 .unwrap_or_default()
+                .items
+                .into_iter()
+                .map(|node| node.0),
+        ))
+    }
+
+    /// Creates a target set from a list of action query nodes.
+    ///
+    /// Sample usage:
+    /// ```python
+    /// def _impl_atarget_set(ctx):
+    ///     actions = ctx.aquery().all_actions("//target")
+    ///     excluded = bxl.atarget_set([actions[0]])
+    ///     remaining = actions - excluded
+    ///     ctx.output.print(len(remaining))
+    /// ```
+    fn atarget_set(
+        nodes: Option<UnpackList<StarlarkActionQueryNode>>,
+    ) -> starlark::Result<StarlarkTargetSet<ActionQueryNode>> {
+        Ok(StarlarkTargetSet::from_iter(
+            nodes
+                .unwrap_or(UnpackList::default())
                 .items
                 .into_iter()
                 .map(|node| node.0),

@@ -20,6 +20,7 @@ use buck2_node::attrs::attr_type::arg::ConfiguredStringWithMacros;
 use buck2_util::arc_str::ArcStr;
 use buck2_util::size_assert;
 use dupe::Dupe;
+use mini_vec::MiniBoxSlice;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
@@ -43,6 +44,7 @@ use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
+use crate::interpreter::rule_defs::cmd_args::InputProperties;
 use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command_line_arg_like_impl;
 use crate::interpreter::rule_defs::cmd_args::value::CommandLineArg;
@@ -142,10 +144,16 @@ impl<'v> ResolvedMacro<'v> {
             Self::Location(info) => {
                 if visitor.inputs_for_path_resolution() {
                     info.for_each_default_output_artifact_only(&mut |artifact| {
-                        visitor.visit_input(ArtifactGroup::Artifact(artifact), vec![])
+                        visitor.visit_input(
+                            ArtifactGroup::Artifact(artifact),
+                            InputProperties::default(),
+                            vec![],
+                        )
                     })?;
                 } else {
-                    info.for_each_output(&mut |i| visitor.visit_input(i, vec![]))?;
+                    info.for_each_output(&mut |i| {
+                        visitor.visit_input(i, InputProperties::default(), vec![])
+                    })?;
                 }
             }
             Self::ArgLike(command_line_like) => {
@@ -154,9 +162,11 @@ impl<'v> ResolvedMacro<'v> {
                     .visit_artifacts(visitor)?;
             }
             Self::Query(value) => value.visit_artifacts(visitor)?,
-            Self::Source(artifact) => {
-                visitor.visit_input(ArtifactGroup::Artifact(artifact.dupe()), vec![])
-            }
+            Self::Source(artifact) => visitor.visit_input(
+                ArtifactGroup::Artifact(artifact.dupe()),
+                InputProperties::default(),
+                vec![],
+            ),
         }
         Ok(())
     }
@@ -198,7 +208,7 @@ impl<'v> Display for ResolvedStringWithMacrosPart<'v> {
     StarlarkPagable
 )]
 pub struct ResolvedStringWithMacros<'v> {
-    parts: Vec<ResolvedStringWithMacrosPart<'v>>,
+    parts: MiniBoxSlice<ResolvedStringWithMacrosPart<'v>>,
     #[trace(static)]
     #[freeze(identity)]
     #[starlark_pagable(pagable)]
@@ -223,7 +233,7 @@ impl<'v> ResolvedStringWithMacros<'v> {
         configured_macros: Option<&ConfiguredStringWithMacros>,
     ) -> Self {
         Self {
-            parts,
+            parts: parts.into(),
             configured_macros: configured_macros.cloned(),
         }
     }

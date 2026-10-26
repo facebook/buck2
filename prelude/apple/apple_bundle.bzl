@@ -22,6 +22,7 @@ load(
     "ModularizationDependencyGraphInfo",  # @unused Used as a type
     "create_modularization_dep_graph_subtargets_and_provider",
 )
+# @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_bundle_meta_validation.bzl", "apple_bundle_meta_validation")
 # @oss-disable[end= ]: load("@prelude//apple/meta_only:linker_outputs.bzl", "subtargets_for_apple_bundle_extra_outputs")
 load("@prelude//apple/user:apple_selected_debug_path_file.bzl", "SELECTED_DEBUG_PATH_FILE_NAME")
 load("@prelude//apple/user:apple_selective_debugging.bzl", "AppleSelectiveDebuggingInfo")
@@ -556,22 +557,21 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx,
         aggregated_debug_info.debug_info.debug_info_tset,
     )
+    validation_specs = []
     if required_reasons_validator_output != None:
         sub_targets["required-reasons-validation"] = [
             DefaultInfo(default_output = required_reasons_validator_output),
         ]
-        validation_providers = [
-            ValidationInfo(
-                validations = [
-                    ValidationSpec(
-                        name = "required_reasons_usage",
-                        validation_result = required_reasons_validator_output,
-                    ),
-                ],
+        validation_specs.append(
+            ValidationSpec(
+                name = "required_reasons_usage",
+                validation_result = required_reasons_validator_output,
             ),
-        ]
-    else:
-        validation_providers = []
+        )
+    # @oss-disable[end= ]: meta_validation = apple_bundle_meta_validation(ctx, apple_bundle_part_list_output)
+    # @oss-disable[end= ]: sub_targets.update(meta_validation.sub_targets)
+    # @oss-disable[end= ]: validation_specs.extend(meta_validation.validation_specs)
+    validation_providers = [ValidationInfo(validations = validation_specs)] if validation_specs else []
 
     diagnostics_info = cxx_transitive_diagnostics_combine(
         ctx = ctx,
@@ -627,6 +627,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         + validation_providers
     )
     providers += xcassets_bundle_catalogs_providers(ctx, apple_bundle_part_list_output.xcassets_catalogs)
+    # @oss-disable[end= ]: providers += meta_validation.providers
     if xplugins_debug_info:
         providers.append(xplugins_debug_info)
     providers.append(xplugins_function_mapping_manifest_info)

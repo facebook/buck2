@@ -38,10 +38,12 @@ use buck2_events::daemon_id::DaemonId;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::cache_uploader::NoOpCacheUploader;
 use buck2_execute::execute::cache_uploader::force_cache_upload;
+use buck2_execute::execute::low_pass_filter::LowPassFilter;
 use buck2_execute::execute::prepared::NoOpCommandOptionalExecutor;
 use buck2_execute::execute::prepared::PreparedCommandExecutor;
 use buck2_execute::execute::prepared::PreparedCommandOptionalExecutor;
 use buck2_execute::execute::request::ExecutorPreference;
+use buck2_execute::execute::write_action_cache::WriteActionCache;
 use buck2_execute::knobs::ExecutorGlobalKnobs;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
@@ -59,7 +61,7 @@ use buck2_execute_impl::executors::re::ReExecutor;
 use buck2_execute_impl::executors::stacked::StackedExecutor;
 use buck2_execute_impl::executors::to_re_platform::RePlatformFieldsToRePlatform;
 use buck2_execute_impl::executors::worker::WorkerPool;
-use buck2_execute_impl::low_pass_filter::LowPassFilter;
+use buck2_execute_impl::executors::write_action_cache::ReWriteActionCache;
 use buck2_execute_impl::re::paranoid_download::ParanoidDownloader;
 use buck2_execute_impl::sqlite::incremental_state_db::IncrementalDbState;
 use buck2_resource_control::memory_tracker::MemoryTrackerHandle;
@@ -109,7 +111,7 @@ impl CommandExecutorFactory {
     pub fn new(
         re_connection: Arc<ReConnectionHandle>,
         host_sharing_broker: HostSharingBroker,
-        low_pass_filter: LowPassFilter,
+        low_pass_filter: Arc<LowPassFilter>,
         materializer: Arc<dyn Materializer>,
         blocking_executor: Arc<dyn BlockingExecutor>,
         strategy: ExecutionStrategy,
@@ -136,7 +138,7 @@ impl CommandExecutorFactory {
         Self {
             re_connection,
             host_sharing_broker: Arc::new(host_sharing_broker),
-            low_pass_filter: Arc::new(low_pass_filter),
+            low_pass_filter,
             materializer,
             blocking_executor,
             strategy,
@@ -231,6 +233,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 remote_dep_file_cache_checker: Arc::new(NoOpCommandOptionalExecutor {}),
                 cache_uploader: Arc::new(NoOpCacheUploader {}),
                 output_trees_download_config: self.output_trees_download_config.dupe(),
+                write_action_cache: None,
             });
         }
 
@@ -278,6 +281,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         remote_dep_file_cache_checker: Arc::new(NoOpCommandOptionalExecutor {}),
                         cache_uploader: Arc::new(NoOpCacheUploader {}),
                         output_trees_download_config: self.output_trees_download_config.dupe(),
+                        write_action_cache: None,
                     })
                 }
             }
@@ -302,6 +306,33 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 )?;
 
                 let re_client = self.get_prepared_re_client(remote_options.re_use_case);
+
+                // `Some` where local results are published, with the size cap on a run's.
+                let cache_upload_max_bytes: Option<Option<u64>> = if force_cache_upload()? {
+                    Some(None)
+                } else if disable_caching {
+                    None
+                } else if let CacheUploadBehavior::Enabled { max_bytes } =
+                    remote_options.cache_upload_behavior
+                {
+                    Some(max_bytes)
+                } else {
+                    None
+                };
+
+                let write_action_cache: Option<Arc<dyn WriteActionCache>> =
+                    if disable_caching || !remote_options.remote_cache_enabled {
+                        None
+                    } else {
+                        Some(Arc::new(ReWriteActionCache {
+                            re_client: re_client.dupe(),
+                            platform: remote_options.re_properties.clone(),
+                            populates: cache_upload_max_bytes.is_some(),
+                            cache_upload_permission_checker: self
+                                .cache_upload_permission_checker
+                                .dupe(),
+                        }))
+                    };
 
                 let cache_checker_new = || -> (Arc<dyn PreparedCommandOptionalExecutor>, Arc<dyn PreparedCommandOptionalExecutor>) {
                     if disable_caching {
@@ -435,22 +466,8 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         cache_checker_new()
                     };
 
-                let cache_uploader = if force_cache_upload()? {
-                    Arc::new(CacheUploader::new(
-                        artifact_fs.dupe(),
-                        self.materializer.dupe(),
-                        re_client.dupe(),
-                        self.invocation_re_use_case,
-                        remote_options.re_properties.clone(),
-                        None,
-                        self.cache_upload_permission_checker.dupe(),
-                    )) as _
-                } else if disable_caching {
-                    Arc::new(NoOpCacheUploader {}) as _
-                } else if let CacheUploadBehavior::Enabled { max_bytes } =
-                    remote_options.cache_upload_behavior
-                {
-                    Arc::new(CacheUploader::new(
+                let cache_uploader = match cache_upload_max_bytes {
+                    Some(max_bytes) => Arc::new(CacheUploader::new(
                         artifact_fs.dupe(),
                         self.materializer.dupe(),
                         re_client.dupe(),
@@ -458,9 +475,8 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         remote_options.re_properties.clone(),
                         max_bytes,
                         self.cache_upload_permission_checker.dupe(),
-                    )) as _
-                } else {
-                    Arc::new(NoOpCacheUploader {}) as _
+                    )) as _,
+                    None => Arc::new(NoOpCacheUploader {}) as _,
                 };
 
                 executor.map(|executor| CommandExecutorResponse {
@@ -470,6 +486,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     remote_dep_file_cache_checker,
                     cache_uploader,
                     output_trees_download_config: self.output_trees_download_config.dupe(),
+                    write_action_cache,
                 })
             }
         };
@@ -569,7 +586,7 @@ fn get_default_re_properties(host_platform: HostPlatformOverride) -> RePlatformF
         properties: Arc::new(
             props
                 .iter()
-                .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
+                .map(|(k, v)| ((*k).to_owned(), vec![(*v).to_owned()]))
                 .collect(),
         ),
     }

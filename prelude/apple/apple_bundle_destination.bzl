@@ -81,6 +81,7 @@ _MacOSBundleDestinationPaths = AppleBundleDestinationPaths(
     bundleroot = macOS_content_path,
     loginitems = paths.join(macOS_content_path, "Library/LoginItems"),
     launchagents = paths.join(macOS_content_path, "Library/LaunchAgents"),
+    extensionkit_extensions = paths.join(macOS_content_path, "Extensions"),
 )
 
 _MacOSFrameworkBundleDestinationPaths = AppleBundleDestinationPaths(

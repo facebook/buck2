@@ -387,7 +387,7 @@ impl CellRelativePathBuf {
     }
 
     pub fn testing_new(s: &str) -> CellRelativePathBuf {
-        CellRelativePathBuf::try_from(s.to_owned()).unwrap()
+        CellRelativePath::testing_new(s).to_owned()
     }
 
     /// Creates a new 'CellRelativePathBuf' with a given capacity used to create the internal

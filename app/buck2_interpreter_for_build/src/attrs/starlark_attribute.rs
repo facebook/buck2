@@ -8,12 +8,9 @@
  * above-listed licenses.
  */
 
-use std::sync::Arc;
-
 use allocative::Allocative;
 use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::attr_type::AttrType;
-use buck2_node::attrs::coerced_attr::CoercedAttr;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
@@ -64,6 +61,10 @@ impl StarlarkAttribute {
         Self(attr)
     }
 
+    pub fn attribute(&self) -> &Attribute {
+        &self.0
+    }
+
     pub fn clone_attribute(&self) -> Attribute {
         self.0.clone()
     }
@@ -78,10 +79,6 @@ impl StarlarkAttribute {
 
     pub fn coercer_for_default_only(&self) -> AttrType {
         self.0.coercer().dupe()
-    }
-
-    pub fn default(&self) -> Option<&Arc<CoercedAttr>> {
-        self.0.default()
     }
 }
 

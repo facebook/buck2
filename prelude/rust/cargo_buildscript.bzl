@@ -316,7 +316,7 @@ def _cargo_buildscript_impl(ctx: AnalysisContext) -> list[Provider]:
             sanitizer_flags,
         ),
     )
-    env["CC"] = _make_cc_shim(
+    cc_shim = _make_cc_shim(
         ctx = ctx,
         name = "__cc_shim",
         cmd = cmd_args(
@@ -331,6 +331,7 @@ def _cargo_buildscript_impl(ctx: AnalysisContext) -> list[Provider]:
             ["--target={}".format(target_triple)] if target_triple else [],
         ),
     )
+    env["CC"] = cc_shim
     env["CXX"] = _make_cc_shim(
         ctx = ctx,
         name = "__cxx_shim",
@@ -356,6 +357,26 @@ def _cargo_buildscript_impl(ctx: AnalysisContext) -> list[Provider]:
     # over all the above.
     for k, v in ctx.attrs.env.items():
         env[k] = cmd_args(v, relative_to = cwd)
+
+    # A target that blanks CC leaves cc-rs with a `<target>-gcc` PATH lookup
+    # when cross-compiling, which exists nowhere. Re-export the shim as
+    # TARGET_CC, which cc-rs only consults when HOST != TARGET, below any
+    # explicit CC_<target> and above CC, so native builds are unaffected.
+    rust_target_triple = rust_toolchain_info.rustc_target_triple
+    cc_override = ctx.attrs.env.get("CC", None)
+    if isinstance(cc_override, ResolvedStringWithMacros):
+        cc_override = str(cc_override)[1:-1]
+    if (
+        rust_target_triple != None
+        and host_triple != None
+        and rust_target_triple != host_triple
+        and cc_override != None
+        and cc_override.strip() == ""
+        and "TARGET_CC" not in ctx.attrs.env
+        and "CC_{}".format(rust_target_triple) not in ctx.attrs.env
+        and "CC_{}".format(rust_target_triple.replace("-", "_")) not in ctx.attrs.env
+    ):
+        env["TARGET_CC"] = cc_shim
 
     ctx.actions.run(
         cmd,

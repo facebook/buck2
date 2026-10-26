@@ -9,5 +9,5 @@
 #     has a dependency on buck2 git trunk.
 # * Update `../monarch/rust-toolchain` (one instance)
 
-channel = "nightly-2026-07-05"
+channel = "nightly-2026-08-15"
 components = ["llvm-tools-preview", "rust-src"]

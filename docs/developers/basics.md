@@ -27,6 +27,9 @@ arc lint -a
 arc f
 ```
 
+In open source, `python3 fmt.py` formats Rust and Starlark exactly as `arc f` does, and the
+"Format" GitHub check enforces it; `python3 fmt.py --check` only reports.
+
 Buck2 has standard Rust unittests and integration tests at `tests/core`.
 
 ```bash
@@ -47,7 +50,9 @@ of nearby code.
 
 Standard `rustfmt` conventions apply. Beyond that:
 
-- **HashMaps**: use `buck2_hash::BuckMutMap`, not `fxhash::FxHashMap`.
+- **Maps and sets**: use the `buck2_hash` aliases; its crate docs say which one fits a
+  given situation. Naming `std`, `indexmap`, `dashmap` or `starlark_map` collections directly
+  is lint-enforced in `app/` and `buck2_tpx/`.
 - **Cloning**: prefer `.dupe()` over `.clone()` for types that implement `Dupe`
   (e.g. `Arc`-wrapped types). Use `gazebo` utilities — particularly `dupe` —
   where they fit.

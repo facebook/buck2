@@ -1212,8 +1212,8 @@ impl TryFrom<buck2_test_proto::PrepareForLocalExecutionResponse>
 mod tests {
     use std::fmt::Debug;
 
+    use buck2_hash::BuckFixedSortedMap;
     use host_sharing::HostSharingRequirements;
-    use sorted_vector_map::sorted_vector_map;
 
     use super::*;
 
@@ -1358,7 +1358,8 @@ mod tests {
             "c:/some/path"
         };
         let cwd = String::from(local_path).try_into().expect("valid abs path");
-        let env = sorted_vector_map! { "some_env".to_owned() => "some_env_val".to_owned() };
+        let env =
+            BuckFixedSortedMap::from_iter([("some_env".to_owned(), "some_env_val".to_owned())]);
 
         LocalExecutionCommand { cmd, env, cwd }
     }

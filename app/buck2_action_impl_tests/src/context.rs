@@ -17,13 +17,13 @@ use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_execute::digest_config::DigestConfig;
+use buck2_hash::BuckMutInsertionMap;
+use buck2_hash::IntentionallyStdHashMap;
 use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_interpreter::from_freeze::from_freeze_error;
 use buck2_interpreter::testing::Buck2TestHeapName;
 use dupe::Dupe;
 use indoc::indoc;
-use maplit::hashmap;
-use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
@@ -63,7 +63,7 @@ fn run_ctx_test(
             .map_err(from_freeze_error)?;
         let test_function = frozen_func_mod.get("test").unwrap();
 
-        let modules = hashmap!["func_mod" => &frozen_func_mod];
+        let modules = IntentionallyStdHashMap::from([("func_mod", &frozen_func_mod)]);
 
         Module::with_temp_heap(|env| {
             let file_loader = ReturnFileLoader { modules: &modules };
@@ -82,7 +82,7 @@ fn run_ctx_test(
                 .cast();
             let plugins = eval
                 .heap()
-                .alloc_typed(AnalysisPlugins::new(SmallMap::new()))
+                .alloc_typed(AnalysisPlugins::new(BuckMutInsertionMap::new()))
                 .into();
 
             let ctx = eval.heap().alloc(AnalysisContext::prepare(

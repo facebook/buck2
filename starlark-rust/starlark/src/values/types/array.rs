@@ -238,6 +238,11 @@ impl<'v> Array<'v> {
     /// `self.extend_from_within(..)`.
     pub(crate) fn double(&self) {
         assert!(self.remaining_capacity() >= self.len());
+        if self.is_statically_allocated() {
+            // The shared empty array: doubling it is a no-op, and a store to it is a
+            // cache line bouncing between every thread that evaluates an empty list.
+            return;
+        }
         unsafe {
             ptr::copy_nonoverlapping(self.ptr_at(0), self.ptr_at(self.len()), self.len());
             *self.len.get() *= 2;
@@ -260,6 +265,11 @@ impl<'v> Array<'v> {
 
     pub(crate) fn extend_from_slice(&self, slice: &[Value<'v>]) {
         assert!(self.remaining_capacity() >= slice.len());
+        if slice.is_empty() {
+            // Also keeps the shared empty array (the only array a list of capacity 0 can
+            // have) unwritten; see `double`.
+            return;
+        }
         unsafe {
             ptr::copy_nonoverlapping(slice.as_ptr(), self.ptr_at(self.len()), slice.len());
             *self.len.get() += slice.len() as u32;
@@ -268,6 +278,10 @@ impl<'v> Array<'v> {
 
     pub(crate) fn clear(&self) {
         debug_assert!(!self.iter_count_is_non_zero());
+        if self.is_statically_allocated() {
+            // Already empty; see `double`.
+            return;
+        }
         unsafe {
             *self.len.get() = 0;
         }

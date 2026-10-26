@@ -51,6 +51,7 @@ rust_library(
         # This is a hack that allows both `cargo test` and `buck test` to work.
         "CARGO_MANIFEST_DIR": "$(location :testcases)",
     },
+    unittests_miri = True,
     visibility = [
         # Do not use this crate internally in Meta.
         # `starlark` crate has public API.

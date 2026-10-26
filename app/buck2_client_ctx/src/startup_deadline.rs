@@ -104,7 +104,7 @@ impl StartupDeadline {
         }
     }
 
-    pub(crate) async fn run<R, Fut>(&self, op: &str, f: Fut) -> buck2_error::Result<R>
+    pub async fn run<R, Fut>(&self, op: &str, f: Fut) -> buck2_error::Result<R>
     where
         Fut: Future<Output = buck2_error::Result<R>>,
     {

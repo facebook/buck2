@@ -346,10 +346,11 @@ fn prelude_is_included() -> buck2_error::Result<()> {
     tester.set_prelude(prelude_path.clone());
 
     let prelude = tester.eval_import(&prelude_path, "some_var = 1", LoadedModules::default())?;
-    let mut loaded_modules = LoadedModules::default();
-    loaded_modules
-        .map
-        .insert(OwnedStarlarkModulePath::LoadFile(prelude_path), prelude);
+    let loaded_modules = LoadedModules {
+        map: [(OwnedStarlarkModulePath::LoadFile(prelude_path), prelude)]
+            .into_iter()
+            .collect(),
+    };
 
     // The prelude should be included in build files, and in .bzl files that are not in the
     // prelude's package

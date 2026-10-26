@@ -175,8 +175,15 @@ impl BuckSubcommand for ReplayCommand {
                 buck2_client_ctx::eprintln!("{}", e.message)?;
             }
 
-            // FIXME(JakobDegen)(easy): This should probably return failures if there were errors
-            ExitResult::success()
+            // If the replayed command had errors, surface them as a failing exit code so
+            // callers (e.g. scripts, CI) can distinguish failed replays from successful ones.
+            // `from_command_result_errors` picks an appropriate exit code based on the error
+            // tags and marks the errors as already-emitted so they aren't printed twice.
+            if res.errors.is_empty() {
+                ExitResult::success()
+            } else {
+                ExitResult::from_command_result_errors(res.errors)
+            }
         };
 
         with_simple_sigint_handler(work)

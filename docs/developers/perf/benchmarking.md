@@ -40,10 +40,18 @@ buck run @fbcode//mode/opt fbcode//buck2/scripts/abtest:abtest -- \
   [basics.md](basics.md#workloads) applies.
 - `--remote` gives each shard its own machine. The `--local` default runs the whole workflow on
   your machine and is only good for smoke-testing a setup, along with `--dummy` and `--no-action`.
+- `--platform macos` or `--platform windows` runs the command on that platform's Sandcastle
+  workers (Linux is the default). Buck is still built on Linux, cross-compiled (`opt-mac-arm64`,
+  `opt-win`); only the benchmark shards move, so pick a workload and mode that evaluate there,
+  e.g. `audit providers --quiet @fbcode//mode/opt-mac-arm64 <target>`. `--unicastle-size` is
+  Linux-only.
 - Scheduling prints the workflow URL; `analyze` waits for the workflow, so it can be run
   immediately after.
-- Start with the default `--samples 100 --shards 10`. Intervals are computed across shards, so if
-  the reported interval is wider than the effect you're hunting, more shards help most.
+- Start with the default `--samples 100 --shards 50`. All shards run at once and each runs its
+  share of every row back to back, so a run takes about `rows × (samples / shards + 1 warm-up)`
+  samples' worth of time. Raise `--shards` when the command is slow. Intervals are computed across
+  shards, so if the reported interval is wider than the effect you're hunting, more shards help
+  there too.
 
 ## Metrics and `--daemon-lifecycle`
 
@@ -54,19 +62,22 @@ answers which question:
 |------------------------------------------|-------------------------------------|--------------------|
 | "How long does buck2 take?"              | any (`none` has the least variance) | Wall Time          |
 | "How much memory at peak?"               | `fresh`                             | buckd Max RSS      |
-| "Peak of a single `--no-buckd` process?" | `none`                              | rusage Max RSS     |
+| "Peak of a single `--no-buckd` process?" | `none`                              | Process Max RSS    |
 | "How much does the daemon retain?"       | `fresh`                             | jemalloc Allocated |
 | "Does the daemon grow across commands?"  | `reuse`                             | jemalloc Allocated |
 | "Is fragmentation to blame?"             | `fresh` / `reuse`                   | jemalloc Waste     |
-| "How much CPU?"                          | —                                   | not analyzed; raw `ru_*` fields are in `samples.json` |
+| "How much CPU did the daemon spend?"     | `fresh`                             | buckd CPU Time     |
 
 - `fresh` (the default) kills buckd around every sample; `reuse` keeps one daemon per host alive
   across samples; `none` adds `--no-buckd`.
 - In `fresh`/`reuse`, the memory columns come from `buck2 status --snapshot` after purging the
   allocator, so "jemalloc Allocated" is retained memory and "buckd Max RSS" is the daemon's real
-  peak. The rusage columns in those modes describe the thin gRPC client
-  ([basics.md](basics.md#the-process-model)) — ignore "rusage Max RSS" there.
+  peak. The process columns in those modes describe the thin gRPC client
+  ([basics.md](basics.md#the-process-model)) — ignore "Process Max RSS" there.
 - With `reuse`, "buckd Max RSS" is the peak since the daemon started, not per sample.
+- On Windows there is no jemalloc, so only the RSS, CPU and wall-time columns exist, and "buckd
+  Max RSS" is the peak working set. The raw per-process fields (`ru_*` from `wait4` on Linux and
+  macOS, `process_*` on Windows) are in `samples.json`.
 
 ## Reading the output
 

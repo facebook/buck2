@@ -12,7 +12,7 @@ import subprocess
 from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
 def _git(args: list[str], cwd: Path) -> str:
@@ -46,36 +46,35 @@ def _init_repo(cwd: Path) -> str:
     return rev
 
 
-@buck_test(inplace=False)
-async def test_fetches_the_work_tree(buck: Buck) -> None:
-    _init_repo(cwd=buck.cwd)
+class GitFetchTest(BuckTestCase):
+    @buck_test(inplace=False)
+    async def test_fetches_the_work_tree(self, buck: Buck) -> None:
+        _init_repo(cwd=buck.cwd)
 
-    res = await buck.build_without_report(
-        "root//:fetch.git", "--show-full-simple-output"
-    )
-    assert (Path(res.stdout.strip()) / "hello.txt").read_text() == "hello\n"
+        res = await buck.build_without_report(
+            "root//:fetch.git", "--show-full-simple-output"
+        )
+        assert (Path(res.stdout.strip()) / "hello.txt").read_text() == "hello\n"
 
+    @buck_test(inplace=False)
+    async def test_requested_paths_are_sub_targets(self, buck: Buck) -> None:
+        _init_repo(cwd=buck.cwd)
 
-@buck_test(inplace=False)
-async def test_requested_paths_are_sub_targets(buck: Buck) -> None:
-    _init_repo(cwd=buck.cwd)
+        res = await buck.build_without_report(
+            "root//:fetch.git[subdir]", "--show-full-simple-output"
+        )
+        assert (Path(res.stdout.strip()) / "nested.txt").read_text() == "nested\n"
 
-    res = await buck.build_without_report(
-        "root//:fetch.git[subdir]", "--show-full-simple-output"
-    )
-    assert (Path(res.stdout.strip()) / "nested.txt").read_text() == "nested\n"
+    @buck_test(inplace=False)
+    async def test_git_dir_sub_target_is_a_repository(self, buck: Buck) -> None:
+        rev = _init_repo(cwd=buck.cwd)
 
+        res = await buck.build_without_report(
+            "root//:fetch.git[.git]", "--show-full-simple-output"
+        )
+        git_dir = Path(res.stdout.strip())
 
-@buck_test(inplace=False)
-async def test_git_dir_sub_target_is_a_repository(buck: Buck) -> None:
-    rev = _init_repo(cwd=buck.cwd)
-
-    res = await buck.build_without_report(
-        "root//:fetch.git[.git]", "--show-full-simple-output"
-    )
-    git_dir = Path(res.stdout.strip())
-
-    # Validate this is a proper .git tree
-    assert _git(["--git-dir", str(git_dir), "cat-file", "-t", rev], cwd=buck.cwd) == (
-        "commit"
-    )
+        # Validate this is a proper .git tree
+        assert _git(
+            ["--git-dir", str(git_dir), "cat-file", "-t", rev], cwd=buck.cwd
+        ) == ("commit")

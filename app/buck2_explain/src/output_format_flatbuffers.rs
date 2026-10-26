@@ -78,15 +78,13 @@ mod tests {
     use buck2_core::package::package_relative_path::PackageRelativePath;
     use buck2_core::target::label::label::TargetLabel;
     use buck2_interpreter_for_build::call_stack::StarlarkCallStackWrapper;
+    use buck2_node::attrs::arena::OwnedCoercedAttr;
     use buck2_node::attrs::attr::Attribute;
     use buck2_node::attrs::attr_type::AttrType;
-    use buck2_node::attrs::attr_type::list::ListLiteral;
-    use buck2_node::attrs::coerced_attr::CoercedAttr;
     use buck2_node::attrs::coerced_path::CoercedPath;
     use buck2_node::call_stack::StarlarkCallStack;
     use buck2_node::nodes::configured::ConfiguredTargetNode;
     use buck2_query::query::syntax::simple::eval::set::TargetSet;
-    use buck2_util::arc_str::ArcSlice;
     use dupe::Dupe;
     use starlark::codemap::FileSpan;
     use starlark::errors::Frame;
@@ -100,14 +98,18 @@ mod tests {
         let data: TargetSet<ConfiguredTargetNode> = gen_data(vec![(
             "srcs",
             Attribute::new_const(None, "", AttrType::list(AttrType::source(false))),
-            CoercedAttr::List(ListLiteral(ArcSlice::new([
-                CoercedAttr::SourceFile(CoercedPath::File(
-                    PackageRelativePath::new("foo/bar").unwrap().to_arc(),
-                )),
-                CoercedAttr::SourceFile(CoercedPath::File(
-                    PackageRelativePath::new("foo/bar2").unwrap().to_arc(),
-                )),
-            ]))),
+            OwnedCoercedAttr::new_with(|b| {
+                let srcs = ["foo/bar", "foo/bar2"]
+                    .iter()
+                    .map(|p| {
+                        b.encode_source_file(&CoercedPath::File(
+                            PackageRelativePath::new(p).unwrap().to_arc(),
+                        ))
+                    })
+                    .collect::<buck2_error::Result<Vec<_>>>()?;
+                b.encode_list(&srcs)
+            })
+            .unwrap(),
         )]);
 
         let fbs = gen_fbs(data).unwrap();
@@ -141,7 +143,7 @@ mod tests {
         attrs: Vec<(
             &str,
             buck2_node::attrs::attr::Attribute,
-            buck2_node::attrs::coerced_attr::CoercedAttr,
+            buck2_node::attrs::arena::OwnedCoercedAttr,
         )>,
     ) -> TargetSet<ConfiguredTargetNode> {
         // Setup data

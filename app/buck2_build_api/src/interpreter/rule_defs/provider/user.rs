@@ -18,7 +18,7 @@ use allocative::Allocative;
 use buck2_core::provider::id::ProviderId;
 use display_container::fmt_keyed_container;
 use dupe::Dupe;
-use indexmap::map::RawEntryApiV1;
+use mini_vec::MiniBoxSlice;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
 use starlark::collections::Hashed;
@@ -62,7 +62,7 @@ enum UserProviderError {
 )]
 pub struct UserProvider<'v> {
     pub(crate) callable: UserProviderCallableDataValue<'v>,
-    attributes: Box<[Value<'v>]>,
+    attributes: MiniBoxSlice<Value<'v>>,
 }
 
 starlark_complex_value!(pub UserProvider);
@@ -106,11 +106,7 @@ impl<'v> StarlarkValue<'v> for UserProvider<'v> {
     }
 
     fn get_attr_hashed(&self, attribute: Hashed<&str>, _heap: Heap<'v>) -> Option<Value<'v>> {
-        let index = self
-            .callable_data()
-            .fields
-            .raw_entry_v1()
-            .index_from_hash(attribute.hash().promote(), |k| k == attribute.key())?;
+        let index = self.callable_data().fields.get_index_of_hashed(attribute)?;
         Some(self.attributes[index])
     }
 
@@ -200,7 +196,7 @@ pub(crate) fn user_provider_creator<'v>(
             // parameter, which the parser already rejected.
             None => Err(UserProviderError::MissingParameter(name.to_owned()).into()),
         })
-        .collect::<buck2_error::Result<Box<[Value]>>>()?;
+        .collect::<buck2_error::Result<MiniBoxSlice<Value>>>()?;
     Ok(heap.alloc(UserProvider {
         callable,
         attributes: values,

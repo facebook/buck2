@@ -22,6 +22,8 @@ use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_error::BuckErrorOptionContext;
+use buck2_hash::BuckMutInsertionMap;
+use buck2_hash::buck_mut_insertion_map;
 use buck2_interpreter::testing::Buck2TestHeapName;
 use buck2_interpreter::types::provider::callable::ValueAsProviderCallableLike;
 use buck2_interpreter_for_build::attrs::coerce;
@@ -38,8 +40,6 @@ use starlark::environment::Module;
 use starlark::values::FrozenValueTyped;
 use starlark::values::Value;
 use starlark::values::dict::DictRef;
-use starlark_map::small_map::SmallMap;
-use starlark_map::smallmap;
 
 use crate::interpreter::rule_defs::artifact::testing::artifactory;
 
@@ -54,7 +54,7 @@ pub(crate) fn resolution_ctx_with_providers<'v>(
         module: &'a Module<'v>,
         // The module the provider collections were frozen in.
         _deps_env: FrozenModule,
-        deps: SmallMap<ConfiguredProvidersLabel, FrozenProviderCollectionValue>,
+        deps: BuckMutInsertionMap<ConfiguredProvidersLabel, FrozenProviderCollectionValue>,
     }
 
     impl Ctx<'_, '_> {
@@ -114,7 +114,7 @@ pub(crate) fn resolution_ctx_with_providers<'v>(
         /// Create a simple label -> impl result mapping
         fn simple_deps() -> (
             FrozenModule,
-            SmallMap<ConfiguredProvidersLabel, FrozenProviderCollectionValue>,
+            BuckMutInsertionMap<ConfiguredProvidersLabel, FrozenProviderCollectionValue>,
             ProviderIdSet,
         ) {
             let globals = GlobalsBuilder::standard()
@@ -176,7 +176,7 @@ pub(crate) fn resolution_ctx_with_providers<'v>(
             let (keyed_placeholder_label, keyed_placeholder_result) =
                 label_and_result("//sub/dir:keyed_placeholder", "keyed_placeholder");
 
-            let res = smallmap![
+            let res = buck_mut_insertion_map![
                 foo_label => foo_result,
                 bar_label => bar_result,
                 zero_label => zero_result,

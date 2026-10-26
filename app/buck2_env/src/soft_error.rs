@@ -17,7 +17,7 @@ use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
 use buck2_hash::BuckDashMap;
-use starlark_map::small_set::SmallSet;
+use buck2_hash::BuckFixedSortedSet;
 
 use crate::env::buck2_env;
 
@@ -65,7 +65,7 @@ pub fn buck2_hard_error_env() -> buck2_error::Result<Option<&'static str>> {
 enum ShowSoftErrorConfig {
     Disabled,
     All,
-    Selected(SmallSet<String>),
+    Selected(BuckFixedSortedSet<String>),
 }
 
 impl ShowSoftErrorConfig {
@@ -98,8 +98,9 @@ pub fn buck2_show_soft_errors_env() -> buck2_error::Result<Option<&'static str>>
     buck2_env!("BUCK2_SHOW_SOFT_ERRORS")
 }
 
-static HARD_ERROR_PANIC_ALLOWLIST: LazyLock<SmallSet<String>> =
-    LazyLock::new(|| SmallSet::from_iter(["spawn_version_control_collector_failed".to_owned()]));
+static HARD_ERROR_PANIC_ALLOWLIST: LazyLock<BuckFixedSortedSet<String>> = LazyLock::new(|| {
+    BuckFixedSortedSet::from_iter(["spawn_version_control_collector_failed".to_owned()])
+});
 
 /// Throw a "soft_error" ie. a non-fatal error logged to logview.
 /// Errors will not be logged to stderr as warnings to the user, unless `quiet=false` is passed.
@@ -368,7 +369,7 @@ impl SoftErrorContext {
 
 fn increment_soft_error_counter(count: &AtomicUsize) -> bool {
     count
-        .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |count| {
+        .try_update(Ordering::Relaxed, Ordering::Relaxed, |count| {
             (count < 10).then_some(count + 1)
         })
         .is_ok()
@@ -378,7 +379,7 @@ fn increment_soft_error_counter(count: &AtomicUsize) -> bool {
 #[derive(Debug, PartialEq, Eq)]
 enum HardErrorConfig {
     Bool(bool),
-    Selected(SmallSet<String>),
+    Selected(BuckFixedSortedSet<String>),
     Panic,
 }
 

@@ -33,3 +33,31 @@ consume = rule(
         "dep": attrs.dep(),
     },
 )
+
+def _copy_source_impl(ctx):
+    out = ctx.actions.copy_file("copied.txt", ctx.attrs.src)
+    return [DefaultInfo(default_output = out)]
+
+# Copies a source file in the daemon, as the copy action does, rather than through a command.
+copy_source = rule(
+    impl = _copy_source_impl,
+    attrs = {
+        "src": attrs.source(),
+    },
+)
+
+def _consume_source_impl(ctx):
+    out = ctx.actions.declare_output("copy.txt", has_content_based_path = False)
+    ctx.actions.run(
+        cmd_args(["cp", ctx.attrs.src, out.as_output()]),
+        category = "consume",
+    )
+    return [DefaultInfo(default_output = out)]
+
+# Reads a source file in an action, which uploads it to the CAS when the action runs remotely.
+consume_source = rule(
+    impl = _consume_source_impl,
+    attrs = {
+        "src": attrs.source(),
+    },
+)

@@ -47,7 +47,7 @@ use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_hash::BuckMutMap;
-use buck2_hash::buck_indexset;
+use buck2_hash::buck_mut_insertion_set;
 use buck2_interpreter_for_build::interpreter::build_context::BuildContext;
 use buck2_interpreter_for_build::interpreter::testing::cells;
 use buck2_util::arc_str::ArcS;
@@ -145,12 +145,12 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
             BuckOutPathKind::default(),
             eval.heap(),
         )?;
-        let outputs = buck_indexset![artifact.as_output()];
+        let outputs = buck_mut_insertion_set![artifact.as_output()];
         registry.register(
             &DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target_label.dupe())),
             outputs,
             SimpleUnregisteredAction::new(
-                buck_indexset![],
+                buck_mut_insertion_set![],
                 vec![],
                 CategoryRef::new("fake_action").unwrap().to_owned(),
                 None,
@@ -217,9 +217,9 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
 
         actions_registry.register(
             &DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target_label.dupe())),
-            buck_indexset![output_artifact],
+            buck_mut_insertion_set![output_artifact],
             SimpleUnregisteredAction::new(
-                buck_indexset![],
+                buck_mut_insertion_set![],
                 vec![],
                 CategoryRef::new("fake_action").unwrap().to_owned(),
                 None,

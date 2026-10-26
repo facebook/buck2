@@ -12,6 +12,7 @@
 
 use std::time::Instant;
 
+use dice_error::cycles::CycleError;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::Future;
@@ -35,6 +36,7 @@ use crate::deps::graph::DepEdge;
 use crate::deps::graph::SeriesParallelDeps;
 use crate::deps::iterator::SeriesParallelDepsIteratorItem;
 use crate::epoch::cache::ProjectionValidation;
+use crate::epoch::cycles::ensure_cycle_detector_running;
 use crate::epoch::evaluator::TransactionData;
 use crate::epoch::evaluator::ValueDemand;
 use crate::epoch::task::PreviouslyCancelledTask;
@@ -50,8 +52,6 @@ use crate::epoch::worker::state::DiceWorkerStateLookupNode;
 use crate::key::DiceKey;
 use crate::key::DiceKeyErased;
 use crate::key::ParentKey;
-use crate::user_cycle::KeyComputingUserCycleDetectorData;
-use crate::user_cycle::UserCycleDetectorData;
 use crate::value::MaybeResidentComputedValue;
 use crate::value::ResidentComputedValue;
 use crate::value::TrackedInvalidationPaths;
@@ -107,12 +107,13 @@ impl DiceTaskWorker {
     pub(crate) fn spawn<'d>(
         self,
         prepared_task: PreparedDiceTask<'d>,
-        cycles: UserCycleDetectorData,
         previously_cancelled_task: Option<PreviouslyCancelledTask>,
     ) -> DicePromise<'d> {
         let spawner = self.eval.user_data.spawner.dupe();
         let spawner_ctx = self.eval.user_data.dupe();
         let state_handle = self.eval.dice.state_handle.dupe();
+
+        ensure_cycle_detector_running(&self.eval);
 
         spawn_prepared_task(prepared_task, &*spawner, &spawner_ctx, move |handle| {
             // NOTE: important to run prevent cancellation eagerly in the sync scope to prevent
@@ -120,7 +121,7 @@ impl DiceTaskWorker {
             // for the previously cancelled task
             let cancellations = handle.cancellation_ctx();
             let prevent_cancellation = cancellations.enter_critical_section();
-            let state = DiceWorkerStateAwaitingPrevious::new(self.k, cycles, prevent_cancellation);
+            let state = DiceWorkerStateAwaitingPrevious::new(prevent_cancellation);
 
             async move {
                 let previous_result = match previously_cancelled_task {
@@ -136,6 +137,9 @@ impl DiceTaskWorker {
                     Either::Right(state) => self.do_work(cancellations, state_handle, state).await,
                 };
 
+                if result.is_ok() {
+                    self.eval.version_state.cache().note_task_completed();
+                }
                 handle.finished(result.map(|state| state.value));
             }
             .boxed()
@@ -172,12 +176,9 @@ impl DiceTaskWorker {
 
         let revalidatable = candidate.as_ref().filter(|c| c.revalidatable);
 
-        // deps_check_continuables needs to capture these and so they need to outlive it.
-        let cycles;
         let (task_state, deps_check_continuables) = match revalidatable {
             Some(to_revalidate) => {
-                let (task_state, cycles2) = task_state.checking_deps(&self.eval);
-                cycles = cycles2;
+                let task_state = task_state.checking_deps();
 
                 self.eval.check_deps_started(self.k);
 
@@ -189,7 +190,6 @@ impl DiceTaskWorker {
                         &self.eval,
                         ParentKey::Some(self.k),
                         &to_revalidate.cert.deps,
-                        &cycles,
                     )
                     .await
                 };
@@ -225,18 +225,14 @@ impl DiceTaskWorker {
                     }
                 }
             }
-            None => {
-                let (task_state, cycles2) = task_state.lookup_dirtied(&self.eval);
-                cycles = cycles2;
-                (task_state, None)
-            }
+            None => (task_state.lookup_dirtied(), None),
         };
 
         let DiceWorkerStateFinishedEvaluating {
             state,
             activation_data,
             result,
-        } = self.compute(cancellations, task_state, &cycles).await?;
+        } = self.compute(cancellations, task_state).await?;
 
         // explicitly drop this here to make it clear that its important that we hold onto it, it
         // otherwise appears unused, but we don't want to cancel anything that it has started requesting
@@ -298,16 +294,13 @@ impl DiceTaskWorker {
         &self,
         cancellations: &CancellationContext,
         task_state: DiceWorkerStateEvaluating,
-        cycles: &KeyComputingUserCycleDetectorData,
     ) -> WorkerResult<DiceWorkerStateFinishedEvaluating> {
         self.eval.compute_started(self.k);
         scopeguard::defer! {
             self.eval.compute_finished(self.k);
         };
 
-        self.eval
-            .evaluate(cancellations, self.k, task_state, cycles.clone())
-            .await
+        self.eval.evaluate(cancellations, self.k, task_state).await
     }
 
     fn activation_info<'a>(
@@ -362,7 +355,6 @@ async fn check_dependencies<'a>(
     eval: &'a TransactionData,
     parent_key: ParentKey,
     deps: &'a SeriesParallelDeps,
-    cycles: &'a KeyComputingUserCycleDetectorData,
 ) -> CheckDependenciesResult<'a> {
     async fn drain_continuables<'a, Fut: Future<Output = CheckDependenciesResult<'a>>>(
         inner: BoxFuture<'a, ()>,
@@ -378,14 +370,13 @@ async fn check_dependencies<'a>(
         eval: &'a TransactionData,
         parent_key: ParentKey,
         deps: impl Iterator<Item = SeriesParallelDepsIteratorItem<'a>> + Send + 'a,
-        cycles: &'a KeyComputingUserCycleDetectorData,
     ) -> BoxFuture<'a, CheckDependenciesResult<'a>> {
         let mut invalidation_paths = TrackedInvalidationPaths::clean();
         async move {
             for v in deps {
                 match v {
                     SeriesParallelDepsIteratorItem::Key(edge) => {
-                        match check_dependency(eval, parent_key, edge, cycles).await {
+                        match check_dependency(eval, parent_key, edge).await {
                             CheckDependencyResult::NoChange(dep_paths) => {
                                 invalidation_paths.update(&dep_paths);
                             }
@@ -398,9 +389,7 @@ async fn check_dependencies<'a>(
                     }
                     SeriesParallelDepsIteratorItem::Parallel(p) => {
                         let mut futures: FuturesUnordered<_> = p
-                            .map(|deps| {
-                                check_dependencies_series(eval, parent_key, deps, cycles).boxed()
-                            })
+                            .map(|deps| check_dependencies_series(eval, parent_key, deps).boxed())
                             .collect();
 
                         while let Some(v) = futures.next().await {
@@ -431,7 +420,7 @@ async fn check_dependencies<'a>(
         return CheckDependenciesResult::NoDeps;
     }
 
-    check_dependencies_series(eval, parent_key, deps.iter(), cycles).await
+    check_dependencies_series(eval, parent_key, deps.iter()).await
 }
 
 enum CheckDependencyResult {
@@ -443,15 +432,17 @@ async fn check_dependency(
     eval: &TransactionData,
     parent_key: ParentKey,
     edge: DepEdge,
-    cycles: &KeyComputingUserCycleDetectorData,
 ) -> CheckDependencyResult {
     // A projection task recomputes the projection from its base's value and cannot fail, so a
     // base that would have to be read is read here, where a failed read has an answer.
     if let DiceKeyErased::Projection(proj) = eval.dice.key_index.get(edge.key) {
-        let base_cycles = cycles.subrequest(proj.base(), &eval.dice.key_index);
-        let base = eval
-            .bring_up_to_date(proj.base(), ParentKey::Some(edge.key), base_cycles.dupe())
-            .await;
+        // The checked key waits for the base here on the projection's behalf, so the wait is
+        // registered as its own: it is the one stuck if the base in turn waits on it. A cycle
+        // fails this wait like the one on the dep itself below.
+        let base = match eval.bring_up_to_date(proj.base(), parent_key).await {
+            Ok(base) => base,
+            Err(CycleError { .. }) => return CheckDependencyResult::Changed,
+        };
         // A demand recovery may have produced a transient base without changing the core
         // graph. Its old projection certificate is not evidence for this epoch's result.
         if base.revision().is_none() {
@@ -461,7 +452,7 @@ async fn check_dependency(
             let validation = eval
                 .version_state
                 .projection_validation(edge.key)
-                .get_or_init(|| validate_projection_without_base(eval, edge.key, cycles))
+                .get_or_init(|| validate_projection_without_base(eval, edge.key))
                 .await
                 .dupe();
             match validation {
@@ -472,8 +463,7 @@ async fn check_dependency(
                     if !eval
                         .page_in(ValueDemand {
                             key: proj.base(),
-                            parent_key: ParentKey::Some(edge.key),
-                            cycles: base_cycles,
+                            parent_key,
                         })
                         .await
                         .is_ok_and(|base| base.revision().is_some())
@@ -487,14 +477,13 @@ async fn check_dependency(
         }
     }
 
-    let dep_result = eval
-        .bring_up_to_date(
-            edge.key,
-            parent_key,
-            cycles.subrequest(edge.key, &eval.dice.key_index),
-        )
-        .await;
-    compare_revision(dep_result, &edge)
+    let dep_result = eval.bring_up_to_date(edge.key, parent_key).await;
+    match dep_result {
+        Ok(dep_result) => compare_revision(dep_result, &edge),
+        // The dep is in a cycle with the key being checked, so no value of it is coming. The
+        // recompute this leads to runs into the same cycle and reports it.
+        Err(CycleError { .. }) => CheckDependencyResult::Changed,
+    }
 }
 
 fn compare_revision(
@@ -515,7 +504,6 @@ fn compare_revision(
 async fn validate_projection_without_base(
     eval: &TransactionData,
     key: DiceKey,
-    cycles: &KeyComputingUserCycleDetectorData,
 ) -> ProjectionValidation {
     let v = eval.version_state.get_version();
     let state_handle = &eval.dice.state_handle;
@@ -530,15 +518,15 @@ async fn validate_projection_without_base(
         return ProjectionValidation::NeedsRecompute;
     };
     let cert = candidate.cert.dupe();
-    let invalidation_paths =
-        match check_dependencies(eval, ParentKey::Some(key), &cert.deps, cycles).await {
-            result @ CheckDependenciesResult::NoChange { .. } => {
-                result.unwrap_no_change_invalidation_paths()
-            }
-            CheckDependenciesResult::NoDeps | CheckDependenciesResult::Changed { .. } => {
-                return ProjectionValidation::NeedsRecompute;
-            }
-        };
+    let invalidation_paths = match check_dependencies(eval, ParentKey::Some(key), &cert.deps).await
+    {
+        result @ CheckDependenciesResult::NoChange { .. } => {
+            result.unwrap_no_change_invalidation_paths()
+        }
+        CheckDependenciesResult::NoDeps | CheckDependenciesResult::Changed { .. } => {
+            return ProjectionValidation::NeedsRecompute;
+        }
+    };
     let projection = state_handle
         .revalidate(
             VersionedGraphKey::new(v, key),

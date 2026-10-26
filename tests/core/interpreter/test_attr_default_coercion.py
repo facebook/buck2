@@ -11,14 +11,15 @@
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 from buck2.tests.e2e_util.helper.golden import golden
 
 
-@buck_test()
-async def test_default_not_a_label(buck: Buck) -> None:
-    res = await expect_failure(buck.uquery("root//:", "--console=none", "-v0"))
-    golden(
-        output=res.stderr,
-        rel_path="golden/default_not_a_label.golden.stderr",
-    )
+class AttrDefaultCoercionTest(BuckTestCase):
+    @buck_test()
+    async def test_default_not_a_label(self, buck: Buck) -> None:
+        res = await expect_failure(buck.uquery("root//:", "--console=none", "-v0"))
+        golden(
+            output=res.stderr,
+            rel_path="golden/default_not_a_label.golden.stderr",
+        )

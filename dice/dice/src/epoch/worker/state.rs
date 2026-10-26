@@ -22,34 +22,23 @@ use crate::ActivationData;
 use crate::ActivationTracker;
 use crate::DynKey;
 use crate::epoch::evaluator::KeyEvaluationResult;
-use crate::epoch::evaluator::TransactionData;
 use crate::epoch::task::PreviouslyCancelledTask;
 use crate::epoch::worker::WorkerCancelled;
 use crate::epoch::worker::WorkerResult;
 use crate::key::DiceKey;
 use crate::key::DiceKeyErased;
 use crate::key_index::DiceKeyIndex;
-use crate::user_cycle::KeyComputingUserCycleDetectorData;
-use crate::user_cycle::UserCycleDetectorData;
 use crate::value::MaybeResidentComputedValue;
 
 /// Represents when we are in a spawned dice task worker and are currently waiting for the previous
 /// cancelled instance of this task to finish cancelling.
 pub(crate) struct DiceWorkerStateAwaitingPrevious<'a> {
-    k: DiceKey,
-    cycles: UserCycleDetectorData,
     prevent_cancellation: CriticalSectionGuard<'a>,
 }
 
 impl<'a> DiceWorkerStateAwaitingPrevious<'a> {
-    pub(crate) fn new(
-        k: DiceKey,
-        cycles: UserCycleDetectorData,
-        prevent_cancellation: CriticalSectionGuard<'a>,
-    ) -> Self {
+    pub(crate) fn new(prevent_cancellation: CriticalSectionGuard<'a>) -> Self {
         Self {
-            k,
-            cycles,
             prevent_cancellation,
         }
     }
@@ -65,19 +54,13 @@ impl<'a> DiceWorkerStateAwaitingPrevious<'a> {
     pub(crate) async fn previously_cancelled(self) -> DiceWorkerStateLookupNode {
         self.prevent_cancellation.exit_critical_section().await;
 
-        DiceWorkerStateLookupNode {
-            k: self.k,
-            cycles: self.cycles,
-        }
+        DiceWorkerStateLookupNode {}
     }
 
     pub(crate) async fn no_previous_task(self) -> DiceWorkerStateLookupNode {
         self.prevent_cancellation.exit_critical_section().await;
 
-        DiceWorkerStateLookupNode {
-            k: self.k,
-            cycles: self.cycles,
-        }
+        DiceWorkerStateLookupNode {}
     }
 
     pub(crate) async fn await_previous(
@@ -114,39 +97,15 @@ fn finish_with_cached_value(
 
 /// Represents when we are currently looking up the current requested key from the core state, and
 /// are waiting for it to respond.
-pub(crate) struct DiceWorkerStateLookupNode {
-    k: DiceKey,
-    cycles: UserCycleDetectorData,
-}
+pub(crate) struct DiceWorkerStateLookupNode {}
 
 impl DiceWorkerStateLookupNode {
-    pub(crate) fn checking_deps(
-        self,
-        eval: &TransactionData,
-    ) -> (
-        DiceWorkerStateCheckingDeps,
-        KeyComputingUserCycleDetectorData,
-    ) {
-        let cycles = self.cycles.start_computing_key(
-            self.k,
-            &eval.dice.key_index,
-            eval.user_data.cycle_detector.as_ref(),
-        );
-
-        (DiceWorkerStateCheckingDeps {}, cycles)
+    pub(crate) fn checking_deps(self) -> DiceWorkerStateCheckingDeps {
+        DiceWorkerStateCheckingDeps {}
     }
 
-    pub(crate) fn lookup_dirtied(
-        self,
-        eval: &TransactionData,
-    ) -> (DiceWorkerStateEvaluating, KeyComputingUserCycleDetectorData) {
-        let cycles = self.cycles.start_computing_key(
-            self.k,
-            &eval.dice.key_index,
-            eval.user_data.cycle_detector.as_ref(),
-        );
-
-        (DiceWorkerStateEvaluating {}, cycles)
+    pub(crate) fn lookup_dirtied(self) -> DiceWorkerStateEvaluating {
+        DiceWorkerStateEvaluating {}
     }
 
     pub(crate) fn lookup_matches(
@@ -190,7 +149,6 @@ impl DiceWorkerStateEvaluating {
     pub(crate) fn finished(
         self,
         cancellations: &CancellationContext,
-        cycles: KeyComputingUserCycleDetectorData,
         result: KeyEvaluationResult,
         activation_data: ActivationData,
     ) -> WorkerResult<DiceWorkerStateFinishedEvaluating> {
@@ -198,8 +156,6 @@ impl DiceWorkerStateEvaluating {
             Some(g) => g,
             None => return Err(WorkerCancelled),
         };
-
-        drop(cycles);
 
         Ok(DiceWorkerStateFinishedEvaluating {
             state: DiceWorkerStateFinished {

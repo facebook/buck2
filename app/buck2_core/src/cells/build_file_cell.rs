@@ -25,6 +25,8 @@ use crate::cells::name::CellName;
     Hash,
     Eq,
     PartialEq,
+    Ord,
+    PartialOrd,
     Debug,
     derive_more::Display,
     Allocative,

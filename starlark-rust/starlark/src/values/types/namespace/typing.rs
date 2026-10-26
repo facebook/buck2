@@ -21,10 +21,10 @@ use std::fmt::Formatter;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use mini_map::MiniFixedSortedMap;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use starlark_derive::type_matcher;
-use starlark_map::sorted_map::SortedMap;
 
 use crate as starlark;
 use crate::codemap::Span;
@@ -96,7 +96,7 @@ impl TyCustomFunctionImpl for TyNamespaceFunction {
         }
         let extra = args.kwargs.is_some();
         Ok(Ty::custom(TyNamespace {
-            fields: SortedMap::from_iter(fields),
+            fields: MiniFixedSortedMap::from_iter(fields),
             extra,
         }))
     }
@@ -107,7 +107,7 @@ impl TyCustomFunctionImpl for TyNamespaceFunction {
 )]
 #[pagable_typetag(TyCustomDyn)]
 pub(super) struct TyNamespace {
-    pub(super) fields: SortedMap<ArcStr, Ty>,
+    pub(super) fields: MiniFixedSortedMap<ArcStr, Ty>,
     /// [`true`] if there might be additional fields not captured above,
     /// [`false`] if this struct has no extra members.
     pub(super) extra: bool,

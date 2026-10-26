@@ -140,7 +140,9 @@ impl<T> Future for ExplicitlyCancellableFutureInner<T> {
     }
 }
 
-#[cfg(test)]
+// `#[tokio::test]` starts tokio's IO driver: epoll, kqueue or IOCP by OS, and Miri models only
+// epoll.
+#[cfg(all(test, any(not(miri), target_os = "linux")))]
 mod tests {
     use std::future::Future;
     use std::pin::Pin;

@@ -29,6 +29,7 @@ load("@prelude//android:exopackage.bzl", "get_exopackage_flags")
 load("@prelude//android:preprocess_java_classes.bzl", "get_preprocessed_java_classes")
 load("@prelude//android:util.bzl", "create_enhancement_context")
 load("@prelude//android:voltron.bzl", "get_target_to_module_mapping")
+load("@prelude//java:class_to_srcs.bzl", "JavaClassToSourceMapInfo", "merge_class_to_source_map_from_jar")
 load(
     "@prelude//java:java_providers.bzl",
     "JavaPackagingDep",  # @unused Used as type
@@ -37,11 +38,14 @@ load(
     "get_all_java_packaging_deps",
     "get_all_java_packaging_deps_from_packaging_infos",
 )
+load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//java:proguard.bzl", "get_proguard_output")
+load("@prelude//java/utils:java_utils.bzl", "get_class_to_source_map_info")
 load("@prelude//utils:expect.bzl", "expect")
 
 AndroidBinaryInfo = record(
     sub_targets = dict,
+    class_to_srcs = JavaClassToSourceMapInfo,
     java_packaging_deps = list[JavaPackagingDep],
     deps_by_platform = dict,
     primary_platform = str,
@@ -257,8 +261,19 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
     if dex_files_info.primary_dex_class_names:
         sub_targets["primary_dex_class_names"] = [DefaultInfo(default_output = dex_files_info.primary_dex_class_names)]
 
+    class_to_srcs, _, _ = get_class_to_source_map_info(ctx, outputs = None, deps = deps)
+    transitive_class_to_src_map = merge_class_to_source_map_from_jar(
+        actions = ctx.actions,
+        name = ctx.label.name + ".transitive_class_to_src.json",
+        java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo],
+        relative_to = None,
+        deps = [class_to_srcs],
+    )
+    sub_targets["transitive_class_to_src_map"] = [DefaultInfo(default_output = transitive_class_to_src_map)]
+
     return AndroidBinaryInfo(
         sub_targets = sub_targets,
+        class_to_srcs = class_to_srcs,
         java_packaging_deps = java_packaging_deps,
         deps_by_platform = deps_by_platform,
         primary_platform = primary_platform,

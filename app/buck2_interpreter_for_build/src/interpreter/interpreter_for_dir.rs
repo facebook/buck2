@@ -52,6 +52,7 @@ use buck2_interpreter::prelude_path::PreludePath;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use buck2_interpreter::starlark_profiler::data::StarlarkProfileDataAndStats;
+use buck2_node::modifiers::ModifierLabelParser;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::eval_result::EvaluationResultWithStats;
 use buck2_node::super_package::SuperPackage;
@@ -220,11 +221,7 @@ impl LoadResolver for InterpreterLoadResolver {
 
         // If you load the same .bzl file twice via different aliases (e.g. fbcode//buck2/prelude/foo.bzl and prelude.bzl)
         // then anything doing pointer equality (t-sets, provider identities) will go wrong.
-        let project_path = self
-            .config
-            .global_state
-            .cell_resolver
-            .resolve_path(path.as_ref())?;
+        let project_path = self.config.global_state.cell_resolver.resolve_path(path)?;
         let reformed_path = self
             .config
             .global_state
@@ -453,7 +450,7 @@ impl InterpreterForDir {
         let project_relative_path = self
             .global_state
             .cell_resolver
-            .resolve_path(import.path().as_ref().as_ref())?;
+            .resolve_path(*import.path())?;
 
         let disable_starlark_types = self.global_state.disable_starlark_types;
         let ast = match AstModule::parse(
@@ -673,7 +670,11 @@ impl InterpreterForDir {
 
             let package_file_eval_ctx = per_file_context.into_package_file()?;
 
-            Ok((token, package_file_eval_ctx.build_super_package(extra)?))
+            let modifier_labels = ModifierLabelParser::new(&self.global_state.cell_resolver);
+            Ok((
+                token,
+                package_file_eval_ctx.build_super_package(extra, &modifier_labels)?,
+            ))
         })
     }
 

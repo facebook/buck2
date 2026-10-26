@@ -14,7 +14,7 @@ import re
 from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 from tae.testx.py.testx_helpers import TestXClient
 
 
@@ -39,44 +39,47 @@ def extract_test_run_id(haystack: str) -> int:
     return int(match)
 
 
-@buck_test(inplace=True)
-async def test_passing_test_details_uploaded_to_artifacts(buck: Buck) -> None:
-    output = await buck.test(
-        "fbcode//buck2/tests/targets/rules/python_test:test_produce_test_details",
-        "--remote-only",
-        "--",
-        "--upload-passing-details",
-    )
+class TestDetailsArtifactsTest(BuckTestCase):
+    @buck_test(inplace=True)
+    async def test_passing_test_details_uploaded_to_artifacts(self, buck: Buck) -> None:
+        output = await buck.test(
+            "fbcode//buck2/tests/targets/rules/python_test:test_produce_test_details",
+            "--remote-only",
+            "--",
+            "--upload-passing-details",
+        )
 
-    run_id = extract_test_run_id(output.stderr)
+        run_id = extract_test_run_id(output.stderr)
 
-    tests_artifact_data = get_testx_client().artifacts_list(run_id)
+        tests_artifact_data = get_testx_client().artifacts_list(run_id)
 
-    assert len(tests_artifact_data) > 0, "Should have artifact data for test run"
+        assert len(tests_artifact_data) > 0, "Should have artifact data for test run"
 
-    details_artifact = None
-    for data in tests_artifact_data:
-        for artifact in data.artifacts:
-            if (
-                hasattr(artifact.handle, "everstore_handle")
-                and artifact.handle.everstore_handle is not None
-            ):
-                details_artifact = artifact
+        details_artifact = None
+        for data in tests_artifact_data:
+            for artifact in data.artifacts:
+                if (
+                    hasattr(artifact.handle, "everstore_handle")
+                    and artifact.handle.everstore_handle is not None
+                ):
+                    details_artifact = artifact
+                    break
+            if details_artifact is not None:
                 break
-        if details_artifact is not None:
-            break
 
-    assert details_artifact is not None, "Should have artifact with everstore_handle"
+        assert details_artifact is not None, (
+            "Should have artifact with everstore_handle"
+        )
 
-    assert hasattr(details_artifact.handle, "everstore_handle"), (
-        "Details artifact should have everstore_handle"
-    )
-    assert details_artifact.handle.everstore_handle is not None, (
-        "Details artifact everstore_handle should not be None"
-    )
-    assert details_artifact.handle.everstore_handle.handle is not None, (
-        "Everstore handle string should not be None"
-    )
-    assert details_artifact.annotations.type.test_details_artifact is not None, (
-        "Artifact should be of type test_details_artifact"
-    )
+        assert hasattr(details_artifact.handle, "everstore_handle"), (
+            "Details artifact should have everstore_handle"
+        )
+        assert details_artifact.handle.everstore_handle is not None, (
+            "Details artifact everstore_handle should not be None"
+        )
+        assert details_artifact.handle.everstore_handle.handle is not None, (
+            "Everstore handle string should not be None"
+        )
+        assert details_artifact.annotations.type.test_details_artifact is not None, (
+            "Artifact should be of type test_details_artifact"
+        )

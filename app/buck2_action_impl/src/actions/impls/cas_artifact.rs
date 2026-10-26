@@ -49,7 +49,7 @@ use buck2_execute::re::presence::NegativeCache;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
-use buck2_hash::BuckIndexSet;
+use buck2_hash::BuckMutInsertionSet;
 use dupe::Dupe;
 use jiff::SignedDuration;
 use jiff::Timestamp;
@@ -140,7 +140,7 @@ pub(crate) struct UnregisteredCasArtifactAction {
 impl UnregisteredAction for UnregisteredCasArtifactAction {
     fn register(
         self: Box<Self>,
-        outputs: BuckIndexSet<BuildArtifact>,
+        outputs: BuckMutInsertionSet<BuildArtifact>,
         _starlark_data: Option<OwnedFrozen<Value<'static>>>,
         _error_handler: Option<OwnedFrozen<Value<'static>>>,
     ) -> buck2_error::Result<Box<dyn Action>> {
@@ -156,7 +156,7 @@ struct CasArtifactAction {
 
 impl CasArtifactAction {
     fn new(
-        outputs: BuckIndexSet<BuildArtifact>,
+        outputs: BuckMutInsertionSet<BuildArtifact>,
         inner: UnregisteredCasArtifactAction,
     ) -> buck2_error::Result<Self> {
         let outputs_len = outputs.len();
@@ -349,11 +349,13 @@ impl CasArtifactAction {
             .fs()
             .buck_out_path_resolver()
             .resolve_scratch(&ctx.target().scratch_path())?;
-        // The scratch directory is written to below, so it is claimed like any other output.
-        let _scratch_lease = ctx
+        // The scratch directory is written to below, so it is claimed like any other output;
+        // what it holds is never an artifact.
+        let scratch_lease = ctx
             .materializer()
             .prepare_outputs(vec![scratch_rel.clone()])
             .await?;
+        scratch_lease.leave_untracked(&scratch_rel)?;
         let scratch_dir = ctx.fs().fs().resolve(&scratch_rel);
         let scratch_file =
             scratch_dir.join(ForwardRelativePath::unchecked_new("cas_artifact_copy"));

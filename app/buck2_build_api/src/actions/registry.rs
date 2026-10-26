@@ -33,15 +33,17 @@ use buck2_error::BuckErrorOptionContext;
 use buck2_error::internal_error;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_hash::BuckIndexSet;
+use buck2_hash::BuckMutInsertionMap;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_hash::BuckMutMap;
 use buck2_hash::BuckMutSet;
 use dupe::Dupe;
-use dupe::OptionDupedExt;
+use pagable::DeferredValue;
 use pagable::Pagable;
+use pagable::PagableDeserialize;
+use pagable::PagableDeserializer;
 use starlark::codemap::FileSpan;
-use starlark::collections::SmallMap;
-use starlark::collections::SmallSet;
+use starlark::pagable::DeferredFieldReadsEnabled;
 use starlark::values::Heap;
 use starlark::values::Trace;
 
@@ -57,11 +59,11 @@ use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 #[derive(Allocative, Trace)]
 pub struct ActionsRegistry<'v> {
     owner: DeferredHolderKey,
-    artifacts: SmallSet<DeclaredArtifact<'v>>,
+    artifacts: BuckMutInsertionSet<DeclaredArtifact<'v>>,
 
     // For a dynamic_output, maps the ActionKeys for the outputs that have been bound
     // to this dynamic_output to the DeclaredArtifact created in the dynamic_output.
-    declared_dynamic_outputs: SmallMap<ActionKey, DeclaredArtifact<'v>>,
+    declared_dynamic_outputs: BuckMutInsertionMap<ActionKey, DeclaredArtifact<'v>>,
     pending: Vec<ActionToBeRegistered>,
     pub execution_platform: ExecutionPlatformResolution,
     claimed_output_paths: DirectoryBuilder<Option<FileSpan>, NoDigest>,
@@ -74,7 +76,7 @@ impl<'v> ActionsRegistry<'v> {
         Self {
             owner,
             artifacts: Default::default(),
-            declared_dynamic_outputs: SmallMap::new(),
+            declared_dynamic_outputs: BuckMutInsertionMap::new(),
             pending: Default::default(),
             execution_platform,
             claimed_output_paths: DirectoryBuilder::empty_non_exhaustive(),
@@ -209,7 +211,7 @@ impl<'v> ActionsRegistry<'v> {
     pub fn register<A: UnregisteredAction + 'static>(
         &mut self,
         self_key: &DeferredHolderKey,
-        outputs: BuckIndexSet<OutputArtifact>,
+        outputs: BuckMutInsertionSet<OutputArtifact>,
         action: A,
     ) -> buck2_error::Result<ActionKey> {
         let key = ActionKey::new(
@@ -221,7 +223,7 @@ impl<'v> ActionsRegistry<'v> {
                 (self.declared_dynamic_outputs.len() + self.pending.len()).try_into()?,
             ),
         );
-        let mut bound_outputs = BuckIndexSet::with_capacity(outputs.len());
+        let mut bound_outputs = BuckMutInsertionSet::with_capacity(outputs.len());
         for output in outputs {
             let bound = output.bind(key.dupe())?.as_base_artifact().dupe();
             bound_outputs.insert(bound);
@@ -300,7 +302,7 @@ impl<'v> ActionsRegistry<'v> {
         })
     }
 
-    pub fn testing_artifacts(&self) -> &SmallSet<DeclaredArtifact<'v>> {
+    pub fn testing_artifacts(&self) -> &BuckMutInsertionSet<DeclaredArtifact<'v>> {
         &self.artifacts
     }
 
@@ -336,7 +338,37 @@ pub struct RecordedActions {
     ///
     /// ActionLookup::Deferred is only used for a dynamic_outputs "outputs" argument
     /// that has been re-bound to another dynamic_output.
-    actions: Vec<ActionLookup>,
+    actions: Vec<RecordedActionLookup>,
+}
+
+#[derive(Debug, Allocative, Pagable)]
+enum RecordedActionLookup {
+    Action(DeferredRegisteredAction),
+    Deferred(ActionKey),
+}
+
+/// The index remains resident without restoring the action payload behind every entry.
+#[derive(Debug, Clone, Allocative, pagable::PagableSerialize)]
+struct DeferredRegisteredAction(DeferredValue<Arc<RegisteredAction>>);
+
+impl<'de> PagableDeserialize<'de> for DeferredRegisteredAction {
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> pagable::Result<Self> {
+        let enabled = deserializer
+            .storage_context()
+            .get::<DeferredFieldReadsEnabled>()
+            .is_some();
+        Ok(Self(DeferredValue::deserialize_arc(deserializer, enabled)?))
+    }
+}
+
+impl DeferredRegisteredAction {
+    fn read(&self) -> buck2_error::Result<&Arc<RegisteredAction>> {
+        self.0.read().map_err(|error| {
+            buck2_error::conversion::from_any_with_tag(error, buck2_error::ErrorTag::Environment)
+        })
+    }
 }
 
 impl RecordedActions {
@@ -347,10 +379,13 @@ impl RecordedActions {
     }
 
     pub fn insert(&mut self, key: ActionKey, action: Arc<RegisteredAction>) {
-        self.insert_action_lookup(key, ActionLookup::Action(action));
+        self.insert_action_lookup(
+            key,
+            RecordedActionLookup::Action(DeferredRegisteredAction(DeferredValue::new(action))),
+        );
     }
 
-    fn insert_action_lookup(&mut self, key: ActionKey, action: ActionLookup) {
+    fn insert_action_lookup(&mut self, key: ActionKey, action: RecordedActionLookup) {
         assert!(self.actions.len() == key.action_index().0 as usize);
         self.actions.push(action);
     }
@@ -360,28 +395,42 @@ impl RecordedActions {
         // TODO(cjhopman): This doesn't seem to work the way it's intended. We won't ever hit the Some case because we insert all
         // the dynamic_output "outputs" first before inserting the actual registered actions.
         match self.actions.get(bound_to_key.action_index().0 as usize) {
-            Some(ActionLookup::Action(v)) => {
+            Some(RecordedActionLookup::Action(v)) => {
                 // indicates that a dynamic_output "outputs" has been bound to an action it created
-                self.insert_action_lookup(key, ActionLookup::Action(v.dupe()));
+                self.insert_action_lookup(key, RecordedActionLookup::Action(v.clone()));
             }
             _ => {
-                self.insert_action_lookup(key, ActionLookup::Deferred(bound_to_key));
+                self.insert_action_lookup(key, RecordedActionLookup::Deferred(bound_to_key));
             }
         }
     }
 
     pub fn lookup(&self, key: &ActionKey) -> buck2_error::Result<ActionLookup> {
-        self.actions
+        let entry = self
+            .actions
             .get(key.action_index().0 as usize)
-            .duped()
-            .with_internal_error(|| format!("action key missing in recorded actions {key}"))
+            .with_internal_error(|| format!("action key missing in recorded actions {key}"))?;
+        Ok(match entry {
+            RecordedActionLookup::Action(action) => ActionLookup::Action(action.read()?.dupe()),
+            RecordedActionLookup::Deferred(key) => ActionLookup::Deferred(key.dupe()),
+        })
     }
 
-    /// Iterates over the actions created in this analysis.
-    pub fn iter_actions(&self) -> impl Iterator<Item = &Arc<RegisteredAction>> + '_ {
-        self.actions.iter().filter_map(|v| match v {
-            ActionLookup::Action(a) => Some(a),
-            ActionLookup::Deferred(_) => None,
+    /// Counts registered actions without demanding their payloads.
+    pub fn num_actions(&self) -> usize {
+        self.actions
+            .iter()
+            .filter(|entry| matches!(entry, RecordedActionLookup::Action(_)))
+            .count()
+    }
+
+    /// Reads each registered action as it is visited; unresolved aliases are skipped.
+    pub fn iter_actions(
+        &self,
+    ) -> impl Iterator<Item = buck2_error::Result<&Arc<RegisteredAction>>> + '_ {
+        self.actions.iter().filter_map(|entry| match entry {
+            RecordedActionLookup::Action(action) => Some(action.read()),
+            RecordedActionLookup::Deferred(_) => None,
         })
     }
 }

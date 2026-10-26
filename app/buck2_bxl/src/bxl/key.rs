@@ -30,6 +30,7 @@ use buck2_data::ToProtoMessage;
 use buck2_data::action_key_owner::BaseDeferredKeyProto;
 use buck2_error::BuckErrorOptionContext;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_hash::BuckFixedInsertionMap;
 use buck2_interpreter::dice::starlark_provider::DynEvalKindKey;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_util::strong_hasher::Blake3StrongHasher;
@@ -37,7 +38,6 @@ use cmp_any::PartialEqAny;
 use dupe::Dupe;
 use pagable::Pagable;
 use pagable::pagable_typetag;
-use starlark_map::ordered_map::OrderedMap;
 
 use crate::bxl::starlark_defs::cli_args::CliArgValue;
 use crate::bxl::starlark_defs::context::actions::BxlExecutionResolution;
@@ -50,8 +50,6 @@ use crate::bxl::starlark_defs::context::actions::BxlExecutionResolution;
     Eq,
     Hash,
     PartialEq,
-    Ord,
-    PartialOrd,
     Allocative,
     strong_hash::StrongHash,
     Pagable
@@ -61,7 +59,7 @@ pub(crate) struct BxlKey(Arc<BxlKeyData>);
 impl BxlKey {
     pub(crate) fn new(
         spec: BxlFunctionLabel,
-        bxl_args: Arc<OrderedMap<String, CliArgValue>>,
+        bxl_args: Arc<BuckFixedInsertionMap<String, CliArgValue>>,
         force_print_stacktrace: bool,
         global_cfg_options: GlobalCfgOptions,
     ) -> Self {
@@ -77,7 +75,7 @@ impl BxlKey {
         &self.0.spec
     }
 
-    pub(crate) fn cli_args(&self) -> &Arc<OrderedMap<String, CliArgValue>> {
+    pub(crate) fn cli_args(&self) -> &Arc<BuckFixedInsertionMap<String, CliArgValue>> {
         &self.0.bxl_args
     }
 
@@ -128,8 +126,6 @@ impl BxlKey {
     Eq,
     Hash,
     PartialEq,
-    Ord,
-    PartialOrd,
     Allocative,
     strong_hash::StrongHash,
     Pagable
@@ -138,7 +134,9 @@ impl BxlKey {
 #[pagable_typetag(DynEvalKindKey)]
 struct BxlKeyData {
     spec: BxlFunctionLabel,
-    bxl_args: Arc<OrderedMap<String, CliArgValue>>,
+    /// In the order the bxl function declares its args, which is the field order of its
+    /// `cli_args` struct.
+    bxl_args: Arc<BuckFixedInsertionMap<String, CliArgValue>>,
     /// Overrides `fail_no_stacktrace` to print a stacktrace anyway. FIXME(JakobDegen): Might be
     /// better to put this on the `UserComputationData` instead, to keep this from invalidating the
     /// dice node. A bit hard to wire up though, so just leave it here for now.

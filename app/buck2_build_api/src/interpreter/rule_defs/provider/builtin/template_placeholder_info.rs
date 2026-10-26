@@ -12,9 +12,9 @@ use std::fmt::Debug;
 
 use allocative::Allocative;
 use buck2_build_api_derive::internal_provider;
+use buck2_hash::BuckMutInsertionMap;
 use either::Either;
 use starlark::any::ProvidesStaticType;
-use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::Freeze;
 use starlark::values::StarlarkPagable;
@@ -98,7 +98,7 @@ pub struct TemplatePlaceholderInfo<'v> {
 }
 
 impl<'v> TemplatePlaceholderInfo<'v> {
-    pub fn unkeyed_variables(&self) -> SmallMap<StringValue<'v>, CommandLineArg<'v>> {
+    pub fn unkeyed_variables(&self) -> BuckMutInsertionMap<StringValue<'v>, CommandLineArg<'v>> {
         DictRef::from_value(self.unkeyed_variables.get())
             .expect("should be a dict-like object")
             .iter()
@@ -113,9 +113,9 @@ impl<'v> TemplatePlaceholderInfo<'v> {
 
     pub fn keyed_variables(
         &self,
-    ) -> SmallMap<
+    ) -> BuckMutInsertionMap<
         StringValue<'v>,
-        Either<CommandLineArg<'v>, SmallMap<StringValue<'v>, CommandLineArg<'v>>>,
+        Either<CommandLineArg<'v>, BuckMutInsertionMap<StringValue<'v>, CommandLineArg<'v>>>,
     > {
         DictRef::from_value(self.keyed_variables.get())
             .expect("should be a dict-like object")

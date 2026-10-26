@@ -20,10 +20,12 @@ use std::time::Instant;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_build_api::actions::execute::dice_data::SetCommandExecutor;
+use buck2_build_api::actions::execute::dice_data::SetLowPassFilter;
 use buck2_build_api::actions::execute::dice_data::SetReClient;
 use buck2_build_api::actions::execute::dice_data::set_fallback_executor_config;
 use buck2_build_api::actions::impls::run_action_knobs::HasRunActionKnobs;
 use buck2_build_api::actions::impls::run_action_knobs::RunActionKnobs;
+use buck2_build_api::actions::impls::run_action_knobs::WriteActionCacheMode;
 use buck2_build_api::build::HasCreateUnhashedSymlinkLock;
 use buck2_build_api::build::detailed_aggregated_metrics::dice::HasDetailedAggregatedMetrics;
 use buck2_build_api::build::detailed_aggregated_metrics::dice::SetDetailedAggregatedMetricsEventsHolder;
@@ -45,8 +47,6 @@ use buck2_cli_proto::client_context::HostPlatformOverride;
 use buck2_cli_proto::client_context::PreemptibleWhen;
 use buck2_cli_proto::common_build_options::ExecutionStrategy;
 use buck2_cli_proto::config_override::ConfigType;
-use buck2_common::dice::cycles::CycleDetectorAdapter;
-use buck2_common::dice::cycles::PairDiceCycleDetector;
 use buck2_common::file_ops::io::initialize_read_dir_cache;
 use buck2_common::http::SetHttpClient;
 use buck2_common::io::trace::TracingIoProvider;
@@ -56,7 +56,7 @@ use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::dice::HasInjectedLegacyConfigs;
 use buck2_common::legacy_configs::file_ops::ConfigPath;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
-use buck2_configured::cycle::ConfiguredGraphCycleDescriptor;
+use buck2_core::buck2_env;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::facebook_only;
@@ -67,6 +67,7 @@ use buck2_core::pattern::pattern::InferTargetNames;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern::ParsedPatternWithModifiers;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
+use buck2_core::rollout_percentage::RolloutFraction;
 use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_core::soft_error;
 use buck2_directory::directory::dashmap_directory_interner::DashMapDirectoryInterner;
@@ -76,6 +77,7 @@ use buck2_events::metadata;
 use buck2_events::schedule_type::SandcastleScheduleType;
 use buck2_execute::dep_file_state::SetDepFileStore;
 use buck2_execute::execute::blocking::SetBlockingExecutor;
+use buck2_execute::execute::low_pass_filter::LowPassFilter;
 use buck2_execute::knobs::ExecutorGlobalKnobs;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::materialize::materializer::SetMaterializer;
@@ -88,7 +90,6 @@ use buck2_execute::re::manager::ReConnectionHandle;
 use buck2_execute::re::manager::ReConnectionObserver;
 use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
 use buck2_execute_impl::executors::worker::WorkerPool;
-use buck2_execute_impl::low_pass_filter::LowPassFilter;
 use buck2_execute_impl::materializers::deferred::clean_stale::CleanStaleConfig;
 use buck2_file_watcher::dep_files::SetDepFileCache;
 use buck2_file_watcher::file_watcher::SyncOutcome;
@@ -110,7 +111,6 @@ use buck2_interpreter::extra::xcode::XcodeVersionInfo;
 use buck2_interpreter::factory::SetProfileEventListener;
 use buck2_interpreter::prelude_path::prelude_path;
 use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
-use buck2_interpreter_for_build::interpreter::cycles::LoadCycleDescriptor;
 use buck2_interpreter_for_build::interpreter::interpreter_setup::setup_interpreter;
 use buck2_node::package_visibility::HasPackageVisibilityDefaultIntersection;
 use buck2_resource_control::HasResourceControl;
@@ -134,7 +134,6 @@ use dice::DiceComputations;
 use dice::DiceData;
 use dice::DiceTransactionUpdater;
 use dice::UserComputationData;
-use dice::UserCycleDetector;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use host_sharing::HostSharingBroker;
@@ -474,6 +473,8 @@ impl<'a> ServerCommandContext<'a> {
             default_allow_cache_upload: false,
             action_paths_interner: None,
             write_cas_probe: false,
+            write_action_cache: WriteActionCacheMode::Off,
+            write_action_cache_populate: RolloutFraction::none(),
         };
 
         let concurrency = self
@@ -724,13 +725,6 @@ struct DiceCommandUpdater<'s, 'a: 's> {
     interpreter_xcode_version: Option<XcodeVersionInfo>,
 }
 
-fn create_cycle_detector() -> Arc<dyn UserCycleDetector> {
-    Arc::new(PairDiceCycleDetector(
-        CycleDetectorAdapter::<LoadCycleDescriptor>::new(),
-        CycleDetectorAdapter::<ConfiguredGraphCycleDescriptor>::new(),
-    ))
-}
-
 #[async_trait]
 impl DiceUpdater for DiceCommandUpdater<'_, '_> {
     async fn update(
@@ -922,26 +916,19 @@ impl DiceCommandUpdater<'_, '_> {
         // doesn't *have* to be the same as the concurrency we give the actual executor, it's a
         // reasonable pick, because if we send more tasks than our concurrency limit allows, we
         // would expect to start losing out to RE in terms of perf.
-        let low_pass_filter = LowPassFilter::new(concurrency);
+        let low_pass_filter_capacity = buck2_env!(
+            "BUCK2_TEST_LOW_PASS_FILTER_CAPACITY",
+            type = usize,
+            applicability = testing
+        )?
+        .unwrap_or(concurrency);
+        let low_pass_filter = Arc::new(LowPassFilter::new(low_pass_filter_capacity));
 
         let mut data = DiceData::new();
         data.set(self.cmd_ctx.events().dupe());
         data.set(HasResourceControl(
             self.cmd_ctx.base_context.daemon.memory_tracker.is_some(),
         ));
-
-        let cycle_detector = if root_config
-            .parse::<bool>(BuckconfigKeyRef {
-                section: "build",
-                property: "lazy_cycle_detector",
-            })?
-            .unwrap_or(true)
-        {
-            Some(create_cycle_detector())
-        } else {
-            None
-        };
-        let has_cycle_detector = cycle_detector.is_some();
 
         let mut run_action_knobs = self.run_action_knobs.dupe();
         run_action_knobs.use_network_action_output_cache |= root_config
@@ -968,17 +955,43 @@ impl DiceCommandUpdater<'_, '_> {
         }
 
         // A write whose content the CAS already has is declared as a CAS download, so its bytes
-        // then exist nowhere but the CAS. That is only sound if the materializer would otherwise
-        // have kept them in memory rather than on disk; a hit would trade a write for a download
-        // otherwise.
-        run_action_knobs.write_cas_probe = root_config
-            .parse::<RolloutPercentage>(BuckconfigKeyRef {
+        // then exist nowhere but the CAS, and a copy from a source file follows the same
+        // decision: the same question about content produced here, and its source stays where
+        // it is either way. Under the deferred core that pays only when the content would not
+        // have gone to the output path right away (`defer_write_actions`); a hit trades a write
+        // for a download otherwise, and the knob decides. The disk-state core asks for the probe
+        // itself (`materializer_probes_writes`): it writes to the path at once, and most of a
+        // cold build's writes are never read from disk.
+        let repo = self.cmd_ctx.base_context.repo();
+        run_action_knobs.write_cas_probe = repo.materializer_probes_writes
+            || (root_config
+                .parse::<RolloutPercentage>(BuckconfigKeyRef {
+                    section: "buck2",
+                    property: "write_cas_probe",
+                })?
+                .unwrap_or_else(RolloutPercentage::never)
+                .roll()
+                && repo.materializer_defers_writes);
+        // The disk-state core asks for the write cache as it asks for the probe: a hit costs
+        // neither the rendering nor the probe's read of the content, and a miss is produced as a
+        // run action's output is, which is the only kind of write the core has. The config
+        // overrides either way, so a build can take the cache away from the core in a pinch.
+        run_action_knobs.write_action_cache = root_config
+            .parse::<WriteActionCacheMode>(BuckconfigKeyRef {
                 section: "buck2",
-                property: "write_cas_probe",
+                property: "write_action_cache",
             })?
-            .unwrap_or_else(RolloutPercentage::never)
-            .roll()
-            && self.cmd_ctx.base_context.repo().materializer_defers_writes;
+            .unwrap_or(if repo.materializer_probes_writes {
+                WriteActionCacheMode::Use
+            } else {
+                WriteActionCacheMode::Off
+            });
+        run_action_knobs.write_action_cache_populate = root_config
+            .parse::<RolloutFraction>(BuckconfigKeyRef {
+                section: "buck2",
+                property: "write_action_cache_populate",
+            })?
+            .unwrap_or_else(RolloutFraction::none);
 
         let output_trees_download_semaphore_size = root_config.parse::<u32>(BuckconfigKeyRef {
             section: "buck2",
@@ -1023,7 +1036,6 @@ impl DiceCommandUpdater<'_, '_> {
                     processed_requests: dice.core_state_processed_requests() as u64,
                 }),
             )?),
-            cycle_detector,
             activation_tracker: Some(self.build_signals.activation_tracker.dupe()),
             ..Default::default()
         };
@@ -1043,14 +1055,18 @@ impl DiceCommandUpdater<'_, '_> {
         // Computed from the root config here rather than read through dice by whoever needs it:
         // the override key is one dice deliberately cannot see (`CONFIGS_INVISIBLE_TO_DICE`, so
         // that changing it does not invalidate dice state), and this is where it is visible.
+        let cas_configured = self
+            .cmd_ctx
+            .base_context
+            .repo()
+            .re_client_manager
+            .cas_configured();
         let invocation_re_settings = InvocationReSettings {
             use_case: invocation_re_use_case(root_config)?,
-            cas_configured: self
-                .cmd_ctx
-                .base_context
-                .repo()
-                .re_client_manager
-                .cas_configured(),
+            cas_configured,
+            may_probe_cas: cas_configured
+                && self.execution_strategy != ExecutionStrategy::LocalOnly
+                && !self.skip_cache_read,
         };
 
         set_fallback_executor_config(&mut data.data, self.executor_config.dupe());
@@ -1061,6 +1077,7 @@ impl DiceCommandUpdater<'_, '_> {
         if let Some(v) = &self.profile_event_listener {
             SetProfileEventListener::set(&mut data, v.clone());
         }
+        data.set_low_pass_filter(low_pass_filter.dupe());
         data.set_command_executor(Box::new(CommandExecutorFactory::new(
             self.re_connection.dupe(),
             host_sharing_broker,
@@ -1129,7 +1146,6 @@ impl DiceCommandUpdater<'_, '_> {
 
         let clean_stale_config = CleanStaleConfig::from_buck_config(root_config)?;
         let mut tags = vec![
-            format!("lazy-cycle-detector:{}", has_cycle_detector),
             format!("miniperf:{}", enable_miniperf),
             format!("log-configured-graph-size:{}", log_configured_graph_size),
             "peak-load-metrics:v2".to_owned(),

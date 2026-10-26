@@ -28,7 +28,8 @@ use buck2_data::FileWatcherKind;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_events::dispatch::span_async;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::BuckFixedSortedMap;
+use buck2_hash::BuckMutInsertionSet;
 use dice::DiceTransactionUpdater;
 use dupe::Dupe;
 use notify::EventKind;
@@ -38,7 +39,6 @@ use notify::event::CreateKind;
 use notify::event::MetadataKind;
 use notify::event::ModifyKind;
 use notify::event::RemoveKind;
-use starlark_map::ordered_set::OrderedSet;
 use tracing::debug;
 use tracing::info;
 
@@ -50,9 +50,9 @@ use crate::stats::FileWatcherStats;
 fn ignore_event_kind(event_kind: EventKind) -> bool {
     match event_kind {
         EventKind::Access(_) => true,
-        EventKind::Modify(ModifyKind::Metadata(MetadataKind::Ownership))
-        | EventKind::Modify(ModifyKind::Metadata(MetadataKind::Permissions)) => false,
-        EventKind::Modify(ModifyKind::Metadata(_)) => true,
+        // Only the access time can change without anything buck2 reads changing. `chmod` arrives
+        // as `Metadata(Any)` from every notify backend, never as `Permissions`.
+        EventKind::Modify(ModifyKind::Metadata(MetadataKind::AccessTime)) => true,
         _ => false,
     }
 }
@@ -63,7 +63,7 @@ fn ignore_event_kind(event_kind: EventKind) -> bool {
 struct NotifyFileData {
     ignored: u64,
     #[allocative(skip)]
-    events: OrderedSet<(CellPath, EventKind)>,
+    events: BuckMutInsertionSet<(CellPath, EventKind)>,
     /// Whether file system changes were missed
     missed_events: bool,
 }
@@ -72,7 +72,7 @@ impl NotifyFileData {
     fn new() -> Self {
         Self {
             ignored: 0,
-            events: OrderedSet::new(),
+            events: BuckMutInsertionSet::new(),
             missed_events: false,
         }
     }
@@ -82,7 +82,7 @@ impl NotifyFileData {
         event: notify::Result<notify::Event>,
         root: &ProjectRoot,
         cells: &CellResolver,
-        ignore_specs: &StdBuckHashMap<CellName, IgnoreSet>,
+        ignore_specs: &BuckFixedSortedMap<CellName, IgnoreSet>,
     ) -> buck2_error::Result<()> {
         let event =
             event.map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::NotifyWatcher))?;
@@ -175,7 +175,7 @@ impl NotifyFileData {
                         );
                     }
                     CreateKind::Any | CreateKind::Other => {
-                        changed.file_added_or_removed(cell_path.clone());
+                        changed.file_added_or_removed(cell_path);
                         stats.add(
                             cell_path_str.clone(),
                             FileWatcherEventType::Create,
@@ -199,7 +199,7 @@ impl NotifyFileData {
                         );
                     }
                     ModifyKind::Name(_) | ModifyKind::Any | ModifyKind::Other => {
-                        changed.file_added_or_removed(cell_path.clone());
+                        changed.file_added_or_removed(cell_path);
                         stats.add(
                             cell_path_str.clone(),
                             FileWatcherEventType::Create,
@@ -241,7 +241,7 @@ impl NotifyFileData {
                         );
                     }
                     RemoveKind::Any | RemoveKind::Other => {
-                        changed.file_added_or_removed(cell_path.clone());
+                        changed.file_added_or_removed(cell_path);
                         stats.add(
                             cell_path_str.clone(),
                             FileWatcherEventType::Delete,
@@ -285,7 +285,7 @@ impl NotifyFileWatcher {
     pub fn new(
         root: &ProjectRoot,
         cells: CellResolver,
-        ignore_specs: StdBuckHashMap<CellName, IgnoreSet>,
+        ignore_specs: BuckFixedSortedMap<CellName, IgnoreSet>,
     ) -> buck2_error::Result<Self> {
         let data = Arc::new(Mutex::new(Ok(NotifyFileData::new())));
         let data2 = data.dupe();
@@ -372,7 +372,7 @@ mod tests {
     fn fixture() -> (
         ProjectRoot,
         CellResolver,
-        StdBuckHashMap<CellName, IgnoreSet>,
+        BuckFixedSortedMap<CellName, IgnoreSet>,
         tempfile::TempDir,
     ) {
         let cells = CellResolver::testing_with_name_and_path(
@@ -383,7 +383,7 @@ mod tests {
         let root_path =
             fs_util::canonicalize(AbsNormPathBuf::new(tempdir.path().to_owned()).unwrap()).unwrap();
         let root = ProjectRoot::new(root_path).unwrap();
-        (root, cells, StdBuckHashMap::default(), tempdir)
+        (root, cells, BuckFixedSortedMap::default(), tempdir)
     }
 
     /// The kernel-overflow signal can arrive as a rescan-flagged event with no paths attached
@@ -439,5 +439,24 @@ mod tests {
         );
         assert!(!stats.fresh_instance);
         assert!(stats.incomplete_events_reason.is_none());
+    }
+
+    /// `chmod` arrives from every notify backend as `Modify(Metadata(Any))` (inotify
+    /// `IN_ATTRIB`, FSEvents `INODE_META_MOD`, kqueue `NOTE_ATTRIB`); no backend emits
+    /// `Permissions`. Only access events and access-time changes can be dropped.
+    #[test]
+    fn test_metadata_any_is_not_ignored() {
+        assert!(!ignore_event_kind(EventKind::Modify(ModifyKind::Metadata(
+            MetadataKind::Any
+        ))));
+        assert!(!ignore_event_kind(EventKind::Modify(ModifyKind::Metadata(
+            MetadataKind::Permissions
+        ))));
+        assert!(ignore_event_kind(EventKind::Modify(ModifyKind::Metadata(
+            MetadataKind::AccessTime
+        ))));
+        assert!(ignore_event_kind(EventKind::Access(
+            notify::event::AccessKind::Read
+        )));
     }
 }

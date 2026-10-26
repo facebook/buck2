@@ -11,15 +11,20 @@
 # @oss-disable[end= ]: load("@prelude//apple/meta_only:xcassets_asset_symbol_spec.bzl", _MetaXcassetsAssetSymbolSpec = "MetaXcassetsAssetSymbolSpec")
 # @oss-disable[end= ]: load(
     # @oss-disable[end= ]: "@prelude//apple/meta_only:xcassets_asset_symbol_usage.bzl",
-    # @oss-disable[end= ]: _usage_providers_and_subtargets = "meta_xcassets_asset_symbol_usage_providers_and_subtargets",
+    # @oss-disable[end= ]: _usage_from_deps = "xcassets_asset_symbol_usage_from_deps",
+    # @oss-disable[end= ]: _usage_providers_and_subtargets = "xcassets_asset_symbol_usage_providers_and_subtargets",
 # @oss-disable[end= ]: )
 load("@prelude//cxx:cxx_sources.bzl", "CxxSrcWithFlags")
 
 # @oss-disable[end= ]: MetaXcassetsAssetSymbolSpec = _MetaXcassetsAssetSymbolSpec
 MetaXcassetsAssetSymbolSpec = record() # @oss-enable
 
-def meta_xcassets_asset_symbol_usage_providers_and_subtargets(
-    ctx: AnalysisContext, cxx_srcs: list[CxxSrcWithFlags], swift_srcs: list[CxxSrcWithFlags]
+def xcassets_asset_symbol_usage_providers_and_subtargets(
+    ctx: AnalysisContext, cxx_srcs: list[CxxSrcWithFlags], swift_srcs: list[CxxSrcWithFlags], always_provide: bool = False
 ) -> (list[Provider], dict[str, list[Provider]]):
-    # @oss-disable[end= ]: return _usage_providers_and_subtargets(ctx, cxx_srcs, swift_srcs)
+    # @oss-disable[end= ]: return _usage_providers_and_subtargets(ctx, cxx_srcs, swift_srcs, always_provide)
     return [], {} # @oss-enable
+
+def xcassets_asset_symbol_usage_from_deps(ctx: AnalysisContext, deps: list[Dependency]) -> list[Provider]:
+    # @oss-disable[end= ]: return _usage_from_deps(ctx, deps)
+    return [] # @oss-enable

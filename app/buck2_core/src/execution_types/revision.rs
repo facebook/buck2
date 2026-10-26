@@ -87,7 +87,8 @@ impl LazyVcsRevision {
     }
 }
 
-#[cfg(test)]
+// Runs `git` in temporary repositories, which Miri cannot.
+#[cfg(all(test, not(miri)))]
 mod tests {
     use super::*;
 

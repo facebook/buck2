@@ -22,13 +22,13 @@ import os
 import subprocess
 import sys
 import traceback
-from typing import List
+from typing import List, Optional
 
 EXIT_SUCCESS, EXIT_FAILURE = 0, 1
 
 
 # Filter opt related flags
-def _filter_flags(clang_flags: List[str]) -> List[str]:  # noqa: C901
+def _filter_flags(clang_flags: List[str]) -> Optional[List[str]]:  # noqa: C901
     # List of llvm flags to be ignored.
     # They either don't have an valid mapping or unused during opt.
     IGNORE_OPT_FLAGS = [
@@ -123,7 +123,7 @@ def _filter_flags(clang_flags: List[str]) -> List[str]:  # noqa: C901
                     f"error: cannot handle -Xlinker flags {clang_flags}, "
                     "-Xlinker should be followed by an option"
                 )
-                return EXIT_FAILURE
+                return None
             if clang_flags[index + 1] == "-mllvm":
                 # Validate -Xlinker
                 #          -mllvm
@@ -143,7 +143,7 @@ def _filter_flags(clang_flags: List[str]) -> List[str]:  # noqa: C901
                         f"error: cannot handle -Xlinker flags {clang_flags}, "
                         "-mllvm should be followed by an llvm option"
                     )
-                    return EXIT_FAILURE
+                    return None
                 opt_flags.extend(["-mllvm", clang_flags[index + 3]])
                 index += 3
             else:

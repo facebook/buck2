@@ -18,7 +18,6 @@ use buck2_interpreter::types::provider::callable::ValueAsProviderCallableLike;
 use buck2_interpreter::types::transition::transition_id_from_value;
 use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::attr_type::AttrType;
-use buck2_node::attrs::attr_type::any::AnyAttrType;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
@@ -80,23 +79,26 @@ impl AttributeExt for Attribute {
     ) -> buck2_error::Result<StarlarkAttribute> {
         let default = match default {
             None => None,
-            Some(x) => Some(Arc::new(
-                coercer
-                    .coerce(
-                        AttrIsConfigurable::Yes,
-                        &attr_coercion_context_for_bzl(eval)?,
-                        x,
-                    )
-                    .buck_error_context("Error coercing attribute default")?,
-            )),
+            Some(x) => {
+                let ctx = attr_coercion_context_for_bzl(eval)?;
+                let coerced = coercer
+                    .coerce(AttrIsConfigurable::Yes, &ctx, x)
+                    .buck_error_context("Error coercing attribute default")?;
+                Some((ctx.take_attr_arena_builder(), coerced))
+            }
         };
-        Ok(StarlarkAttribute::new(Attribute::new(
+        Ok(StarlarkAttribute::new(Attribute::new_from_builder(
             default, doc, coercer,
         )?))
     }
 }
 
-/// Coerction context for evaluating bzl files (attr default, transition rules).
+/// Coercion context for evaluating bzl files (attr default, transition rules).
+///
+/// Coercion through this context is unmemoized: a fresh context per call, no
+/// `MemoizedCoercionCtx`. TODO(jtbraun): wrapping it in a `MemoizedCoercionCtx`
+/// over the module's `InterpreterExtraValue` table would share coercions of
+/// repeated default values across a whole bzl evaluation.
 pub(crate) fn attr_coercion_context_for_bzl<'v>(
     eval: &Evaluator<'v, '_, '_>,
 ) -> buck2_error::Result<BuildAttrCoercionContext> {
@@ -231,12 +233,14 @@ fn attr_module(registry: &mut GlobalsBuilder) {
         let coerced_default = match default {
             None => None,
             Some(default) => {
-                Some(coercer.coerce(AttrIsConfigurable::Yes, &label_coercion_ctx, default)?)
+                let coerced =
+                    coercer.coerce(AttrIsConfigurable::Yes, &label_coercion_ctx, default)?;
+                Some((label_coercion_ctx.take_attr_arena_builder(), coerced))
             }
         };
 
-        Ok(StarlarkAttribute::new(Attribute::new(
-            coerced_default.map(Arc::new),
+        Ok(StarlarkAttribute::new(Attribute::new_from_builder(
+            coerced_default,
             doc,
             coercer,
         )?))
@@ -268,15 +272,15 @@ fn attr_module(registry: &mut GlobalsBuilder) {
 
         let coerced_default = match default {
             None => None,
-            Some(default) => Some(coercer.coerce(
-                AttrIsConfigurable::Yes,
-                &attr_coercion_context_for_bzl(eval)?,
-                default,
-            )?),
+            Some(default) => {
+                let ctx = attr_coercion_context_for_bzl(eval)?;
+                let coerced = coercer.coerce(AttrIsConfigurable::Yes, &ctx, default)?;
+                Some((ctx.take_attr_arena_builder(), coerced))
+            }
         };
 
-        Ok(StarlarkAttribute::new(Attribute::new(
-            coerced_default.map(Arc::new),
+        Ok(StarlarkAttribute::new(Attribute::new_from_builder(
+            coerced_default,
             doc,
             coercer,
         )?))
@@ -379,7 +383,7 @@ fn attr_module(registry: &mut GlobalsBuilder) {
         let coercer = AttrType::option(inner.coercer_for_inner()?);
         let attr = Attribute::attr(eval, default, doc, coercer)?;
 
-        match attr.default() {
+        match attr.attribute().default_as_ref() {
             Some(default) if !default.may_return_none() => Err(buck2_error::Error::from(
                 AttrError::OptionDefaultNone(default.as_display_no_ctx().to_string()),
             )
@@ -398,7 +402,7 @@ fn attr_module(registry: &mut GlobalsBuilder) {
         #[starlark(require = pos)] inner: &StarlarkAttribute,
         #[starlark(require = named, default = "")] doc: &str,
     ) -> starlark::Result<StarlarkAttribute> {
-        let Some(default) = inner.default().duped() else {
+        let Some(default) = inner.attribute().default_as_owned().duped() else {
             return Err(buck2_error::Error::from(AttrError::DefaultOnlyMustHaveDefault).into());
         };
         Ok(StarlarkAttribute::new(Attribute::new_default_only(
@@ -585,7 +589,7 @@ fn attr_module(registry: &mut GlobalsBuilder) {
         let coercer = AttrType::list(element_type.dupe());
 
         Ok(StarlarkAttribute::new(Attribute::new(
-            Some(Arc::new(AnyAttrType::empty_list())),
+            Some(|b| b.encode_list(&[])),
             doc,
             coercer,
         )?))

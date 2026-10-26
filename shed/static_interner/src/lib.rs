@@ -115,10 +115,21 @@ impl<T: 'static> Intern<T> {
         &self.pointer.data
     }
 
-    /// SAFETY: This may only be called with pointers returned from [`Self::deref_static`]
+    /// The interned value as a pointer, for storing an `Intern` as one. Recover the `Intern`
+    /// with [`Self::from_ptr`]. A pointer taken from [`Self::deref_static`] would not do for
+    /// that: it has provenance over the `T` alone, not the allocation around it.
+    #[inline]
+    pub const fn as_ptr(&self) -> *const T {
+        &raw const self.pointer.data
+    }
+
+    /// # Safety
+    ///
+    /// `p` must have been returned by [`Self::as_ptr`].
     #[inline]
     pub const unsafe fn from_ptr(p: *const T) -> Self {
-        // SAFETY: `p` is a pointer to the `data` field of an `InternedData<T>`
+        // SAFETY: `p` points at the `data` field of an `InternedData<T>`, with provenance over
+        // the whole `InternedData<T>`.
         unsafe {
             let p = p
                 .cast::<u8>()
@@ -409,8 +420,9 @@ mod tests {
     // Make sure things work with reallocation.
     #[test]
     fn test_resize() {
+        let n = if cfg!(miri) { 2000 } else { 100000 };
         let mut interned_strings = Vec::new();
-        for i in 0..100000 {
+        for i in 0..n {
             let s = i.to_string();
             let interned = STRING_INTERNER.intern(s.clone());
             assert_eq!(&s, &*interned.0);
@@ -557,7 +569,6 @@ mod tests {
     #[test]
     fn test_pointer_roundtrip() {
         let one = TEST_POINTER_INTERNER.intern("one");
-        let one_p = one.deref_static() as *const _;
-        assert_eq!(one, unsafe { Intern::from_ptr(one_p) });
+        assert_eq!(one, unsafe { Intern::from_ptr(one.as_ptr()) });
     }
 }

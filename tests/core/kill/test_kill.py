@@ -12,7 +12,7 @@ import platform
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test, env
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase, env
 
 
 _BUCK_TEST_DECORATOR = buck_test(
@@ -33,23 +33,23 @@ _BUCK_TEST_DECORATOR = buck_test(
 )
 
 
-@_BUCK_TEST_DECORATOR
-@env("BUCK2_TEST_FAIL_BUCKD_AUTH", "true")
-async def test_kill_error(buck: Buck) -> None:
-    # Performing a build should fail, since we will not be able to authenticate to the
-    # buck daemon
-    await expect_failure(buck.build("//:abc"), stderr_regex="injected auth error")
+class KillTest(BuckTestCase):
+    @_BUCK_TEST_DECORATOR
+    @env("BUCK2_TEST_FAIL_BUCKD_AUTH", "true")
+    async def test_kill_error(self, buck: Buck) -> None:
+        # Performing a build should fail, since we will not be able to authenticate to the
+        # buck daemon
+        await expect_failure(buck.build("//:abc"), stderr_regex="injected auth error")
 
-    # Kill should succeed, even though we cannot authenticate to the daemon
-    await buck.kill()
+        # Kill should succeed, even though we cannot authenticate to the daemon
+        await buck.kill()
 
+    @_BUCK_TEST_DECORATOR
+    @env("BUCK2_TEST_FAIL_BUCKD_AUTH", "true")
+    async def test_clean_error(self, buck: Buck) -> None:
+        # Performing a build should fail, since we will not be able to authenticate to the
+        # buck daemon
+        await expect_failure(buck.build("//:abc"), stderr_regex="injected auth error")
 
-@_BUCK_TEST_DECORATOR
-@env("BUCK2_TEST_FAIL_BUCKD_AUTH", "true")
-async def test_clean_error(buck: Buck) -> None:
-    # Performing a build should fail, since we will not be able to authenticate to the
-    # buck daemon
-    await expect_failure(buck.build("//:abc"), stderr_regex="injected auth error")
-
-    # Clean should succeed, even though we cannot authenticate to the daemon
-    await buck.clean()
+        # Clean should succeed, even though we cannot authenticate to the daemon
+        await buck.clean()

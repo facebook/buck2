@@ -12,7 +12,7 @@ use std::fmt;
 
 use allocative::Allocative;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_hash::BuckIndexSet;
+use buck2_hash::BuckMutInsertionSet;
 use derive_more::Display;
 use display_container::fmt_container;
 use fancy_regex::Regex;
@@ -27,9 +27,17 @@ use crate::query::syntax::simple::eval::set::TargetSet;
 #[derive(Hash, Eq, PartialEq, Debug, Clone, Display, Allocative, Pagable)]
 pub struct FileNode(pub CellPath);
 
-#[derive(Debug, Eq, PartialEq, Clone, Allocative, Pagable)]
+/// Iterates in insertion order; `==` is set equality, so the order the files arrived in does not
+/// matter.
+#[derive(Debug, Eq, Clone, Allocative, Pagable)]
 pub struct FileSet {
-    files: BuckIndexSet<FileNode>,
+    files: BuckMutInsertionSet<FileNode>,
+}
+
+impl PartialEq for FileSet {
+    fn eq(&self, other: &Self) -> bool {
+        self.files.eq_unordered(&other.files)
+    }
 }
 
 impl fmt::Display for FileSet {
@@ -39,7 +47,7 @@ impl fmt::Display for FileSet {
 }
 
 impl FileSet {
-    pub fn new(files: BuckIndexSet<FileNode>) -> Self {
+    pub fn new(files: BuckMutInsertionSet<FileNode>) -> Self {
         Self { files }
     }
 
@@ -52,7 +60,7 @@ impl FileSet {
         &self,
         filter: F,
     ) -> buck2_error::Result<Self> {
-        let mut files = BuckIndexSet::default();
+        let mut files = BuckMutInsertionSet::default();
         for file in self.files.iter() {
             if filter(file)? {
                 files.insert(file.clone());
@@ -114,7 +122,33 @@ impl FileSet {
 impl FromIterator<FileNode> for FileSet {
     fn from_iter<T: IntoIterator<Item = FileNode>>(iter: T) -> FileSet {
         FileSet {
-            files: BuckIndexSet::from_iter(iter),
+            files: BuckMutInsertionSet::from_iter(iter),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use buck2_core::cells::cell_path::CellPath;
+    use buck2_core::cells::name::CellName;
+    use buck2_core::cells::paths::CellRelativePath;
+
+    use super::*;
+
+    fn file(name: &str) -> FileNode {
+        FileNode(CellPath::new(
+            CellName::testing_new("root"),
+            CellRelativePath::unchecked_new(name),
+        ))
+    }
+
+    #[test]
+    fn equality_ignores_insertion_order() {
+        let ab: FileSet = [file("a"), file("b")].into_iter().collect();
+        let ba: FileSet = [file("b"), file("a")].into_iter().collect();
+        let abc: FileSet = [file("a"), file("b"), file("c")].into_iter().collect();
+        assert_eq!(ab, ba);
+        assert_ne!(ab, abc);
+        assert!(ab.iter().map(|p| p.to_string()).eq(["root//a", "root//b"]));
     }
 }

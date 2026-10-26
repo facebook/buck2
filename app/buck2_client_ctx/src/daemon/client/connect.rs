@@ -21,6 +21,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 use std::time::Instant;
 
+use buck2_agent_interactive::Decision;
 use buck2_cli_proto::DaemonProcessInfo;
 use buck2_cli_proto::daemon_api_client::DaemonApiClient;
 use buck2_common::buckd_connection::BUCK_AUTH_TOKEN_HEADER;
@@ -44,6 +45,7 @@ use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_resource_control::spawn_daemon::create_daemon_spawn_command;
 use buck2_util::truncate::truncate;
+use buck2_wrapper_common::invocation_id::TraceId;
 use buck2_wrapper_common::kill::process_exists;
 use buck2_wrapper_common::pid::Pid;
 use dupe::Dupe;
@@ -74,6 +76,7 @@ use crate::immediate_config::ImmediateConfigContext;
 use crate::startup_deadline::StartupDeadline;
 use crate::subscribers::classify_server_stderr::classify_server_stderr;
 use crate::subscribers::stdout_stderr_forwarder::StdoutStderrForwarder;
+use crate::subscribers::system_warning::is_disk_near_full;
 
 #[cfg(all(fbcode_build, target_os = "linux"))]
 mod linux_unsandbox;
@@ -252,6 +255,8 @@ pub enum BuckdConnectOptions {
 pub struct BuckdConnectDaemonOptions {
     pub(crate) constraints: DaemonConstraintsRequest,
     pub(crate) daemon_startup_mode: DaemonStartupMode,
+    pub(crate) new_isolation_dir_advice: Decision,
+    pub(crate) trace_id: TraceId,
     /// Start the daemon by asking the installed Buck wrapper to re-exec it
     /// outside of the AI sandbox.
     ///
@@ -696,6 +701,10 @@ impl BootstrapBuckdClient {
             };
 
             if let Err(e) = res {
+                // Advice is an intentional rejection, not a failed daemon startup.
+                if e.has_tag(ErrorTag::AgentAdviceBlocked) {
+                    return Err(e);
+                }
                 Err(daemon_connect_error(e, paths)
                     .await
                     .tag([ErrorTag::DaemonConnect]))
@@ -761,7 +770,9 @@ pub async fn connect_buckd(
     match BootstrapBuckdClient::connect(paths, options, events_ctx).await {
         Ok(client) => Ok(client.to_connector()),
         Err(e) => {
-            events_ctx.handle_daemon_connection_failure();
+            if !e.has_tag(ErrorTag::AgentAdviceBlocked) {
+                events_ctx.handle_daemon_connection_failure();
+            }
             Err(e)
         }
     }
@@ -910,6 +921,17 @@ async fn establish_connection_inner(
 
                         // The recorded daemon is unusable either way, so start a new one rather
                         // than leaving buckd.info in place for the next invocation to trip over.
+                        //
+                        // This kill can fail with EPERM when the recorded pid belongs to another
+                        // uid, or was recorded inside a pid namespace and resolves to an unrelated
+                        // host process. A privileged helper (e.g. a verb on the setuid Buck
+                        // wrapper) could kill such daemons from the host side, but exposing "kill
+                        // a process" through a setuid binary is severe-incident territory: it
+                        // would have to verify on the host that the target really is a Buck2
+                        // daemon for this project root and isolation dir (unit name, /proc cwd,
+                        // cmdline) before signalling, and any gap in that check is a
+                        // cross-user kill primitive. Until that is designed carefully, we accept
+                        // that these daemons cannot be removed from here.
                         if let Err(error) = hard_kill_until(&buckd_info.info, &deadline).await {
                             events_ctx
                                 .eprintln(&format!(
@@ -924,11 +946,19 @@ async fn establish_connection_inner(
                 }
             }
             Ok(None) => {
+                // Check under the lifecycle lock after retrying the connection: another
+                // invocation may have initialized this isolation directory while we waited.
+                events_ctx
+                    .handle_agent_advice(options.trace_id.dupe(), options.new_isolation_dir_advice)
+                    .await?;
                 events_ctx.eprintln("Starting new buck2 daemon...").await?;
 
                 buck2_data::DaemonWasStartedReason::NoBuckdInfo
             }
             Err(e) => {
+                events_ctx
+                    .handle_agent_advice(options.trace_id.dupe(), options.new_isolation_dir_advice)
+                    .await?;
                 events_ctx
                     .eprintln(&format!(
                         "Could not load buckd.info: {e}, starting new buck2 daemon..."
@@ -1296,7 +1326,10 @@ async fn daemon_connect_error(
             ))
             .tag([ErrorTag::DaemonConnect]);
 
-        classify_server_stderr(error, &stderr)
+        let disk_near_full = fs_util::disk_space_stats(paths.buck_out_path())
+            .is_ok_and(|stats| is_disk_near_full(stats.free_space, stats.total_space));
+
+        classify_server_stderr(error, &stderr, disk_near_full)
     };
     let delete_command = if cfg!(windows) {
         "rmdir /s /q %USERPROFILE%\\.buck\\buckd"
@@ -1603,6 +1636,7 @@ mod tests {
             endpoint: "tcp:44805".to_owned(),
             version: "92ca877522e06be7580a7ea2d622a3c06712322a".to_owned(),
             auth_token: "redacted".to_owned(),
+            pid_start_time: 0,
         };
         let daemon_dir = DaemonDir {
             path: AbsNormPathBuf::new("/tmp/buckd".into()).expect("daemon dir should be valid"),
@@ -1629,6 +1663,7 @@ mod tests {
             endpoint: "tcp:44805".to_owned(),
             version: "92ca877522e06be7580a7ea2d622a3c06712322a".to_owned(),
             auth_token: "redacted".to_owned(),
+            pid_start_time: 0,
         };
         let daemon_dir = DaemonDir {
             path: AbsNormPathBuf::new("/tmp/buckd".into()).expect("daemon dir should be valid"),

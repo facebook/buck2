@@ -10,19 +10,19 @@
 
 use allocative::Allocative;
 use buck2_core::package::package_relative_path::PackageRelativePath;
+use buck2_hash::BuckFixedSortedSet;
 use buck2_util::arc_str::ArcS;
 use dupe::Dupe;
 use pagable::Pagable;
 use serde::Deserialize;
 use serde::Serialize;
-use starlark_map::sorted_set::SortedSet;
 
 use crate::package_listing::binary_search::binary_search_by;
 
 #[derive(Eq, PartialEq, Debug, Allocative, Serialize, Deserialize, Pagable)]
 pub struct PackageFileListing {
     /// This is kept sorted for efficient prefix matching.
-    pub(crate) files: SortedSet<ArcS<PackageRelativePath>>,
+    pub(crate) files: BuckFixedSortedSet<ArcS<PackageRelativePath>>,
 }
 
 impl PackageFileListing {
@@ -91,7 +91,7 @@ impl PackageFileListing {
 
 pub mod testing {
     use buck2_core::package::package_relative_path::PackageRelativePath;
-    use starlark_map::sorted_set::SortedSet;
+    use buck2_hash::BuckFixedSortedSet;
 
     use crate::package_listing::file_listing::PackageFileListing;
 
@@ -101,7 +101,7 @@ pub mod testing {
                 .iter()
                 .map(|f| PackageRelativePath::new(*f).unwrap().to_arc());
             PackageFileListing {
-                files: SortedSet::from_iter(files),
+                files: BuckFixedSortedSet::from_iter(files),
             }
         }
     }

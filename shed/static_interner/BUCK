@@ -40,6 +40,7 @@ rust_library(
         "dupe",
         "strong_hash",
     ],
+    unittests_miri = True,
     deps = [
         "fbsource//third-party/rust:equivalent",
         "//buck2/allocative/allocative:allocative",

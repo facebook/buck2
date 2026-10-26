@@ -602,7 +602,7 @@ impl<'a, 'v, 'f> GlobalTypesBuilder<'a, 'v, 'f> {
             TypeExprUnpackP::Path(path) => self.path_ty(path),
             TypeExprUnpackP::Index(a, i) => {
                 let i = self.from_type_expr_impl(i)?;
-                match self.expr_ident(a)?.value {
+                match self.eval_path(a)? {
                     Some(a) => {
                         // Built-in generic types (list, set) are special-cased because they
                         // are functions, not types, so they lack eval_type(). Their

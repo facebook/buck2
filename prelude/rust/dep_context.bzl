@@ -20,4 +20,6 @@ DepCollectionContext = record(
     explicit_sysroot_deps = field(RustExplicitSysrootDeps | None),
     # Only needed if `advanced_unstable_linking` is set
     panic_runtime = field(PanicRuntime),
+    # From the toolchain, if available
+    linker_deps = field(list[Dependency], []),
 )

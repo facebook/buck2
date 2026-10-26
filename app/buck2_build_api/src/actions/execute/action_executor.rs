@@ -30,6 +30,9 @@ use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_data::SchedulingMode;
+use buck2_error::BuckErrorContext;
+use buck2_error::ErrorTag;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::artifact_value::ArtifactValue;
@@ -48,6 +51,7 @@ use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::execute::command_executor::CommandExecutor;
 use buck2_execute::execute::dep_file_digest::DepFileDigest;
 use buck2_execute::execute::kind::CommandExecutionKind;
+use buck2_execute::execute::low_pass_filter::LowPassFilter;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::prepared::PreparedAction;
 use buck2_execute::execute::prepared::PreparedCommand;
@@ -56,6 +60,7 @@ use buck2_execute::execute::request::ExecutorPreference;
 use buck2_execute::execute::result::CommandExecutionReport;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::execute::result::CommandExecutionStatus;
+use buck2_execute::execute::write_action_cache::WriteActionCache;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::output_size::OutputCountAndBytes;
@@ -68,11 +73,11 @@ use buck2_file_watcher::dep_files::DepFileCache;
 use buck2_file_watcher::dep_files::HasDepFileCache;
 use buck2_file_watcher::mergebase::GetMergebase;
 use buck2_file_watcher::mergebase::Mergebase;
-use buck2_hash::BuckIndexMap;
-use buck2_hash::BuckIndexSet;
+use buck2_hash::BuckMutInsertionMap;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_hash::BuckMutMap;
 use buck2_hash::BuckMutSet;
-use buck2_hash::buck_indexmap;
+use buck2_hash::buck_mut_insertion_map;
 use buck2_http::HttpClient;
 use buck2_util::strong_hasher::Blake3StrongHasher;
 use derive_more::Display;
@@ -81,7 +86,16 @@ use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use either::Either;
 use itertools::Itertools;
+use mini_vec::MiniBoxSlice;
+use pagable::DeferredValue;
+use pagable::PagableDeserialize;
+use pagable::PagableDeserializer;
+use pagable::PagableSerialize;
+use pagable::PagableSerializer;
+use ref_cast::RefCastCustom;
+use ref_cast::ref_cast_custom;
 use remote_execution::TActionResult2;
+use starlark::pagable::DeferredFieldReadsEnabled;
 use strong_hash::StrongHash;
 
 use crate::actions::ActionExecutionCtx;
@@ -93,14 +107,96 @@ use crate::actions::execute::dice_data::CommandExecutorResponse;
 use crate::actions::execute::dice_data::DiceHasCommandExecutor;
 use crate::actions::execute::dice_data::GetInvalidationTrackingConfig;
 use crate::actions::execute::dice_data::GetReClient;
+use crate::actions::execute::dice_data::HasLowPassFilter;
 use crate::actions::impls::run_action_knobs::HasRunActionKnobs;
 use crate::actions::impls::run_action_knobs::RunActionKnobs;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
 
 /// This is the result of the action as exposed to other things in the dice computation.
-#[derive(Clone, Dupe, Debug, PartialEq, Eq, Allocative, pagable::Pagable)]
+#[derive(
+    Clone,
+    Dupe,
+    Debug,
+    PartialEq,
+    Eq,
+    Allocative,
+    pagable::Pagable,
+    RefCastCustom
+)]
+#[repr(transparent)]
 pub struct ActionOutputs(Arc<ActionOutputsData>);
+
+/// The DICE value exposes equality without demanding large output graphs. Actual
+/// artifact consumers use `outputs`, which can fail when paged data is unreadable.
+#[derive(Debug, Allocative)]
+pub struct DiceActionOutputs(DeferredValue<Arc<ActionOutputsData>, [u8; 32]>);
+
+// Computed values must stay as compact as Result<ActionOutputs>; only restored
+// values allocate a deferred cell and retain a separate equality fingerprint.
+buck2_util::size_assert::words_of_type!(buck2_error::Result<DiceActionOutputs>, 2);
+
+impl From<ActionOutputs> for DiceActionOutputs {
+    fn from(outputs: ActionOutputs) -> Self {
+        Self(DeferredValue::new(outputs.0))
+    }
+}
+
+impl DiceActionOutputs {
+    pub(crate) fn fingerprint(&self) -> &[u8; 32] {
+        self.0
+            .metadata_or_else(|outputs| outputs.fingerprint.as_bytes())
+    }
+
+    /// Resolve the stored output map once; equality checks do not call this.
+    pub fn outputs(&self) -> buck2_error::Result<&ActionOutputs> {
+        self.0
+            .read()
+            .map(ActionOutputs::ref_cast)
+            .map_err(|error| from_any_with_tag(error, ErrorTag::Environment))
+            .buck_error_context("Failed to restore action outputs")
+    }
+}
+
+impl PagableSerialize for DiceActionOutputs {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
+        let outputs = self.0.read()?;
+        // Bounded leaf results are cheaper to restore directly: a deferred
+        // cell and a second blocking read otherwise cost more than they save.
+        // Even one directory or symlink dependency can own an unbounded tree.
+        let defer = match &outputs.outputs {
+            ActionOutputsMap::Small(entries) => entries
+                .iter()
+                .any(|(_, value)| value.is_dir() || value.deps().is_some()),
+            ActionOutputsMap::Large(_) => true,
+        };
+        defer.pagable_serialize(serializer)?;
+        if defer {
+            outputs.fingerprint.pagable_serialize(serializer)?;
+        }
+        outputs.pagable_serialize(serializer)
+    }
+}
+
+impl<'de> PagableDeserialize<'de> for DiceActionOutputs {
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> pagable::Result<Self> {
+        if !bool::pagable_deserialize(deserializer)? {
+            return Ok(ActionOutputs::pagable_deserialize(deserializer)?.into());
+        }
+        let fingerprint = blake3::Hash::pagable_deserialize(deserializer)?;
+        let enabled = deserializer
+            .storage_context()
+            .get::<DeferredFieldReadsEnabled>()
+            .is_some();
+        Ok(Self(DeferredValue::deserialize_arc_with_metadata(
+            deserializer,
+            enabled,
+            *fingerprint.as_bytes(),
+        )?))
+    }
+}
 
 impl OutputSize for ActionOutputs {
     fn calc_output_count_and_bytes(&self, include_symlinks: bool) -> OutputCountAndBytes {
@@ -120,12 +216,72 @@ impl OutputSize for ActionOutputs {
 
 #[derive(Debug, Allocative, pagable::Pagable)]
 struct ActionOutputsData {
-    outputs: BuckIndexMap<BuildArtifactPath, ArtifactValue>,
+    outputs: ActionOutputsMap,
     /// Strong hash of `outputs`, computed at construction; see `PartialEq`
     /// below.
     // This is OK to skip because the hash is stored inline.
     #[allocative(skip)]
     fingerprint: blake3::Hash,
+}
+
+/// Most actions have a handful of outputs, where an exact-sized slice with
+/// linear lookups beats the index map's two allocations plus bucket slack.
+/// Big producers (dist-ThinLTO index actions emit tens of thousands) keep
+/// the map so `get` stays O(1). Both preserve insertion order, which the
+/// fingerprint depends on.
+#[derive(Debug, Allocative, pagable::Pagable)]
+enum ActionOutputsMap {
+    Small(MiniBoxSlice<(BuildArtifactPath, ArtifactValue)>),
+    Large(BuckMutInsertionMap<BuildArtifactPath, ArtifactValue>),
+}
+
+// One of these is retained per executed action; with the 32-byte fingerprint
+// and the Arc header this is the 64-byte jemalloc bin.
+buck2_util::size_assert::words_of_type!(ActionOutputsMap, 2);
+
+/// At 8 entries a linear scan is still cheap next to the map's hashing,
+/// and beyond that the allocation-shape win stops mattering.
+const SMALL_OUTPUTS_MAX: usize = 8;
+
+impl ActionOutputsMap {
+    fn new(outputs: BuckMutInsertionMap<BuildArtifactPath, ArtifactValue>) -> Self {
+        if outputs.len() <= SMALL_OUTPUTS_MAX {
+            ActionOutputsMap::Small(MiniBoxSlice::from_iter(outputs))
+        } else {
+            ActionOutputsMap::Large(outputs)
+        }
+    }
+
+    fn get(&self, artifact: &BuildArtifactPath) -> Option<&ArtifactValue> {
+        match self {
+            ActionOutputsMap::Small(entries) => entries
+                .iter()
+                .find(|(path, _)| path == artifact)
+                .map(|(_, value)| value),
+            ActionOutputsMap::Large(map) => map.get(artifact),
+        }
+    }
+
+    fn contains_key(&self, artifact: &BuildArtifactPath) -> bool {
+        self.get(artifact).is_some()
+    }
+
+    fn iter(&self) -> impl Iterator<Item = (&BuildArtifactPath, &ArtifactValue)> {
+        match self {
+            ActionOutputsMap::Small(entries) => {
+                Either::Left(entries.iter().map(|(path, value)| (path, value)))
+            }
+            ActionOutputsMap::Large(map) => Either::Right(map.iter()),
+        }
+    }
+
+    fn keys(&self) -> impl Iterator<Item = &BuildArtifactPath> {
+        self.iter().map(|(path, _)| path)
+    }
+
+    fn values(&self) -> impl Iterator<Item = &ArtifactValue> {
+        self.iter().map(|(_, value)| value)
+    }
 }
 
 /// Equality compares the fingerprint, making it O(1). That matters because
@@ -265,7 +421,10 @@ impl ActionExecutionKind {
 }
 
 impl ActionOutputs {
-    pub fn new(outputs: BuckIndexMap<BuildArtifactPath, ArtifactValue>) -> Self {
+    #[ref_cast_custom]
+    fn ref_cast(outputs: &Arc<ActionOutputsData>) -> &Self;
+
+    pub fn new(outputs: BuckMutInsertionMap<BuildArtifactPath, ArtifactValue>) -> Self {
         let mut hasher = Blake3StrongHasher::new();
         outputs.len().strong_hash(&mut hasher);
         for (path, value) in &outputs {
@@ -274,13 +433,13 @@ impl ActionOutputs {
         }
         let fingerprint = hasher.finalize();
         Self(Arc::new(ActionOutputsData {
-            outputs,
+            outputs: ActionOutputsMap::new(outputs),
             fingerprint,
         }))
     }
 
     pub fn from_single(artifact: BuildArtifactPath, value: ArtifactValue) -> Self {
-        Self::new(buck_indexmap! {artifact => value})
+        Self::new(buck_mut_insertion_map! {artifact => value})
     }
 
     pub fn get(&self, artifact: &BuildArtifactPath) -> Option<&ArtifactValue> {
@@ -327,12 +486,14 @@ impl<'d> HasActionExecutor<'d> for DiceComputations<'d> {
             remote_dep_file_cache_checker,
             cache_uploader,
             output_trees_download_config,
+            write_action_cache,
         } = self.get_command_executor_from_dice(artifact_fs, executor_config)?;
         let blocking_executor = self.get_blocking_executor();
         let materializer = self.per_transaction_data().get_materializer();
         let events = self.per_transaction_data().get_dispatcher();
         let re_client = self.per_transaction_data().get_re_client();
         let run_action_knobs = self.per_transaction_data().get_run_action_knobs();
+        let low_pass_filter = self.per_transaction_data().get_low_pass_filter();
         let dep_file_cache = self.per_transaction_data().get_dep_file_cache();
         let dep_file_store = self.per_transaction_data().get_dep_file_store();
         let io_provider = self.global_data().get_io_provider();
@@ -347,6 +508,7 @@ impl<'d> HasActionExecutor<'d> for DiceComputations<'d> {
                 action_cache_checker,
                 remote_dep_file_cache_checker,
                 cache_uploader,
+                write_action_cache,
                 artifact_fs.dupe(),
                 executor_config.options,
                 platform,
@@ -357,6 +519,7 @@ impl<'d> HasActionExecutor<'d> for DiceComputations<'d> {
             re_client,
             digest_config,
             run_action_knobs,
+            low_pass_filter,
             dep_file_cache,
             dep_file_store,
             io_provider,
@@ -377,6 +540,7 @@ pub struct BuckActionExecutor<'d> {
     re_client: &'d UnconfiguredRemoteExecutionClient,
     digest_config: DigestConfig,
     run_action_knobs: &'d RunActionKnobs,
+    low_pass_filter: &'d LowPassFilter,
     dep_file_cache: &'d dyn DepFileCache,
     dep_file_store: Option<&'d dyn DepFileStore>,
     io_provider: &'d dyn IoProvider,
@@ -396,6 +560,7 @@ impl<'d> BuckActionExecutor<'d> {
         re_client: &'d UnconfiguredRemoteExecutionClient,
         digest_config: DigestConfig,
         run_action_knobs: &'d RunActionKnobs,
+        low_pass_filter: &'d LowPassFilter,
         dep_file_cache: &'d dyn DepFileCache,
         dep_file_store: Option<&'d dyn DepFileStore>,
         io_provider: &'d dyn IoProvider,
@@ -413,6 +578,7 @@ impl<'d> BuckActionExecutor<'d> {
             re_client,
             digest_config,
             run_action_knobs,
+            low_pass_filter,
             dep_file_cache,
             dep_file_store,
             io_provider,
@@ -428,7 +594,7 @@ impl<'d> BuckActionExecutor<'d> {
 struct BuckActionExecutionContext<'a, 'd> {
     executor: &'a BuckActionExecutor<'d>,
     action: &'a RegisteredAction,
-    inputs: BuckIndexMap<ArtifactGroup, ArtifactGroupValues>,
+    inputs: BuckMutInsertionMap<ArtifactGroup, ArtifactGroupValues>,
     command_reports: &'a mut Vec<CommandExecutionReport>,
     cancellations: &'a CancellationContext,
 }
@@ -470,23 +636,45 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_, '_> {
 
     fn artifact_path_mapping(
         &self,
-        filter: Option<BuckIndexSet<ArtifactGroup>>,
+        filter: Option<&BuckMutInsertionSet<ArtifactGroup>>,
     ) -> BuckMutMap<&Artifact, ContentBasedPathHash> {
         self.inputs
             .iter()
             .filter(|(ag, _)| {
-                if !ag.path_resolution_may_require_artifact_value() {
-                    return false;
-                }
-
-                match filter {
-                    Some(ref filter) => filter.contains(*ag),
-                    None => true,
-                }
+                ag.path_resolution_may_require_artifact_value()
+                    && filter.is_none_or(|filter| filter.contains(*ag))
             })
             .flat_map(|(_, v)| v.iter())
             .map(|(a, v)| (a, v.content_based_path_hash()))
             .collect()
+    }
+
+    fn artifact_path_mapping_with_path_only(
+        &self,
+        rendered: &BuckMutInsertionSet<ArtifactGroup>,
+        path_only: &BuckMutInsertionSet<ArtifactGroup>,
+    ) -> (
+        BuckMutMap<&Artifact, ContentBasedPathHash>,
+        BuckMutSet<&Artifact>,
+    ) {
+        let mut mapping = BuckMutMap::default();
+        let mut path_only_artifacts = BuckMutSet::default();
+        for (ag, values) in self.inputs.iter() {
+            if !ag.path_resolution_may_require_artifact_value() {
+                continue;
+            }
+            let is_path_only = path_only.contains(ag);
+            if !is_path_only && !rendered.contains(ag) {
+                continue;
+            }
+            for (artifact, value) in values.iter() {
+                mapping.insert(artifact, value.content_based_path_hash());
+                if is_path_only {
+                    path_only_artifacts.insert(artifact);
+                }
+            }
+        }
+        (mapping, path_only_artifacts)
     }
 
     fn blocking_executor(&self) -> &dyn BlockingExecutor {
@@ -503,6 +691,18 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_, '_> {
 
     fn cas_configured(&self) -> bool {
         self.executor.invocation_re_settings.cas_configured
+    }
+
+    fn may_probe_cas(&self) -> bool {
+        self.executor.invocation_re_settings.may_probe_cas
+    }
+
+    fn write_action_cache(&self) -> Option<&dyn WriteActionCache> {
+        self.executor.command_executor.write_action_cache()
+    }
+
+    fn low_pass_filter(&self) -> &LowPassFilter {
+        self.executor.low_pass_filter
     }
 
     fn re_platform(&self) -> &remote_execution::Platform {
@@ -729,7 +929,7 @@ impl<'d> BuckActionExecutor<'d> {
     pub(crate) async fn execute(
         &self,
         waiting_data: WaitingData,
-        inputs: BuckIndexMap<ArtifactGroup, ArtifactGroupValues>,
+        inputs: BuckMutInsertionMap<ArtifactGroup, ArtifactGroupValues>,
         action: &RegisteredAction,
         cancellations: &CancellationContext,
     ) -> (
@@ -849,6 +1049,87 @@ mod tests {
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use buck2_execute::execute::clean_output_paths::cleanup_path;
     use buck2_fs::fs_util::uncategorized as fs_util;
+    use dupe::Dupe;
+
+    use super::*;
+
+    #[test]
+    fn test_action_outputs_map_small_large_boundary() {
+        use buck2_common::cas_digest::CasDigestConfig;
+        use buck2_common::file_ops::metadata::FileMetadata;
+        use buck2_common::file_ops::metadata::TrackedFileDigest;
+        use buck2_core::configuration::data::ConfigurationData;
+        use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
+        use buck2_core::fs::buck_out_path::BuckOutPathKind;
+        use buck2_core::fs::buck_out_path::BuildArtifactPath;
+        use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+        use buck2_execute::artifact_value::ArtifactValue;
+        use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
+
+        let owner = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_parse(
+            "cell//pkg:target",
+            ConfigurationData::testing_new(),
+        ));
+        let config = CasDigestConfig::testing_default();
+        let entry = |i: usize| {
+            let path = BuildArtifactPath::new(
+                owner.dupe(),
+                ForwardRelativePathBuf::unchecked_new(format!("out/{i}")),
+                BuckOutPathKind::Configuration,
+            );
+            let value = ArtifactValue::file(FileMetadata {
+                digest: TrackedFileDigest::from_content(format!("{i}").as_bytes(), config),
+                is_executable: false,
+            });
+            (path, value)
+        };
+
+        for (n, expect_small) in [
+            (0, true),
+            (1, true),
+            (SMALL_OUTPUTS_MAX, true),
+            (SMALL_OUTPUTS_MAX + 1, false),
+        ] {
+            let outputs: BuckMutInsertionMap<_, _> = (0..n).rev().map(entry).collect();
+            let map = ActionOutputsMap::new(outputs.clone());
+            assert_eq!(
+                matches!(map, ActionOutputsMap::Small(_)),
+                expect_small,
+                "n = {n}"
+            );
+            for (key, value) in &outputs {
+                assert_eq!(map.get(key), Some(value));
+                assert!(map.contains_key(key));
+            }
+            let (missing, _) = entry(n);
+            assert!(map.get(&missing).is_none());
+            assert!(!map.contains_key(&missing));
+            // Use reverse insertion order to catch accidental sorting.
+            assert_eq!(
+                map.iter().collect::<Vec<_>>(),
+                outputs.iter().collect::<Vec<_>>()
+            );
+            assert_eq!(
+                map.keys().collect::<Vec<_>>(),
+                outputs.keys().collect::<Vec<_>>()
+            );
+            assert_eq!(
+                map.values().collect::<Vec<_>>(),
+                outputs.values().collect::<Vec<_>>()
+            );
+
+            let mut serializer = pagable::testing::TestingSerializer::new();
+            pagable::PagableSerialize::pagable_serialize(&map, &mut serializer).unwrap();
+            let bytes = serializer.finish();
+            let mut deserializer = pagable::testing::TestingDeserializer::new(&bytes);
+            let restored: ActionOutputsMap =
+                pagable::PagableDeserialize::pagable_deserialize(&mut deserializer).unwrap();
+            assert_eq!(
+                restored.iter().collect::<Vec<_>>(),
+                map.iter().collect::<Vec<_>>()
+            );
+        }
+    }
 
     #[test]
     fn test_cleanup_path_missing() -> buck2_error::Result<()> {

@@ -41,6 +41,8 @@ pub struct NativeCallableParam {
     pub ty: Ty,
     /// `None` means the parameter is required.
     pub required: Option<NativeCallableParamDefaultValue>,
+    /// Accepted by the callable but omitted from generated documentation.
+    pub doc_hidden: bool,
 }
 
 impl NativeCallableParam {
@@ -49,6 +51,7 @@ impl NativeCallableParam {
             name,
             ty: unpack_args_item_ty(param_ty),
             required: None,
+            doc_hidden: false,
         }
     }
 
@@ -57,6 +60,7 @@ impl NativeCallableParam {
             name,
             ty: unpack_kwargs_value_ty(param_ty),
             required: None,
+            doc_hidden: false,
         }
     }
 

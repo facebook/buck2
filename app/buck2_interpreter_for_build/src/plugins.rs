@@ -83,7 +83,7 @@ impl<'v> StarlarkValue<'v> for StarlarkPluginKind {
             // Was already exported
             return Ok(());
         };
-        let cell_path = cell_path.clone();
+        let cell_path = *cell_path;
         let kind = PluginKind::new(variable_name.to_owned(), cell_path);
         *inner = InnerStarlarkPluginKind::Bound(kind);
         Ok(())

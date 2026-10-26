@@ -225,8 +225,10 @@ ensure_distribution(Type, RandomName, Cookie) ->
             ok;
         _ ->
             %% check that the domain is correct
-            Type = get_domain_type(),
-            ok
+            case get_domain_type() of
+                Type -> ok;
+                Other -> error({distribution_type_mismatch, Type, Other})
+            end
     end,
     true = erlang:set_cookie(Cookie),
     ok.

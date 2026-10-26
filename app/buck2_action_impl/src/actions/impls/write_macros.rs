@@ -36,9 +36,10 @@ use buck2_error::BuckErrorOptionContext;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::WriteRequest;
-use buck2_hash::BuckIndexSet;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_hash::BuckMutMap;
 use dupe::Dupe;
+use mini_vec::MiniBoxSlice;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use starlark::values::OwnedFrozen;
@@ -70,7 +71,7 @@ impl UnregisteredWriteMacrosToFileAction {
 impl UnregisteredAction for UnregisteredWriteMacrosToFileAction {
     fn register(
         self: Box<Self>,
-        outputs: BuckIndexSet<BuildArtifact>,
+        outputs: BuckMutInsertionSet<BuildArtifact>,
         starlark_data: Option<OwnedFrozen<Value<'static>>>,
         _error_handler: Option<OwnedFrozen<Value<'static>>>,
     ) -> buck2_error::Result<Box<dyn Action>> {
@@ -98,14 +99,14 @@ enum WriteMacrosActionValidationError {
 #[derive(Debug, Allocative, Pagable)]
 struct WriteMacrosToFileAction {
     contents: OwnedFrozen<Value<'static>>, // StarlarkCmdArgs
-    outputs: Box<[BuildArtifact]>,
+    outputs: MiniBoxSlice<BuildArtifact>,
     inner: UnregisteredWriteMacrosToFileAction,
 }
 
 impl WriteMacrosToFileAction {
     fn new(
         contents: OwnedFrozen<Value<'static>>,
-        outputs: BuckIndexSet<BuildArtifact>,
+        outputs: BuckMutInsertionSet<BuildArtifact>,
         inner: UnregisteredWriteMacrosToFileAction,
     ) -> buck2_error::Result<Self> {
         let is_command_line = contents.by_ref(|v| -> buck2_error::Result<bool> {

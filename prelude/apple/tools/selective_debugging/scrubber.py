@@ -24,6 +24,8 @@ from .utils import MachOException
 
 
 FAKE_PATH = b"fake/path"
+# Covers almost every path in one read: PATH_MAX is 1024 on macOS.
+_PATH_READ_SIZE = 1024
 # buck-out/isolation_dir/gen/project_cell/{hash}/....
 NUM_OF_COMPONENTS_IN_BUCK2_OUTPUT_PATH_BEFORE_PROJECT_PATH = 5
 # buck-out/isolation_dir/gen/project_cell//X/Y/__name__/{hash}/....
@@ -55,49 +57,43 @@ def load_focused_targets_output_paths(json_file_path: str) -> set[str]:
 
 
 # This function converts buck-out/isolation_dir/gen/project_cell/{hash}/X/Y/__name__/libFoo.a
-# into X/Y/__name__ to match the focus target output path created by load_focused_targets_output_paths
+# into X/Y/__name__ to match the focus target output paths created by load_focused_targets_output_paths.
+# Rules can nest outputs in their own double underscore directories, so every such
+# directory yields a candidate, innermost first.
 # Visible for testing
-def _get_target_output_path_from_debug_file_path(
+def _get_target_output_paths_from_debug_file_path(
     debug_target_path: str,
-) -> str:
+) -> list[str]:
     # This function assumes the debug file path created by buck2 in one of the following formats:
     # Without content based path:
     # buck-out/isolation_dir/gen/project_cell/{hash}/.../__name__/libFoo.a
     # buck-out/isolation_dir/gen/project_cell/{hash}/.../__name__/__objects__/bar.o
     # buck-out/isolation_dir/gen/project_cell/{hash}/.../__name__/swift_object_file.swift.o
+    # buck-out/isolation_dir/gen/project_cell/{hash}/.../__name__/__swift_incremental__/objects/bar.swift.o
     # With content based path:
     # buck-out/isolation_dir/gen/project_cell/.../__name__/{hash}/libFoo.a
     # buck-out/isolation_dir/gen/project_cell/.../__name__/__objects__/{hash}/bar.o
     # buck-out/isolation_dir/gen/project_cell/.../__name__/{hash}/swift_object_file.swift.o
     parts = debug_target_path.split("/")
 
-    # We are doing the traverse in reverse order because this way we'll find the first
-    # target directory sooner. _should_scrub can get called many times, so it's
-    # important that we make it as efficient as possible.
-    i = 1
-    while i <= len(parts):
-        # We are looking for the path component that matches __name__ in the examples above, and if we don't explicitly skip __objects__, we'll get the wrong path
-        if (
-            parts[-i].startswith("__")
-            and parts[-i].endswith("__")
-            and parts[-i] != "__objects__"
+    candidates = []
+    for i in range(len(parts) - 1, -1, -1):
+        if not (parts[i].startswith("__") and parts[i].endswith("__")):
+            continue
+        # This handles the two cases, one without content based path, and one with
+        for prefix_len in (
+            NUM_OF_COMPONENTS_IN_BUCK2_OUTPUT_PATH_BEFORE_PROJECT_PATH,
+            NUM_OF_COMPONENTS_IN_BUCK2_OUTPUT_PATH_BEFORE_PROJECT_PATH_WITH_CONTENT_BASED_PATH,
         ):
-            break
-        i += 1
-    if i > len(parts):
+            # A directory inside the buck-out prefix cannot be a target output directory
+            if i >= prefix_len:
+                candidates.append("/".join(parts[prefix_len : i + 1]))
+    if not candidates:
         raise Exception(
             f"Unrecognized format for debug file path : {debug_target_path}"
         )
 
-    # This handles the two cases, one with content based path, and one without
-    return "/".join(
-        parts[NUM_OF_COMPONENTS_IN_BUCK2_OUTPUT_PATH_BEFORE_PROJECT_PATH : -i + 1]
-    ), "/".join(
-        parts[
-            NUM_OF_COMPONENTS_IN_BUCK2_OUTPUT_PATH_BEFORE_PROJECT_PATH_WITH_CONTENT_BASED_PATH : -i
-            + 1
-        ]
-    )
+    return candidates
 
 
 # Visible for testing
@@ -115,12 +111,11 @@ def should_scrub_with_focused_targets_output_paths(
         debug_target_path = debug_file_path
 
     if debug_file_path.startswith("buck-out/"):
-        target_output_path, target_output_content_based_path = (
-            _get_target_output_path_from_debug_file_path(debug_target_path)
-        )
-        return (
-            target_output_path not in focused_targets_output_paths
-            and target_output_content_based_path not in focused_targets_output_paths
+        return not any(
+            target_output_path in focused_targets_output_paths
+            for target_output_path in _get_target_output_paths_from_debug_file_path(
+                debug_target_path
+            )
         )
     else:
         # occasionally archive file can be directly from source.
@@ -136,9 +131,11 @@ def should_scrub_with_focused_targets_output_paths(
 def _should_scrub_with_targets_file(
     json_file_path: str, additional_labels: set[str]
 ) -> Callable[[str], bool]:
-    focused_targets_output_paths = load_focused_targets_output_paths(json_file_path)
+    focused_targets_output_paths = load_focused_targets_output_paths(
+        json_file_path
+    ).union(additional_labels)
     return lambda debug_file_path: should_scrub_with_focused_targets_output_paths(
-        focused_targets_output_paths.union(additional_labels), debug_file_path
+        focused_targets_output_paths, debug_file_path
     )
 
 
@@ -163,18 +160,19 @@ def _scrub(
     """
     results = []
     for symbol in symbols:
-        f.seek(strtab_offset)
-        f.seek(symbol.strtab_index, 1)
+        start = strtab_offset + symbol.strtab_index
+        f.seek(start)
 
-        # Read a byte at a time until we reach the end of the path, denoted by Hex 0.
-        start = end = f.tell()
+        # Read until we reach the end of the path, denoted by Hex 0.
         path = b""
-        b = f.read(1)
-        while b != b"\x00":
-            path += b
-            end += 1
-            b = f.read(1)
-        str_len = end - start
+        end = -1
+        while end == -1:
+            chunk = f.read(_PATH_READ_SIZE)
+            if not chunk:
+                raise MachOException("Unterminated string in the string table")
+            end = chunk.find(b"\x00")
+            path += chunk if end == -1 else chunk[:end]
+        str_len = len(path)
 
         path_str = path.decode()
         if scrub_handler(path_str):

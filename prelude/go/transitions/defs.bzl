@@ -6,7 +6,9 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+# @oss-disable[end= ]: load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
 load("@prelude//go:coverage.bzl", "GoCoverageMode")
+# @oss-disable[end= ]: load("@prelude//go/meta_only:transitions.bzl", "IMPLICIT_SANITIZER_REFS", "disable_implicit_sanitizers")
 load(":tags_helper.bzl", "selects_for_tags", "tag_to_constraint_value")
 
 def _cgo_enabled_transition(platform, refs, attrs):
@@ -106,6 +108,8 @@ def _chain_transitions(transitions):
 
 _all_level_transitions = [_force_mingw_on_windows]
 _top_level_transitions = [_cgo_enabled_transition, _tags_transition] + _all_level_transitions
+_executable_transitions = list(_top_level_transitions)
+# @oss-disable[end= ]: _executable_transitions.extend([disable_implicit_sanitizers] if is_full_meta_repo() else [])
 
 _all_level_refs = {
     "abi_gnu": "prelude//abi/constraints:gnu",
@@ -120,6 +124,8 @@ _top_level_refs = (
     | {"tag_{}__set".format(tag): constraint_value for tag, constraint_value in tag_to_constraint_value().items()}
     | _all_level_refs
 )
+_executable_refs = dict(_top_level_refs)
+# @oss-disable[end= ]: _executable_refs.update(IMPLICIT_SANITIZER_REFS if is_full_meta_repo() else {})
 
 _attrs = ["cgo_enabled", "build_tags"]
 
@@ -130,14 +136,14 @@ _coverage_mode_refs = {
 }
 
 go_binary_transition = transition(
-    impl = _chain_transitions(_top_level_transitions + [_coverage_mode_transition]),
-    refs = _top_level_refs | _coverage_mode_refs,
+    impl = _chain_transitions(_executable_transitions + [_coverage_mode_transition]),
+    refs = _executable_refs | _coverage_mode_refs,
     attrs = _attrs + ["coverage_mode"],
 )
 
 go_test_transition = transition(
-    impl = _chain_transitions(_top_level_transitions + [_coverage_mode_transition]),
-    refs = _top_level_refs | _coverage_mode_refs,
+    impl = _chain_transitions(_executable_transitions + [_coverage_mode_transition]),
+    refs = _executable_refs | _coverage_mode_refs,
     attrs = _attrs + ["coverage_mode"],
 )
 

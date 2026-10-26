@@ -40,7 +40,7 @@ init_per_suite(Config) ->
         config_files = [],
         providers = [],
         ct_opts = [],
-        erl_cmd = lists:map(fun list_to_binary/1, ErlCmd),
+        erl_cmd = [list_to_binary(Arg) || Arg <:- ErlCmd],
         extra_flags = [],
         artifact_annotation_mfa = fun artifact_annotations:default_annotation/1,
         trampolines = []

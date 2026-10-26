@@ -6,26 +6,8 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load(":erlang_application.bzl", "erlang_application_impl")
-load(":erlang_application_includes.bzl", "erlang_application_includes_impl")
-load(":erlang_escript.bzl", "erlang_escript_impl")
 load(":erlang_otp_application.bzl", "normalize_application")
-load(":erlang_release.bzl", "erlang_release_impl")
-load(":erlang_tests.bzl", "erlang_test_impl", "erlang_tests_macro")
-load(":erlang_toolchain.bzl", "erlang_otp_binaries_impl")
-
-# all attributes are now defined in prelude//decls:erlang_rules.bzl
-
-# target rules
-
-implemented_rules = {
-    "erlang_app": erlang_application_impl,
-    "erlang_app_includes": erlang_application_includes_impl,
-    "erlang_escript": erlang_escript_impl,
-    "erlang_otp_binaries": erlang_otp_binaries_impl,
-    "erlang_release": erlang_release_impl,
-    "erlang_test": erlang_test_impl,
-}
+load(":erlang_tests.bzl", "erlang_tests_macro")
 
 # Macros
 

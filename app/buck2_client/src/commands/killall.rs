@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use buck2_agent_interactive::Advice;
 use buck2_client_ctx::client_ctx::BuckSubcommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
@@ -18,6 +19,7 @@ use buck2_error::BuckErrorContext;
 use buck2_fs::fs_util::uncategorized as fs_util;
 use buck2_wrapper_common::KillallFilter;
 use buck2_wrapper_common::is_buck2::WhoIsAsking;
+use dupe::Dupe;
 
 /// Kill all buck2 processes on the machine
 ///
@@ -50,8 +52,11 @@ impl BuckSubcommand for KillallCommand {
         self,
         _matches: BuckArgMatches<'_>,
         ctx: ClientCommandContext<'_>,
-        _events_ctx: &mut EventsCtx,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
+        events_ctx
+            .handle_agent_advice(ctx.trace_id.dupe(), ctx.agent_advice(Advice::Killall)?)
+            .await?;
         let project_root = self
             .repo
             .then(|| {

@@ -46,9 +46,10 @@ use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::DeclareMatchOutcome;
 use buck2_execute::re::presence::NegativeCache;
-use buck2_hash::BuckIndexSet;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_http::HttpClient;
 use dupe::Dupe;
+use mini_vec::MiniBoxSlice;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use starlark::values::OwnedFrozen;
@@ -106,7 +107,7 @@ impl UnregisteredDownloadFileAction {
 impl UnregisteredAction for UnregisteredDownloadFileAction {
     fn register(
         self: Box<Self>,
-        outputs: BuckIndexSet<BuildArtifact>,
+        outputs: BuckMutInsertionSet<BuildArtifact>,
         _starlark_data: Option<OwnedFrozen<Value<'static>>>,
         _error_handler: Option<OwnedFrozen<Value<'static>>>,
     ) -> buck2_error::Result<Box<dyn Action>> {
@@ -116,13 +117,13 @@ impl UnregisteredAction for UnregisteredDownloadFileAction {
 
 #[derive(Debug, Allocative, Pagable)]
 struct DownloadFileAction {
-    outputs: Box<[BuildArtifact]>,
+    outputs: MiniBoxSlice<BuildArtifact>,
     inner: UnregisteredDownloadFileAction,
 }
 
 impl DownloadFileAction {
     fn new(
-        outputs: BuckIndexSet<BuildArtifact>,
+        outputs: BuckMutInsertionSet<BuildArtifact>,
         inner: UnregisteredDownloadFileAction,
     ) -> buck2_error::Result<Self> {
         if outputs.len() != 1 {
@@ -244,7 +245,9 @@ impl DownloadFileAction {
 
     /// Declares the output as a CAS download when the CAS already holds the content, which
     /// leaves nothing to fetch from the origin server or to write to disk now. `None` when the
-    /// content is not there, is about to expire, or there is no CAS to ask.
+    /// content is not there, is about to expire, or there is no CAS to ask. Asked under
+    /// `--local-only` and `--no-remote-cache` too, unlike a write's or copy's probe
+    /// (`ActionExecutionCtx::may_probe_cas`): the CAS stands in for the URL here, not for a cache.
     async fn declare_from_cas(
         &self,
         ctx: &dyn ActionExecutionCtx,
@@ -344,61 +347,66 @@ impl DownloadFileAction {
         // the materializer's record of it, so the disk has to be cleared to match. The lease is
         // held until that report is in.
         let output_lease = materializer.prepare_outputs(vec![path.clone()]).await?;
-        ctx.blocking_executor()
-            .execute_io(
-                Box::new(CleanOutputPaths {
-                    paths: vec![path.clone()],
+        let downloaded = async {
+            ctx.blocking_executor()
+                .execute_io(
+                    Box::new(CleanOutputPaths {
+                        paths: vec![path.clone()],
+                    }),
+                    ctx.cancellation_context(),
+                )
+                .await?;
+
+            let digest = http_download(
+                client,
+                ctx.fs().fs(),
+                ctx.digest_config(),
+                &path,
+                url,
+                &self.inner.checksum,
+                self.inner.is_executable,
+            )
+            .await?;
+
+            // RE knows this file by the digest (checksum, size), where the size came from
+            // `size_bytes` or the HEAD response rather than from the content. A wrong size would leave
+            // every remote consumer unable to find its input, so it is caught here.
+            if let Some(metadata) = metadata
+                && digest.size() != metadata.digest.size()
+            {
+                return Err(buck2_error!(
+                    ErrorTag::DownloadSizeMismatch,
+                    "Downloaded size ({}) does not match expected size ({})",
+                    digest.size(),
+                    metadata.digest.size(),
+                ));
+            }
+
+            // The declared metadata, when there is any, is the value: the checksum verified the
+            // content and the size was checked above, and a content-based output path was resolved
+            // from it. The digest the download computed is under the digest config's preferred
+            // algorithm, which need not be the checksum's, so it only stands in when nothing was
+            // declared.
+            let value = match metadata {
+                Some(metadata) => ArtifactValue::file(metadata.dupe()),
+                None => ArtifactValue::file(FileMetadata {
+                    digest,
+                    is_executable: self.inner.is_executable,
                 }),
-                ctx.cancellation_context(),
-            )
-            .await?;
-
-        let digest = http_download(
-            client,
-            ctx.fs().fs(),
-            ctx.digest_config(),
-            &path,
-            url,
-            &self.inner.checksum,
-            self.inner.is_executable,
-        )
-        .await?;
-
-        // RE knows this file by the digest (checksum, size), where the size came from
-        // `size_bytes` or the HEAD response rather than from the content. A wrong size would leave
-        // every remote consumer unable to find its input, so it is caught here.
-        if let Some(metadata) = metadata
-            && digest.size() != metadata.digest.size()
-        {
-            return Err(buck2_error!(
-                ErrorTag::DownloadSizeMismatch,
-                "Downloaded size ({}) does not match expected size ({})",
-                digest.size(),
-                metadata.digest.size(),
-            ));
+            };
+            materializer
+                .declare_existing(
+                    &output_lease,
+                    vec![DeclareArtifactPayload {
+                        path,
+                        artifact: value.dupe(),
+                    }],
+                )
+                .await?;
+            buck2_error::Ok(value)
         }
-
-        // The declared metadata, when there is any, is the value: the checksum verified the
-        // content and the size was checked above, and a content-based output path was resolved
-        // from it. The digest the download computed is under the digest config's preferred
-        // algorithm, which need not be the checksum's, so it only stands in when nothing was
-        // declared.
-        let value = match metadata {
-            Some(metadata) => ArtifactValue::file(metadata.dupe()),
-            None => ArtifactValue::file(FileMetadata {
-                digest,
-                is_executable: self.inner.is_executable,
-            }),
-        };
-        materializer
-            .declare_existing(
-                &output_lease,
-                vec![DeclareArtifactPayload {
-                    path,
-                    artifact: value.dupe(),
-                }],
-            )
-            .await?;
+        .await;
+        let value = output_lease.abandon_on_err(downloaded)?;
 
         Ok((value, ActionExecutionKind::Simple))
     }

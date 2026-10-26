@@ -122,13 +122,6 @@ impl StreamingCommand for DocsStarlarkCommand {
             DocsResponse::Json(output) => {
                 buck2_client_ctx::println!("{}", output.trim_end())?;
             }
-            DocsResponse::Text(_) => {
-                return buck2_error!(
-                    ErrorTag::InvalidEvent,
-                    "Unexpected text response from docs starlark command"
-                )
-                .into();
-            }
         }
 
         ExitResult::success()

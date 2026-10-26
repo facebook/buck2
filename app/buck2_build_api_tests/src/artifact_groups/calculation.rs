@@ -38,7 +38,6 @@ use buck2_core::cells::CellResolver;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
-use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::deferred::key::DeferredHolderKey;
@@ -48,8 +47,9 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::SetDigestConfig;
+use buck2_hash::BuckFixedSortedMap;
 use buck2_hash::BuckMutMap;
-use buck2_hash::StdBuckHashMap;
+use buck2_node::rule_type::RuleType;
 use dice::UserComputationData;
 use dice::testing::DiceBuilder;
 use dupe::Dupe;
@@ -58,7 +58,6 @@ use maplit::btreemap;
 use starlark::values::OwnedFrozen;
 use starlark::values::ValueTyped;
 
-use crate::interpreter::transitive_set::testing::TSET_TEST_LOCK;
 use crate::interpreter::transitive_set::testing::new_transitive_set;
 
 fn mock_analysis_for_tsets(
@@ -89,19 +88,23 @@ fn mock_analysis_for_tsets(
     for (target, tsets) in by_target.into_iter() {
         dice_builder = dice_builder.mock_and_return(
             AnalysisKey(target.dupe()),
-            ResultMaybeCompatible::Compatible(AnalysisResult::new(
-                RecordedAnalysisValues::testing_new(
-                    DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target)),
-                    tsets,
-                    RecordedActions::new(0),
-                ),
-                None,
-                StdBuckHashMap::default(),
-                0,
-                0,
-                None,
-                Vec::new(),
-            )),
+            ResultMaybeCompatible::Compatible(
+                AnalysisResult::new(
+                    RecordedAnalysisValues::testing_new(
+                        DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target)),
+                        tsets,
+                        RecordedActions::new(0),
+                    ),
+                    None,
+                    BuckFixedSortedMap::default(),
+                    0,
+                    0,
+                    None,
+                    Vec::new(),
+                    RuleType::Forward,
+                )
+                .expect("test analysis should have valid providers"),
+            ),
         );
     }
 
@@ -112,7 +115,6 @@ fn mock_analysis_for_tsets(
 #[allow(clippy::await_holding_lock)] // Intentional: serializing test access via global lock
 async fn test_ensure_artifact_group() -> buck2_error::Result<()> {
     // Serialize with other tests that use make_tset() and its shared global counter
-    let _guard = TSET_TEST_LOCK.lock().unwrap();
     // Covers DICE tasks too: the current-thread tokio runtime polls them all on
     // this thread.
     let _stack_guard = buck2_util::threads::ignore_stack_overflow_checks_for_current_thread();
@@ -148,10 +150,7 @@ async fn test_ensure_artifact_group() -> buck2_error::Result<()> {
         ),
     ]);
 
-    let foo = CellPath::new(
-        CellName::testing_new("root"),
-        CellRelativePathBuf::unchecked_new("foo/foo".to_owned()),
-    );
+    let foo = CellPath::testing_new("root//foo/foo");
 
     let foo_artifact = Artifact::from(SourceArtifact::new(SourcePath::testing_new(
         "root//foo",
@@ -168,10 +167,7 @@ async fn test_ensure_artifact_group() -> buck2_error::Result<()> {
         "bar",
     )));
 
-    let bar = CellPath::new(
-        CellName::testing_new("root"),
-        CellRelativePathBuf::unchecked_new("bar/bar".to_owned()),
-    );
+    let bar = CellPath::testing_new("root//bar/bar");
 
     let bar_meta = FileMetadata {
         digest: TrackedFileDigest::from_content(b"bar", digest_config.cas_digest_config()),

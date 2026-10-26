@@ -12,120 +12,141 @@
 import re
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
 def _replace_hash(s: str) -> str:
     return re.sub(r"\b[0-9a-f]{16}\b", "<HASH>", s)
 
 
-@buck_test()
-async def test_attrfilter_preserves_forward_node_attributes(buck: Buck) -> None:
-    result = await buck.cquery(
-        "attrfilter(labels, transitioned-label, root//:buck)",
-        "--target-platforms=root//:p",
-    )
-    assert _replace_hash(result.stdout).splitlines() == [
-        "root//:buck (transitioned-to-reindeer#<HASH>)"
-    ]
+class CqueryWithTransitionTest(BuckTestCase):
+    @buck_test()
+    async def test_attrfilter_preserves_forward_node_attributes(
+        self, buck: Buck
+    ) -> None:
+        result = await buck.cquery(
+            "attrfilter(labels, transitioned-label, root//:buck)",
+            "--target-platforms=root//:p",
+        )
+        assert _replace_hash(result.stdout).splitlines() == [
+            "root//:buck (transitioned-to-reindeer#<HASH>)"
+        ]
 
-    result = await buck.cquery(
-        "attrregexfilter(actual, 'root//:buck', root//:buck)",
-        "--target-platforms=root//:p",
-    )
-    assert _replace_hash(result.stdout).splitlines() == [
-        "root//:buck (root//:p#<HASH>)"
-    ]
+        result = await buck.cquery(
+            "attrregexfilter(actual, 'root//:buck', root//:buck)",
+            "--target-platforms=root//:p",
+        )
+        assert _replace_hash(result.stdout).splitlines() == [
+            "root//:buck (root//:p#<HASH>)"
+        ]
 
+    @buck_test()
+    async def test_cquery_transition_without_target_universe(self, buck: Buck) -> None:
+        result = await buck.cquery(
+            "root//:buck",
+            "--target-platforms=root//:p",
+        )
 
-@buck_test()
-async def test_cquery_transition_without_target_universe(buck: Buck) -> None:
-    result = await buck.cquery(
-        "root//:buck",
-        "--target-platforms=root//:p",
-    )
+        # Both configurations for the target are returned: the default, and the transition
+        lines = result.stdout.splitlines()
+        assert 2 == len(lines)
+        assert _replace_hash(lines[0]) == "root//:buck (root//:p#<HASH>)"
+        assert (
+            _replace_hash(lines[1]) == "root//:buck (transitioned-to-reindeer#<HASH>)"
+        )
 
-    # Both configurations for the target are returned: the default, and the transition
-    lines = result.stdout.splitlines()
-    assert 2 == len(lines)
-    assert _replace_hash(lines[0]) == "root//:buck (root//:p#<HASH>)"
-    assert _replace_hash(lines[1]) == "root//:buck (transitioned-to-reindeer#<HASH>)"
+        # Test cquery with "%s".
+        result = await buck.cquery(
+            "%s",
+            "root//:buck",
+            "root//:moose",
+            "--target-platforms=root//:p",
+        )
 
-    # Test cquery with "%s".
-    result = await buck.cquery(
-        "%s",
-        "root//:buck",
-        "root//:moose",
-        "--target-platforms=root//:p",
-    )
+        lines = result.stdout.splitlines()
+        assert 4 == len(lines)
+        assert _replace_hash(lines[0]) == "root//:buck (root//:p#<HASH>)"
+        assert (
+            _replace_hash(lines[1]) == "root//:buck (transitioned-to-reindeer#<HASH>)"
+        )
+        assert _replace_hash(lines[2]) == "root//:moose (root//:p#<HASH>)"
+        assert (
+            _replace_hash(lines[3]) == "root//:moose (transitioned-to-reindeer#<HASH>)"
+        )
 
-    lines = result.stdout.splitlines()
-    assert 4 == len(lines)
-    assert _replace_hash(lines[0]) == "root//:buck (root//:p#<HASH>)"
-    assert _replace_hash(lines[1]) == "root//:buck (transitioned-to-reindeer#<HASH>)"
-    assert _replace_hash(lines[2]) == "root//:moose (root//:p#<HASH>)"
-    assert _replace_hash(lines[3]) == "root//:moose (transitioned-to-reindeer#<HASH>)"
+        # Test cquery with "%Ss"
+        result = await buck.cquery(
+            "%Ss",
+            "root//:buck",
+            "root//:moose",
+            "--target-platforms=root//:p",
+        )
 
-    # Test cquery with "%Ss"
-    result = await buck.cquery(
-        "%Ss",
-        "root//:buck",
-        "root//:moose",
-        "--target-platforms=root//:p",
-    )
+        lines = result.stdout.splitlines()
+        assert 4 == len(lines)
+        assert _replace_hash(lines[0]) == "root//:buck (root//:p#<HASH>)"
+        assert (
+            _replace_hash(lines[1]) == "root//:buck (transitioned-to-reindeer#<HASH>)"
+        )
+        assert _replace_hash(lines[2]) == "root//:moose (root//:p#<HASH>)"
+        assert (
+            _replace_hash(lines[3]) == "root//:moose (transitioned-to-reindeer#<HASH>)"
+        )
 
-    lines = result.stdout.splitlines()
-    assert 4 == len(lines)
-    assert _replace_hash(lines[0]) == "root//:buck (root//:p#<HASH>)"
-    assert _replace_hash(lines[1]) == "root//:buck (transitioned-to-reindeer#<HASH>)"
-    assert _replace_hash(lines[2]) == "root//:moose (root//:p#<HASH>)"
-    assert _replace_hash(lines[3]) == "root//:moose (transitioned-to-reindeer#<HASH>)"
+    @buck_test()
+    async def test_cquery_transition_with_target_universe(self, buck: Buck) -> None:
+        result = await buck.cquery(
+            "root//:buck",
+            "--target-platforms=root//:p",
+            "--target-universe",
+            "root//:buck",
+        )
 
+        lines = result.stdout.splitlines()
+        assert 2 == len(lines)
+        assert _replace_hash(lines[0]) == "root//:buck (root//:p#<HASH>)"
+        assert (
+            _replace_hash(lines[1]) == "root//:buck (transitioned-to-reindeer#<HASH>)"
+        )
 
-@buck_test()
-async def test_cquery_transition_with_target_universe(buck: Buck) -> None:
-    result = await buck.cquery(
-        "root//:buck",
-        "--target-platforms=root//:p",
-        "--target-universe",
-        "root//:buck",
-    )
+        # Test cquery with "%s".
+        result = await buck.cquery(
+            "%s",
+            "root//:buck",
+            "root//:moose",
+            "--target-platforms=root//:p",
+            "--target-universe",
+            "root//:buck,root//:moose",
+        )
 
-    lines = result.stdout.splitlines()
-    assert 2 == len(lines)
-    assert _replace_hash(lines[0]) == "root//:buck (root//:p#<HASH>)"
-    assert _replace_hash(lines[1]) == "root//:buck (transitioned-to-reindeer#<HASH>)"
+        lines = result.stdout.splitlines()
+        assert 4 == len(lines)
+        assert _replace_hash(lines[0]) == "root//:buck (root//:p#<HASH>)"
+        assert (
+            _replace_hash(lines[1]) == "root//:buck (transitioned-to-reindeer#<HASH>)"
+        )
+        assert _replace_hash(lines[2]) == "root//:moose (root//:p#<HASH>)"
+        assert (
+            _replace_hash(lines[3]) == "root//:moose (transitioned-to-reindeer#<HASH>)"
+        )
 
-    # Test cquery with "%s".
-    result = await buck.cquery(
-        "%s",
-        "root//:buck",
-        "root//:moose",
-        "--target-platforms=root//:p",
-        "--target-universe",
-        "root//:buck,root//:moose",
-    )
+        # Test cquery with "%Ss".
+        result = await buck.cquery(
+            "%Ss",
+            "root//:buck",
+            "root//:moose",
+            "--target-platforms=root//:p",
+            "--target-universe",
+            "root//:buck,root//:moose",
+        )
 
-    lines = result.stdout.splitlines()
-    assert 4 == len(lines)
-    assert _replace_hash(lines[0]) == "root//:buck (root//:p#<HASH>)"
-    assert _replace_hash(lines[1]) == "root//:buck (transitioned-to-reindeer#<HASH>)"
-    assert _replace_hash(lines[2]) == "root//:moose (root//:p#<HASH>)"
-    assert _replace_hash(lines[3]) == "root//:moose (transitioned-to-reindeer#<HASH>)"
-
-    # Test cquery with "%Ss".
-    result = await buck.cquery(
-        "%Ss",
-        "root//:buck",
-        "root//:moose",
-        "--target-platforms=root//:p",
-        "--target-universe",
-        "root//:buck,root//:moose",
-    )
-
-    lines = result.stdout.splitlines()
-    assert 4 == len(lines)
-    assert _replace_hash(lines[0]) == "root//:buck (root//:p#<HASH>)"
-    assert _replace_hash(lines[1]) == "root//:buck (transitioned-to-reindeer#<HASH>)"
-    assert _replace_hash(lines[2]) == "root//:moose (root//:p#<HASH>)"
-    assert _replace_hash(lines[3]) == "root//:moose (transitioned-to-reindeer#<HASH>)"
+        lines = result.stdout.splitlines()
+        assert 4 == len(lines)
+        assert _replace_hash(lines[0]) == "root//:buck (root//:p#<HASH>)"
+        assert (
+            _replace_hash(lines[1]) == "root//:buck (transitioned-to-reindeer#<HASH>)"
+        )
+        assert _replace_hash(lines[2]) == "root//:moose (root//:p#<HASH>)"
+        assert (
+            _replace_hash(lines[3]) == "root//:moose (transitioned-to-reindeer#<HASH>)"
+        )

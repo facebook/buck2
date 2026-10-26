@@ -10,6 +10,7 @@ rust_library(
     test_deps = [
         "fbsource//third-party/rust:assert_matches",
     ],
+    unittests_miri = True,
     deps = [
         "fbsource//third-party/rust:futures",
         "fbsource//third-party/rust:parking_lot",

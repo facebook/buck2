@@ -79,7 +79,8 @@ fn cases() -> u64 {
     std::env::var("DICE_CORE_FUZZ_CASES")
         .ok()
         .and_then(|v| v.parse().ok())
-        .unwrap_or(40)
+        // Interpreted, a case takes tens of seconds.
+        .unwrap_or(if cfg!(miri) { 2 } else { 40 })
 }
 
 fn seed() -> u64 {

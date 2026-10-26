@@ -11,22 +11,22 @@
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_not_bxl(buck: Buck) -> None:
-    await expect_failure(
-        buck.bxl(
-            "//not_bxl.bxl:not_bxl",
-        ),
-        stderr_regex="Expected value of type `bxl` but got `function",
-    )
+class NotBxlTest(BuckTestCase):
+    @buck_test()
+    async def test_not_bxl(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.bxl(
+                "//not_bxl.bxl:not_bxl",
+            ),
+            stderr_regex="Expected value of type `bxl` but got `function",
+        )
 
-
-@buck_test()
-async def test_not_allowed_now(buck: Buck) -> None:
-    await expect_failure(
-        buck.build(":"),
-        stderr_regex="This function can only be called from Bxl",
-    )
+    @buck_test()
+    async def test_not_allowed_now(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.build(":"),
+            stderr_regex="This function can only be called from Bxl",
+        )

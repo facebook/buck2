@@ -24,6 +24,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use display_container::fmt_container;
 use dupe::Dupe;
+use mini_map::MiniFixedSortedMap;
 use once_cell::unsync::OnceCell;
 use starlark_derive::NoSerialize;
 use starlark_derive::Trace;
@@ -389,7 +390,7 @@ impl<'v, V: EnumVariant> StarlarkValue<'v> for EnumTypeGen<'v, V> {
 
             // The unwrap here is safe because the new() method requires the elements be
             // of type StringValue<'v>
-            let fields_map: starlark_map::sorted_map::SortedMap<String, Ty> = self
+            let fields_map: MiniFixedSortedMap<String, Ty> = self
                 .elements()
                 .keys()
                 .map(|key| {

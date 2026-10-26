@@ -386,7 +386,7 @@ fn test_lookup_misses_when_ptr_not_in_any_chunk() {
     let max_chunk_end = heaps
         .iter()
         .flat_map(|(h, _, _)| h.heap_arc().build_chunk_index().into_iter())
-        .map(|c| c.base + c.size as usize)
+        .map(|c| c.base.addr() + c.size as usize)
         .max()
         .unwrap_or(0);
     assert!(state.lookup_ptr(max_chunk_end + 1).is_none());

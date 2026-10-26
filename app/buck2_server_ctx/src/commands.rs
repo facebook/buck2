@@ -36,6 +36,31 @@ where
     }
 }
 
+/// Marks the end of a command's build phase.
+pub fn send_build_phase_end(
+    event_dispatcher: &EventDispatcher,
+    end_time: std::time::SystemTime,
+    build_succeeded: bool,
+) {
+    let status = if build_succeeded {
+        buck2_data::BuildStatus::Success
+    } else {
+        buck2_data::BuildStatus::Failed
+    };
+    send_build_phase_end_with_status(event_dispatcher, end_time, status);
+}
+
+pub fn send_build_phase_end_with_status(
+    event_dispatcher: &EventDispatcher,
+    end_time: std::time::SystemTime,
+    status: buck2_data::BuildStatus,
+) {
+    event_dispatcher.instant_event(buck2_data::BuildPhaseEnd {
+        end_time: Some(end_time.into()),
+        status: status.into(),
+    });
+}
+
 /// Common code to send TargetCfg event after command execution.
 pub fn send_target_cfg_event(
     event_dispatcher: &EventDispatcher,

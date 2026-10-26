@@ -38,6 +38,8 @@ class StubJarClassEntry extends StubJarEntry {
   private final boolean isWithinInlineFunctionScope;
   private final boolean keepSynthetic;
   private final boolean isFilePrivateKotlinClass;
+  private final boolean stripPrivateNestedMembers;
+  private final Set<String> keptJvmStaticMemberKeys;
   private final boolean scopeCaptured;
   @Nullable private final String scopeOuterClass;
   private final Set<String> hiddenDeprecatedMethods;
@@ -56,6 +58,8 @@ class StubJarClassEntry extends StubJarEntry {
     boolean isKotlinClass = false;
     boolean isWithinInlineFunctionScope = false;
     boolean isFilePrivateKotlinClass = false;
+    boolean stripPrivateNestedMembers = false;
+    Set<String> keptJvmStaticMemberKeys = Collections.emptySet();
     boolean scopeCaptured = false;
     String scopeOuterClass = null;
     Set<String> hiddenDeprecatedMethods = Collections.emptySet();
@@ -76,6 +80,11 @@ class StubJarClassEntry extends StubJarEntry {
         // File-private classes are deferred: StubJar writes them only if a written class's ABI
         // references them, transitively.
         isFilePrivateKotlinClass = KotlinMetadataReader.isFilePrivateClass(parsedMetadata);
+        stripPrivateNestedMembers = KotlinMetadataReader.shouldStripNestedMembers(parsedMetadata);
+        if (stripPrivateNestedMembers) {
+          keptJvmStaticMemberKeys =
+              new HashSet<>(AbiFilteringClassVisitor.findJvmStaticMemberKeys(classMetadata));
+        }
 
         isWithinInlineFunctionScope = inlineFunctionScope.captures(path, classMetadata);
         scopeCaptured = inlineFunctionScope.isCapturedByOuterScope(classMetadata);
@@ -98,7 +107,13 @@ class StubJarClassEntry extends StubJarEntry {
     if (!isWithinInlineFunctionScope) {
       visitor =
           new AbiFilteringClassVisitor(
-              visitor, inlineFunctions, null, keepSynthetic, hiddenDeprecatedMethods);
+              visitor,
+              inlineFunctions,
+              null,
+              keepSynthetic,
+              hiddenDeprecatedMethods,
+              stripPrivateNestedMembers,
+              keptJvmStaticMemberKeys);
     }
 
     // If we want ABIs that are compatible with those generated from source, we add a visitor
@@ -113,6 +128,14 @@ class StubJarClassEntry extends StubJarEntry {
     // Kotlin's
     // own jvm-abi-gen plugin would retain.
     input.visitClass(path, visitor, /* skipCode */ !isKotlinClass);
+
+    if (stripPrivateNestedMembers) {
+      AnnotationNode stubMetadata = findKotlinMetadataAnnotation(stub);
+      if (stubMetadata != null) {
+        KotlinMetadataReader.rewriteMetadataForStrippedMembers(
+            stubMetadata, keptJvmStaticMemberKeys);
+      }
+    }
 
     // Kotlin top functions reside in synthetic classes, we should output ABIs for them.
     if ((isSyntheticClass(stub) && isKotlinModule)
@@ -129,6 +152,8 @@ class StubJarClassEntry extends StubJarEntry {
           isWithinInlineFunctionScope,
           keepSynthetic,
           isFilePrivateKotlinClass,
+          stripPrivateNestedMembers,
+          keptJvmStaticMemberKeys,
           scopeCaptured,
           scopeOuterClass,
           hiddenDeprecatedMethods);
@@ -145,6 +170,8 @@ class StubJarClassEntry extends StubJarEntry {
       boolean isWithinInlineFunctionScope,
       boolean keepSynthetic,
       boolean isFilePrivateKotlinClass,
+      boolean stripPrivateNestedMembers,
+      Set<String> keptJvmStaticMemberKeys,
       boolean scopeCaptured,
       @Nullable String scopeOuterClass,
       Set<String> hiddenDeprecatedMethods) {
@@ -155,6 +182,8 @@ class StubJarClassEntry extends StubJarEntry {
     this.isWithinInlineFunctionScope = isWithinInlineFunctionScope;
     this.keepSynthetic = keepSynthetic;
     this.isFilePrivateKotlinClass = isFilePrivateKotlinClass;
+    this.stripPrivateNestedMembers = stripPrivateNestedMembers;
+    this.keptJvmStaticMemberKeys = keptJvmStaticMemberKeys;
     this.scopeCaptured = scopeCaptured;
     this.scopeOuterClass = scopeOuterClass;
     this.hiddenDeprecatedMethods = hiddenDeprecatedMethods;
@@ -212,7 +241,9 @@ class StubJarClassEntry extends StubJarEntry {
               kotlinInlineFunctions,
               referencedClassNames,
               keepSynthetic,
-              hiddenDeprecatedMethods);
+              hiddenDeprecatedMethods,
+              stripPrivateNestedMembers,
+              keptJvmStaticMemberKeys);
     }
 
     stub.accept(visitor);

@@ -19,11 +19,13 @@ use buck2_build_api::actions::execute::dice_data::HasFallbackExecutorConfig;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
+use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_configuration_providers::constraint_value_info::ConstraintValueInfo;
 use buck2_configuration_providers::execution_platform_registration_info::ExecutionPlatformRegistrationInfo;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use buck2_core::configuration::data::ConfigurationData;
+use buck2_core::configuration::data::ExecPlatformMarker;
 use buck2_core::configuration::pair::Configuration;
 use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::execution_types::execution::ExecutionPlatform;
@@ -38,6 +40,7 @@ use buck2_core::target::label::label::TargetLabel;
 use buck2_core::target::target_configured_target_label::TargetConfiguredTargetLabel;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
+use buck2_hash::BuckFixedSortedMap;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::attrs::spec::internal::EXEC_COMPATIBLE_WITH_ATTRIBUTE;
@@ -68,7 +71,6 @@ use futures::future::BoxFuture;
 use itertools::Itertools;
 use pagable::Pagable;
 use pagable::pagable_typetag;
-use starlark_map::ordered_map::OrderedMap;
 
 use crate::configuration::compute_platform_cfgs;
 use crate::configuration::get_matched_cfg_keys;
@@ -320,7 +322,7 @@ impl ToolchainExecutionPlatformCompatibilityKey {
         // `Traversal` declared above ignores transitioned dependencies.
         // But we pass `resolved_transitions` here to prevent breakages in the future
         // if something here changes.
-        let resolved_transitions = OrderedMap::new();
+        let resolved_transitions = BuckFixedSortedMap::new();
         let cfg_ctx = unspecified_attr_cfg_ctx(
             self.target.inner(),
             matched_cfg_keys,
@@ -411,7 +413,7 @@ pub(crate) async fn get_execution_platform_toolchain_dep(
         ))
     } else {
         let platform_cfgs = compute_platform_cfgs(ctx, target_node).await?;
-        let resolved_transitions = OrderedMap::new();
+        let resolved_transitions = BuckFixedSortedMap::new();
         let cfg_ctx = unspecified_attr_cfg_ctx(
             target_label.inner(),
             matched_cfg_keys,
@@ -527,15 +529,28 @@ async fn compute_execution_platforms(
                 )
             })?;
 
-        Some(constraint_value_info.to_constraint_key_value())
+        let (key, value) = constraint_value_info.to_constraint_key_value();
+        Some(Arc::new(ExecPlatformMarker::new(key, value)))
     } else {
         None
     };
 
+    let root_config = ctx.get_legacy_root_config_on_dice().await?;
+    let preserve_exec_platform_marker = root_config
+        .view(ctx)
+        .parse::<bool>(BuckconfigKeyRef {
+            section: "buck2",
+            property: "preserve_exec_platform_marker",
+        })?
+        .unwrap_or(false);
+
     let registration_info = registration_info.as_ref().value().as_ref();
     let mut platforms = Vec::new();
     for platform in registration_info.platforms()? {
-        platforms.push(platform.to_execution_platform_with_marker(marker_constraint.as_ref())?);
+        platforms.push(platform.to_execution_platform_with_marker(
+            marker_constraint.dupe(),
+            preserve_exec_platform_marker,
+        )?);
     }
     Ok(Some(Arc::new(ExecutionPlatformsData::new(
         execution_platforms_target,

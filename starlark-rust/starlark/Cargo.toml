@@ -27,10 +27,11 @@ dupe.workspace = true
 either.workspace = true
 erased-serde.workspace = true
 hashbrown.workspace = true
-indexmap.workspace = true
 inventory.workspace = true
 itertools.workspace = true
 maplit.workspace = true
+mini_map.workspace = true
+mini_vec.workspace = true
 num-bigint.workspace = true
 num-traits.workspace = true
 once_cell.workspace = true
@@ -193,3 +194,6 @@ unused_imports = { level = "warn" }
 unused_macros = { level = "warn" }
 unused_must_use = { level = "warn", priority = -2 }
 unused_variables = { level = "warn" }
+
+[lints.rustdoc]
+private_intra_doc_links = { level = "allow" }

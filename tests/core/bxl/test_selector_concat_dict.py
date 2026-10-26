@@ -10,69 +10,66 @@
 import json
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_not_selector_attr(buck: Buck) -> None:
-    await buck.bxl(
-        "//:selector_concat_dict.bxl:not_selector_attr",
-    )
+class SelectorConcatDictTest(BuckTestCase):
+    @buck_test()
+    async def test_not_selector_attr(self, buck: Buck) -> None:
+        await buck.bxl(
+            "//:selector_concat_dict.bxl:not_selector_attr",
+        )
 
+    @buck_test()
+    async def test_selector_dict_attr(self, buck: Buck) -> None:
+        await buck.bxl(
+            "//:selector_concat_dict.bxl:selector_dict_attr",
+        )
 
-@buck_test()
-async def test_selector_dict_attr(buck: Buck) -> None:
-    await buck.bxl(
-        "//:selector_concat_dict.bxl:selector_dict_attr",
-    )
+    @buck_test()
+    async def test_selector_concat_attr(self, buck: Buck) -> None:
+        await buck.bxl(
+            "//:selector_concat_dict.bxl:selector_concat_attr",
+        )
 
-
-@buck_test()
-async def test_selector_concat_attr(buck: Buck) -> None:
-    await buck.bxl(
-        "//:selector_concat_dict.bxl:selector_concat_attr",
-    )
-
-
-@buck_test()
-async def test_selector_dict_write_json(buck: Buck) -> None:
-    res = await buck.bxl(
-        "//:selector_concat_dict.bxl:selector_dict_write_json",
-    )
-    file_path = res.stdout.strip()
-    with open(file_path, "r") as f:
-        content = f.read()
-    expected_content = {
-        "__type": "selector",
-        "entries": {
-            "DEFAULT": ["--foo", "--bar"],
-            "root//constraints:macos": ["--foo-macos", "--bar-macos"],
-            "root//constraints:x86": ["--foo-x86", "--bar-x86"],
-        },
-    }
-    assert json.loads(content) == expected_content
-
-
-@buck_test()
-async def test_selector_concat_write_json(buck: Buck) -> None:
-    res = await buck.bxl(
-        "//:selector_concat_dict.bxl:selector_concat_write_json",
-    )
-    file_path = res.stdout.strip()
-    with open(file_path, "r") as f:
-        content = f.read()
-    expected_content = {
-        "__type": "concat",
-        "items": [
-            ["--flag", "--baz"],
-            {
-                "__type": "selector",
-                "entries": {
-                    "DEFAULT": ["--foo", "--bar"],
-                    "root//constraints:macos": ["--foo-macos", "--bar-macos"],
-                    "root//constraints:x86": ["--foo-x86", "--bar-x86"],
-                },
+    @buck_test()
+    async def test_selector_dict_write_json(self, buck: Buck) -> None:
+        res = await buck.bxl(
+            "//:selector_concat_dict.bxl:selector_dict_write_json",
+        )
+        file_path = res.stdout.strip()
+        with open(file_path, "r") as f:
+            content = f.read()
+        expected_content = {
+            "__type": "selector",
+            "entries": {
+                "DEFAULT": ["--foo", "--bar"],
+                "root//constraints:macos": ["--foo-macos", "--bar-macos"],
+                "root//constraints:x86": ["--foo-x86", "--bar-x86"],
             },
-        ],
-    }
-    assert json.loads(content) == expected_content
+        }
+        assert json.loads(content) == expected_content
+
+    @buck_test()
+    async def test_selector_concat_write_json(self, buck: Buck) -> None:
+        res = await buck.bxl(
+            "//:selector_concat_dict.bxl:selector_concat_write_json",
+        )
+        file_path = res.stdout.strip()
+        with open(file_path, "r") as f:
+            content = f.read()
+        expected_content = {
+            "__type": "concat",
+            "items": [
+                ["--flag", "--baz"],
+                {
+                    "__type": "selector",
+                    "entries": {
+                        "DEFAULT": ["--foo", "--bar"],
+                        "root//constraints:macos": ["--foo-macos", "--bar-macos"],
+                        "root//constraints:x86": ["--foo-x86", "--bar-x86"],
+                    },
+                },
+            ],
+        }
+        assert json.loads(content) == expected_content

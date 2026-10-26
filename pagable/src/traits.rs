@@ -473,6 +473,10 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(
+        miri,
+        ignore = "parking_lot contention uses exposed provenance and platform APIs unsupported by Miri"
+    )]
     fn storage_context_initializes_state_once_concurrently() {
         const THREADS: usize = 8;
 

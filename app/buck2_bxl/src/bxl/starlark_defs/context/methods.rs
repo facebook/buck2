@@ -16,13 +16,14 @@ use buck2_cli_proto::build_request::Materializations;
 use buck2_cli_proto::build_request::Uploads;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::events::HasEvents;
-use buck2_core::cells::cell_path::CellPathRef;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_error::buck2_error;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
@@ -35,7 +36,6 @@ use buck2_node::nodes::unconfigured::TargetNode;
 use dupe::Dupe;
 use either::Either;
 use futures::FutureExt;
-use starlark::collections::SmallMap;
 use starlark::environment::MethodsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
@@ -255,8 +255,9 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
         this: &BxlContext<'v>,
         // TODO(nga): parameter should be either positional or named, not both.
         labels: ProvidersExprArg<'v>,
-    ) -> starlark::Result<Either<StarlarkProvidersLabel, SmallMap<String, StarlarkProvidersLabel>>>
-    {
+    ) -> starlark::Result<
+        Either<StarlarkProvidersLabel, BuckMutInsertionMap<String, StarlarkProvidersLabel>>,
+    > {
         let providers = ProvidersExpr::<ProvidersLabel>::unpack(labels, this)?;
 
         match providers {
@@ -566,7 +567,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
     ) -> starlark::Result<
         Either<
             NoneOr<StarlarkAnalysisResult>,
-            SmallMap<
+            BuckMutInsertionMap<
                 ValueTyped<'v, StarlarkConfiguredProvidersLabel>,
                 ValueTyped<'v, StarlarkAnalysisResult>,
             >,
@@ -630,7 +631,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = "default")] materializations: &str,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<
-        SmallMap<
+        BuckMutInsertionMap<
             ValueTyped<'v, StarlarkConfiguredProvidersLabel>,
             ValueTyped<'v, StarlarkBxlBuildResult>,
         >,
@@ -691,7 +692,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
                 async move {
                     match ParsedPattern::<TargetPatternExtra>::parse_relaxed(
                         this.target_alias_resolver(),
-                        CellPathRef::new(this.cell_name(), CellRelativePath::empty()),
+                        CellPath::new(this.cell_name(), CellRelativePath::empty()),
                         label,
                         this.cell_resolver(),
                         this.cell_alias_resolver(),

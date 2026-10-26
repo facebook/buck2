@@ -15,7 +15,7 @@ import typing
 from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 from buck2.tests.e2e_util.helper.utils import filter_events
 from facebook.remote_execution.common import thrift_types, types
 from facebook.remote_execution.re_client_lib_if.client.types import (
@@ -36,72 +36,6 @@ ANNOTATIONS_DIR_NAME = "artifact_annotations_directory"
 TPX_EXEC_DIR = "tpx_execution_dir"
 USE_CASE_ID = "tpx-default"
 EMBEDDED_CAS_NAME = "tpx"
-
-
-@buck_test(inplace=True)
-async def test_produce_artifacts(buck: Buck) -> None:
-    await buck.test(
-        "fbcode//buck2/tests/targets/rules/python_test:test_produce_artifacts",
-    )
-
-
-@buck_test(inplace=True)
-async def test_remote_artifact_directory_is_materialized_by_default(buck: Buck) -> None:
-    await buck.test(
-        "fbcode//buck2/tests/targets/rules/python_test:test_produce_artifacts",
-        "--remote-only",
-    )
-
-    materialized_paths = await filter_events(
-        buck, "Event", "data", "SpanEnd", "data", "Materialization", "path"
-    )
-
-    assert_has_dir(ARTIFACTS_DIR_NAME, materialized_paths)
-    assert_has_dir(ANNOTATIONS_DIR_NAME, materialized_paths)
-    assert_has_dir(TPX_EXEC_DIR, materialized_paths)
-
-
-@buck_test(inplace=True)
-async def test_remote_artifact_directory_is_not_materialized_when_cas_support_enabled(
-    buck: Buck,
-) -> None:
-    await buck.test(
-        "fbcode//buck2/tests/targets/rules/python_test:test_produce_artifacts_in_cas",
-        "--no-remote-cache",
-        "--remote-only",
-    )
-
-    materialized_paths = await filter_events(
-        buck, "Event", "data", "SpanEnd", "data", "Materialization", "path"
-    )
-    assert_has_no_dir(ARTIFACTS_DIR_NAME, materialized_paths)
-    assert_has_dir(ANNOTATIONS_DIR_NAME, materialized_paths)
-    assert_has_dir(TPX_EXEC_DIR, materialized_paths)
-
-
-@buck_test(inplace=True)
-async def test_remote_artifact_has_cas_handle_with_right_ttl(buck: Buck) -> None:
-    output = await buck.test(
-        "fbcode//buck2/tests/targets/rules/python_test:test_produce_artifacts_in_cas",
-        "--remote-only",
-    )
-
-    run_id = extract_test_run_id(output.stderr)
-    tests_artifact_data = get_testx_client().artifacts_list(run_id)
-    re_metadata = RemoteExecutionMetadata(
-        use_case_id=USE_CASE_ID,
-    )
-    re_client = get_re_client(USE_CASE_ID)
-
-    expected_ttl = 13 * 86400  # TTL should be more than 13 days (in seconds)
-
-    for data in tests_artifact_data:
-        for artifact in data.artifacts:
-            assert artifact.handle.cas_digest
-            tdigest = py3_to_python_tdigest(artifact.handle.cas_digest)
-            digest_with_ttl = await get_digests_ttl(re_client, re_metadata, [tdigest])
-            assert len(digest_with_ttl) == 1
-            assert digest_with_ttl[0].ttl >= expected_ttl
 
 
 #########
@@ -164,3 +98,74 @@ def extract_test_run_id(haystack: str) -> int:
     match = next(iter(matches), None)
     assert match, f"Test run ID not found in {haystack}"
     return int(match)
+
+
+class TestArtifactsTest(BuckTestCase):
+    @buck_test(inplace=True)
+    async def test_produce_artifacts(self, buck: Buck) -> None:
+        await buck.test(
+            "fbcode//buck2/tests/targets/rules/python_test:test_produce_artifacts",
+        )
+
+    @buck_test(inplace=True)
+    async def test_remote_artifact_directory_is_materialized_by_default(
+        self, buck: Buck
+    ) -> None:
+        await buck.test(
+            "fbcode//buck2/tests/targets/rules/python_test:test_produce_artifacts",
+            "--remote-only",
+        )
+
+        materialized_paths = await filter_events(
+            buck, "Event", "data", "SpanEnd", "data", "Materialization", "path"
+        )
+
+        assert_has_dir(ARTIFACTS_DIR_NAME, materialized_paths)
+        assert_has_dir(ANNOTATIONS_DIR_NAME, materialized_paths)
+        assert_has_dir(TPX_EXEC_DIR, materialized_paths)
+
+    @buck_test(inplace=True)
+    async def test_remote_artifact_directory_is_not_materialized_when_cas_support_enabled(
+        self,
+        buck: Buck,
+    ) -> None:
+        await buck.test(
+            "fbcode//buck2/tests/targets/rules/python_test:test_produce_artifacts_in_cas",
+            "--no-remote-cache",
+            "--remote-only",
+        )
+
+        materialized_paths = await filter_events(
+            buck, "Event", "data", "SpanEnd", "data", "Materialization", "path"
+        )
+        assert_has_no_dir(ARTIFACTS_DIR_NAME, materialized_paths)
+        assert_has_dir(ANNOTATIONS_DIR_NAME, materialized_paths)
+        assert_has_dir(TPX_EXEC_DIR, materialized_paths)
+
+    @buck_test(inplace=True)
+    async def test_remote_artifact_has_cas_handle_with_right_ttl(
+        self, buck: Buck
+    ) -> None:
+        output = await buck.test(
+            "fbcode//buck2/tests/targets/rules/python_test:test_produce_artifacts_in_cas",
+            "--remote-only",
+        )
+
+        run_id = extract_test_run_id(output.stderr)
+        tests_artifact_data = get_testx_client().artifacts_list(run_id)
+        re_metadata = RemoteExecutionMetadata(
+            use_case_id=USE_CASE_ID,
+        )
+        re_client = get_re_client(USE_CASE_ID)
+
+        expected_ttl = 13 * 86400  # TTL should be more than 13 days (in seconds)
+
+        for data in tests_artifact_data:
+            for artifact in data.artifacts:
+                assert artifact.handle.cas_digest
+                tdigest = py3_to_python_tdigest(artifact.handle.cas_digest)
+                digest_with_ttl = await get_digests_ttl(
+                    re_client, re_metadata, [tdigest]
+                )
+                assert len(digest_with_ttl) == 1
+                assert digest_with_ttl[0].ttl >= expected_ttl

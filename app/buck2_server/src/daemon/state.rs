@@ -13,6 +13,8 @@ use std::path::Path;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::Mutex as StdMutex;
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -22,7 +24,6 @@ use buck2_cli_proto::ClientContext;
 use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use buck2_common::cas_digest::DigestAlgorithm;
 use buck2_common::cas_digest::DigestAlgorithmFamily;
-use buck2_common::cas_digest::file_digest_interner;
 use buck2_common::ignores::ignore_set::IgnoreSet;
 use buck2_common::init::DaemonStartupConfig;
 use buck2_common::init::SystemWarningConfig;
@@ -57,23 +58,27 @@ use buck2_events::dispatch::EventDispatcher;
 use buck2_events::sink::remote;
 use buck2_events::sink::tee::TeeSink;
 use buck2_events::source::ChannelEventSource;
+use buck2_execute::blob_store::BlobStore;
 use buck2_execute::dep_file_state::DepFileStore;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::blocking::BlockingExecutorFactory;
 use buck2_execute::materialize::materializer::FinalArtifactMaterialization;
 use buck2_execute::materialize::materializer::Materializer;
+use buck2_execute::re::client::init_induced_cache_misses;
 use buck2_execute::re::invocation_re_settings::invocation_re_use_case;
 use buck2_execute::re::manager::ReConnectionManager;
 use buck2_execute::re::ttl_refresh::ReChecker;
 use buck2_execute::re::ttl_refresh::StandaloneTtlRefreshCounters;
-use buck2_execute::re::ttl_refresh::StandaloneTtlRefresher;
+use buck2_execute::re::ttl_refresh::TtlRefresher;
 use buck2_execute_impl::executors::local::ForkserverAccess;
 use buck2_execute_impl::materializers::deferred::AccessTimesUpdates;
 use buck2_execute_impl::materializers::deferred::DeferredMaterializer;
 use buck2_execute_impl::materializers::deferred::DeferredMaterializerConfigs;
 use buck2_execute_impl::materializers::deferred::TtlRefreshConfiguration;
 use buck2_execute_impl::materializers::deferred::clean_stale::CleanStaleConfig;
+use buck2_execute_impl::materializers::v2::core as disk_state;
+use buck2_execute_impl::materializers::v2::core::DiskStateMaterializer;
 use buck2_execute_impl::re::paranoid_download::ParanoidDownloader;
 use buck2_execute_impl::sqlite::dep_file_state_db::PersistedDepFileStore;
 use buck2_execute_impl::sqlite::incremental_state_db::IncrementalDbState;
@@ -85,7 +90,9 @@ use buck2_file_watcher::file_watcher::FileWatcher;
 use buck2_fs::cwd::WorkingDirectory;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileNameBuf;
-use buck2_hash::StdBuckHashMap;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_hash::BuckFixedSortedMap;
+use buck2_hash::BuckMutMap;
 use buck2_http::HttpClient;
 use buck2_http::HttpClientBuilder;
 use buck2_re_configuration::RemoteExecutionStaticMetadata;
@@ -96,6 +103,7 @@ use buck2_resource_control::memory_tracker::MemoryTrackerHandle;
 use buck2_server_ctx::concurrency::ConcurrencyHandler;
 use buck2_server_ctx::ctx::LockedPreviousCommandData;
 use buck2_wrapper_common::invocation_id::TraceId;
+use dice::EvictionPolicy;
 use dupe::Dupe;
 use fbinit::FacebookInit;
 use host_sharing::NamedSemaphores;
@@ -104,7 +112,6 @@ use tokio::runtime::Handle;
 use tokio::sync::Mutex;
 use tokio::sync::OnceCell;
 use tracing::Instrument;
-use variant_name::VariantName;
 
 use crate::active_commands::ActiveCommandDropGuard;
 use crate::ctx::BaseServerCommandContext;
@@ -227,7 +234,7 @@ pub struct RepoState {
     /// Executor for blocking I/O against this repo's project root.
     pub blocking_executor: Arc<dyn BlockingExecutor>,
 
-    pub buckconfig_metadata: StdBuckHashMap<String, String>,
+    pub buckconfig_metadata: BuckFixedSortedMap<String, String>,
 
     /// Tags to be logged per command.
     pub tags: Vec<String>,
@@ -249,12 +256,21 @@ pub struct RepoState {
     /// (`buck2.clean_scratch_on_idle`). The sweep runs through this repo's `materializer`.
     pub(crate) clean_scratch_on_idle: bool,
 
-    /// Whether this repo's `materializer` holds write actions' content in memory until
-    /// something needs the file (`buck2.defer_write_actions`).
+    /// Whether this repo's `materializer` keeps a write action's content off its output path
+    /// until something needs the file: the deferred core's when `buck2.defer_write_actions`
+    /// says so. The disk-state core writes to the path at once.
     pub(crate) materializer_defers_writes: bool,
 
+    /// Whether this repo's `materializer` wants every write served from the action cache where
+    /// it can be, and every write it cannot and every source copy probed against the CAS before
+    /// its content is produced, whatever `buck2.write_action_cache` and `buck2.write_cas_probe`
+    /// say: the disk-state core's, which otherwise writes to disk what the CAS already holds,
+    /// 98% of a cold adfinder build's writes (RESULTS.md, 2026-10-13). One switch for the core
+    /// and what spares its writes keeps a rollout from meeting them in every combination.
+    pub(crate) materializer_probes_writes: bool,
+
     /// How often this repo's `materializer` refreshes TTLs (`buck2.ttl_refresh_frequency_seconds`).
-    /// The daemon-wide refresher over the digest interner runs at the first repo's.
+    /// The daemon-wide walk over the digest interner runs at the first repo's.
     pub(crate) ttl_refresh_frequency: Duration,
 
     /// Resource-pressure thresholds for automatic idle page-out, selected for this tenant's
@@ -388,16 +404,17 @@ impl TenantState {
 
         let digest_config = DigestConfig::leak_new(digest_algorithms, preferred_source_algorithm)
             .buck_error_context("Error initializing DigestConfig")?;
+        init_induced_cache_misses(digest_config.cas_digest_config())?;
 
         // TODO(rafaelc): merge configs from all cells once they are consistent
         let static_metadata = Arc::new(RemoteExecutionStaticMetadata::from_legacy_config(
             root_config,
         )?);
 
-        let mut ignore_specs: StdBuckHashMap<CellName, IgnoreSet> = StdBuckHashMap::default();
+        let mut ignore_specs = Vec::new();
         for (cell, _) in cells.cells() {
             let config = legacy_cells.parse_single_cell(cell, &fs).await?;
-            ignore_specs.insert(
+            ignore_specs.push((
                 cell,
                 IgnoreSet::from_ignore_spec(
                     config
@@ -408,8 +425,10 @@ impl TenantState {
                         .unwrap_or(""),
                     cells.is_root_cell(cell),
                 )?,
-            );
+            ));
         }
+        let ignore_specs: BuckFixedSortedMap<CellName, IgnoreSet> =
+            ignore_specs.into_iter().collect();
 
         let disk_state_options = DiskStateOptions::new(root_config)?;
         let blocking_executor = shared.blocking_executor_factory.for_project(fs.dupe());
@@ -417,6 +436,8 @@ impl TenantState {
         let cache_dir_path = paths.cache_dir_path();
         let valid_cache_dirs = paths.valid_cache_dirs();
 
+        let implementation = init_ctx.daemon_startup_config.materializer.as_deref();
+        let disk_state_core = implementation == Some(disk_state::CONFIG_VALUE);
         let deferred_materializer_configs = {
             let defer_write_actions = root_config
                 .parse::<RolloutPercentage>(BuckconfigKeyRef {
@@ -463,8 +484,25 @@ impl TenantState {
                 })?
                 .unwrap_or(false);
 
+            let strict_leases = root_config
+                .parse(BuckconfigKeyRef {
+                    section: "buck2",
+                    property: "materializer_strict_leases",
+                })?
+                .unwrap_or(false);
+
             let mut clean_stale_config = CleanStaleConfig::from_buck_config(root_config)?;
-            clean_stale_config.suppress_unmaterialize_without_ttl_refresh(ttl_refresh_enabled);
+            // The disk-state core's TTLs are refreshed by the daemon-wide walk whatever the knob
+            // says of the deferred core's own refresher.
+            clean_stale_config
+                .suppress_unmaterialize_without_ttl_refresh(ttl_refresh_enabled || disk_state_core);
+            let readonly_outputs = root_config
+                .parse::<RolloutPercentage>(BuckconfigKeyRef {
+                    section: "buck2",
+                    property: "readonly_outputs",
+                })?
+                .unwrap_or_else(RolloutPercentage::never)
+                .roll();
 
             DeferredMaterializerConfigs {
                 materialize_final_artifacts: matches!(
@@ -480,9 +518,13 @@ impl TenantState {
                 update_access_times,
                 verbose_materializer_log,
                 clean_stale_config,
+                readonly_outputs,
+                strict_leases,
             }
         };
-        let materializer_defers_writes = deferred_materializer_configs.defer_write_actions;
+        let materializer_defers_writes =
+            !disk_state_core && deferred_materializer_configs.defer_write_actions;
+        let materializer_probes_writes = disk_state_core;
         let ttl_refresh_frequency = deferred_materializer_configs.ttl_refresh.frequency;
 
         let use_eden_thrift_read = root_config
@@ -584,7 +626,24 @@ impl TenantState {
         } else {
             EventDispatcher::null()
         };
+        let stash = io
+            .project_root()
+            .resolve(paths.buck_out_dir())
+            .join(ForwardRelativePath::unchecked_new("stash"));
+        if disk_state_core {
+            // The daemon has one stash, started empty. It lives under this repo's buck-out until
+            // it has a home of the daemon's own; a second repo in the process would share it.
+            BlobStore::global().attach_stash(
+                stash,
+                digest_config.cas_digest_config(),
+                blocking_executor.dupe(),
+            );
+        } else {
+            // Nothing refers to what a previous daemon left, whichever core it ran.
+            buck2_execute::blob_store::discard_stash(&stash, blocking_executor.dupe());
+        }
         let materializer = RepoState::create_materializer(
+            implementation,
             io.project_root().dupe(),
             digest_config,
             paths.buck_out_dir(),
@@ -595,7 +654,6 @@ impl TenantState {
             materializer_state,
             daemon_dispatcher,
         )?;
-
         tracing::info!("Creating tenting ACL provider...");
         let tenting_acl_provider = create_tenting_acl_provider(fb, paths.project_root());
 
@@ -667,15 +725,29 @@ impl TenantState {
             .resource_control
             .enable_suspension;
 
+        let evicts_on_memory_pressure = init_ctx
+            .daemon_startup_config
+            .hydration
+            .as_ref()
+            .is_some_and(|hydration| hydration.eviction_policy == EvictionPolicy::OnMemoryPressure);
+        // Under `on_memory_pressure` only the memory tracker evicts, so without one an idle
+        // page-out would write rows for values that never leave memory.
+        let evictions_impossible = evicts_on_memory_pressure && shared.memory_tracker.is_none();
         let page_out_on_idle = init_ctx
             .daemon_startup_config
             .idle_page_out_config_for_isolation_dir(paths.isolation())
+            .filter(|_| !evictions_impossible)
             .map(|hydration| PageOutThresholds {
                 min_free_disk_gb: hydration.page_out_min_free_disk_gb,
             });
+        if evictions_impossible {
+            tracing::info!(
+                "Idle page-out disabled: `hydration.eviction_policy` is `on_memory_pressure` \
+                 and this daemon has no memory tracker to see pressure with"
+            );
+        }
 
         let tags = vec![
-            format!("dice-detect-cycles:{}", dice.detect_cycles().variant_name()),
             // TODO(scottcao): Delete this tag since now hash all commands is always enabled.
             "hash-all-commands:true".to_owned(),
             format!(
@@ -697,6 +769,14 @@ impl TenantState {
         ];
 
         let dice_manager = ConcurrencyHandler::new(dice, root);
+        if let Some(memory_tracker) = shared.memory_tracker
+            && evicts_on_memory_pressure
+        {
+            crate::paging::spawn_evict_on_memory_pressure(
+                Arc::downgrade(&dice_manager),
+                memory_tracker.memory_pressure(),
+            );
+        }
         let repo = Arc::new(RepoState {
             paths,
             file_watcher,
@@ -725,6 +805,7 @@ impl TenantState {
             system_warning_config: SystemWarningConfig::from_config(root_config)?,
             detect_eden_restart,
             materializer_defers_writes,
+            materializer_probes_writes,
             ttl_refresh_frequency,
             clean_scratch_on_idle: root_config
                 .parse::<RolloutPercentage>(BuckconfigKeyRef {
@@ -766,6 +847,7 @@ impl TenantState {
 
 impl RepoState {
     fn create_materializer(
+        implementation: Option<&str>,
         fs: ProjectRoot,
         digest_config: DigestConfig,
         buck_out_path: ProjectRelativePathBuf,
@@ -776,17 +858,35 @@ impl RepoState {
         materializer_state: Option<MaterializerState>,
         daemon_dispatcher: EventDispatcher,
     ) -> buck2_error::Result<Arc<dyn Materializer>> {
-        Ok(Arc::new(DeferredMaterializer::new(
-            fs,
-            digest_config,
-            buck_out_path,
-            re_client_manager,
-            blocking_executor,
-            deferred_materializer_configs,
-            materializer_db,
-            materializer_state,
-            daemon_dispatcher,
-        )?))
+        match implementation {
+            None | Some("deferred") => Ok(Arc::new(DeferredMaterializer::new(
+                fs,
+                digest_config,
+                buck_out_path,
+                re_client_manager,
+                blocking_executor,
+                deferred_materializer_configs,
+                materializer_db,
+                materializer_state,
+                daemon_dispatcher,
+            )?)),
+            Some(disk_state::CONFIG_VALUE) => Ok(Arc::new(DiskStateMaterializer::new(
+                fs,
+                digest_config,
+                buck_out_path,
+                re_client_manager,
+                blocking_executor,
+                deferred_materializer_configs,
+                materializer_db,
+                materializer_state,
+                daemon_dispatcher,
+            )?)),
+            Some(other) => Err(buck2_error::buck2_error!(
+                ErrorTag::Input,
+                "Unknown `buck2.materializer` value `{other}`; expected `deferred` or `{}`",
+                disk_state::CONFIG_VALUE
+            )),
+        }
     }
 }
 
@@ -801,11 +901,14 @@ struct TenantStateRegistry {
     /// insertion, and the same allocation is accounted for through `tenants`.
     #[allocative(skip)]
     initial_state: Arc<TenantState>,
-    tenants: StdMutex<StdBuckHashMap<TenantKey, Arc<TenantStateSlot<TenantState>>>>,
+    tenants: StdMutex<BuckMutMap<TenantKey, Arc<TenantStateSlot<TenantState>>>>,
+    #[allocative(skip)]
+    next_generation: AtomicU64,
 }
 
 struct TenantStateSlot<T: Allocative> {
     spec: TenantSpec,
+    generation: u64,
     state: OnceCell<Arc<T>>,
 }
 
@@ -813,6 +916,7 @@ impl<T: Allocative> Allocative for TenantStateSlot<T> {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut allocative::Visitor<'b>) {
         let mut visitor = visitor.enter_self_sized::<Self>();
         visitor.visit_field(allocative::Key::new("spec"), &self.spec);
+        visitor.visit_field(allocative::Key::new("generation"), &self.generation);
         if let Some(state) = self.state.get() {
             visitor.visit_field(allocative::Key::new("state"), state);
         }
@@ -821,9 +925,10 @@ impl<T: Allocative> Allocative for TenantStateSlot<T> {
 }
 
 impl<T: Allocative> TenantStateSlot<T> {
-    fn new(spec: TenantSpec) -> Self {
+    fn new(spec: TenantSpec, generation: u64) -> Self {
         Self {
             spec,
+            generation,
             state: OnceCell::new(),
         }
     }
@@ -848,7 +953,8 @@ impl TenantStateRegistry {
         let registry = Self {
             initial_tenant: initial_key,
             initial_state: initial_tenant.dupe(),
-            tenants: StdMutex::new(StdBuckHashMap::default()),
+            tenants: StdMutex::new(BuckMutMap::default()),
+            next_generation: AtomicU64::new(1),
         };
         registry
             .get_or_create(spec, || async { Ok(initial_tenant) })
@@ -874,7 +980,10 @@ impl TenantStateRegistry {
                 .unwrap_or_else(|poisoned| poisoned.into_inner());
             tenants
                 .entry(key.clone())
-                .or_insert_with(|| Arc::new(TenantStateSlot::new(spec)))
+                .or_insert_with(|| {
+                    let generation = self.next_generation.fetch_add(1, Ordering::Relaxed);
+                    Arc::new(TenantStateSlot::new(spec, generation))
+                })
                 .clone()
         };
         if entry.spec != requested_spec {
@@ -922,6 +1031,35 @@ impl TenantStateRegistry {
             .count();
         (initialized_tenant_count == 1).then(|| self.initial_state.dupe())
     }
+
+    fn list(&self) -> Vec<TenantStateInfo> {
+        let tenants = self
+            .tenants
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let mut result: Vec<_> = tenants
+            .values()
+            .map(|entry| TenantStateInfo {
+                key: entry.spec.key().clone(),
+                generation: entry.generation,
+                initialized: entry.is_initialized(),
+            })
+            .collect();
+        result.sort_by(|a, b| {
+            a.key
+                .project_root()
+                .as_os_str()
+                .cmp(b.key.project_root().as_os_str())
+                .then_with(|| a.key.isolation().as_str().cmp(b.key.isolation().as_str()))
+        });
+        result
+    }
+}
+
+pub struct TenantStateInfo {
+    pub key: TenantKey,
+    pub generation: u64,
+    pub initialized: bool,
 }
 
 fn tenant_paths_from_client_context(
@@ -1079,6 +1217,10 @@ impl DaemonStateData {
     /// The initial tenant for daemon-scoped operations whose protocol has no tenant identity.
     pub fn initial_tenant(&self) -> Arc<TenantState> {
         self.tenants.initial_tenant()
+    }
+
+    pub fn tenants(&self) -> Vec<TenantStateInfo> {
+        self.tenants.list()
     }
 
     pub fn dice_dump(&self, path: &Path, format: DiceDumpFormat) -> buck2_error::Result<()> {
@@ -1260,17 +1402,16 @@ impl DaemonState {
                 )
                 .await?;
 
-            // One refresher for the process-wide digest interner, on the first tenant's RE
-            // connection and cadence.
-            let standalone_ttl_refresh = StandaloneTtlRefresher::new(
-                file_digest_interner(),
-                Arc::new(ReChecker::new(
+            // One walk over the process-wide digest interner, on the first tenant's RE
+            // connection and cadence: the BlobStore's, which refreshes CAS TTLs and drops what
+            // nothing holds.
+            let standalone_ttl_refresh = BlobStore::global().start_refresh(
+                TtlRefresher::new(Arc::new(ReChecker::new(
                     tenant.repo.re_client_manager.dupe(),
                     invocation_re_use_case(root_config)?,
-                )),
+                ))),
                 tenant.repo.ttl_refresh_frequency,
-            )
-            .spawn();
+            );
 
             let package_visibility_default_intersection = tenant_state_factory
                 .init_ctx
@@ -1587,7 +1728,7 @@ mod tests {
 
     #[tokio::test]
     async fn tenant_entry_initializes_once() -> buck2_error::Result<()> {
-        let entry = TenantStateSlot::<usize>::new(tenant_spec());
+        let entry = TenantStateSlot::<usize>::new(tenant_spec(), 1);
         let init_count = AtomicUsize::new(0);
         let first = entry.get_or_try_init(|| async {
             init_count.fetch_add(1, Ordering::Relaxed);
@@ -1609,7 +1750,7 @@ mod tests {
 
     #[tokio::test]
     async fn tenant_entry_retries_failed_initialization() -> buck2_error::Result<()> {
-        let entry = TenantStateSlot::<usize>::new(tenant_spec());
+        let entry = TenantStateSlot::<usize>::new(tenant_spec(), 1);
         let first = entry
             .get_or_try_init(|| async {
                 Err(buck2_error!(

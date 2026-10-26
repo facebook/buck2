@@ -195,7 +195,6 @@ mod tests {
     use buck2_data::StarlarkUserMetadataValue;
     use buck2_data::starlark_user_metadata_value::Value;
     use buck2_hash::IntentionallyStdHashMap;
-    use maplit::hashmap;
 
     #[test]
     fn test_serialize_starlark_user_event() {
@@ -267,7 +266,7 @@ mod tests {
             value: Some(Value::StringValue("bar".to_owned())),
         };
         let dict = StarlarkUserMetadataDictValue {
-            value: hashmap!["foo".to_owned() => bar],
+            value: IntentionallyStdHashMap::from([("foo".to_owned(), bar)]),
         };
         let val = StarlarkUserMetadataValue {
             value: Some(Value::DictValue(dict)),

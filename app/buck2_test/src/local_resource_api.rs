@@ -15,7 +15,7 @@ use buck2_common::local_resource_state::LocalResource;
 use buck2_common::local_resource_state::LocalResourceState;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::ErrorTag;
-use buck2_hash::BuckIndexMap;
+use buck2_hash::BuckMutInsertionMap;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -35,11 +35,11 @@ impl LocalResourcesSetupResult {
     pub(crate) fn into_state(
         self,
         resource_target: ConfiguredTargetLabel,
-        provider_env_mapping: &BuckIndexMap<String, String>,
+        provider_env_mapping: &BuckMutInsertionMap<String, String>,
     ) -> buck2_error::Result<LocalResourceState> {
         fn make_resource(
             alias_to_value: BTreeMap<String, String>,
-            env_var_to_alias: &BuckIndexMap<String, String>,
+            env_var_to_alias: &BuckMutInsertionMap<String, String>,
         ) -> buck2_error::Result<LocalResource> {
             let env_vars = env_var_to_alias
                 .iter()
@@ -94,7 +94,7 @@ mod tests {
     use buck2_common::local_resource_state::LocalResource;
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-    use buck2_hash::buck_indexmap;
+    use buck2_hash::buck_mut_insertion_map;
     use maplit::btreemap;
 
     use crate::local_resource_api::LocalResourcesSetupResult;
@@ -111,7 +111,7 @@ mod tests {
         };
         let target =
             ConfiguredTargetLabel::testing_parse("foo//bar:baz", ConfigurationData::testing_new());
-        let provider_env_mapping = buck_indexmap! {
+        let provider_env_mapping = buck_mut_insertion_map! {
             "ENV_SOCKET".to_owned() => "socket_address".to_owned(),
         };
         let state = setup_result.into_state(target, &provider_env_mapping)?;
@@ -156,7 +156,7 @@ mod tests {
                 "foo//bar:baz",
                 ConfigurationData::testing_new(),
             );
-            let provider_env_mapping = buck_indexmap! {
+            let provider_env_mapping = buck_mut_insertion_map! {
                 "ENV_SOCKET".to_owned() => "socket_address".to_owned(),
             };
             let err = setup_result
@@ -178,7 +178,7 @@ mod tests {
         };
         let target =
             ConfiguredTargetLabel::testing_parse("foo//bar:baz", ConfigurationData::testing_new());
-        let provider_env_mapping = buck_indexmap! {
+        let provider_env_mapping = buck_mut_insertion_map! {
             "ENV_SOCKET".to_owned() => "socket_address".to_owned(),
         };
         let err = setup_result
@@ -201,7 +201,7 @@ mod tests {
         };
         let target =
             ConfiguredTargetLabel::testing_parse("foo//bar:baz", ConfigurationData::testing_new());
-        let provider_env_mapping = buck_indexmap! {
+        let provider_env_mapping = buck_mut_insertion_map! {
             "ENV_SOCKET".to_owned() => "socket_address".to_owned(),
         };
         let result = setup_result.into_state(target, &provider_env_mapping);

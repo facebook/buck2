@@ -191,15 +191,18 @@ sampled sites) and should agree to within sampling error.
 
 ### Worked example
 
-On a daemon after a `cquery` over buck2's own graph, the ~1.2 GiB of small-bin
-waste attributed almost entirely to **`TargetNode` construction during
-load/coerce** (cumulative by leaf): coerced deps (`ThinBoxSlice<TargetLabel>`,
-`Vec2<ProvidersLabel, …>`), `CoercedAttr::coerce`, `AttrValues`, the
-`Arc<HeaderSlice<[CoercedAttr]>>` and target-label `Arc`s, `TargetNode::new`,
-and `ArcStrInterner`. These are long-lived graph nodes allocated amid the
-transient churn of evaluating each `BUCK` file — the survivors-pinning-slabs
-shape, and a candidate for a per-package arena freed when the package's targets
-are invalidated.
+On a daemon after a `cquery` over buck2's own graph (measured before the attr
+arena existed), the ~1.2 GiB of small-bin waste attributed almost entirely to
+**`TargetNode` construction during load/coerce** (cumulative by leaf): coerced
+deps (`ThinBoxSlice<TargetLabel>`, `Vec2<ProvidersLabel, …>`),
+`CoercedAttr::coerce`, `AttrValues`, the `Arc<HeaderSlice<[CoercedAttr]>>` and
+target-label `Arc`s, `TargetNode::new`, and `ArcStrInterner`. These are
+long-lived graph nodes allocated amid the transient churn of evaluating each
+`BUCK` file — the survivors-pinning-slabs shape. The per-attribute-value slice
+of that family (`CoercedAttr` trees, `ArcStrInterner`) has since moved into a
+per-package arena (`buck2_node/src/attrs/arena.rs`, which documents the
+encoding); the per-node structures (`ThinBoxSlice<TargetLabel>`, deps caches,
+`TargetNode` itself) still co-allocate as described below.
 
 Focus mode on the 192 class (its top waste class) sharpened this: only **32% of
 its pages are single-leaf cohorts; 68% are mixed**, and the mixtures are exactly

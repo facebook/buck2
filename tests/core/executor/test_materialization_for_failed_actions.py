@@ -14,7 +14,7 @@ from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 from buck2.tests.e2e_util.helper.utils import filter_events, json_get, random_string
 
 HASH = r"[0-9a-fA-F]{16}"
@@ -61,37 +61,6 @@ async def check_materialize_inputs_for_failed_actions(buck: Buck) -> None:
         raise AssertionError("Did not find relevant MaterializeFailedInputs span")
 
 
-@buck_test(data_dir="materialize_inputs_for_failed_actions")
-async def test_materialize_inputs_for_failed_actions(buck: Buck) -> None:
-    await expect_failure(
-        buck.build(
-            "//:action_fail",
-            "--remote-only",
-            "--no-remote-cache",
-            "--materialize-failed-inputs",
-            "-c",
-            f"test.cache_buster={random_string()}",
-        ),
-    )
-    await check_materialize_inputs_for_failed_actions(buck)
-
-
-@buck_test(data_dir="materialize_inputs_for_failed_actions")
-async def test_materialize_inputs_for_failed_actions_content_hash(buck: Buck) -> None:
-    await expect_failure(
-        buck.build(
-            "//:action_fail",
-            "--remote-only",
-            "--no-remote-cache",
-            "--materialize-failed-inputs",
-            "-c",
-            f"test.cache_buster={random_string()}",
-            "test.use_content_based_path=true",
-        ),
-    )
-    await check_materialize_inputs_for_failed_actions(buck)
-
-
 async def check_materialized_outputs_for_failed_action(buck: Buck) -> None:
     materialized = await filter_events(
         buck,
@@ -127,44 +96,6 @@ async def check_materialized_outputs_for_failed_action(buck: Buck) -> None:
     assert re.search(HASH, out2), "Expected hash in output path"
 
 
-@buck_test(skip_for_os=["windows"], data_dir="materialize_outputs_for_failed_actions")
-async def test_materialize_outputs_for_failed_actions(buck: Buck) -> None:
-    await expect_failure(
-        buck.build(
-            "//:action_fail",
-            "--remote-only",
-            "--materialize-failed-outputs",
-        ),
-    )
-    await check_materialized_outputs_for_failed_action(buck)
-
-
-@buck_test(skip_for_os=["windows"], data_dir="materialize_outputs_for_failed_actions")
-async def test_materialize_outputs_for_failed_actions_content_hash(buck: Buck) -> None:
-    await expect_failure(
-        buck.build(
-            "//:action_fail",
-            "--remote-only",
-            "--materialize-failed-outputs",
-            "-c",
-            "test.use_content_based_path=true",
-        ),
-    )
-    await check_materialized_outputs_for_failed_action(buck)
-
-
-@buck_test(data_dir="materialize_outputs_for_failed_actions")
-async def test_undeclared_outputs_to_materialize_will_fail(buck: Buck) -> None:
-    await expect_failure(
-        buck.build(
-            "//:undeclared_output",
-            "--remote-only",
-            "--no-remote-cache",
-        ),
-        stderr_regex="marked to be materialized on failure but is not declared as an output of the action",
-    )
-
-
 async def check_materialized_outputs_defined_by_run_action(buck: Buck) -> None:
     materialized = await filter_events(
         buck,
@@ -195,29 +126,108 @@ async def check_materialized_outputs_defined_by_run_action(buck: Buck) -> None:
     assert re.search(HASH, out), "Expected hash in output path"
 
 
-@buck_test(skip_for_os=["windows"], data_dir="materialize_outputs_for_failed_actions")
-async def test_materialize_outputs_defined_by_run_action(buck: Buck) -> None:
-    await expect_failure(
-        buck.build(
-            "//:action_fail",
-            "--remote-only",
-            "--no-remote-cache",
-        ),
-    )
-    await check_materialized_outputs_defined_by_run_action(buck)
+class MaterializationForFailedActionsTest(BuckTestCase):
+    @buck_test(data_dir="materialize_inputs_for_failed_actions")
+    async def test_materialize_inputs_for_failed_actions(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.build(
+                "//:action_fail",
+                "--remote-only",
+                "--no-remote-cache",
+                "--materialize-failed-inputs",
+                "-c",
+                f"test.cache_buster={random_string()}",
+            ),
+        )
+        await check_materialize_inputs_for_failed_actions(buck)
 
+    @buck_test(data_dir="materialize_inputs_for_failed_actions")
+    async def test_materialize_inputs_for_failed_actions_content_hash(
+        self, buck: Buck
+    ) -> None:
+        await expect_failure(
+            buck.build(
+                "//:action_fail",
+                "--remote-only",
+                "--no-remote-cache",
+                "--materialize-failed-inputs",
+                "-c",
+                f"test.cache_buster={random_string()}",
+                "test.use_content_based_path=true",
+            ),
+        )
+        await check_materialize_inputs_for_failed_actions(buck)
 
-@buck_test(skip_for_os=["windows"], data_dir="materialize_outputs_for_failed_actions")
-async def test_materialize_outputs_defined_by_run_action_content_hash(
-    buck: Buck,
-) -> None:
-    await expect_failure(
-        buck.build(
-            "//:action_fail",
-            "--remote-only",
-            "--no-remote-cache",
-            "-c",
-            "test.use_content_based_path=true",
-        ),
+    @buck_test(
+        skip_for_os=["windows"], data_dir="materialize_outputs_for_failed_actions"
     )
-    await check_materialized_outputs_defined_by_run_action(buck)
+    async def test_materialize_outputs_for_failed_actions(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.build(
+                "//:action_fail",
+                "--remote-only",
+                "--materialize-failed-outputs",
+            ),
+        )
+        await check_materialized_outputs_for_failed_action(buck)
+
+    @buck_test(
+        skip_for_os=["windows"], data_dir="materialize_outputs_for_failed_actions"
+    )
+    async def test_materialize_outputs_for_failed_actions_content_hash(
+        self, buck: Buck
+    ) -> None:
+        await expect_failure(
+            buck.build(
+                "//:action_fail",
+                "--remote-only",
+                "--materialize-failed-outputs",
+                "-c",
+                "test.use_content_based_path=true",
+            ),
+        )
+        await check_materialized_outputs_for_failed_action(buck)
+
+    @buck_test(data_dir="materialize_outputs_for_failed_actions")
+    async def test_undeclared_outputs_to_materialize_will_fail(
+        self, buck: Buck
+    ) -> None:
+        await expect_failure(
+            buck.build(
+                "//:undeclared_output",
+                "--remote-only",
+                "--no-remote-cache",
+            ),
+            stderr_regex="marked to be materialized on failure but is not declared as an output of the action",
+        )
+
+    @buck_test(
+        skip_for_os=["windows"], data_dir="materialize_outputs_for_failed_actions"
+    )
+    async def test_materialize_outputs_defined_by_run_action(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.build(
+                "//:action_fail",
+                "--remote-only",
+                "--no-remote-cache",
+            ),
+        )
+        await check_materialized_outputs_defined_by_run_action(buck)
+
+    @buck_test(
+        skip_for_os=["windows"], data_dir="materialize_outputs_for_failed_actions"
+    )
+    async def test_materialize_outputs_defined_by_run_action_content_hash(
+        self,
+        buck: Buck,
+    ) -> None:
+        await expect_failure(
+            buck.build(
+                "//:action_fail",
+                "--remote-only",
+                "--no-remote-cache",
+                "-c",
+                "test.use_content_based_path=true",
+            ),
+        )
+        await check_materialized_outputs_defined_by_run_action(buck)

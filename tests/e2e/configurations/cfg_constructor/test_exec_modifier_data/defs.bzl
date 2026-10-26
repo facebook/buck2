@@ -8,6 +8,34 @@
 
 """Custom rules for testing exec platform modifiers."""
 
+load("@prelude//cfg/exec_platform:marker.bzl", "get_exec_platform_marker")
+load("@prelude//cfg/modifier:cfg_constructor.bzl", "cfg_constructor_post_constraint_analysis", "cfg_constructor_pre_constraint_analysis")
+
+_FALSE_EXEC_MARKER = "prelude//cfg/exec_platform/marker:is_exec_platform[false]"
+
+def cfg_constructor_with_exec_marker_refs(**kwargs):
+    refs, params = cfg_constructor_pre_constraint_analysis(**kwargs)
+    if params.extra_data.replace_exec_marker:
+        refs.append(_FALSE_EXEC_MARKER)
+    return refs, params
+
+def cfg_constructor_changing_exec_marker(*, refs, params):
+    platform = cfg_constructor_post_constraint_analysis(refs = refs, params = params)
+    if not params.configuring_exec_dep:
+        return platform
+
+    marker = refs[get_exec_platform_marker()][ConstraintValueInfo]
+    constraints = {key: value for key, value in platform.configuration.constraints.items() if key != marker.setting.label}
+    if params.extra_data.replace_exec_marker:
+        constraints[marker.setting.label] = refs[_FALSE_EXEC_MARKER][ConstraintValueInfo]
+    return PlatformInfo(
+        label = platform.label,
+        configuration = ConfigurationInfo(
+            constraints = constraints,
+            values = platform.configuration.values,
+        ),
+    )
+
 def get_labels():
     """Returns labels based on build_mode and compiler constraints."""
     return (
@@ -53,6 +81,7 @@ dummy = rule(
         "configured_deps": attrs.list(attrs.configured_dep(), default = []),
         "deps": attrs.list(attrs.dep(), default = []),
         "exec_deps": attrs.list(attrs.exec_dep(), default = []),
+        "is_exec": attrs.string(default = ""),
         "labels": attrs.list(attrs.string(), default = []),
         "srcs": attrs.list(attrs.source(), default = []),
         "toolchain_deps": attrs.list(attrs.toolchain_dep(), default = []),
@@ -120,3 +149,107 @@ def labeled_toolchain(name, **kwargs):
         kwargs["labels"] = get_labels()
 
     toolchain(name = name, **kwargs)
+
+# ============================================================================
+# Transitions for testing exec marker preservation across transitions
+# ============================================================================
+
+def _single_transition_impl(platform, refs, attrs):
+    """Choose a compiler using the input marker, optionally returning a conflicting marker."""
+    marker = refs.exec_marker[ConstraintValueInfo]
+    input_marker = platform.configuration.constraints.get(marker.setting.label)
+    is_exec = input_marker != None and input_marker.label == marker.label
+    c = (refs.clang if is_exec else refs.gcc)[ConstraintValueInfo]
+    constraints = {c.setting.label: c}
+    if attrs.set_false_marker:
+        constraints[marker.setting.label] = refs.false_marker[ConstraintValueInfo]
+    return PlatformInfo(
+        label = "single_transitioned",
+        configuration = ConfigurationInfo(
+            constraints = constraints,
+            values = {},
+        ),
+    )
+
+_single_transition = transition(
+    impl = _single_transition_impl,
+    attrs = ["set_false_marker"],
+    refs = {
+        "clang": "//cfg:compiler[clang]",
+        "exec_marker": "prelude//cfg/exec_platform/marker:is_exec_platform[true]",
+        "false_marker": _FALSE_EXEC_MARKER,
+        "gcc": "//cfg:compiler[gcc]",
+    },
+)
+
+def _split_transition_impl(platform, refs, attrs):
+    """Return fresh split configurations, optionally with a conflicting marker in b."""
+    _ = platform  # buildifier: disable=unused-variable
+    c_a = refs.constraint_a[ConstraintValueInfo]
+    c_b = refs.constraint_b[ConstraintValueInfo]
+    constraints_b = {c_b.setting.label: c_b}
+    if attrs.set_false_marker:
+        marker = refs.false_marker[ConstraintValueInfo]
+        constraints_b[marker.setting.label] = marker
+
+    return {
+        "a": PlatformInfo(
+            label = "split_transitioned_a",
+            configuration = ConfigurationInfo(
+                constraints = {c_a.setting.label: c_a},
+                values = {},
+            ),
+        ),
+        "b": PlatformInfo(
+            label = "split_transitioned_b",
+            configuration = ConfigurationInfo(
+                constraints = constraints_b,
+                values = {},
+            ),
+        ),
+    }
+
+_split_transition = transition(
+    impl = _split_transition_impl,
+    attrs = ["set_false_marker"],
+    refs = {
+        "constraint_a": "//cfg:compiler[gcc]",
+        "constraint_b": "//cfg:compiler[clang]",
+        "false_marker": _FALSE_EXEC_MARKER,
+    },
+    split = True,
+)
+
+# Select expression that resolves to "true" or "false" based on the exec platform marker.
+# Used to directly verify the marker is present in the configuration.
+def get_exec_marker_label():
+    return select({
+        "DEFAULT": "is_exec:false",
+        "prelude//cfg/exec_platform/marker:is_exec_platform[true]": "is_exec:true",
+    })
+
+# Rule that wraps a transition dep - used as an exec dep to test marker preservation.
+# When this rule is used as an exec_dep, it's configured with the exec platform config.
+# Its transition_dep then receives the exec platform config as input.
+def _tool_with_transition_dep_impl(_ctx):
+    return [DefaultInfo()]
+
+tool_with_single_transition_dep = rule(
+    impl = _tool_with_transition_dep_impl,
+    attrs = {
+        "is_exec": attrs.string(default = ""),
+        "labels": attrs.list(attrs.string(), default = []),
+        "set_false_marker": attrs.bool(default = False),
+        "transitioned_dep": attrs.transition_dep(cfg = _single_transition),
+    },
+)
+
+tool_with_split_transition_dep = rule(
+    impl = _tool_with_transition_dep_impl,
+    attrs = {
+        "is_exec": attrs.string(default = ""),
+        "labels": attrs.list(attrs.string(), default = []),
+        "set_false_marker": attrs.bool(default = False),
+        "transitioned_dep": attrs.split_transition_dep(cfg = _split_transition),
+    },
+)

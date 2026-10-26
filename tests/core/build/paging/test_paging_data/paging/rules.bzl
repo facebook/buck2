@@ -13,6 +13,7 @@ def _copy_file_impl(ctx):
 copy_file = rule(
     impl = _copy_file_impl,
     attrs = {
+        "deps": attrs.list(attrs.dep(), default = []),
         "out": attrs.string(),
         "src": attrs.source(),
     },
@@ -62,4 +63,25 @@ def _uses_anon_impl(ctx):
 uses_anon = rule(
     impl = _uses_anon_impl,
     attrs = {},
+)
+
+def _many_actions_impl(ctx):
+    for index in range(2000):
+        ctx.actions.write(
+            "unused-{}.txt".format(index),
+            "unused-action-{}".format(index) * 100,
+            has_content_based_path = False,
+        )
+    out = ctx.actions.copy_file("used.txt", ctx.attrs.src, has_content_based_path = False)
+    return [
+        DefaultInfo(default_output = out),
+        InstallInfo(installer = ctx.attrs.installer, files = {"used": out}),
+    ]
+
+many_actions = rule(
+    impl = _many_actions_impl,
+    attrs = {
+        "installer": attrs.label(),
+        "src": attrs.source(),
+    },
 )

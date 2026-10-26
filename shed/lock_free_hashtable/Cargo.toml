@@ -2,7 +2,7 @@
 
 [package]
 name = "lock_free_hashtable"
-version = "0.1.4"
+version = "0.2.0"
 edition.workspace = true
 description = "Lock-free (almost) insertion only hashtable"
 repository.workspace = true
@@ -10,8 +10,6 @@ license.workspace = true
 
 [dependencies]
 allocative = { version = "0.3.6", path = "../../allocative/allocative", optional = true }
-atomic.workspace = true
-bytemuck = "1.25"
 parking_lot = "0.12.1"
 
 [dev-dependencies]

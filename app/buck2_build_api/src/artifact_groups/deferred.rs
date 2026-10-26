@@ -17,12 +17,14 @@ use pagable::Pagable;
 use starlark::values::OwnedFrozen;
 use starlark::values::StarlarkPagableViaPagable;
 use starlark::values::ValueTyped;
+use strong_hash::StrongHash;
 
 use crate::deferred::calculation::lookup_deferred_holder;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 
 #[derive(
     Hash,
+    StrongHash,
     Eq,
     PartialEq,
     Clone,
@@ -51,7 +53,7 @@ impl TransitiveSetKey {
 }
 
 #[derive(
-    Hash, Eq, PartialEq, Clone, Dupe, Copy, Display, Debug, Allocative, Pagable
+    Hash, StrongHash, Eq, PartialEq, Clone, Dupe, Copy, Display, Debug, Allocative, Pagable
 )]
 #[display("{:?}", self)]
 /// Index for the transitive set data in the analysis result

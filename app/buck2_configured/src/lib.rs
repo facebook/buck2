@@ -9,7 +9,6 @@
  */
 
 pub mod configuration;
-pub mod cycle;
 pub mod execution;
 pub mod nodes;
 mod target_platform_resolution;

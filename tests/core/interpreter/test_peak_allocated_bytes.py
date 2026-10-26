@@ -10,26 +10,27 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 from buck2.tests.e2e_util.helper.utils import filter_events
 
 
-@buck_test()
-async def test_peak_allocated_bytes(buck: Buck) -> None:
-    await buck.uquery("//:EEE")
-    span_end_load_event = await filter_events(
-        buck,
-        "Event",
-        "data",
-        "SpanEnd",
-        "data",
-        "Load",
-    )
-    assert len(span_end_load_event) == 1
-    starlark_peak_allocated_bytes = span_end_load_event[0][
-        "starlark_peak_allocated_bytes"
-    ]
-    # list occupies pointer size (8) * number of elements (~10MB) + some extra overhead for bookkeeping
-    assert starlark_peak_allocated_bytes >= (8 * 10 * 1 << 20)
-    # check that it is no more than +10%
-    assert starlark_peak_allocated_bytes < (8 * 11 * 1 << 20)
+class PeakAllocatedBytesTest(BuckTestCase):
+    @buck_test()
+    async def test_peak_allocated_bytes(self, buck: Buck) -> None:
+        await buck.uquery("//:EEE")
+        span_end_load_event = await filter_events(
+            buck,
+            "Event",
+            "data",
+            "SpanEnd",
+            "data",
+            "Load",
+        )
+        assert len(span_end_load_event) == 1
+        starlark_peak_allocated_bytes = span_end_load_event[0][
+            "starlark_peak_allocated_bytes"
+        ]
+        # list occupies pointer size (8) * number of elements (~10MB) + some extra overhead for bookkeeping
+        assert starlark_peak_allocated_bytes >= (8 * 10 * 1 << 20)
+        # check that it is no more than +10%
+        assert starlark_peak_allocated_bytes < (8 * 11 * 1 << 20)

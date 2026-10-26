@@ -43,7 +43,7 @@ use buck2_server::daemon::server::BuckdServer;
 use buck2_server::daemon::server::BuckdServerInitPreferences;
 use buck2_util::threads::thread_spawn;
 use buck2_util::tokio_runtime::new_tokio_runtime;
-use dice::DetectCycles;
+use buck2_wrapper_common::kill::process_start_time;
 use dupe::Dupe;
 use futures::FutureExt;
 use futures::StreamExt;
@@ -173,6 +173,27 @@ fn verify_current_daemon(daemon_dir: &DaemonDir) -> buck2_error::Result<()> {
     Ok(())
 }
 
+/// This daemon's start time for `buckd.info`, or 0 when it cannot be read.
+/// Readers treat 0 as "unknown" and fall back to pid-only identity, so a
+/// failed read is reported rather than silently producing an unverifiable file.
+fn recorded_start_time() -> u64 {
+    match process_start_time(None) {
+        Some(start_time) => start_time,
+        None => {
+            let _ignored = soft_error!(
+                "daemon_pid_start_time_unavailable",
+                buck2_error!(
+                    ErrorTag::DaemonStartupFailed,
+                    "Could not read this daemon's process start time; recording 0 in buckd.info"
+                ),
+                quiet: true,
+                task: false,
+            );
+            0
+        }
+    }
+}
+
 fn gen_auth_token() -> String {
     (0..20).map(|_| rand::random_range('a'..='z')).collect()
 }
@@ -225,7 +246,7 @@ impl DaemonCommand {
         log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
         paths: InvocationPaths,
         in_process: bool,
-        listener_created: Box<dyn FnOnce() + Send>,
+        ready: Box<dyn FnOnce() + Send>,
     ) -> buck2_error::Result<()> {
         let prepped_cgroups = if self.has_cgroup {
             // Note: It's important that we do this before daemonizing, as otherwise there may be
@@ -249,7 +270,6 @@ impl DaemonCommand {
         fs_util::set_current_dir(paths.project_root().root()).categorize_internal()?;
 
         let server_init_ctx = BuckdServerInitPreferences {
-            detect_cycles: buck2_env!("DICE_DETECT_CYCLES_UNSTABLE", type=DetectCycles)?,
             enable_trace_io: self.enable_trace_io,
             reject_materializer_state: self.reject_materializer_state.map(|s| s.into()),
             daemon_startup_config: self.daemon_startup_config,
@@ -301,6 +321,7 @@ impl DaemonCommand {
                 endpoint: endpoint.to_string(),
                 version: BuckVersion::get()?.unique_id().to_owned(),
                 auth_token,
+                pid_start_time: recorded_start_time(),
             };
 
             // TODO(nga): this code is executed after server daemonization,
@@ -324,6 +345,7 @@ impl DaemonCommand {
                 endpoint: endpoint.to_string(),
                 version: BuckVersion::get()?.unique_id().to_owned(),
                 auth_token,
+                pid_start_time: recorded_start_time(),
             };
 
             write_process_info(&daemon_dir, &process_info)?;
@@ -344,8 +366,6 @@ impl DaemonCommand {
         tracing::info!("PID: {}", process::id());
         tracing::info!("ID: {}", daemon_id);
         tracing::info!("Endpoint: {}", endpoint);
-
-        listener_created();
 
         terminate_on_panic();
 
@@ -502,6 +522,7 @@ impl DaemonCommand {
                 Box::pin(listener),
                 handle,
                 daemon_id,
+                ready,
             )
             .fuse();
             let shutdown_future = async move { hard_shutdown_receiver.next().await }.fuse();
@@ -617,14 +638,14 @@ impl DaemonCommand {
         log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
         paths: InvocationPaths,
         in_process: bool,
-        listener_created: Box<dyn FnOnce() + Send>,
+        ready: Box<dyn FnOnce() + Send>,
     ) -> buck2_error::Result<()> {
         let daemon_dir = paths.daemon_dir()?;
         if !daemon_dir.path.is_dir() {
             fs_util::create_dir_all(&daemon_dir.path)?;
         }
 
-        let res = self.run(log_reload_handle, paths, in_process, listener_created);
+        let res = self.run(log_reload_handle, paths, in_process, ready);
         if let Err(err) = res.as_ref() {
             fs_util::write(
                 daemon_dir.buckd_error_log(),
@@ -798,6 +819,7 @@ mod tests {
             pid: process::id() as i64,
             version: "13.17.19".to_owned(),
             auth_token: "abc".to_owned(),
+            pid_start_time: 0,
         };
 
         let daemon_id = DaemonId::new();
@@ -807,7 +829,6 @@ mod tests {
             <dyn LogConfigurationReloadHandle>::noop(),
             invocation_paths,
             BuckdServerInitPreferences {
-                detect_cycles: None,
                 enable_trace_io: false,
                 reject_materializer_state: None,
                 daemon_startup_config: DaemonStartupConfig::testing_empty(),
@@ -823,6 +844,7 @@ mod tests {
             Box::pin(listener),
             Handle::current(),
             daemon_id,
+            Box::new(|| {}),
         ));
 
         let mut client = new_daemon_api_client(endpoint.clone(), process_info.auth_token)

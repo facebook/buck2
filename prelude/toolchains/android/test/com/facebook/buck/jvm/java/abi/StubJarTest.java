@@ -4654,29 +4654,22 @@ public class StubJarTest {
       return;
     }
 
+    // Members of a private nested class are unreachable however declared, so class-abi keeps
+    // only the shell: getCount/foo drop from bytecode and from @kotlin.Metadata, the default
+    // constructor stays.
     tester = new Tester(Language.KOTLIN);
     String innerMetadata21 =
-        "  @Lkotlin/Metadata;(mv={2, 2, 0}, k=1, xi=48, d1={\"\\u0000\\u0018\\n"
+        "  @Lkotlin/Metadata;(mv={2, 2, 0}, k=1, xi=48, d1={\"\\u0000\\u000c\\n"
             + "\\u0002\\u0018\\u0002\\n"
             + "\\u0002\\u0010\\u0000\\n"
-            + "\\u0002\\u0008\\u0003\\n"
-            + "\\u0002\\u0010\\u0008\\n"
-            + "\\u0002\\u0008\\u0003\\n"
-            + "\\u0002\\u0010\\u0002\\u0008\\u0002\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003J\\u0006\\u0010\\u0008\\u001a\\u00020\\u0009R\\u0014\\u0010\\u0004\\u001a\\u00020\\u0005X\\u0086D\\u00a2\\u0006\\u0008\\n"
-            + "\\u0000\\u001a\\u0004\\u0008\\u0006\\u0010\\u0007\"},"
-            + " d2={\"Lcom/example/buck/A$B;\", \"\", \"<init>\", \"()V\", \"count\", \"\","
-            + " \"getCount\", \"()I\", \"foo\", \"\"})";
+            + "\\u0002\\u0008\\u0002\\u0008\\u0002\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003\"},"
+            + " d2={\"Lcom/example/buck/A$B;\", \"\", \"<init>\", \"()V\"})";
     String innerMetadata20 =
-        "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=1, xi=48, d1={\"\\u0000\\u0018\\n"
+        "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=1, xi=48, d1={\"\\u0000\\u000c\\n"
             + "\\u0002\\u0018\\u0002\\n"
             + "\\u0002\\u0010\\u0000\\n"
-            + "\\u0002\\u0008\\u0003\\n"
-            + "\\u0002\\u0010\\u0008\\n"
-            + "\\u0002\\u0008\\u0003\\n"
-            + "\\u0002\\u0010\\u0002\\u0008\\u0002\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003J\\u0006\\u0010\\u0008\\u001a\\u00020\\u0009R\\u0014\\u0010\\u0004\\u001a\\u00020\\u0005X\\u0086D\\u00a2\\u0006\\u0008\\n"
-            + "\\u0000\\u001a\\u0004\\u0008\\u0006\\u0010\\u0007\"},"
-            + " d2={\"Lcom/example/buck/A$B;\", \"\", \"<init>\", \"()V\", \"count\", \"\","
-            + " \"getCount\", \"()I\", \"foo\", \"\"})";
+            + "\\u0002\\u0008\\u0002\\u0008\\u0002\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003\"},"
+            + " d2={\"Lcom/example/buck/A$B;\", \"\", \"<init>\", \"()V\"})";
     String metadata22 =
         "  @Lkotlin/Metadata;(mv={2, 2, 0}, k=1, xi=48, d1={\"\\u0000\\u000c\\n"
             + "\\u0002\\u0018\\u0002\\n"
@@ -4715,12 +4708,6 @@ public class StubJarTest {
             "",
             "  // access flags 0x1",
             "  public <init>()V",
-            "",
-            "  // access flags 0x11",
-            "  public final getCount()I",
-            "",
-            "  // access flags 0x11",
-            "  public final foo()V",
             "}")
         .addExpectedStub(
             "com/example/buck/A",
@@ -8059,6 +8046,324 @@ public class StubJarTest {
             "    @Lorg/jetbrains/annotations/NotNull;() // invisible, parameter 0",
             "}")
         .createAndCheckStubJar();
+  }
+
+  @Test
+  public void kotlinStripsMembersOfPrivateNestedClassButKeepsShell() throws IOException {
+    if (!isValidForKotlin()) {
+      return;
+    }
+    if (!testingMode.equals(MODE_JAR_BASED)) {
+      // Class-ABI stubbing of private nested members only applies to jar-based stubs.
+      return;
+    }
+
+    // A public member of a private nested class (e.g. `private companion object { val x ... }`)
+    // is unreachable: Kotlin sees the metadata-private owner, Java sees a non-public nested
+    // class. Class-abi keeps the class shells (InnerClasses/constant-pool/@Metadata references
+    // require the files) but drops all of their members.
+    File outputDir = temp.newFolder();
+    AbsPath fullJar;
+    try (KotlinTestCompiler compiler = new KotlinTestCompiler()) {
+      compiler.init();
+      compiler.addSourceFileContents(
+          "A.kt",
+          "package com.example.buck",
+          "open class A {",
+          "  private companion object {",
+          "    val helper: String = \"x\"",
+          "    fun compute(): Int = 42",
+          "  }",
+          "  private class Helper {",
+          "    fun run(): String = \"y\"",
+          "  }",
+          "  fun publicMethod(): String = \"hello\"",
+          "}");
+      compiler.compile();
+      fullJar = AbsPath.of(outputDir.toPath()).resolve("output.jar");
+      compiler.getClasses().createJar(fullJar.getPath(), false);
+    }
+
+    AbsPath stubJar = AbsPath.of(temp.newFolder().toPath()).resolve("stub.jar");
+    new StubJar(fullJar, false).writeTo(stubJar);
+
+    try (JarFile jar = new JarFile(stubJar.toFile())) {
+      assertStrippedToConstructor(jar, "com/example/buck/A$Companion.class");
+      assertStrippedToConstructor(jar, "com/example/buck/A$Helper.class");
+
+      JarEntry outer = jar.getJarEntry("com/example/buck/A.class");
+      assertNotNull(outer);
+      ClassNode outerStub = new ClassNode(Opcodes.ASM9);
+      new ClassReader(jar.getInputStream(outer)).accept(outerStub, ClassReader.SKIP_CODE);
+      assertTrue(
+          "public member of public class kept",
+          outerStub.methods.stream().anyMatch(m -> m.name.equals("publicMethod")));
+    }
+  }
+
+  private static void assertStrippedToConstructor(JarFile jar, String entryName)
+      throws IOException {
+    JarEntry entry = jar.getJarEntry(entryName);
+    assertNotNull(entryName + " shell kept", entry);
+    ClassNode stub = new ClassNode(Opcodes.ASM9);
+    new ClassReader(jar.getInputStream(entry)).accept(stub, ClassReader.SKIP_CODE);
+    assertTrue(entryName + " has no fields", stub.fields.isEmpty());
+    assertTrue(
+        entryName + " keeps only constructors",
+        !stub.methods.isEmpty() && stub.methods.stream().allMatch(m -> m.name.equals("<init>")));
+  }
+
+  @Test
+  public void kotlinKeepsJvmStaticMembersOfPrivateCompanion() throws IOException {
+    if (!isValidForKotlin() || !testingMode.equals(MODE_JAR_BASED)) {
+      return;
+    }
+
+    AbsPath stubJar =
+        compileKotlinToStubJar(
+            "A.kt",
+            "package com.example.buck",
+            "open class A {",
+            "  private companion object {",
+            "    @JvmStatic fun probe(): Boolean = true",
+            "    @JvmStatic val staticProp: String = \"s\"",
+            "    val dropped: String = \"x\"",
+            "  }",
+            "}");
+    try (JarFile jar = new JarFile(stubJar.toFile())) {
+      ClassNode companion = readClass(jar, "com/example/buck/A$Companion.class");
+      Set<String> companionMethods = methodNames(companion);
+      assertTrue(
+          "companion keeps @JvmStatic member: " + companionMethods,
+          companionMethods.contains("probe"));
+      assertTrue(
+          "companion keeps @JvmStatic property: " + companionMethods,
+          companionMethods.contains("getStaticProp")
+              && companionMethods.contains("getStaticProp$annotations"));
+      assertTrue(
+          "companion drops plain member: " + companionMethods,
+          companionMethods.stream().noneMatch(name -> name.equals("getDropped")));
+
+      ClassNode outer = readClass(jar, "com/example/buck/A.class");
+      Set<String> outerMethods = methodNames(outer);
+      assertTrue(
+          "outer keeps @JvmStatic copies: " + outerMethods,
+          outerMethods.contains("probe") && outerMethods.contains("getStaticProp"));
+    }
+  }
+
+  @Test
+  public void kotlinKeepsJvmFieldMembersOfPrivateCompanion() throws IOException {
+    if (!isValidForKotlin() || !testingMode.equals(MODE_JAR_BASED)) {
+      return;
+    }
+
+    AbsPath stubJar =
+        compileKotlinToStubJar(
+            "A.kt",
+            "package com.example.buck",
+            "open class A {",
+            "  private companion object {",
+            "    @JvmField val flag: String = \"f\"",
+            "    val dropped: String = \"x\"",
+            "  }",
+            "}");
+    try (JarFile jar = new JarFile(stubJar.toFile())) {
+      ClassNode companion = readClass(jar, "com/example/buck/A$Companion.class");
+      assertTrue("companion drops unannotated fields", companion.fields.isEmpty());
+      Set<String> companionMethods = methodNames(companion);
+      assertTrue(
+          "companion drops plain member: " + companionMethods,
+          companionMethods.stream().noneMatch(name -> name.equals("getDropped")));
+
+      ClassNode outer = readClass(jar, "com/example/buck/A.class");
+      Set<String> outerFields =
+          outer.fields.stream().map(field -> field.name).collect(Collectors.toSet());
+      assertTrue("outer keeps @JvmField static: " + outerFields, outerFields.contains("flag"));
+    }
+  }
+
+  @Test
+  public void kotlinDropsUnrelatedOverloadOfJvmStaticAccessor() throws IOException {
+    if (!isValidForKotlin() || !testingMode.equals(MODE_JAR_BASED)) {
+      return;
+    }
+
+    AbsPath stubJar =
+        compileKotlinToStubJar(
+            "A.kt",
+            "package com.example.buck",
+            "open class A {",
+            "  private companion object {",
+            "    @JvmStatic val staticProp: String = \"s\"",
+            "    fun getStaticProp(x: Int): Int = x",
+            "  }",
+            "}");
+    try (JarFile jar = new JarFile(stubJar.toFile())) {
+      ClassNode companion = readClass(jar, "com/example/buck/A$Companion.class");
+      Set<String> companionMethods = methodNames(companion);
+      assertTrue(
+          "companion keeps @JvmStatic accessor: " + companionMethods,
+          companionMethods.contains("getStaticProp")
+              && companionMethods.contains("getStaticProp$annotations"));
+      assertTrue(
+          "companion drops unrelated overload: " + companionMethods,
+          companion.methods.stream()
+              .filter(m -> m.name.equals("getStaticProp"))
+              .allMatch(m -> m.desc.equals("()Ljava/lang/String;")));
+    }
+  }
+
+  @Test
+  public void kotlinKeepsMembersOfPrivateValueEnumAndAnnotationClasses() throws IOException {
+    if (!isValidForKotlin() || !testingMode.equals(MODE_JAR_BASED)) {
+      return;
+    }
+
+    AbsPath stubJar =
+        compileKotlinToStubJar(
+            "A.kt",
+            "package com.example.buck",
+            "open class A {",
+            "  @JvmInline private value class State(val x: Int)",
+            "  private enum class Mode { ON, OFF }",
+            "  private annotation class Marker(val x: String)",
+            "}");
+    try (JarFile jar = new JarFile(stubJar.toFile())) {
+      assertNotStrippedToConstructor(jar, "com/example/buck/A$State.class");
+      assertNotStrippedToConstructor(jar, "com/example/buck/A$Mode.class");
+      assertNotStrippedToConstructor(jar, "com/example/buck/A$Marker.class");
+    }
+  }
+
+  private static void assertNotStrippedToConstructor(JarFile jar, String entryName)
+      throws IOException {
+    ClassNode stub = readClass(jar, entryName);
+    assertTrue(
+        entryName + " keeps members",
+        !stub.methods.isEmpty()
+            && stub.methods.stream().anyMatch(method -> !method.name.equals("<init>")));
+  }
+
+  @Test
+  public void kotlinMetadataOmitsStrippedMembersOfPrivateNestedClass() throws IOException {
+    if (!isValidForKotlin() || !testingMode.equals(MODE_JAR_BASED)) {
+      return;
+    }
+
+    AbsPath stubJar =
+        compileKotlinToStubJar(
+            "A.kt",
+            "package com.example.buck",
+            "open class A {",
+            "  private companion object {",
+            "    @JvmStatic fun probe(): Boolean = true",
+            "    private @JvmStatic fun hidden(): Boolean = true",
+            "    @JvmField val flag: String = \"f\"",
+            "    const val TAG: String = \"t\"",
+            "    private const val HIDDEN_CONST: String = \"h\"",
+            "    val dropped: String = \"x\"",
+            "  }",
+            "  private data class Holder(val kept: String)",
+            "  fun publicMethod(): String = \"hello\"",
+            "}");
+    try (JarFile jar = new JarFile(stubJar.toFile())) {
+      ClassNode companion = readClass(jar, "com/example/buck/A$Companion.class");
+      assertEquals(
+          "companion metadata keeps @JvmStatic function, drops private one",
+          ImmutableSortedSet.of("probe"),
+          ImmutableSortedSet.copyOf(
+              KotlinMetadataReader.getFunctionNames(kotlinMetadataOf(companion))));
+      assertEquals(
+          "companion metadata keeps @JvmField/const, drops plain and private ones",
+          ImmutableSortedSet.of("TAG", "flag"),
+          ImmutableSortedSet.copyOf(
+              KotlinMetadataReader.getPropertyNames(kotlinMetadataOf(companion))));
+
+      ClassNode holder = readClass(jar, "com/example/buck/A$Holder.class");
+      assertTrue(
+          "holder metadata drops functions",
+          KotlinMetadataReader.getFunctionNames(kotlinMetadataOf(holder)).isEmpty());
+      assertTrue(
+          "holder metadata drops properties",
+          KotlinMetadataReader.getPropertyNames(kotlinMetadataOf(holder)).isEmpty());
+
+      ClassNode outer = readClass(jar, "com/example/buck/A.class");
+      assertTrue(
+          "outer metadata untouched",
+          KotlinMetadataReader.getFunctionNames(kotlinMetadataOf(outer)).contains("publicMethod"));
+    }
+  }
+
+  private static KotlinMetadataReader.ParsedMetadata kotlinMetadataOf(ClassNode node) {
+    return KotlinMetadataReader.readMetadata(kotlinMetadataAnnotation(node));
+  }
+
+  private static AnnotationNode kotlinMetadataAnnotation(ClassNode node) {
+    assertNotNull(node.visibleAnnotations);
+    for (AnnotationNode annotation : node.visibleAnnotations) {
+      if ("Lkotlin/Metadata;".equals(annotation.desc)) {
+        return annotation;
+      }
+    }
+    fail("no @kotlin.Metadata on " + node.name);
+    throw new AssertionError("unreachable");
+  }
+
+  @Test
+  public void kotlinMetadataBytesUnchangedWhenNothingStripped() throws IOException {
+    if (!isValidForKotlin() || !testingMode.equals(MODE_JAR_BASED)) {
+      return;
+    }
+
+    File outputDir = temp.newFolder();
+    AbsPath fullJar;
+    try (KotlinTestCompiler compiler = new KotlinTestCompiler()) {
+      compiler.init();
+      compiler.addSourceFileContents(
+          "A.kt",
+          "package com.example.buck",
+          "open class A {",
+          "  private companion object {",
+          "    @JvmStatic fun probe(): Boolean = true",
+          "  }",
+          "}");
+      compiler.compile();
+      fullJar = AbsPath.of(outputDir.toPath()).resolve("output.jar");
+      compiler.getClasses().createJar(fullJar.getPath(), false);
+    }
+
+    AbsPath stubJar = AbsPath.of(temp.newFolder().toPath()).resolve("stub.jar");
+    new StubJar(fullJar, false).writeTo(stubJar);
+
+    List<Object> inputValues;
+    try (JarFile jar = new JarFile(fullJar.toFile())) {
+      inputValues =
+          kotlinMetadataAnnotation(readClass(jar, "com/example/buck/A$Companion.class")).values;
+    }
+    try (JarFile jar = new JarFile(stubJar.toFile())) {
+      assertEquals(
+          "metadata bytes preserved when no member strips",
+          inputValues,
+          kotlinMetadataAnnotation(readClass(jar, "com/example/buck/A$Companion.class")).values);
+    }
+  }
+
+  private AbsPath compileKotlinToStubJar(String fileName, String... sourceLines)
+      throws IOException {
+    File outputDir = temp.newFolder();
+    AbsPath fullJar;
+    try (KotlinTestCompiler compiler = new KotlinTestCompiler()) {
+      compiler.init();
+      compiler.addSourceFileContents(fileName, sourceLines);
+      compiler.compile();
+      fullJar = AbsPath.of(outputDir.toPath()).resolve("output.jar");
+      compiler.getClasses().createJar(fullJar.getPath(), false);
+    }
+
+    AbsPath stubJar = AbsPath.of(temp.newFolder().toPath()).resolve("stub.jar");
+    new StubJar(fullJar, false).writeTo(stubJar);
+    return stubJar;
   }
 
   @Test

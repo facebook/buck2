@@ -104,9 +104,11 @@ impl StarlarkValueRawPtr {
 
         // `self.ptr` is a pointer to the end of `AValueHeader`.
         // Align it up to `T` by adding padding between `AValueRepr` fields.
-        let ptr = self.ptr as usize + AValueRepr::<T>::padding_after_header();
-        debug_assert!(ptr.is_multiple_of(mem::align_of::<T>()));
-        ptr as *mut T
+        let ptr = self
+            .ptr
+            .wrapping_byte_add(AValueRepr::<T>::padding_after_header());
+        debug_assert!(ptr.addr().is_multiple_of(mem::align_of::<T>()));
+        ptr.cast::<T>().cast_mut()
     }
 
     #[inline]

@@ -10,37 +10,41 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 from buck2.tests.e2e_util.helper.golden import golden_replace_cfg_hash
 
 
-@buck_test()
-async def test_audit_execition_platform_resolution(buck: Buck) -> None:
-    result = await buck.audit("execution-platform-resolution", "//:target")
-    golden_replace_cfg_hash(output=result.stdout, rel_path="out.txt.golden")
+class AuditExecutionPlatformResolutionTest(BuckTestCase):
+    @buck_test()
+    async def test_audit_execition_platform_resolution(self, buck: Buck) -> None:
+        result = await buck.audit("execution-platform-resolution", "//:target")
+        golden_replace_cfg_hash(output=result.stdout, rel_path="out.txt.golden")
 
+    @buck_test()
+    async def test_audit_execution_platform_resolution_no_compatible_platform(
+        self,
+        buck: Buck,
+    ) -> None:
+        result = await buck.audit(
+            "execution-platform-resolution", "//:no_compatible_platform"
+        )
+        golden_replace_cfg_hash(
+            output=result.stdout, rel_path="no_compatible_platform.txt.golden"
+        )
 
-@buck_test()
-async def test_audit_execution_platform_resolution_no_compatible_platform(
-    buck: Buck,
-) -> None:
-    result = await buck.audit(
-        "execution-platform-resolution", "//:no_compatible_platform"
-    )
-    golden_replace_cfg_hash(
-        output=result.stdout, rel_path="no_compatible_platform.txt.golden"
-    )
-
-
-@buck_test()
-async def test_audit_execution_platform_resolution_error_fallback(buck: Buck) -> None:
-    # With `fallback = "error"` the target fails to configure outright, so there is no
-    # retained resolution to read the skip reasons from; the audit command reconstructs
-    # them by re-walking the candidates.
-    result = await buck.audit(
-        "execution-platform-resolution",
-        "//:no_compatible_platform",
-        "-c",
-        "build.execution_platforms=root//execution_platforms:execution_platforms_error_fallback",
-    )
-    golden_replace_cfg_hash(output=result.stdout, rel_path="error_fallback.txt.golden")
+    @buck_test()
+    async def test_audit_execution_platform_resolution_error_fallback(
+        self, buck: Buck
+    ) -> None:
+        # With `fallback = "error"` the target fails to configure outright, so there is no
+        # retained resolution to read the skip reasons from; the audit command reconstructs
+        # them by re-walking the candidates.
+        result = await buck.audit(
+            "execution-platform-resolution",
+            "//:no_compatible_platform",
+            "-c",
+            "build.execution_platforms=root//execution_platforms:execution_platforms_error_fallback",
+        )
+        golden_replace_cfg_hash(
+            output=result.stdout, rel_path="error_fallback.txt.golden"
+        )

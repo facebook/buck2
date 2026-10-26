@@ -9,7 +9,7 @@
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
 load(":apple_bundle_utility.bzl", "get_default_binary_dep")
 load(":apple_code_signing_types.bzl", "AppleEntitlementsInfo", "CodeSignType")
-load(":apple_sdk_metadata.bzl", "IPhoneSimulatorSdkMetadata", "MacOSXCatalystSdkMetadata")
+load(":apple_sdk_metadata.bzl", "IPhoneSimulatorSdkMetadata", "MacOSXCatalystSdkMetadata", "TVSimulatorSdkMetadata")
 load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
 
 def get_entitlements_codesign_args(ctx: AnalysisContext, codesign_type: CodeSignType) -> list[ArgLike]:
@@ -48,6 +48,7 @@ def _entitlements_file(ctx: AnalysisContext) -> Artifact | None:
 _SDK_NAMES_NEED_ENTITLEMENTS_IN_BINARY = [
     IPhoneSimulatorSdkMetadata.name,
     MacOSXCatalystSdkMetadata.name,
+    TVSimulatorSdkMetadata.name,
 ]
 
 def _needs_entitlements_in_binary(ctx: AnalysisContext) -> bool:

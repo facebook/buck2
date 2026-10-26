@@ -29,20 +29,34 @@
 //! set.insert(42);
 //! ```
 //!
-//! For ordered collections that preserve insertion order, use [`BuckIndexMap`]
-//! and [`BuckIndexSet`]:
+//! For ordered collections that preserve insertion order, use [`BuckMutInsertionMap`]
+//! and [`BuckMutInsertionSet`]:
 //!
 //! ```
-//! use buck2_hash::BuckIndexMap;
-//! use buck2_hash::BuckIndexSet;
+//! use buck2_hash::BuckMutInsertionMap;
+//! use buck2_hash::BuckMutInsertionSet;
 //!
-//! let mut map: BuckIndexMap<String, i32> = BuckIndexMap::default();
+//! let mut map: BuckMutInsertionMap<String, i32> = BuckMutInsertionMap::default();
 //! map.insert("first".to_string(), 1);
 //! map.insert("second".to_string(), 2);
 //! // Iteration order is guaranteed: "first", then "second"
 //!
-//! let mut set: BuckIndexSet<i32> = BuckIndexSet::default();
+//! let mut set: BuckMutInsertionSet<i32> = BuckMutInsertionSet::default();
 //! set.insert(42);
+//! ```
+//!
+//! For a map that is built once and then kept - in a dice value, in daemon state - use
+//! [`BuckFixedSortedMap`], or [`BuckFixedInsertionMap`] when the order entries were added in
+//! matters:
+//!
+//! ```
+//! use buck2_hash::BuckFixedSortedMap;
+//!
+//! let map: BuckFixedSortedMap<String, i32> = [("b".to_string(), 2), ("a".to_string(), 1)]
+//!     .into_iter()
+//!     .collect();
+//! assert_eq!(map.get("a"), Some(&1));
+//! assert_eq!(map.first(), Some((&"a".to_string(), &1)));
 //! ```
 
 use std::hash::BuildHasher;
@@ -50,6 +64,12 @@ use std::hash::Hasher;
 
 use dupe::Dupe;
 use fxhash::FxHasher64;
+use mini_map::MiniFixedInsertionMap;
+use mini_map::MiniFixedInsertionSet;
+use mini_map::MiniFixedSortedMap;
+use mini_map::MiniFixedSortedSet;
+use mini_map::MiniMutInsertionMap;
+use mini_map::MiniMutInsertionSet;
 
 /// A hasher for buck2 internal use.
 ///
@@ -143,84 +163,108 @@ impl BuildHasher for BuckHasherBuilder {
 /// The default map for buck2 code: mutable, with no guarantee about iteration order. The
 /// hasher is faster than the standard library's, which is optimized against hash flooding -
 /// not a concern for buck2's internal maps.
+#[allow(clippy::disallowed_types)]
 pub type BuckMutMap<K, V> = std::collections::HashMap<K, V, BuckHasherBuilder>;
 
 /// A [`HashSet`](std::collections::HashSet) using [`BuckHasherBuilder`].
 ///
 /// The set counterpart of [`BuckMutMap`], and the default set for buck2 code.
+#[allow(clippy::disallowed_types)]
 pub type BuckMutSet<K> = std::collections::HashSet<K, BuckHasherBuilder>;
 
-/// An [`IndexMap`](indexmap::IndexMap) using the default hasher.
+/// A mutable map that iterates in insertion order: [`MiniMutInsertionMap`].
 ///
-/// This is a type alias for `indexmap::IndexMap` that preserves insertion order.
-/// Unlike [`BuckMutMap`], iteration order is guaranteed to match insertion order.
-///
-/// This abstraction allows the hasher implementation to be changed centrally
-/// in a future commit.
-pub type BuckIndexMap<K, V> = indexmap::IndexMap<K, V>;
+/// Use it where the order entries were added in is part of what the map means; otherwise
+/// [`BuckMutMap`]. `==` and `Hash` are order-sensitive, as for `Vec`; `eq_unordered` is there for
+/// the other comparison.
+pub type BuckMutInsertionMap<K, V> = MiniMutInsertionMap<K, V>;
 
-/// An [`IndexSet`](indexmap::IndexSet) using the default hasher.
+/// A mutable set that iterates in insertion order: [`MiniMutInsertionSet`].
 ///
-/// This is a type alias for `indexmap::IndexSet` that preserves insertion order.
-/// Unlike [`BuckMutSet`], iteration order is guaranteed to match insertion order.
-///
-/// This abstraction allows the hasher implementation to be changed centrally
-/// in a future commit.
-pub type BuckIndexSet<K> = indexmap::IndexSet<K>;
+/// The set counterpart of [`BuckMutInsertionMap`].
+pub type BuckMutInsertionSet<K> = MiniMutInsertionSet<K>;
 
-/// Creates a [`BuckIndexMap`] from a list of key-value pairs.
+/// The entry API of [`BuckMutInsertionMap`].
+pub mod index_map {
+    pub use mini_map::mut_insertion_map::Entry;
+    pub use mini_map::mut_insertion_map::OccupiedEntry;
+    pub use mini_map::mut_insertion_map::VacantEntry;
+}
+
+/// A key with its hash, for the `_hashed` lookups and insertions of the maps above: hash once,
+/// use the result against several maps.
+pub use mini_map::Hashed;
+
+/// An immutable map sorted by key: [`MiniFixedSortedMap`].
 ///
-/// This macro mirrors the `indexmap!` macro from the `indexmap` crate but uses
-/// whatever hasher [`BuckIndexMap`] is configured to use, allowing the hasher
-/// to be changed centrally.
+/// The default for anything retained: a map that is built once and then only read, such as a
+/// field of a dice value or of daemon state. Its iteration order, `==`, `Hash` and `StrongHash`
+/// depend on its contents alone, whatever order it was built in, which is what a dice cutoff or a
+/// digest needs. Build it by collecting, or from a [`BuckMutInsertionMap`] with `into()`.
+pub type BuckFixedSortedMap<K, V> = MiniFixedSortedMap<K, V>;
+
+/// An immutable set sorted by value: [`MiniFixedSortedSet`].
+///
+/// The set counterpart of [`BuckFixedSortedMap`].
+pub type BuckFixedSortedSet<K> = MiniFixedSortedSet<K>;
+
+/// An immutable map that keeps the order its entries were added in: [`MiniFixedInsertionMap`].
+///
+/// For retained maps whose order means something, such as a schema whose positions index a
+/// parallel array, or a starlark dict. Build it by collecting, or by freezing a [`BuckMutInsertionMap`].
+pub type BuckFixedInsertionMap<K, V> = MiniFixedInsertionMap<K, V>;
+
+/// An immutable set that keeps the order its entries were added in:
+/// [`MiniFixedInsertionSet`].
+///
+/// The set counterpart of [`BuckFixedInsertionMap`].
+pub type BuckFixedInsertionSet<K> = MiniFixedInsertionSet<K>;
+
+/// Creates a [`BuckMutInsertionMap`] from a list of key-value pairs.
 ///
 /// # Example
 ///
 /// ```
-/// use buck2_hash::buck_indexmap;
+/// use buck2_hash::buck_mut_insertion_map;
 ///
-/// let map = buck_indexmap! {
+/// let map = buck_mut_insertion_map! {
 ///     "a" => 1,
 ///     "b" => 2,
 /// };
-/// assert_eq!(map["a"], 1);
-/// assert_eq!(map["b"], 2);
+/// assert_eq!(map.get("a"), Some(&1));
+/// assert_eq!(map.get("b"), Some(&2));
 /// ```
 #[macro_export]
-macro_rules! buck_indexmap {
+macro_rules! buck_mut_insertion_map {
     () => {
-        $crate::BuckIndexMap::default()
+        $crate::BuckMutInsertionMap::default()
     };
     ($($key:expr => $value:expr),+ $(,)?) => {{
-        let mut map = $crate::BuckIndexMap::default();
+        let mut map = $crate::BuckMutInsertionMap::default();
         $(map.insert($key, $value);)+
         map
     }};
 }
 
-/// Creates a [`BuckIndexSet`] from a list of values.
-///
-/// This macro mirrors the `indexset!` macro from the `indexmap` crate but uses
-/// whatever hasher [`BuckIndexSet`] is configured to use, allowing the hasher
-/// to be changed centrally.
+/// Creates a [`BuckMutInsertionSet`] from a list of values.
 ///
 /// # Example
 ///
 /// ```
-/// use buck2_hash::buck_indexset;
+/// use buck2_hash::buck_mut_insertion_set;
 ///
-/// let set = buck_indexset![1, 2, 3];
+/// let set = buck_mut_insertion_set![1, 2, 3];
 /// assert!(set.contains(&1));
 /// assert!(set.contains(&2));
 /// assert!(set.contains(&3));
 /// ```
 #[macro_export]
-macro_rules! buck_indexset {
+macro_rules! buck_mut_insertion_set {
     () => {
-        $crate::BuckIndexSet::default()
+        $crate::BuckMutInsertionSet::default()
     };
     ($($value:expr),+ $(,)?) => {{
-        let mut set = $crate::BuckIndexSet::default();
+        let mut set = $crate::BuckMutInsertionSet::default();
         $(set.insert($value);)+
         set
     }};
@@ -230,21 +274,24 @@ macro_rules! buck_indexset {
 ///
 /// The concurrent map for buck2 code. Construct it with `default()`; `DashMap::new()` exists
 /// only for the standard library's hasher.
+#[allow(clippy::disallowed_types)]
 pub type BuckDashMap<K, V, S = BuckHasherBuilder> = dashmap::DashMap<K, V, S>;
 
 /// A [`DashSet`](dashmap::DashSet) using [`BuckHasherBuilder`].
 ///
 /// The set counterpart of [`BuckDashMap`].
+#[allow(clippy::disallowed_types)]
 pub type BuckDashSet<K, S = BuckHasherBuilder> = dashmap::DashSet<K, S>;
 
 /// Do not use in new code. A [`HashMap`](std::collections::HashMap) with the standard
 /// library's `RandomState` hasher.
 ///
-/// What is left of this alias marks the retained maps - dice values, daemon state, the
-/// materializer tree - that are waiting on the immutable map type from the retained-maps
-/// plan. Once those are converted this alias goes away. Anywhere else, the map is either
-/// transient, and wants [`BuckMutMap`], or forced to be a concrete `HashMap` by something
-/// outside buck2, and wants [`IntentionallyStdHashMap`].
+/// The one use left of this alias is the materializer tree, a map that is mutated for as long as
+/// the daemon runs and so is not a [`BuckFixedSortedMap`]; the alias goes away with it. Anywhere
+/// else, a map is either retained, and wants [`BuckFixedSortedMap`], or transient, and wants
+/// [`BuckMutMap`], or forced to be a concrete `HashMap` by something outside buck2, and wants
+/// [`IntentionallyStdHashMap`].
+#[allow(clippy::disallowed_types)]
 pub type StdBuckHashMap<K, V> = std::collections::HashMap<K, V>;
 
 /// A [`HashMap`](std::collections::HashMap) that intentionally uses the standard library's
@@ -253,6 +300,7 @@ pub type StdBuckHashMap<K, V> = std::collections::HashMap<K, V>;
 /// Use this at API boundaries where the concrete type `HashMap<K, V>` is required —
 /// for example, protobuf-generated struct fields, third-party crate APIs, or rusqlite
 /// result collection. In all other cases, prefer [`BuckMutMap`].
+#[allow(clippy::disallowed_types)]
 pub type IntentionallyStdHashMap<K, V> = std::collections::HashMap<K, V>;
 
 /// A [`HashSet`](std::collections::HashSet) that intentionally uses the standard library's
@@ -261,6 +309,7 @@ pub type IntentionallyStdHashMap<K, V> = std::collections::HashMap<K, V>;
 /// Use this at API boundaries where the concrete type `HashSet<K>` is required —
 /// for example, starlark's `ast.lint()` API which expects `&HashSet<String>`.
 /// In all other cases, prefer [`BuckMutSet`].
+#[allow(clippy::disallowed_types)]
 pub type IntentionallyStdHashSet<K> = std::collections::HashSet<K>;
 
 #[cfg(test)]
@@ -316,7 +365,7 @@ mod tests {
 
     #[test]
     fn test_buck_index_map() {
-        let mut map: BuckIndexMap<String, i32> = BuckIndexMap::default();
+        let mut map: BuckMutInsertionMap<String, i32> = BuckMutInsertionMap::default();
         map.insert("first".to_owned(), 1);
         map.insert("second".to_owned(), 2);
         map.insert("third".to_owned(), 3);
@@ -333,7 +382,7 @@ mod tests {
 
     #[test]
     fn test_buck_index_set() {
-        let mut set: BuckIndexSet<i32> = BuckIndexSet::default();
+        let mut set: BuckMutInsertionSet<i32> = BuckMutInsertionSet::default();
         set.insert(3);
         set.insert(1);
         set.insert(2);

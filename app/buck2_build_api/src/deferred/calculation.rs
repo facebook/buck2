@@ -19,6 +19,7 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKeyDyn;
 use buck2_core::deferred::key::DeferredHolderKey;
+use buck2_node::rule_type::RuleType;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
 use dupe::Dupe;
@@ -110,22 +111,32 @@ pub enum DeferredHolder<'d> {
 }
 
 impl<'d> DeferredHolder<'d> {
+    /// Read metadata from the holder already required to resolve an action.
+    /// This must not demand the owner's configured node or deferred analysis fields.
+    pub fn rule_type(self) -> Option<&'d RuleType> {
+        match self {
+            Self::Analysis(result) => Some(result.rule_type()),
+            Self::Bxl(_) => None,
+            Self::DynamicLambda(result) => result.rule_type.as_ref(),
+        }
+    }
+
     pub(crate) fn lookup_transitive_set(
         self,
         key: &TransitiveSetKey,
     ) -> buck2_error::Result<OwnedFrozen<ValueTyped<'static, TransitiveSet<'static>>>> {
-        self.analysis_values().lookup_transitive_set(key)
+        self.analysis_values()?.lookup_transitive_set(key)
     }
 
     pub(crate) fn lookup_action(self, key: &ActionKey) -> buck2_error::Result<ActionLookup> {
-        self.analysis_values().lookup_action(key)
+        self.analysis_values()?.lookup_action(key)
     }
 
-    pub fn analysis_values(self) -> &'d RecordedAnalysisValues {
+    pub fn analysis_values(self) -> buck2_error::Result<&'d RecordedAnalysisValues> {
         match self {
             DeferredHolder::Analysis(result) => result.analysis_values(),
-            DeferredHolder::Bxl(result) => result.analysis_values(),
-            DeferredHolder::DynamicLambda(result) => result.analysis_values(),
+            DeferredHolder::Bxl(result) => Ok(result.analysis_values()),
+            DeferredHolder::DynamicLambda(result) => Ok(result.analysis_values()),
         }
     }
 
@@ -159,7 +170,7 @@ impl OwnedDeferredHolder {
         }
     }
 
-    pub fn analysis_values(&self) -> &RecordedAnalysisValues {
+    pub fn analysis_values(&self) -> buck2_error::Result<&RecordedAnalysisValues> {
         self.as_ref().analysis_values()
     }
 }

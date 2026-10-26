@@ -14,6 +14,7 @@ use std::hash::Hasher;
 use allocative::Allocative;
 use dupe::Dupe;
 use pagable::Pagable;
+use strong_hash::StrongHash;
 
 #[derive(Default)]
 pub struct Blake3StrongHasher(blake3::Hasher);
@@ -44,6 +45,12 @@ pub struct StrongHash128([u8; 16]);
 impl Hash for StrongHash128 {
     fn hash<H: Hasher>(&self, state: &mut H) {
         state.write_u128(u128::from_le_bytes(self.0));
+    }
+}
+
+impl StrongHash for StrongHash128 {
+    fn strong_hash<H: Hasher>(&self, state: &mut H) {
+        state.write(&self.0);
     }
 }
 

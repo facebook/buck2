@@ -51,7 +51,7 @@ async fn starlark_file(
 ) -> buck2_error::Result<()> {
     let cell_path = cell_resolver.get_cell_path(&proj_path);
     if recursive.is_some()
-        && DiceFileComputations::is_ignored(ctx, cell_path.as_ref())
+        && DiceFileComputations::is_ignored(ctx, cell_path)
             .await?
             .is_ignored()
     {
@@ -105,7 +105,7 @@ async fn starlark_file(
                 )));
             } else if proj_path.as_str().ends_with(".bxl") {
                 files.push(OwnedStarlarkPath::BxlFile(BxlFilePath::new(cell_path)?));
-            } else if let Some(path) = PackageFilePath::from_file_path(cell_path.as_ref()) {
+            } else if let Some(path) = PackageFilePath::from_file_path(cell_path) {
                 files.push(OwnedStarlarkPath::PackageFile(path));
             } else if recursive.is_none() || proj_path.as_str().ends_with(".bzl") {
                 // If a file was asked for explicitly, and is nothing else, treat it as .bzl file
@@ -137,7 +137,7 @@ pub(crate) async fn starlark_files(
     for path in paths {
         let path = path.resolve(context.working_dir_abs());
         let cell_path = cell_resolver.get_cell_path_from_abs_path(&path, context.project_root())?;
-        let proj_path = cell_resolver.resolve_path(cell_path.as_ref())?;
+        let proj_path = cell_resolver.resolve_path(cell_path)?;
         starlark_file(ctx, proj_path, None, cell_resolver, io, &mut files).await?;
     }
     Ok(files)

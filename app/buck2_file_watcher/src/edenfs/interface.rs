@@ -36,8 +36,8 @@ use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_hash::BuckFixedSortedMap;
 use buck2_hash::BuckMutSet;
-use buck2_hash::StdBuckHashMap;
 use dice::DiceTransactionUpdater;
 use dupe::Dupe;
 use edenfs::ChangeNotification;
@@ -108,7 +108,7 @@ pub(crate) struct EdenFsFileWatcher {
     cells: CellResolver,
     // The project root, relative to the eden mount point
     project_root: ForwardRelativePathBuf,
-    ignore_specs: StdBuckHashMap<CellName, IgnoreSet>,
+    ignore_specs: BuckFixedSortedMap<CellName, IgnoreSet>,
     mergebase: RwLock<Option<MergebaseDetails>>,
     last_mergebase: RwLock<Option<MergebaseDetails>>,
     mergebase_with: Option<String>,
@@ -123,7 +123,7 @@ impl EdenFsFileWatcher {
         project_root: &ProjectRoot,
         root_config: &LegacyBuckConfig,
         cells: CellResolver,
-        ignore_specs: StdBuckHashMap<CellName, IgnoreSet>,
+        ignore_specs: BuckFixedSortedMap<CellName, IgnoreSet>,
         dep_file_cache: Arc<dyn DepFileCache>,
     ) -> buck2_error::Result<Self> {
         let manager = EdenConnectionManager::new(

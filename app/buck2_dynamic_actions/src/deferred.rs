@@ -55,7 +55,7 @@ use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_execute::materialize::materializer::MaterializationPurpose;
 use buck2_execute::materialize::materializer::MaterializeRequest;
 use buck2_execute::materialize::materializer::ReadLease;
-use buck2_hash::BuckIndexMap;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_hash::BuckMutMap;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::factory::BuckStarlarkModule;
@@ -82,7 +82,6 @@ use starlark::values::dict::AllocDict;
 use starlark::values::dict::DictType;
 use starlark::values::list::AllocList;
 use starlark::values::tuple::AllocTuple;
-use starlark_map::small_map::SmallMap;
 
 use crate::attrs::DynamicAttrValue;
 use crate::attrs::DynamicAttrValues;
@@ -175,7 +174,7 @@ fn execute_lambda_inner<'v>(
     lambda: OwnedFrozenRef<'_, &'static FrozenDynamicLambdaParams<'static>>,
     self_key: &DynamicLambdaResultsKey,
     resolved_dynamic_values: BuckMutMap<DynamicValue, FrozenProviderCollectionValue>,
-    ensured_artifacts: &BuckIndexMap<&Artifact, &ArtifactValue>,
+    ensured_artifacts: &BuckMutInsertionMap<&Artifact, &ArtifactValue>,
     input_artifacts_materialized: InputArtifactsMaterialized,
     digest_config: DigestConfig,
     artifact_fs: &ArtifactFs,
@@ -257,7 +256,7 @@ async fn execute_lambda(
     dice: &mut DiceComputations<'_>,
     self_key: DynamicLambdaResultsKey,
     resolved_dynamic_values: BuckMutMap<DynamicValue, FrozenProviderCollectionValue>,
-    ensured_artifacts: &BuckIndexMap<&Artifact, &ArtifactValue>,
+    ensured_artifacts: &BuckMutInsertionMap<&Artifact, &ArtifactValue>,
     input_artifacts_materialized: InputArtifactsMaterialized,
     digest_config: DigestConfig,
     liveness: CancellationObserver,
@@ -367,7 +366,7 @@ pub async fn prepare_and_execute_lambda(
     // the grand scheme of things that's probably not a huge deal.
     let all_artifact_group_values =
         ensure_artifacts_built(&lambda.value().static_fields.artifact_values, ctx).await?;
-    let ensured_artifacts: BuckIndexMap<_, _> = all_artifact_group_values
+    let ensured_artifacts: BuckMutInsertionMap<_, _> = all_artifact_group_values
         .iter()
         .flat_map(|x| x.iter())
         .map(|(a, v)| (a, v))
@@ -456,7 +455,7 @@ async fn ensure_artifacts_built(
 pub struct InputArtifactsMaterialized(());
 
 async fn materialize_inputs(
-    ensured_artifacts: &BuckIndexMap<&Artifact, &ArtifactValue>,
+    ensured_artifacts: &BuckMutInsertionMap<&Artifact, &ArtifactValue>,
     ctx: &mut DiceComputations<'_>,
 ) -> buck2_error::Result<(InputArtifactsMaterialized, ReadLease)> {
     if ensured_artifacts.is_empty() {
@@ -508,16 +507,27 @@ async fn resolve_dynamic_values(
 
     let providers = ctx
         .try_compute_join(dynamic_values, async |ctx, dynamic_value| {
-            let result = dynamic_lambda_result(ctx, &dynamic_value.dynamic_lambda_results_key)
-                .await?
-                .analysis_values
-                .provider_collection()?
-                .to_owned();
+            let result = resolve_dynamic_value(dynamic_value, ctx).await?;
             buck2_error::Ok((dynamic_value.dupe(), result))
         })
         .await?;
 
     Ok(BuckMutMap::from_iter(providers))
+}
+
+/// Evaluates the dynamic lambda that produces `dynamic_value`, including building its input
+/// artifacts and resolving the dynamic values it depends on, and returns its providers.
+pub async fn resolve_dynamic_value(
+    dynamic_value: &DynamicValue,
+    ctx: &mut DiceComputations<'_>,
+) -> buck2_error::Result<FrozenProviderCollectionValue> {
+    Ok(
+        dynamic_lambda_result(ctx, &dynamic_value.dynamic_lambda_results_key)
+            .await?
+            .analysis_values
+            .provider_collection()?
+            .to_owned(),
+    )
 }
 
 pub enum DynamicLambdaCtxDataSpec<'v> {
@@ -540,7 +550,7 @@ pub struct DynamicLambdaCtxData<'v> {
 
 /// Prepare dict of artifact values for dynamic actions.
 fn artifact_values<'v>(
-    ensured_artifacts: &BuckIndexMap<&Artifact, &ArtifactValue>,
+    ensured_artifacts: &BuckMutInsertionMap<&Artifact, &ArtifactValue>,
     _: InputArtifactsMaterialized,
     artifact_fs: &ArtifactFs,
     heap: Heap<'v>,
@@ -589,7 +599,7 @@ fn outputs<'v>(
 fn new_attr_value<'v>(
     value: &DynamicAttrValue<'v>,
     _input_artifacts_materialized: InputArtifactsMaterialized,
-    ensured_artifacts: &BuckIndexMap<&Artifact, &ArtifactValue>,
+    ensured_artifacts: &BuckMutInsertionMap<&Artifact, &ArtifactValue>,
     artifact_fs: &ArtifactFs,
     registry: &mut AnalysisRegistry<'v>,
     resolved_dynamic_values: &BuckMutMap<DynamicValue, FrozenProviderCollectionValue>,
@@ -661,8 +671,8 @@ fn new_attr_value<'v>(
             Ok(env.heap().alloc(AllocList(xs)))
         }
         DynamicAttrValue::Dict(xs) => {
-            let mut r = SmallMap::with_capacity(xs.len());
-            for (k, v) in &**xs {
+            let mut r = BuckMutInsertionMap::with_capacity(xs.len());
+            for (k, v) in xs.iter() {
                 let prev = r.insert_hashed(
                     k.get_hashed()?,
                     new_attr_value(
@@ -720,7 +730,7 @@ fn new_attr_values<'v>(
     values: &DynamicAttrValues<'v>,
     callable: &FrozenStarlarkDynamicActionsCallable<'_>,
     input_artifacts_materialized: InputArtifactsMaterialized,
-    ensured_artifacts: &BuckIndexMap<&Artifact, &ArtifactValue>,
+    ensured_artifacts: &BuckMutInsertionMap<&Artifact, &ArtifactValue>,
     artifact_fs: &ArtifactFs,
     registry: &mut AnalysisRegistry<'v>,
     resolved_dynamic_values: &BuckMutMap<DynamicValue, FrozenProviderCollectionValue>,
@@ -755,7 +765,7 @@ pub fn dynamic_lambda_ctx_data<'v>(
     dynamic_lambda: OwnedFrozenRef<'_, &'static FrozenDynamicLambdaParams<'static>>,
     self_key: DynamicLambdaResultsKey,
     input_artifacts_materialized: InputArtifactsMaterialized,
-    ensured_artifacts: &BuckIndexMap<&Artifact, &ArtifactValue>,
+    ensured_artifacts: &BuckMutInsertionMap<&Artifact, &ArtifactValue>,
     resolved_dynamic_values: &BuckMutMap<DynamicValue, FrozenProviderCollectionValue>,
     artifact_fs: &ArtifactFs,
     digest_config: DigestConfig,

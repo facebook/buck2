@@ -176,6 +176,7 @@ _FBCODE_ONLY_RUST_ATTRS = (
     "fbconfig_rule_type",
     "keep_gpu_sections",
     "late_build_info_stamping",
+    "miri",
     "nodefaultlibs",
     "part_of_sysroot",
     "skip_autocargo_manifest",
@@ -193,6 +194,7 @@ _FBCODE_ONLY_RUST_ATTRS = (
     "test_link_style",
     "test_linker_flags",
     "test_mapped_srcs",
+    "test_miri_flags",
     "test_named_deps",
     "test_network_access",
     "test_remote_execution",
@@ -201,6 +203,7 @@ _FBCODE_ONLY_RUST_ATTRS = (
     "test_rustc_flags",
     "test_srcs",
     "unittests",
+    "unittests_miri",
     "unstable_plugin",
     "versions",
 )

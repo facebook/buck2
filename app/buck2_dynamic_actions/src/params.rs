@@ -15,6 +15,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact:
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
 use buck2_build_api::interpreter::rule_defs::plugins::AnalysisPlugins;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
+use mini_vec::MiniBoxSlice;
 use starlark::StarlarkPagable;
 use starlark::any::ProvidesStaticType;
 use starlark::values::Freeze;
@@ -34,9 +35,9 @@ use crate::dynamic_actions_callable::FrozenStarlarkDynamicActionsCallable;
 #[derive(Allocative, Debug, StarlarkPagable)]
 pub struct DynamicLambdaStaticFields {
     /// Input artifacts required to be materialized by the lambda.
-    pub artifact_values: Box<[Artifact]>,
+    pub artifact_values: MiniBoxSlice<Artifact>,
     /// Dynamic values I depend on.
-    pub dynamic_values: Box<[DynamicValue]>,
+    pub dynamic_values: MiniBoxSlice<DynamicValue>,
     /// Execution platform inherited from the owner to use for actionsfbcode/buck2/app/buck2_action_impl/src/dynamic/deferred.rs
     #[starlark_pagable(pagable)]
     pub execution_platform: ExecutionPlatformResolution,
@@ -51,7 +52,7 @@ pub struct DynamicLambdaParams<'v> {
         DynamicAttrValues<'v>,
         FrozenValueTyped<'v, FrozenStarlarkDynamicActionsCallable<'v>>,
     )>,
-    pub outputs: Box<[ValueTyped<'v, StarlarkOutputArtifact<'v>>]>,
+    pub outputs: MiniBoxSlice<ValueTyped<'v, StarlarkOutputArtifact<'v>>>,
     pub static_fields: DynamicLambdaStaticFields,
 }
 
@@ -64,7 +65,7 @@ pub struct FrozenDynamicLambdaParams<'fv> {
         DynamicAttrValues<'fv>,
         FrozenValueTyped<'fv, FrozenStarlarkDynamicActionsCallable<'fv>>,
     )>,
-    pub outputs: Box<[ValueTyped<'fv, FrozenStarlarkOutputArtifact<'fv>>]>,
+    pub outputs: MiniBoxSlice<ValueTyped<'fv, FrozenStarlarkOutputArtifact<'fv>>>,
     pub static_fields: DynamicLambdaStaticFields,
 }
 
@@ -91,15 +92,7 @@ impl<'v> Freeze<'v> for DynamicLambdaParams<'v> {
             plugins: self.plugins.freeze(freezer)?,
             lambda: self.lambda.freeze(freezer)?,
             attr_values: self.attr_values.freeze(freezer)?,
-            // N.B. collect::<Result<_>> sets the lower bound to zero,
-            // which can cause over-allocations in frozen containers.
-            outputs: {
-                let mut outputs = Vec::with_capacity(self.outputs.len());
-                for output in self.outputs {
-                    outputs.push(output.freeze(freezer)?);
-                }
-                outputs.into_boxed_slice()
-            },
+            outputs: self.outputs.freeze(freezer)?,
             static_fields: self.static_fields,
         })
     }

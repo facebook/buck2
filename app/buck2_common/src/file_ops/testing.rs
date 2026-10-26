@@ -15,7 +15,6 @@ use std::sync::Arc;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_fs::paths::file_name::FileNameBuf;
@@ -69,16 +68,16 @@ impl TestFileOps {
             };
             // make sure the test setup is correct and concise
             assert!(
-                entries.insert(path.to_owned(), entry).is_none(),
+                entries.insert(path, entry).is_none(),
                 "Adding `{path}`, it already exists."
             );
 
-            let mut path = path.as_ref();
+            let mut path = path;
 
             // now add to / create the parent directories
             while let (Some(dir), Some(name)) = (path.parent(), path.path().file_name()) {
                 let dir_entry = entries
-                    .entry(dir.to_owned())
+                    .entry(dir)
                     .or_insert_with(|| TestFileOpsEntry::Directory(BTreeSet::new()));
                 match dir_entry {
                     TestFileOpsEntry::Directory(listing) => {
@@ -171,23 +170,17 @@ impl TestFileOps {
 
 #[async_trait]
 impl FileOps for TestFileOps {
-    async fn read_file_if_exists(
-        &self,
-        path: CellPathRef<'async_trait>,
-    ) -> buck2_error::Result<Option<String>> {
-        Ok(self.entries.get(&path.to_owned()).and_then(|e| match e {
+    async fn read_file_if_exists(&self, path: CellPath) -> buck2_error::Result<Option<String>> {
+        Ok(self.entries.get(&path).and_then(|e| match e {
             TestFileOpsEntry::File(data, ..) => Some(data.clone()),
             _ => None,
         }))
     }
 
-    async fn read_dir(
-        &self,
-        path: CellPathRef<'async_trait>,
-    ) -> buck2_error::Result<ReadDirOutput> {
+    async fn read_dir(&self, path: CellPath) -> buck2_error::Result<ReadDirOutput> {
         let included = self
             .entries
-            .get(&path.to_owned())
+            .get(&path)
             .and_then(|e| match e {
                 TestFileOpsEntry::Directory(listing) => {
                     Some(listing.iter().cloned().sorted().collect::<Vec<_>>().into())
@@ -206,15 +199,15 @@ impl FileOps for TestFileOps {
 
     async fn read_path_metadata_if_exists(
         &self,
-        path: CellPathRef<'async_trait>,
+        path: CellPath,
     ) -> buck2_error::Result<Option<RawPathMetadata>> {
-        self.entries.get(&path.to_owned()).map_or(Ok(None), |e| {
+        self.entries.get(&path).map_or(Ok(None), |e| {
             match e {
                 TestFileOpsEntry::File(_data, metadata) => {
                     Ok(RawPathMetadata::File(metadata.to_owned()))
                 }
                 TestFileOpsEntry::ExternalSymlink(sym) => Ok(RawPathMetadata::Symlink {
-                    at: Arc::new(path.to_owned()),
+                    at: path,
                     to: RawSymlink::External(sym.dupe()),
                 }),
                 _ => Err(buck2_error::buck2_error!(
@@ -227,10 +220,7 @@ impl FileOps for TestFileOps {
         })
     }
 
-    async fn is_ignored(
-        &self,
-        _path: CellPathRef<'async_trait>,
-    ) -> buck2_error::Result<FileIgnoreResult> {
+    async fn is_ignored(&self, _path: CellPath) -> buck2_error::Result<FileIgnoreResult> {
         Ok(FileIgnoreResult::Ok)
     }
 
@@ -250,8 +240,8 @@ impl FileOpsDelegate for TestCellFileOps {
         _ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
     ) -> buck2_error::Result<Option<String>> {
-        let cell_path = CellPath::new(self.0, path.to_owned());
-        FileOps::read_file_if_exists(&self.1, cell_path.as_ref()).await
+        let cell_path = CellPath::new(self.0, path);
+        FileOps::read_file_if_exists(&self.1, cell_path).await
     }
 
     /// Return the list of file outputs, sorted.
@@ -260,8 +250,8 @@ impl FileOpsDelegate for TestCellFileOps {
         _ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
     ) -> buck2_error::Result<Arc<[RawDirEntry]>> {
-        let path = CellPath::new(self.0, path.to_owned());
-        let simple_entries = FileOps::read_dir(&self.1, path.as_ref()).await?.included;
+        let path = CellPath::new(self.0, path);
+        let simple_entries = FileOps::read_dir(&self.1, path).await?.included;
         Ok(simple_entries
             .iter()
             .map(|e| RawDirEntry {
@@ -276,8 +266,8 @@ impl FileOpsDelegate for TestCellFileOps {
         _ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
     ) -> buck2_error::Result<Option<RawPathMetadata>> {
-        let path = CellPath::new(self.0, path.to_owned());
-        FileOps::read_path_metadata_if_exists(&self.1, path.as_ref()).await
+        let path = CellPath::new(self.0, path);
+        FileOps::read_path_metadata_if_exists(&self.1, path).await
     }
 
     fn eq_token(&self) -> PartialEqAny<'_> {

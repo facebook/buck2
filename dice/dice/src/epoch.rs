@@ -11,6 +11,7 @@
 pub(crate) mod branches;
 pub(crate) mod cache;
 pub(crate) mod ctx;
+pub(crate) mod cycles;
 pub(crate) mod evaluator;
 pub(crate) mod task;
 #[cfg(test)]

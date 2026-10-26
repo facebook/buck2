@@ -64,3 +64,9 @@ impl SetTentingAclProvider for DiceDataBuilder {
         self.set(provider)
     }
 }
+
+impl SetTentingAclProvider for DiceData {
+    fn set_tenting_acl_provider(&mut self, provider: Option<Arc<dyn TentingAclProvider>>) {
+        self.set(provider)
+    }
+}

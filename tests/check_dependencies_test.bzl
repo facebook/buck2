@@ -8,6 +8,7 @@
 
 load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
 load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
+load("@fbsource//tools/build_defs/testinfra:network_access_utils.bzl", "network_access_utils")
 load("@fbsource//tools/build_defs/windows:powershell.bzl", "powershell_cmd_exe")
 load("@fbsource//tools/target_determinator/macros:ci.bzl", "ci")
 
@@ -15,7 +16,7 @@ load("@fbsource//tools/target_determinator/macros:ci.bzl", "ci")
 # tools/build_defs/check_dependencies_test.bzl that passes additional arguments for meta specific allowlist.
 
 def _check_dependencies_test(name, target, contacts, env, labels: list[str], deps, compatible_with = None, **kwargs):
-    # pytest derives the test module name from `base_module`; leaving it to the calling
+    # The test module's name comes from `base_module`; leaving it to the calling
     # package lets it collide with a stdlib module (e.g. a package named `cmd`).
     kwargs.setdefault("base_module", "buck2.tests.e2e_util")
     buck2_e2e_test(
@@ -41,6 +42,19 @@ def _check_dependencies_test(name, target, contacts, env, labels: list[str], dep
         compatible_with = compatible_with,
         **kwargs,
     )
+
+def _extra_buck_args_file(name, extra_buck_args):
+    extra_buck_args_target = "%s_extra_buck_args" % (name)
+    buck_args_str = "\n".join(extra_buck_args)
+    buck_genrule(
+        name = extra_buck_args_target,
+        out = "extra_buck_args",
+        bash = "echo '%s' > $OUT" % (buck_args_str),
+        cmd_exe = powershell_cmd_exe([
+            "Set-Content $OUT @(%s)" % (", ".join(["'%s'" % arg.replace("'", "''") for arg in extra_buck_args])),
+        ]),
+    )
+    return "@$(location :%s)" % (extra_buck_args_target)
 
 def check_dependencies_test(
     name,
@@ -94,6 +108,7 @@ def check_dependencies_test(
         (for example, allowlist: //testing/jest/.*).
     """
 
+    kwargs.setdefault("network_access", network_access_utils.all())
     bxl_main = "fbcode//buck2/tests/check_dependencies_test.bxl:test"
     allowlist_patterns = ",".join(allowlist_patterns) if allowlist_patterns else ""
     blocklist_patterns = ",".join(blocklist_patterns) if blocklist_patterns else ""
@@ -108,16 +123,7 @@ def check_dependencies_test(
         for m in modifiers:
             extra_buck_args = extra_buck_args + ["--modifier", m]
 
-    extra_buck_args_target = "%s_extra_buck_args" % (name)
-    buck_args_str = "\n".join(extra_buck_args)
-    buck_genrule(
-        name = extra_buck_args_target,
-        out = "extra_buck_args",
-        bash = "echo '%s' > $OUT" % (buck_args_str),
-        cmd_exe = powershell_cmd_exe([
-            "Set-Content $OUT '%s'" % (buck_args_str),
-        ]),
-    )
+    extra_buck_args_file = _extra_buck_args_file(name, extra_buck_args)
 
     _check_dependencies_test(
         contacts = contacts,
@@ -130,7 +136,7 @@ def check_dependencies_test(
             "DEPS_EXCLUDE_PATTERN": deps_exclude_pattern or "",
             "DEPS_FILTER_PATTERN": deps_filter_pattern or "",
             "EXPECT_FAILURE_MSG": expect_failure_msg or "",
-            "EXTRA_BUCK_ARGS_FILE": "@$(location :%s)" % (extra_buck_args_target),
+            "EXTRA_BUCK_ARGS_FILE": extra_buck_args_file,
             "FLAVOR": "check_dependencies_test",
             "TARGET": target,
             "TARGET_DEPS": str(target_deps).lower(),
@@ -142,7 +148,7 @@ def check_dependencies_test(
         **kwargs,
     )
 
-def assert_dependencies_test(name, target, contacts, expected_deps, expect_failure_msg = None, deps = None, labels = [], **kwargs):
+def assert_dependencies_test(name, target, contacts, expected_deps, expect_failure_msg = None, deps = None, labels = [], extra_buck_args = [], **kwargs):
     """
     Creates a test target fromfbcode//buck2/tests/assert_dependencies_test.bxl:test bxl script.
 
@@ -151,7 +157,9 @@ def assert_dependencies_test(name, target, contacts, expected_deps, expect_failu
         contacts: List of oncalls for the test.
         target: The target to check dependencies for
         expected_deps: list of expected deps
+        extra_buck_args: Additional Buck arguments used for the BXL invocation.
     """
+    extra_env = {"EXTRA_BUCK_ARGS_FILE": _extra_buck_args_file(name, extra_buck_args)} if extra_buck_args else {}
     _check_dependencies_test(
         name = name,
         target = target,
@@ -162,7 +170,8 @@ def assert_dependencies_test(name, target, contacts, expected_deps, expect_failu
             "EXPECT_FAILURE_MSG": expect_failure_msg or "",
             "FLAVOR": "assert_dependencies_test",
             "TARGET": target,
-        },
+        }
+        | extra_env,
         labels = labels + ["assert_dependencies_test"],
         deps = deps,
         **kwargs,

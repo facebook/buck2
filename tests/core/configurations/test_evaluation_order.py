@@ -11,7 +11,7 @@
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 from buck2.tests.e2e_util.helper.golden import golden
 
 _PASS_TARGETS = [
@@ -36,16 +36,17 @@ _FAIL_TARGETS = [
 ]
 
 
-@buck_test(allow_soft_errors=True)
-async def test_evaluation_order(buck: Buck) -> None:
-    for t in _PASS_TARGETS:
-        extra_flags = []
-        if t == "default_target_platform_no_error_if_global_override":
-            extra_flags = ["--target-platforms", "root//:p-cat"]
-        await buck.ctargets(":" + t, *extra_flags)
-    for t in _FAIL_TARGETS:
-        res = await expect_failure(buck.ctargets(":" + t, "-v0", "--console=none"))
-        golden(
-            output=res.stderr,
-            rel_path=f"golden/{t}.golden.stderr",
-        )
+class EvaluationOrderTest(BuckTestCase):
+    @buck_test(allow_soft_errors=True)
+    async def test_evaluation_order(self, buck: Buck) -> None:
+        for t in _PASS_TARGETS:
+            extra_flags = []
+            if t == "default_target_platform_no_error_if_global_override":
+                extra_flags = ["--target-platforms", "root//:p-cat"]
+            await buck.ctargets(":" + t, *extra_flags)
+        for t in _FAIL_TARGETS:
+            res = await expect_failure(buck.ctargets(":" + t, "-v0", "--console=none"))
+            golden(
+                output=res.stderr,
+                rel_path=f"golden/{t}.golden.stderr",
+            )

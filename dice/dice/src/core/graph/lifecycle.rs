@@ -12,6 +12,8 @@ use allocative::Allocative;
 use dupe::Dupe;
 use pagable::DataKey;
 
+use crate::storage::EvictionPolicy;
+use crate::storage::PageOutPolicy;
 use crate::value::DiceValidValue;
 use crate::value::MaybeResident;
 
@@ -19,16 +21,35 @@ use crate::value::MaybeResident;
 /// `PagedOut` keeps the value resident; `PagedOut` keeps only the on-disk `DataKey`.
 #[derive(Allocative, Debug)]
 pub(crate) enum PagableValue {
-    /// Resident, no on-disk copy: a candidate for the next page-out.
+    /// Resident, no on-disk copy: a candidate for the next page-out, which evicts it.
     NeverPagedOut(DiceValidValue),
     /// Serialized to disk and evicted from memory.
     PagedOut(DataKey),
     /// Resident but not serializable (e.g. `NoValueSerialize`, or a serialization error); never
     /// a page-out candidate.
     NonPageable(DiceValidValue),
-    /// Paged out once and resident again, recomputed or read back. A value is paged out at most
-    /// once, so this is not a candidate either.
+    /// Resident again after a page-out, with a value no row holds. Under
+    /// [`PageOutPolicy::OncePerValue`] a candidate for the next page-out, which writes it and
+    /// leaves it resident; under [`PageOutPolicy::OncePerKey`] never paged out again.
     Recomputed(DiceValidValue),
+    /// Resident, with a row holding an equal value: read back from it, or written while it
+    /// stayed resident, under [`PageOutPolicy::OncePerValue`]. Evicted without a write when
+    /// memory is short.
+    Backed(Box<BackedValue>),
+}
+
+/// What [`PagableValue::row_committed`] did with a value.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum RowCommitted {
+    Evicted,
+    Backed,
+    Unchanged,
+}
+
+#[derive(Allocative, Debug)]
+pub(crate) struct BackedValue {
+    pub(crate) value: DiceValidValue,
+    pub(crate) data_key: DataKey,
 }
 
 mini_vec::size_assert::words_of_type!(PagableValue, 3);
@@ -40,6 +61,7 @@ impl PagableValue {
             PagableValue::NeverPagedOut(value)
             | PagableValue::NonPageable(value)
             | PagableValue::Recomputed(value) => Some(value),
+            PagableValue::Backed(backed) => Some(&backed.value),
             PagableValue::PagedOut(_) => None,
         }
     }
@@ -52,8 +74,15 @@ impl PagableValue {
         }
     }
 
-    pub(crate) fn is_page_out_candidate(&self) -> bool {
-        matches!(self, PagableValue::NeverPagedOut(_))
+    /// Whether the next page-out serializes this value.
+    pub(crate) fn is_page_out_candidate(&self, policy: PageOutPolicy) -> bool {
+        match self {
+            PagableValue::NeverPagedOut(_) => true,
+            PagableValue::Recomputed(_) => policy == PageOutPolicy::OncePerValue,
+            PagableValue::PagedOut(_) | PagableValue::NonPageable(_) | PagableValue::Backed(_) => {
+                false
+            }
+        }
     }
 
     /// The value as a lookup hands it out.
@@ -70,25 +99,66 @@ impl PagableValue {
     }
 
     /// The state a value newly retained for a key takes, given the state of the key's most
-    /// recently retained value: a key whose value has been paged out once stays resident from
-    /// then on.
+    /// recently retained value: a key whose value has been paged out once stays resident at
+    /// page-out from then on.
     pub(crate) fn lifecycle_after(previous: Option<&PagableValue>) -> fn(DiceValidValue) -> Self {
         match previous {
             None | Some(PagableValue::NeverPagedOut(_)) => PagableValue::NeverPagedOut,
             Some(PagableValue::NonPageable(_)) => PagableValue::NonPageable,
-            Some(PagableValue::Recomputed(_) | PagableValue::PagedOut(_)) => {
-                PagableValue::Recomputed
-            }
+            Some(
+                PagableValue::Recomputed(_) | PagableValue::PagedOut(_) | PagableValue::Backed(_),
+            ) => PagableValue::Recomputed,
         }
     }
 
     /// Makes a paged-out value resident again with `value`, which was read back from its
-    /// `DataKey` or has just been proven equal to it.
-    pub(crate) fn make_resident(&mut self, value: DiceValidValue) {
-        if matches!(self, PagableValue::PagedOut(_)) {
-            *self = PagableValue::Recomputed(value);
+    /// `DataKey` or has just been proven equal to it. Under [`PageOutPolicy::OncePerValue`] the
+    /// row keeps backing it.
+    pub(crate) fn make_resident(&mut self, value: DiceValidValue, policy: PageOutPolicy) {
+        if let PagableValue::PagedOut(data_key) = *self {
+            *self = match policy {
+                PageOutPolicy::OncePerKey => PagableValue::Recomputed(value),
+                PageOutPolicy::OncePerValue => {
+                    PagableValue::Backed(Box::new(BackedValue { value, data_key }))
+                }
+            };
         }
     }
-}
 
-mini_vec::size_assert::words_of_type!(PagableValue, 3);
+    /// The row at `data_key` now holds this value. A value never paged out is evicted under
+    /// [`EvictionPolicy::OnIdle`]; otherwise it, like a recomputed one, stays resident, backed
+    /// by the row.
+    pub(crate) fn row_committed(
+        &mut self,
+        data_key: DataKey,
+        policy: EvictionPolicy,
+    ) -> RowCommitted {
+        match std::mem::replace(self, PagableValue::PagedOut(data_key)) {
+            PagableValue::NeverPagedOut(value) => match policy {
+                EvictionPolicy::OnIdle => RowCommitted::Evicted,
+                EvictionPolicy::OnMemoryPressure => {
+                    *self = PagableValue::Backed(Box::new(BackedValue { value, data_key }));
+                    RowCommitted::Backed
+                }
+            },
+            PagableValue::Recomputed(value) => {
+                *self = PagableValue::Backed(Box::new(BackedValue { value, data_key }));
+                RowCommitted::Backed
+            }
+            other => {
+                *self = other;
+                RowCommitted::Unchanged
+            }
+        }
+    }
+
+    /// Drops a backed value, leaving its row. Returns whether there was one.
+    pub(crate) fn evict_backed(&mut self) -> bool {
+        let PagableValue::Backed(backed) = self else {
+            return false;
+        };
+        let data_key = backed.data_key;
+        *self = PagableValue::PagedOut(data_key);
+        true
+    }
+}

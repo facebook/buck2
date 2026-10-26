@@ -9,7 +9,6 @@ license.workspace = true
 
 [dependencies]
 allocative.workspace = true
-async-condvar-fair.workspace = true
 async-trait.workspace = true
 buck2_action_metadata_proto.workspace = true
 buck2_build_signals.workspace = true
@@ -38,14 +37,13 @@ host_sharing.workspace = true
 hostname.workspace = true
 itertools.workspace = true
 jiff.workspace = true
+mini_vec.workspace = true
 parking_lot.workspace = true
 pin-project.workspace = true
 prost.workspace = true
 regex.workspace = true
 remote_execution.workspace = true
 rusqlite.workspace = true
-starlark_map.workspace = true
-tempfile.workspace = true
 tokio.workspace = true
 tokio-retry.workspace = true
 tokio-stream.workspace = true
@@ -55,6 +53,7 @@ zstd.workspace = true
 
 [dev-dependencies]
 assert_matches.workspace = true
+tempfile.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
 buck2_forkserver.workspace = true

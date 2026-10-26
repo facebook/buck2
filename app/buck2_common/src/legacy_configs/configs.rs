@@ -17,10 +17,10 @@ use allocative::Allocative;
 use buck2_cli_proto::ConfigOverride;
 use buck2_core::cells::cell_root_path::CellRootPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_hash::BuckFixedSortedMap;
 use buck2_hash::BuckMutMap;
 use dupe::Dupe;
 use pagable::Pagable;
-use starlark_map::sorted_map::SortedMap;
 
 use super::cells::ExternalPathBuckconfigData;
 use crate::legacy_configs::args::ResolvedConfigFile;
@@ -35,7 +35,7 @@ pub struct LegacyBuckConfig(pub(crate) Arc<ConfigData>);
 
 #[derive(Debug, Allocative, Pagable)]
 pub(crate) struct ConfigData {
-    pub(crate) values: SortedMap<String, LegacyBuckConfigSection>,
+    pub(crate) values: BuckFixedSortedMap<String, LegacyBuckConfigSection>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Allocative, Pagable)]
@@ -139,7 +139,7 @@ pub(crate) struct ConfigValue {
 
 #[derive(Debug, Default, Allocative, Pagable)]
 pub struct LegacyBuckConfigSection {
-    pub(crate) values: SortedMap<String, ConfigValue>,
+    pub(crate) values: BuckFixedSortedMap<String, ConfigValue>,
 }
 
 impl ConfigValue {
@@ -240,7 +240,7 @@ impl<'a> LegacyBuckConfigValue<'a> {
 impl LegacyBuckConfig {
     pub fn empty() -> Self {
         Self(Arc::new(ConfigData {
-            values: SortedMap::new(),
+            values: BuckFixedSortedMap::new(),
         }))
     }
 
@@ -253,7 +253,7 @@ impl LegacyBuckConfig {
             .values
             .iter()
             .filter_map(|(section, section_data)| {
-                let values: SortedMap<_, _> = section_data
+                let values: BuckFixedSortedMap<_, _> = section_data
                     .values
                     .iter()
                     .filter(|(property, _)| filter(&BuckconfigKeyRef { section, property }))

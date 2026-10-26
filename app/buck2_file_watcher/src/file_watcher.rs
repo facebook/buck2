@@ -24,7 +24,7 @@ use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use buck2_error::buck2_error;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::BuckFixedSortedMap;
 use dice::DiceTransactionUpdater;
 use dupe::Dupe;
 
@@ -95,7 +95,7 @@ impl dyn FileWatcher {
         project_root: &ProjectRoot,
         root_config: &LegacyBuckConfig,
         cells: CellResolver,
-        ignore_specs: StdBuckHashMap<CellName, IgnoreSet>,
+        ignore_specs: BuckFixedSortedMap<CellName, IgnoreSet>,
         dep_file_cache: Arc<dyn DepFileCache>,
     ) -> buck2_error::Result<Arc<dyn FileWatcher>> {
         if !project_root.root().as_path().exists() {

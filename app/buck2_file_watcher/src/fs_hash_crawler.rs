@@ -39,8 +39,8 @@ use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::file_name::FileNameBuf;
+use buck2_hash::BuckFixedSortedMap;
 use buck2_hash::BuckMutMap;
-use buck2_hash::StdBuckHashMap;
 use compact_str::CompactString;
 use dice::DiceTransactionUpdater;
 use dupe::Dupe;
@@ -57,7 +57,7 @@ use crate::stats::FileWatcherStats;
 pub struct FsHashCrawler {
     root: ProjectRoot,
     cells: CellResolver,
-    ignore_specs: StdBuckHashMap<CellName, IgnoreSet>,
+    ignore_specs: BuckFixedSortedMap<CellName, IgnoreSet>,
     snapshot: Arc<Mutex<FsSnapshot>>,
     /// The crawler never loses track of a change, so one baseline serves for its whole life.
     baseline: FileSystemBaseline,
@@ -67,7 +67,7 @@ impl FsHashCrawler {
     pub fn new(
         root: &ProjectRoot,
         cells: CellResolver,
-        ignore_specs: StdBuckHashMap<CellName, IgnoreSet>,
+        ignore_specs: BuckFixedSortedMap<CellName, IgnoreSet>,
     ) -> buck2_error::Result<Self> {
         let snapshot = Arc::new(Mutex::new(FsSnapshot::build(root, &cells)?));
         Ok(Self {
@@ -215,7 +215,7 @@ impl FsSnapshot {
     fn get_updates_for_dice(
         &self,
         new_snapshot: &FsSnapshot,
-        ignore_specs: &StdBuckHashMap<CellName, IgnoreSet>,
+        ignore_specs: &BuckFixedSortedMap<CellName, IgnoreSet>,
     ) -> buck2_error::Result<(buck2_data::FileWatcherStats, FileChangeTracker)> {
         let events = self.get_updates(new_snapshot)?;
         let mut changed = FileChangeTracker::new();

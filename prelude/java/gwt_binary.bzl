@@ -6,6 +6,9 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
+load("@prelude//decls:common.bzl", "buck")
+load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//java/utils:java_more_utils.bzl", "get_path_separator_for_exec_os")
 load("@prelude//utils:expect.bzl", "expect")
@@ -63,3 +66,37 @@ def gwt_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     return [
         DefaultInfo(default_output = output, sub_targets = sub_targets),
     ]
+
+Style = ["obf", "pretty", "detailed"]
+
+gwt_binary = prelude_rule(
+    name = "gwt_binary",
+    impl = gwt_binary_impl,
+    docs = """
+        A `gwt_binary()` rule produces a GWT (Google Web Toolkit) application
+        by invoking the GWT compiler against the listed `modules`. The
+        resulting output can be served as part of a web app.
+    """,
+    examples = None,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        {
+            "deps": attrs.list(attrs.dep(), default = []),
+            "draft_compile": attrs.bool(default = False),
+            "experimental_args": attrs.list(attrs.string(), default = []),
+            "local_workers": attrs.int(default = 2),
+            "module_deps": attrs.list(attrs.dep(), default = []),
+            "modules": attrs.list(attrs.string(), default = []),
+            "optimize": attrs.int(default = 9),
+            "strict": attrs.bool(default = False),
+            "style": attrs.enum(Style, default = "obf"),
+            "vm_args": attrs.list(attrs.string(), default = []),
+            "_exec_os_type": buck.exec_os_type_arg(),
+            "_java_toolchain": toolchains_common.java(),
+        }
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
+    ),
+)

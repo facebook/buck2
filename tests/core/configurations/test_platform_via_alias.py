@@ -10,12 +10,13 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-# Test platform can be loaded via `alias` rule.
-@buck_test()
-async def test_platform_via_alias(buck: Buck) -> None:
-    await buck.build(
-        "root//:gr",
-    )
+class PlatformViaAliasTest(BuckTestCase):
+    # Test platform can be loaded via `alias` rule.
+    @buck_test()
+    async def test_platform_via_alias(self, buck: Buck) -> None:
+        await buck.build(
+            "root//:gr",
+        )

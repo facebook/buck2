@@ -13,6 +13,7 @@ use std::iter;
 
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
+use buck2_hash::BuckMutInsertionMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
 use starlark::typing::ParamIsRequired;
@@ -21,7 +22,6 @@ use starlark::typing::Ty;
 use starlark::util::ArcStr;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::typing::StarlarkCallableChecked;
-use starlark_map::small_map::SmallMap;
 
 use crate::attrs::DynamicAttrType;
 use crate::attrs_starlark::StarlarkDynamicAttrType;
@@ -39,7 +39,7 @@ pub fn new_dynamic_actions_callable<'v>(
         DynamicActionsCallbackParamSpec,
         DynamicActionsCallbackReturnType,
     >,
-    attrs: SmallMap<String, &'v StarlarkDynamicAttrType<'v>>,
+    attrs: BuckMutInsertionMap<String, &'v StarlarkDynamicAttrType<'v>>,
     callback_param: &DynamicActionsCallbackParam,
 ) -> buck2_error::Result<DynamicActionsCallable<'v>> {
     if attrs.contains_key(callback_param.name.as_str()) {
@@ -48,7 +48,7 @@ pub fn new_dynamic_actions_callable<'v>(
             "Cannot define `actions` attribute"
         ));
     }
-    let attrs: SmallMap<String, DynamicAttrType<'v>> = attrs
+    let attrs: BuckMutInsertionMap<String, DynamicAttrType<'v>> = attrs
         .into_iter()
         .map(|(name, ty)| (name, ty.ty.clone()))
         .collect();
@@ -109,7 +109,10 @@ pub fn register_dynamic_actions(globals: &mut GlobalsBuilder) {
             DynamicActionsCallbackParamSpec,
             DynamicActionsCallbackReturnType,
         >,
-        #[starlark(require = named)] attrs: SmallMap<String, &'v StarlarkDynamicAttrType<'v>>,
+        #[starlark(require = named)] attrs: BuckMutInsertionMap<
+            String,
+            &'v StarlarkDynamicAttrType<'v>,
+        >,
     ) -> starlark::Result<DynamicActionsCallable<'v>> {
         Ok(new_dynamic_actions_callable(r#impl, attrs, &P_ACTIONS)?)
     }

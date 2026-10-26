@@ -29,14 +29,10 @@ use pagable::PagablePanic;
 use pagable::pagable_typetag;
 use tokio::sync::oneshot;
 
-use crate::BranchId;
 use crate::Dice;
 use crate::DiceData;
 use crate::DiceKeyDyn;
-use crate::DynKey;
 use crate::EqualityBehavior;
-use crate::UserCycleDetector;
-use crate::UserCycleDetectorGuard;
 use crate::api::computations::DiceComputations;
 use crate::api::cycles::DetectCycles;
 use crate::api::injected::InjectedKey;
@@ -60,6 +56,133 @@ impl InjectedKey for Foo {
     }
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
         NoValueSerialize::<Self::Value>::new()
+    }
+}
+
+#[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative, Pagable)]
+#[display("GlobalDataKey")]
+#[pagable_typetag(DiceKeyDyn)]
+struct GlobalDataKey;
+
+#[async_trait]
+impl Key for GlobalDataKey {
+    type Value = usize;
+
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
+        ctx.global_data()
+            .get::<Arc<AtomicUsize>>()
+            .expect("test should configure a compute counter")
+            .fetch_add(1, Ordering::SeqCst);
+        *ctx.compute(&Foo(0)).await.unwrap() as usize
+    }
+
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        NoValueSerialize::<Self::Value>::new()
+    }
+}
+
+fn root_data(value: usize, counter: &Arc<AtomicUsize>) -> DiceData {
+    let mut data = DiceData::new();
+    data.set(value);
+    data.set(counter.dupe());
+    data
+}
+
+#[tokio::test]
+async fn root_data_follows_tracked_inputs() -> anyhow::Result<()> {
+    let ordinary_count = Arc::new(AtomicUsize::new(0));
+    let dice = Dice::testing_new(root_data(1, &ordinary_count));
+    let ordinary = dice.new_root().await;
+    let new_ordinary = dice.new_root().await;
+    let isolated_count = Arc::new(AtomicUsize::new(0));
+    let isolated = dice.new_root_with_data(root_data(2, &isolated_count)).await;
+    let other_count = Arc::new(AtomicUsize::new(0));
+    let other = dice.new_root_with_data(root_data(3, &other_count)).await;
+
+    for (branch, expected, counter) in [
+        (ordinary, 1, &ordinary_count),
+        (isolated, 2, &isolated_count),
+        (other, 3, &other_count),
+    ] {
+        let mut updater = dice.updater(branch);
+        updater.changed_to(vec![(Foo(0), expected as i32)])?;
+        let first = updater.commit().await;
+        assert_eq!(*first.compute(&GlobalDataKey).await?, expected);
+        drop(first);
+        let second = dice.updater(branch).commit().await;
+        assert_eq!(*second.compute(&GlobalDataKey).await?, expected);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+    }
+
+    let child = dice.fork(dice.head(isolated).await).await;
+    dice.delete_branch(isolated);
+    let child_ctx = dice.updater(child).commit().await;
+    assert_eq!(*child_ctx.compute(&GlobalDataKey).await?, 2);
+    assert_eq!(isolated_count.load(Ordering::SeqCst), 1);
+
+    let mut updater = dice.updater(new_ordinary);
+    updater.changed_to(vec![(Foo(0), 1)])?;
+    let ctx = updater.commit().await;
+    assert_eq!(*ctx.compute(&GlobalDataKey).await?, 1);
+    assert_eq!(ordinary_count.load(Ordering::SeqCst), 1);
+
+    let shared_count = Arc::new(AtomicUsize::new(0));
+    let shared = dice.new_root_with_data(root_data(1, &shared_count)).await;
+    let mut updater = dice.updater(shared);
+    updater.changed_to(vec![(Foo(0), 1)])?;
+    let ctx = updater.commit().await;
+    assert_eq!(*ctx.compute(&GlobalDataKey).await?, 1);
+    assert_eq!(shared_count.load(Ordering::SeqCst), 0);
+    assert!(Arc::ptr_eq(
+        ctx.global_data().get::<Arc<AtomicUsize>>()?,
+        &shared_count
+    ));
+    Ok(())
+}
+
+#[tokio::test]
+async fn retargeting_an_updater_selects_the_new_roots_data() -> anyhow::Result<()> {
+    let counter = Arc::new(AtomicUsize::new(0));
+    let dice = Dice::testing_new(root_data(1, &counter));
+    let ordinary = dice.new_root().await;
+    let isolated = dice.new_root_with_data(root_data(2, &counter)).await;
+    let mut updater = dice.updater(ordinary);
+    updater.retarget(isolated);
+    updater.changed_to(vec![(Foo(0), 2)])?;
+    updater.commit().await;
+    let mut updater = dice.updater(ordinary);
+    updater.retarget(isolated);
+    let existing = updater.existing_state().await;
+    assert_eq!(*existing.global_data().get::<usize>()?, 2);
+    assert_eq!(*existing.compute(&GlobalDataKey).await?, 2);
+    let committed = updater.commit().await;
+    assert_eq!(*committed.compute(&GlobalDataKey).await?, 2);
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn cancelled_root_with_data_creation_releases_its_branch_and_data() {
+    let dice = Dice::testing_new(DiceData::new());
+    for wait_for_reply in [false, true] {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let creation = dice.new_root_with_data(root_data(1, &counter));
+        if wait_for_reply {
+            assert!(dice.is_idle().await);
+        }
+        drop(creation);
+        // The second query also follows deletion of an unclaimed reply sent after the first.
+        assert!(dice.is_idle().await);
+        assert!(dice.is_idle().await);
+        assert_eq!(dice.metrics().branch_count, 0);
+        assert_eq!(Arc::strong_count(&counter), 1);
     }
 }
 
@@ -313,7 +436,7 @@ async fn invalid_update() {
         }
     }
 
-    let dice = Dice::new(DiceData::new(), None);
+    let dice = Dice::testing_new(DiceData::new());
     let root = dice.new_root().await;
     let mut updater = dice.updater(root);
 
@@ -365,117 +488,6 @@ impl Key for Fib {
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
         NoValueSerialize::<Self::Value>::new()
     }
-}
-
-#[derive(Debug, Eq, PartialEq)]
-enum CycleDetectorEvents {
-    Start(Fib),
-    Finish(Fib),
-    Edge(Fib, Fib),
-}
-
-#[derive(Debug, Clone)]
-struct CycleDetector {
-    events: Arc<Mutex<Vec<CycleDetectorEvents>>>,
-}
-
-struct CycleDetectorGuard {
-    key: Fib,
-    events: Arc<Mutex<Vec<CycleDetectorEvents>>>,
-}
-
-impl UserCycleDetector for CycleDetector {
-    fn start_computing_key(&self, key: &DynKey) -> Option<Arc<dyn UserCycleDetectorGuard>> {
-        let f = key.downcast_ref::<Fib>().unwrap();
-        self.events
-            .lock()
-            .unwrap()
-            .push(CycleDetectorEvents::Start(*f));
-        Some(Arc::new(CycleDetectorGuard {
-            key: *f,
-            events: self.events.dupe(),
-        }))
-    }
-
-    fn finished_computing_key(&self, key: &DynKey) {
-        let f = key.downcast_ref::<Fib>().unwrap();
-        self.events
-            .lock()
-            .unwrap()
-            .push(CycleDetectorEvents::Finish(*f));
-    }
-}
-
-impl UserCycleDetectorGuard for CycleDetectorGuard {
-    fn add_edge(&self, key: &DynKey) {
-        let f = key.downcast_ref::<Fib>().unwrap();
-        self.events
-            .lock()
-            .unwrap()
-            .push(CycleDetectorEvents::Edge(self.key, *f))
-    }
-
-    fn type_name(&self) -> &'static str {
-        std::any::type_name::<Self>()
-    }
-}
-
-#[test]
-fn user_cycle_detector_receives_events() -> anyhow::Result<()> {
-    let dice = Dice::builder().build(DetectCycles::Disabled);
-
-    let rt = tokio::runtime::Runtime::new().unwrap();
-    rt.block_on(async {
-        let root = dice.new_root().await;
-        let events = Arc::new(Mutex::new(Vec::new()));
-        let user_data = UserComputationData {
-            cycle_detector: Some(Arc::new(CycleDetector {
-                events: events.dupe(),
-            })),
-            ..Default::default()
-        };
-        let ctx = dice.updater_with_data(root, user_data).commit().await;
-        let res = ctx.compute(&Fib(20)).await?.dupe().expect("should succeed");
-        assert_eq!(res, 6765);
-
-        let check_events = move |i, expected_edges| {
-            let mut started = false;
-            let mut finished = false;
-            let mut edges = Vec::new();
-            for ev in events.lock().unwrap().iter() {
-                match ev {
-                    CycleDetectorEvents::Start(Fib(v)) if i == *v => {
-                        started = true;
-                        assert!(!finished);
-                    }
-                    CycleDetectorEvents::Finish(Fib(v)) if i == *v => {
-                        assert!(!finished);
-                        finished = true;
-                        assert!(started);
-                    }
-                    CycleDetectorEvents::Edge(Fib(v), Fib(j)) if i == *v => {
-                        assert!(started);
-                        assert!(!finished);
-                        edges.push(*j)
-                    }
-                    _ => {
-                        // ignore
-                    }
-                }
-            }
-            assert!(finished);
-            edges.sort();
-            assert_eq!(edges, expected_edges);
-        };
-
-        check_events(0, vec![]);
-        check_events(1, vec![]);
-        for i in 2..=20 {
-            check_events(i, vec![i - 2, i - 1]);
-        }
-
-        Ok(())
-    })
 }
 
 /// Test that dropping request cancel execution. Test scenario is:
@@ -608,76 +620,6 @@ async fn dropping_request_future_doesnt_cancel_if_multiple_requests_active() {
     req2.await.unwrap();
 
     assert!(is_ran.load(Ordering::SeqCst));
-}
-
-#[tokio::test]
-async fn user_cycle_detector_is_present_modern() -> anyhow::Result<()> {
-    let dice = Dice::builder().build(DetectCycles::Disabled);
-    let root = dice.new_root().await;
-    user_cycle_detector_is_present(dice, root).await
-}
-
-async fn user_cycle_detector_is_present(dice: Arc<Dice>, root: BranchId) -> anyhow::Result<()> {
-    #[derive(
-        Clone, Copy, Dupe, Display, Debug, Eq, PartialEq, Hash, Allocative, Pagable
-    )]
-    #[display("{:?}", self)]
-    #[pagable_typetag(DiceKeyDyn)]
-    struct AccessCycleGuardKey;
-
-    #[async_trait]
-    impl Key for AccessCycleGuardKey {
-        type Value = ();
-
-        async fn compute(
-            &self,
-            ctx: &mut DiceComputations,
-            _cancellations: &CancellationContext,
-        ) -> Self::Value {
-            assert!(
-                ctx.cycle_guard::<AccessCycleDetectorGuard>()
-                    .unwrap()
-                    .is_some()
-            );
-        }
-
-        fn equality_behavior() -> EqualityBehavior<Self::Value> {
-            EqualityBehavior::Compare(|_x, _y| true)
-        }
-
-        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
-            NoValueSerialize::<Self::Value>::new()
-        }
-    }
-
-    #[derive(Debug, Clone)]
-    struct AccessCycleDetector;
-
-    struct AccessCycleDetectorGuard;
-
-    impl UserCycleDetector for AccessCycleDetector {
-        fn start_computing_key(&self, _key: &DynKey) -> Option<Arc<dyn UserCycleDetectorGuard>> {
-            Some(Arc::new(AccessCycleDetectorGuard))
-        }
-
-        fn finished_computing_key(&self, _key: &DynKey) {}
-    }
-
-    impl UserCycleDetectorGuard for AccessCycleDetectorGuard {
-        fn add_edge(&self, _key: &DynKey) {}
-
-        fn type_name(&self) -> &'static str {
-            std::any::type_name::<Self>()
-        }
-    }
-
-    let user_data = UserComputationData {
-        cycle_detector: Some(Arc::new(AccessCycleDetector)),
-        ..Default::default()
-    };
-    let ctx = dice.updater_with_data(root, user_data).commit().await;
-    ctx.compute(&AccessCycleGuardKey).await?;
-    Ok(())
 }
 
 #[tokio::test]

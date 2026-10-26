@@ -857,11 +857,14 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
   private fun executeInstall(installArgs: String): String {
     val command = "install $installArgs"
     val output = executeAdbCommand(command)
+    // adb prints a verdict per attempt: a device that refuses an incremental install reports
+    // Failure, then adb retries as a streamed install and reports its own verdict. The last one is
+    // the outcome.
     val verdict =
         output
             .lineSequence()
             .map { it.trim() }
-            .firstOrNull {
+            .lastOrNull {
               it.startsWith("Success") || INSTALL_FAILURE_LINE.matches(it)
             }
     if (verdict != null && !verdict.startsWith("Success")) {

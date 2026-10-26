@@ -16,7 +16,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_common::file_ops::metadata::SimpleDirEntry;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_hash::BuckIndexSet;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_query::query::syntax::simple::eval::file_set::FileNode;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use derive_more::Display;
@@ -58,7 +58,7 @@ impl<'a> FileSetExpr<'a> {
                 bxl.parse_query_file_literal(val)?,
             )])),
             FileSetExpr::Literals(val) => {
-                let mut file_set = FileSet::new(BuckIndexSet::default());
+                let mut file_set = FileSet::new(BuckMutInsertionSet::default());
                 for arg in &val {
                     file_set.insert(FileNode(bxl.parse_query_file_literal(arg)?));
                 }
@@ -97,7 +97,7 @@ impl OwnedFileSetExpr {
                 core_data.parse_query_file_literal(val)?,
             )])),
             OwnedFileSetExpr::Literals(val) => {
-                let mut file_set = FileSet::new(BuckIndexSet::default());
+                let mut file_set = FileSet::new(BuckMutInsertionSet::default());
                 for arg in val {
                     file_set.insert(FileNode(core_data.parse_query_file_literal(arg)?));
                 }
@@ -125,7 +125,7 @@ impl<'v> StarlarkValue<'v> for StarlarkFileSet {
         Ok(self
             .0
             .iter()
-            .map(|cell_path| heap.alloc(StarlarkFileNode(cell_path.clone())))
+            .map(|cell_path| heap.alloc(StarlarkFileNode(*cell_path)))
             .collect())
     }
 

@@ -17,7 +17,6 @@ use buck2_common::file_ops::metadata::PathMetadataOrRedirection;
 use buck2_common::package_listing::dice::DicePackageListingResolver;
 use buck2_common::package_listing::resolver::PackageListingResolver;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::instance::CellInstance;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project::ProjectRoot;
@@ -133,21 +132,16 @@ impl<'v> BxlFilesystem<'v> {
         let cell_path = self.ctx.via_dice(eval, |ctx| {
             ctx.via(|dice| async { expr.get(dice, self.cell()?).await }.boxed_local())
         })?;
-        self.artifact_fs().resolve_cell_path(cell_path.as_ref())
+        self.artifact_fs().resolve_cell_path(cell_path)
     }
 }
 
 #[async_recursion]
-async fn try_exists(
-    ctx: &mut DiceComputations<'_>,
-    path: CellPathRef<'async_recursion>,
-) -> buck2_error::Result<bool> {
+async fn try_exists(ctx: &mut DiceComputations<'_>, path: CellPath) -> buck2_error::Result<bool> {
     match DiceFileComputations::read_path_metadata_if_exists(ctx, path).await? {
         Some(path) => match PathMetadataOrRedirection::from(path) {
             PathMetadataOrRedirection::PathMetadata(_) => Ok(true),
-            PathMetadataOrRedirection::Redirection(r, _) => {
-                try_exists(ctx, r.as_ref().as_ref()).await
-            }
+            PathMetadataOrRedirection::Redirection(r, _) => try_exists(ctx, r).await,
         },
         None => Ok(false),
     }
@@ -176,7 +170,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
                     let path = expr.get(dice, this.cell()?).await;
 
                     match path {
-                        Ok(p) => try_exists(dice, p.as_ref()).await,
+                        Ok(p) => try_exists(dice, p).await,
                         Err(e) => Err(e),
                     }
                 }
@@ -211,7 +205,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
                     match path {
                         Ok(path) => {
                             let read_dir_output =
-                                DiceFileComputations::read_dir(dice, path.as_ref()).await?;
+                                DiceFileComputations::read_dir(dice, path).await?;
                             Ok(StarlarkReadDirSet {
                                 cell_path: path,
                                 included: read_dir_output.included.dupe(),
@@ -308,12 +302,12 @@ fn fs_operations(builder: &mut MethodsBuilder) {
                     let file_path_as_cell_path = expr.get(dice, this.cell()?).await?;
                     let file_path = this
                         .artifact_fs()
-                        .resolve_cell_path(file_path_as_cell_path.as_ref())?;
+                        .resolve_cell_path(file_path_as_cell_path)?;
 
                     let package_label = match target_hint {
                         NoneOr::None => {
                             DicePackageListingResolver(dice)
-                                .get_enclosing_package(file_path_as_cell_path.as_ref())
+                                .get_enclosing_package(file_path_as_cell_path)
                                 .await
                         }
                         NoneOr::Other(target_hint) => {

@@ -20,6 +20,7 @@ use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use buck2_build_api::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
+use buck2_build_api::interpreter::rule_defs::cmd_args::InputProperties;
 use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
 use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCommandLineValueUnpack;
 use buck2_build_api::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
@@ -28,8 +29,9 @@ use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedMacro;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact::fs::ExecutorFs;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_hash::BuckMutMap;
-use buck2_hash::buck_indexset;
+use buck2_hash::buck_mut_insertion_set;
 use dupe::Dupe;
 use either::Either;
 use sha1::Digest;
@@ -43,7 +45,6 @@ use starlark::values::ValueOf;
 use starlark::values::ValueTyped;
 use starlark::values::none::NoneOr;
 use starlark::values::type_repr::StarlarkTypeRepr;
-use starlark_map::small_set::SmallSet;
 
 use crate::actions::impls::dep_file_fingerprint::DepFileFingerprintFormat;
 use crate::actions::impls::dep_file_fingerprint::StarlarkDepFileFingerprint;
@@ -93,7 +94,7 @@ type WriteReturnValue<'v> =
 /// However, we do need to always run this visitor, because it verifies that any content-based
 /// inputs are bound. It will also collect "associated artifacts", if requested.
 struct CommandLineInputVisitor {
-    associated_artifacts: SmallSet<ArtifactGroup>,
+    associated_artifacts: BuckMutInsertionSet<ArtifactGroup>,
     with_associated_artifacts: bool,
 }
 
@@ -107,7 +108,12 @@ impl CommandLineInputVisitor {
 }
 
 impl<'v> CommandLineArtifactVisitor<'v> for CommandLineInputVisitor {
-    fn visit_input(&mut self, input: ArtifactGroup, _tags: Vec<&ArtifactTag>) {
+    fn visit_input(
+        &mut self,
+        input: ArtifactGroup,
+        _props: InputProperties,
+        _tags: Vec<&ArtifactTag>,
+    ) {
         if self.with_associated_artifacts {
             self.associated_artifacts.insert(input.dupe());
         }
@@ -120,11 +126,12 @@ impl<'v> CommandLineArtifactVisitor<'v> for CommandLineInputVisitor {
     fn visit_declared_artifact(
         &mut self,
         declared_artifact: buck2_artifact::artifact::artifact_type::DeclaredArtifact<'v>,
+        props: InputProperties,
         tags: Vec<&ArtifactTag>,
     ) -> buck2_error::Result<()> {
         if self.with_associated_artifacts || declared_artifact.has_content_based_path() {
             let artifact = declared_artifact.ensure_bound()?.into_artifact();
-            self.visit_input(ArtifactGroup::Artifact(artifact), tags);
+            self.visit_input(ArtifactGroup::Artifact(artifact), props, tags);
         }
 
         Ok(())
@@ -196,7 +203,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         cli.visit_contents(&mut visitor)?;
 
         this.register_action(
-            buck_indexset![output_artifact],
+            buck_mut_insertion_set![output_artifact],
             UnregisteredWriteJsonAction::new(
                 pretty,
                 absolute,
@@ -255,7 +262,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         let value = declaration.into_declared_artifact(AssociatedArtifacts::new());
         visit_hmap_artifacts(content.value, &mut CommandLineInputVisitor::new(false))?;
         this.register_action(
-            buck_indexset![output_artifact],
+            buck_mut_insertion_set![output_artifact],
             UnregisteredWriteHmapAction {},
             Some(content.value),
             None,
@@ -341,7 +348,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         fn get_cli_inputs(
             with_inputs: bool,
             cli: &dyn CommandLineArgLike,
-        ) -> buck2_error::Result<SmallSet<ArtifactGroup>> {
+        ) -> buck2_error::Result<BuckMutInsertionSet<ArtifactGroup>> {
             let mut visitor = CommandLineInputVisitor::new(with_inputs);
             cli.visit_artifacts(&mut visitor)?;
             Ok(visitor.associated_artifacts)
@@ -399,7 +406,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
                 format!("__macros/{sha}")
             };
 
-            let mut written_macro_files = buck_indexset![];
+            let mut written_macro_files = buck_mut_insertion_set![];
             for i in 0..written_macro_count {
                 let macro_file = this.declare_output(
                     None,
@@ -428,12 +435,12 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
 
             written_macro_files
         } else {
-            buck_indexset![]
+            buck_mut_insertion_set![]
         };
 
         let action = {
             let maybe_macro_files = if allow_args {
-                let mut macro_files = buck_indexset![];
+                let mut macro_files = buck_mut_insertion_set![];
                 for a in &written_macro_files {
                     let artifact = a.dupe().ensure_bound()?.into_artifact();
                     macro_files.insert(artifact.dupe());
@@ -452,7 +459,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         let fingerprint_macro_files =
             dep_files_fingerprint_using_canonical_paths.then(|| action.macro_files.clone());
         this.register_action(
-            buck_indexset![output_artifact],
+            buck_mut_insertion_set![output_artifact],
             action,
             Some(content_cli.to_value()),
             None,

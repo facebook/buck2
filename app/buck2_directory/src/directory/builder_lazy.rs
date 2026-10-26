@@ -95,8 +95,15 @@ where
 
     pub fn finalize(self) -> buck2_error::Result<DirectoryBuilder<L, H>> {
         let mut to_merge = self.to_merge;
-        to_merge.sort_by_key(|d| std::cmp::Reverse(d.size()));
-        to_merge.dedup();
+        // Interned, so the same directory is the same allocation: deduplicating by identity
+        // skips reading every neighbor's fingerprint. A content-equal duplicate that is not the
+        // same allocation merges twice, which is harmless.
+        to_merge.sort_by(|a, b| {
+            b.size()
+                .cmp(&a.size())
+                .then_with(|| a.allocation_ptr().cmp(&b.allocation_ptr()))
+        });
+        to_merge.dedup_by(|a, b| a.allocation_ptr() == b.allocation_ptr());
 
         let mut to_insert = self.to_insert;
         to_insert.sort_by(|(p, _), (q, _)| Ord::cmp(p, q));

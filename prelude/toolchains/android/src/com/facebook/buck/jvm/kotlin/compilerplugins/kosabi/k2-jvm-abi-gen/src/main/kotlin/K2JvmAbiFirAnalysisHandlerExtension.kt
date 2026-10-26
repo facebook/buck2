@@ -157,6 +157,9 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
           module,
       )
 
+      // Decide before any FIR cleanup below rewrites declarations.
+      pipeline.inlineBodies.decide(analysisResults, sourceFiles, messageCollector)
+
       // Collect class usage from the resolved FIR tree for dep file tracking.
       // The DependencyTracker compiler plugin's FIR checkers don't run in kosabi's
       // inner session (separate project, checkers skipped), so we walk the FIR tree
@@ -513,6 +516,10 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
         add(pipeline.composeAbi.createExtension())
       }
       add(ParcelizeAbiEmulationExtension())
+      // Restores kept inline bodies before the sanitizer, which leaves exactly those bodies alone.
+      if (pipeline.inlineBodies.keptFirFunctions.isNotEmpty()) {
+        add(pipeline.inlineBodies.createExtension(configuration.messageCollector))
+      }
       add(pipeline.irSanitizer.createExtension(sourceFiles))
     }
 
@@ -568,7 +575,18 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
     pipeline.firMetadataSanitizer.cleanupFirMetadataSources(irInput.irModuleFragment, firSession)
 
     // Phase 4: Code generation
-    val result = generateCodeFromIrCompat(irInput, compilerEnvironment)
+    val keptInlineBodies = pipeline.inlineBodies.restoredIrFunctions
+    val result =
+        if (keptInlineBodies.isEmpty()) {
+          generateCodeFromIrCompat(irInput, compilerEnvironment)
+        } else {
+          generateCodeFromIrWithInlineBodiesCompat(
+              irInput,
+              compilerEnvironment,
+              keptInlineBodies,
+              messageCollector,
+          )
+        }
 
     // Write bytecode from generationState.factory to disk.
     // Apply bytecode post-processing (strip @Throws annotations and private metadata)

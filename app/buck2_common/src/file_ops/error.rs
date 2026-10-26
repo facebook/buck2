@@ -8,7 +8,7 @@
  * above-listed licenses.
  */
 
-use buck2_core::cells::cell_path::CellPathRef;
+use buck2_core::cells::cell_path::CellPath;
 use dice::DiceComputations;
 use dupe::Dupe;
 use futures::FutureExt;
@@ -87,7 +87,7 @@ fn did_you_mean<'a>(value: &str, variants: impl IntoIterator<Item = &'a str>) ->
 
 pub(super) fn extended_ignore_error<'a>(
     ctx: &'a mut DiceComputations<'_>,
-    path: CellPathRef<'a>,
+    path: CellPath,
 ) -> BoxFuture<'a, Option<ReadDirError>> {
     async move {
         match path.parent() {
@@ -97,7 +97,7 @@ pub(super) fn extended_ignore_error<'a>(
                     if let Ok(FileIgnoreResult::Ignored(reason)) =
                         DiceFileComputations::is_ignored(ctx, path).await
                     {
-                        return Some(ReadDirError::DirectoryIsIgnored(path.to_owned(), reason));
+                        return Some(ReadDirError::DirectoryIsIgnored(path, reason));
                     }
 
                     match path.path().file_name() {
@@ -105,7 +105,7 @@ pub(super) fn extended_ignore_error<'a>(
                             let mut cell_suggestion = vec![];
                             if let Ok(cell_resolver) = ctx.get_cell_resolver().await {
                                 for (cell_name, _) in cell_resolver.cells() {
-                                    let cell_path = CellPathRef::new(cell_name, path.path());
+                                    let cell_path = CellPath::new(cell_name, path.path());
 
                                     if DiceFileComputations::read_path_metadata_if_exists(
                                         ctx, cell_path,
@@ -120,7 +120,7 @@ pub(super) fn extended_ignore_error<'a>(
 
                             if !cell_suggestion.is_empty() {
                                 return Some(ReadDirError::DirectoryDoesNotExist {
-                                    path: path.to_owned(),
+                                    path,
                                     suggestion: DirectoryDoesNotExistSuggestion::Cell(
                                         cell_suggestion,
                                     ),
@@ -130,7 +130,7 @@ pub(super) fn extended_ignore_error<'a>(
                                 v.included.iter().map(|x| x.file_name.as_str()),
                             ) {
                                 return Some(ReadDirError::DirectoryDoesNotExist {
-                                    path: path.to_owned(),
+                                    path,
                                     suggestion: DirectoryDoesNotExistSuggestion::Typo(
                                         suggestion.to_owned(),
                                     ),
@@ -138,7 +138,7 @@ pub(super) fn extended_ignore_error<'a>(
                             }
 
                             return Some(ReadDirError::DirectoryDoesNotExist {
-                                path: path.to_owned(),
+                                path,
                                 suggestion: DirectoryDoesNotExistSuggestion::NoSuggestion,
                             });
                         }
@@ -155,10 +155,7 @@ pub(super) fn extended_ignore_error<'a>(
                             // it's not missing important data that the original error would have.
                         }
                         Ok(RawPathMetadata::File(..)) => {
-                            return Some(ReadDirError::NotADirectory(
-                                path.to_owned(),
-                                "file".to_owned(),
-                            ));
+                            return Some(ReadDirError::NotADirectory(path, "file".to_owned()));
                         }
                     }
 

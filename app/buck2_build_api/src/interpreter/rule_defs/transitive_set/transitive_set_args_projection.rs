@@ -45,6 +45,7 @@ use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
+use crate::interpreter::rule_defs::cmd_args::InputProperties;
 use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command_line_arg_like_impl;
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
@@ -233,6 +234,12 @@ impl<'v> CommandLineArgLike<'v> for TransitiveSetArgsProjection<'v> {
         let set = TransitiveSet::from_value(self.transitive_set.get().to_value())
             .internal_error("Invalid transitive_set")?;
 
+        if fmt.is_hashing() {
+            if let Some(hash) = set.projection_hash(self.projection) {
+                return fmt.push_transitive_set_projection(hash, self.projection, self.ordering);
+            }
+        }
+
         set.prefetch_children()?;
         for node in set.iter(self.ordering)?.values() {
             let node = node?;
@@ -264,6 +271,7 @@ impl<'v> CommandLineArgLike<'v> for TransitiveSetArgsProjection<'v> {
                     .get(self.projection)?,
                 set.projection_is_eligible_for_dedupe.get(self.projection)?,
             ))),
+            InputProperties::default(),
             vec![],
         );
 

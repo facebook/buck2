@@ -11,6 +11,7 @@ load(
     "ArtifactTSet",  # @unused Used as a type
     "make_artifact_tset",
 )
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
 load("@prelude//:resources.bzl", "gather_resources", "make_resource_info")
 load(
     "@prelude//android:android_providers.bzl",
@@ -26,6 +27,9 @@ load(
     "@prelude//cxx:omnibus.bzl",
     "create_linkable_root",
 )
+load("@prelude//decls:native_common.bzl", "native_common")
+load("@prelude//decls:re_test_common.bzl", "re_test_common")
+load("@prelude//decls:third_party_common.bzl", "third_party_common")
 load(
     "@prelude//linking:link_groups.bzl",
     "merge_link_group_lib_info",
@@ -62,6 +66,8 @@ load(
 )
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load("@prelude//rust:attrs.bzl", "rust_analyzer_target_kind", "rust_binary_attrs_group", "rust_common", "rust_common_attributes")
+load("@prelude//rust:link_info.bzl", "RustProcMacroPlugin")
 load("@prelude//rust/rust-analyzer:provider.bzl", "rust_analyzer_provider")
 load(
     "@prelude//tests:re_utils.bzl",
@@ -1279,3 +1285,92 @@ def rust_library_macro_wrapper(rust_library: typing.Callable) -> typing.Callable
         rust_library(**kwargs)
 
     return wrapper
+
+rust_library = prelude_rule(
+    name = "rust_library",
+    impl = rust_library_impl,
+    docs = """
+        A rust\\_library() rule builds a native library from the supplied set of Rust source files
+        and dependencies.
+
+        If you invoke a build with the `check` flavor, then Buck will invoke rustc
+        to check the code (typecheck, produce warnings, etc), but won't generate an executable code.
+        When applied to binaries it produces no output; for libraries it produces metadata for
+        consumers of the library.
+
+        Note: Buck is currently tested with (and therefore supports) version 1.32.0 of Rust.
+    """,
+    examples = """
+        For more examples, check out our [integration tests](https://github.com/facebook/buck/tree/dev/test/com/facebook/buck/rust/testdata/).
+
+        ```
+        rust_library(
+          name='greeting',
+          srcs=[
+            'greeting.rs',
+          ],
+          deps=[
+            ':join',
+          ],
+        )
+        ```
+    """,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        rust_common.srcs_arg()
+        | rust_common.srcs_filegroup_arg()
+        | rust_common.mapped_srcs_arg()
+        | rust_common.deps_arg(is_binary = False)
+        | rust_common.named_deps_arg(is_binary = False)
+        | rust_common.edition_arg()
+        | rust_common.features_arg()
+        | rust_common.rustc_flags_arg()
+        |
+        # linker_flags weren't supported for rust_library in Buck v1 but the
+        # fbcode macros pass them anyway. They're typically empty since the
+        # config-level flags don't get injected, but it doesn't hurt to accept
+        # them and it simplifies the implementation of Rust rules since they
+        # don't have to know whether we're building a rust_binary or a
+        # rust_library.
+        rust_common.linker_flags_arg()
+        | rust_common.exported_linker_flags_arg()
+        | rust_common.env_arg()
+        | rust_common.crate(crate_type = attrs.option(attrs.string(), default = None))
+        | rust_common.crate_root()
+        | native_common.preferred_linkage(preferred_linkage_type = attrs.enum(Linkage.values(), default = "any"))
+        | native_common.soname()
+        | native_common.link_style()
+        | native_common.link_whole(link_whole_type = attrs.option(attrs.bool(), default = None))
+        | rust_common_attributes(is_binary = False)
+        | rust_analyzer_target_kind("lib")
+        | {
+            "crate_dynamic": attrs.option(attrs.dep(), default = None),
+            "doc_env": rust_common.env_arg()["env"],
+            "doctests": attrs.option(attrs.bool(), default = None),
+            "include_in_android_merge_map_output": attrs.bool(default = True),
+            "proc_macro": attrs.bool(default = False),
+            "supports_python_dlopen": attrs.option(attrs.bool(), default = None),
+        }
+        | rust_binary_attrs_group(prefix = "doc_")
+        | {
+            "doc_remote_execution": attrs.option(
+                re_test_common.opts_for_tests_arg(),
+                default = None,
+                doc = """
+                Remote execution properties for this library's rustdoc test. Only a
+                property dict is accepted, not the name of a profile on the remote test
+                execution toolchain, so that `rust_library` does not have to depend on
+                that toolchain. When unset, the rustdoc test carries no executor and
+                runs wherever the test framework would otherwise place it.
+            """,
+            ),
+        }
+        | rust_common.cxx_toolchain_arg()
+        | rust_common.rust_toolchain_arg()
+        | rust_common.workspaces_arg()
+        | third_party_common.create_third_party_build_root_attrs()
+    ),
+    uses_plugins = [RustProcMacroPlugin],
+    supports_incoming_transition = True,
+)

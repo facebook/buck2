@@ -9,7 +9,7 @@
 load("@prelude//:paths.bzl", "paths")
 load(
     "@prelude//cxx:groups_types.bzl",
-    "Group",  # @unused Used as a type
+    "Group",
 )
 load(
     "@prelude//cxx:link_groups_types.bzl",
@@ -20,7 +20,7 @@ load(
 )
 load(
     "@prelude//cxx:transformation_spec.bzl",
-    "TransformationSpecContext",  # @unused Used as a type
+    "TransformationSpecContext",
 )
 load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
 load(
@@ -34,7 +34,7 @@ load(
     "LinkInfo",
     "LinkInfos",
     "LinkStrategy",
-    "LinkedObject",  # @unused Used as a type
+    "LinkedObject",
     "SharedLibLinkable",
     "get_lib_output_style",
     "get_link_info_for_transformation",
@@ -45,9 +45,9 @@ load(
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
-    "LinkableGraph",  # @unused Used as a type
+    "LinkableGraph",
     "LinkableNode",  # @unused Used as a type
-    "LinkableRootInfo",  # @unused Used as a type
+    "LinkableRootInfo",
     "ReducedLinkableGraph",
     "create_linkable_graph",
     "get_deps_for_link",
@@ -93,7 +93,7 @@ load(
 load(":hip_debug_extract.bzl", "PRE_EXTRACT_SUFFIX", "hip_debug_extract_available")
 load(
     ":link.bzl",
-    "CxxLinkerMapData",  # @unused Used as a type
+    "CxxLinkerMapData",
     "collect_hip_debug_from_links",
     "cxx_link_shared_library",
     "link_args_have_hip_device_debug",
@@ -734,17 +734,17 @@ def get_filtered_links(labels_to_links_map: dict[Label, LinkGroupLinkInfo], publ
             infos.append(info)
     return infos
 
-def get_filtered_targets(labels_to_links_map: dict[Label, LinkGroupLinkInfo]):
+def get_filtered_targets(labels_to_links_map: dict[Label, LinkGroupLinkInfo]) -> set[TargetLabel]:
     # labels_to_links_map will include entries for shared link group libraries
     # as well as libraries being statically linked into this link unit.
-    statically_linked_targets = []
+    statically_linked_targets = set()
     for label, info in labels_to_links_map.items():
         if info.output_style != LibOutputStyle("shared_lib"):
-            statically_linked_targets.append(label.raw_target())
+            statically_linked_targets.add(label.raw_target())
 
     return statically_linked_targets
 
-def get_link_group_map_json(ctx: AnalysisContext, targets: list[TargetLabel]) -> DefaultInfo:
+def get_link_group_map_json(ctx: AnalysisContext, targets: set[TargetLabel]) -> DefaultInfo:
     json_map = ctx.actions.write_json(LINK_GROUP_MAP_DATABASE_FILENAME, sorted(targets), pretty = True, has_content_based_path = False)
     return DefaultInfo(default_output = json_map)
 

@@ -10,20 +10,20 @@
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_unbound_artifact(buck: Buck) -> None:
-    await expect_failure(
-        buck.build("root//:action_with_unbound_artifact"),
-        stderr_regex="error: Artifact must be bound by now",
-    )
+class UnboundArtifactTest(BuckTestCase):
+    @buck_test()
+    async def test_unbound_artifact(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.build("root//:action_with_unbound_artifact"),
+            stderr_regex="error: Artifact must be bound by now",
+        )
 
-
-@buck_test()
-async def test_unbound_artifact_inside_tset(buck: Buck) -> None:
-    await expect_failure(
-        buck.build("root//:action_with_unbound_artifact"),
-        stderr_regex="error: Artifact must be bound by now",
-    )
+    @buck_test()
+    async def test_unbound_artifact_inside_tset(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.build("root//:action_with_unbound_artifact"),
+            stderr_regex="error: Artifact must be bound by now",
+        )

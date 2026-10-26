@@ -10,7 +10,7 @@
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_core::cells::cell_path::CellPathRef;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::package::PackageLabel;
 use buck2_events::dispatch::async_record_root_spans;
 use buck2_events::span::SpanId;
@@ -92,10 +92,7 @@ impl PackageListingResolver for DicePackageListingResolver<'_, '_> {
         self.0.compute(&PackageListingKey(package)).await?.dupe()
     }
 
-    async fn get_enclosing_package(
-        &mut self,
-        path: CellPathRef<'async_trait>,
-    ) -> buck2_error::Result<PackageLabel> {
+    async fn get_enclosing_package(&mut self, path: CellPath) -> buck2_error::Result<PackageLabel> {
         InterpreterPackageListingResolver::new(self.0)
             .get_enclosing_package(path)
             .await
@@ -103,8 +100,8 @@ impl PackageListingResolver for DicePackageListingResolver<'_, '_> {
 
     async fn get_enclosing_packages(
         &mut self,
-        path: CellPathRef<'async_trait>,
-        enclosing_violation_path: CellPathRef<'async_trait>,
+        path: CellPath,
+        enclosing_violation_path: CellPath,
     ) -> buck2_error::Result<Vec<PackageLabel>> {
         InterpreterPackageListingResolver::new(self.0)
             .get_enclosing_packages(path, enclosing_violation_path)

@@ -22,13 +22,14 @@ use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_error::BuckErrorOptionContext;
-use buck2_hash::BuckIndexSet;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_util::size_assert;
 use display_container::display_pair;
 use display_container::fmt_container;
 use display_container::iter_display_chain;
 use dupe::Dupe;
 use either::Either;
+use mini_vec::MiniVec;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
@@ -78,15 +79,81 @@ use crate::interpreter::rule_defs::cmd_args::options::RelativeOrigin;
 use crate::interpreter::rule_defs::cmd_args::regex::CmdArgsRegex;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineArtifactVisitor;
+use crate::interpreter::rule_defs::cmd_args::traits::InputProperties;
+use crate::interpreter::rule_defs::cmd_args::traits::Requires;
 use crate::interpreter::rule_defs::cmd_args::traits::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::traits::WriteToFileMacroVisitor;
 use crate::interpreter::rule_defs::cmd_args::value::CommandLineArg;
 
 #[derive(Debug, buck2_error::Error)]
 pub enum CommandLineError {
-    #[error("Artifact(s) {0:?} cannot be used with ignore_artifacts as they are content-based")]
+    #[error(
+        "Artifact(s) {0:?} are content-based and `hidden` under `ignore_artifacts`: nothing renders them, so nothing would carry their content to the action"
+    )]
     #[buck2(input)]
-    ContentBasedIgnoreArtifacts(BuckIndexSet<String>),
+    HiddenContentBasedIgnoreArtifacts(BuckMutInsertionSet<String>),
+}
+
+/// Forwards to `inner`, rewriting the properties of every input below.
+struct MapProperties<'a, 'v, F> {
+    inner: &'a mut dyn CommandLineArtifactVisitor<'v>,
+    map: F,
+}
+
+/// Entries of a `cmd_args`'s `hidden` list: every input below is reported as hidden.
+fn hidden_visitor<'a, 'v>(
+    inner: &'a mut dyn CommandLineArtifactVisitor<'v>,
+) -> MapProperties<'a, 'v, impl Fn(InputProperties) -> InputProperties> {
+    MapProperties {
+        inner,
+        map: |props| InputProperties {
+            hidden: true,
+            ..props
+        },
+    }
+}
+
+impl<'v, F: Fn(InputProperties) -> InputProperties> CommandLineArtifactVisitor<'v>
+    for MapProperties<'_, 'v, F>
+{
+    fn visit_input(
+        &mut self,
+        input: ArtifactGroup,
+        props: InputProperties,
+        tags: Vec<&ArtifactTag>,
+    ) {
+        self.inner.visit_input(input, (self.map)(props), tags);
+    }
+
+    fn visit_declared_artifact(
+        &mut self,
+        declared_artifact: buck2_artifact::artifact::artifact_type::DeclaredArtifact<'v>,
+        props: InputProperties,
+        tags: Vec<&ArtifactTag>,
+    ) -> buck2_error::Result<()> {
+        self.inner
+            .visit_declared_artifact(declared_artifact, (self.map)(props), tags)
+    }
+
+    fn visit_declared_output(&mut self, artifact: OutputArtifact<'v>, tags: Vec<&ArtifactTag>) {
+        self.inner.visit_declared_output(artifact, tags);
+    }
+
+    fn visit_frozen_output(&mut self, artifact: Artifact, tags: Vec<&ArtifactTag>) {
+        self.inner.visit_frozen_output(artifact, tags);
+    }
+
+    fn push_frame(&mut self) -> buck2_error::Result<()> {
+        self.inner.push_frame()
+    }
+
+    fn pop_frame(&mut self) {
+        self.inner.pop_frame()
+    }
+
+    fn skip_hidden(&self) -> bool {
+        self.inner.skip_hidden()
+    }
 }
 
 /// Fields of `cmd_args`. Abstract mutable and frozen versions.
@@ -166,8 +233,8 @@ impl<'v, F: Fields<'v>> Display for FieldsRef<'v, F> {
 impl<'v, F: Fields<'v>> FieldsRef<'v, F> {
     fn copy(&self) -> StarlarkCmdArgs<'v> {
         StarlarkCmdArgs(RefCell::new(StarlarkCommandLineData {
-            items: self.0.items().to_vec(),
-            hidden: self.0.hidden().to_vec(),
+            items: self.0.items().into(),
+            hidden: self.0.hidden().into(),
             options: self
                 .0
                 .options()
@@ -179,6 +246,13 @@ impl<'v, F: Fields<'v>> FieldsRef<'v, F> {
         self.0
             .options()
             .map(|o| o.ignore_artifacts())
+            .unwrap_or_default()
+    }
+
+    fn salt_hidden(&self) -> bool {
+        self.0
+            .options()
+            .map(|o| o.salt_hidden())
             .unwrap_or_default()
     }
 
@@ -224,79 +298,154 @@ impl<'v, F: Fields<'v>> CommandLineArgLike<'v> for FieldsRef<'v, F> {
         &self,
         visitor: &mut dyn CommandLineArtifactVisitor<'v>,
     ) -> buck2_error::Result<()> {
-        if !self.ignore_artifacts() {
-            fn visit_items<'a>(
-                visitor: &mut dyn CommandLineArtifactVisitor<'a>,
-                items: &[CommandLineArg<'a>],
-            ) -> buck2_error::Result<()> {
-                for item in items {
-                    visitor.push_frame()?;
-                    item.as_command_line_arg().visit_artifacts(visitor)?;
-                    visitor.pop_frame();
-                }
+        fn visit_items<'a>(
+            visitor: &mut dyn CommandLineArtifactVisitor<'a>,
+            items: &[CommandLineArg<'a>],
+        ) -> buck2_error::Result<()> {
+            for item in items {
+                visitor.push_frame()?;
+                item.as_command_line_arg().visit_artifacts(visitor)?;
+                visitor.pop_frame();
+            }
 
+            Ok(())
+        }
+
+        // The salted hidden list asks for digests, whatever else the scope says.
+        fn visit_hidden<'a>(
+            visitor: &mut dyn CommandLineArtifactVisitor<'a>,
+            hidden: &[CommandLineArg<'a>],
+            salt: bool,
+        ) -> buck2_error::Result<()> {
+            let mut hidden_visitor = MapProperties {
+                inner: visitor,
+                map: move |props: InputProperties| {
+                    let InputProperties {
+                        hidden: _,
+                        requires,
+                    } = props;
+                    InputProperties {
+                        hidden: true,
+                        requires: if salt { Requires::Digest } else { requires },
+                    }
+                },
+            };
+            visit_items(&mut hidden_visitor, hidden)
+        }
+
+        let salt_hidden = self.salt_hidden();
+        if !self.ignore_artifacts() {
+            visit_items(visitor, self.0.items())?;
+            if !visitor.skip_hidden() {
+                visit_hidden(visitor, self.0.hidden(), salt_hidden)?;
+            }
+            return Ok(());
+        }
+
+        /// Forwards, as `Requires::Path`, the artifacts whose paths require them to be
+        /// built; drops the rest. Rejects a content-based artifact hidden in this scope,
+        /// since nothing would render it.
+        struct PathOnlyVisitor<'a, 'v> {
+            inner: &'a mut dyn CommandLineArtifactVisitor<'v>,
+            rejected: BuckMutInsertionSet<String>,
+        }
+
+        impl<'v> CommandLineArtifactVisitor<'v> for PathOnlyVisitor<'_, 'v> {
+            fn visit_input(
+                &mut self,
+                input: ArtifactGroup,
+                props: InputProperties,
+                tags: Vec<&ArtifactTag>,
+            ) {
+                let InputProperties {
+                    hidden,
+                    requires: _,
+                } = props;
+                if !input.path_resolution_may_require_artifact_value() {
+                    return;
+                }
+                if hidden {
+                    self.rejected.insert(input.to_string());
+                    return;
+                }
+                self.inner.visit_input(
+                    input,
+                    InputProperties {
+                        requires: Requires::Path,
+                        ..props
+                    },
+                    tags,
+                );
+            }
+
+            fn visit_declared_artifact(
+                &mut self,
+                declared_artifact: buck2_artifact::artifact::artifact_type::DeclaredArtifact<'v>,
+                props: InputProperties,
+                tags: Vec<&ArtifactTag>,
+            ) -> buck2_error::Result<()> {
+                let InputProperties {
+                    hidden,
+                    requires: _,
+                } = props;
+                if !declared_artifact.has_content_based_path() {
+                    return Ok(());
+                }
+                if hidden {
+                    self.rejected.insert(declared_artifact.to_string());
+                    return Ok(());
+                }
+                self.inner.visit_input(
+                    ArtifactGroup::Artifact(declared_artifact.ensure_bound()?.into_artifact()),
+                    InputProperties {
+                        requires: Requires::Path,
+                        ..props
+                    },
+                    tags,
+                );
                 Ok(())
             }
 
-            visit_items(visitor, self.0.items())?;
-            if !visitor.skip_hidden() {
-                visit_items(visitor, self.0.hidden())?;
-            }
-        } else {
-            struct IgnoredArtifactsVisitor {
-                content_based_artifacts: BuckIndexSet<String>,
+            fn visit_declared_output(
+                &mut self,
+                _artifact: OutputArtifact<'v>,
+                _tags: Vec<&ArtifactTag>,
+            ) {
             }
 
-            impl IgnoredArtifactsVisitor {
-                fn new() -> Self {
-                    Self {
-                        content_based_artifacts: BuckIndexSet::default(),
-                    }
-                }
+            fn visit_frozen_output(&mut self, _artifact: Artifact, _tags: Vec<&ArtifactTag>) {}
+
+            fn push_frame(&mut self) -> buck2_error::Result<()> {
+                self.inner.push_frame()
             }
 
-            impl<'v> CommandLineArtifactVisitor<'v> for IgnoredArtifactsVisitor {
-                fn visit_input(&mut self, input: ArtifactGroup, _tags: Vec<&ArtifactTag>) {
-                    if input.path_resolution_may_require_artifact_value() {
-                        self.content_based_artifacts.insert(input.to_string());
-                    }
-                }
-
-                fn visit_declared_artifact(
-                    &mut self,
-                    declared_artifact: buck2_artifact::artifact::artifact_type::DeclaredArtifact,
-                    _tags: Vec<&ArtifactTag>,
-                ) -> buck2_error::Result<()> {
-                    if declared_artifact.has_content_based_path() {
-                        self.content_based_artifacts
-                            .insert(declared_artifact.to_string());
-                    }
-
-                    Ok(())
-                }
-
-                fn visit_declared_output(
-                    &mut self,
-                    _artifact: OutputArtifact<'v>,
-                    _tags: Vec<&ArtifactTag>,
-                ) {
-                }
-
-                fn visit_frozen_output(&mut self, _artifact: Artifact, _tags: Vec<&ArtifactTag>) {}
+            fn pop_frame(&mut self) {
+                self.inner.pop_frame()
             }
-            let mut ignored_artifacts_visitor = IgnoredArtifactsVisitor::new();
-            for item in self.0.items().iter().chain(self.0.hidden().iter()) {
-                ignored_artifacts_visitor.push_frame()?;
-                item.as_command_line_arg()
-                    .visit_artifacts(&mut ignored_artifacts_visitor)?;
-                ignored_artifacts_visitor.pop_frame();
+
+            fn skip_hidden(&self) -> bool {
+                self.inner.skip_hidden()
             }
-            if !ignored_artifacts_visitor.content_based_artifacts.is_empty() {
-                return Err(CommandLineError::ContentBasedIgnoreArtifacts(
-                    ignored_artifacts_visitor.content_based_artifacts,
-                )
-                .into());
-            }
+        }
+
+        let mut path_only_visitor = PathOnlyVisitor {
+            inner: visitor,
+            rejected: BuckMutInsertionSet::default(),
+        };
+        visit_items(&mut path_only_visitor, self.0.items())?;
+        let skip_hidden = path_only_visitor.skip_hidden();
+        if !skip_hidden && !salt_hidden {
+            visit_items(&mut hidden_visitor(&mut path_only_visitor), self.0.hidden())?;
+        }
+        let PathOnlyVisitor {
+            inner: visitor,
+            rejected,
+        } = path_only_visitor;
+        if !rejected.is_empty() {
+            return Err(CommandLineError::HiddenContentBasedIgnoreArtifacts(rejected).into());
+        }
+        if !skip_hidden && salt_hidden {
+            visit_hidden(visitor, self.0.hidden(), true)?;
         }
         Ok(())
     }
@@ -324,7 +473,7 @@ impl<'v, F: Fields<'v>> CommandLineArgLike<'v> for FieldsRef<'v, F> {
                     visitor.set_current_relative_to_path(compute_relative_to_path(
                         p,
                         parents,
-                        fs,
+                        fs.fs(),
                         artifact_path_mapping,
                     )?);
                 }
@@ -356,8 +505,8 @@ impl<'v, F: Fields<'v>> CommandLineArgLike<'v> for FieldsRef<'v, F> {
 #[derive(Debug, Default, Clone, Trace, ProvidesStaticType, Allocative)]
 #[repr(C)]
 pub struct StarlarkCommandLineData<'v> {
-    items: Vec<CommandLineArg<'v>>,
-    hidden: Vec<CommandLineArg<'v>>,
+    items: MiniVec<CommandLineArg<'v>>,
+    hidden: MiniVec<CommandLineArg<'v>>,
     options: Option<Box<CommandLineOptions<'v>>>,
 }
 
@@ -469,7 +618,7 @@ impl<'v, A: Fields<'v>, B: Fields<'v>> Fields<'v> for Either<A, B> {
 }
 
 // These types show up a lot in the frozen heaps, so make sure they don't regress
-size_assert::words_of_type!(StarlarkCmdArgs<'static>, 8);
+size_assert::words_of_type!(StarlarkCmdArgs<'static>, 4);
 size_assert::words_of_type!(FrozenStarlarkCmdArgs<'static>, 3);
 size_assert::words_of_type!(CommandLineOptions<'static>, 10);
 
@@ -668,7 +817,7 @@ impl<'v> Freeze<'v> for StarlarkCmdArgs<'v> {
         } = self.0.into_inner();
 
         fn freeze_elements<'v, 'fv>(
-            elements: Vec<CommandLineArg<'v>>,
+            elements: MiniVec<CommandLineArg<'v>>,
             freezer: &Freezer<'v, 'fv>,
         ) -> FreezeResult<ThinBoxSliceValue<'fv>> {
             elements
@@ -943,7 +1092,7 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
     /// * `delimiter` - added between arguments to join them together. For example, `cmd_args(["--args=",x], delimiter="")` would produce a single argument to the underlying tool.
     /// * `prepend` - added as a separate argument before each argument.
     /// * `quote` - indicates whether quoting is to be applied to each argument. The only current valid value is `"shell"`.
-    /// * `ignore_artifacts` - if `True`, artifacts paths are used, but artifacts are not pulled.
+    /// * `ignore_artifacts` - if `True`, artifacts contribute only their paths: nothing is materialized for them. Artifacts with content-based-paths are built, so that the content hash embedded in the path can be rendered.
     /// * `hidden` - artifacts not present on the command line, but added as dependencies.
     /// * `absolute_prefix` and `absolute_suffix` - added to the start and end of each artifact.
     /// * `parent` - for all the artifacts use their `parent`th directory (e.g. `parent = 1` for the directory the artifact is located, `parent = 2` for that directory's parent, etc.).
@@ -952,8 +1101,16 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
     ///
     /// ### `ignore_artifacts`
     ///
-    /// `ignore_artifacts=True` makes `cmd_args` to have no declared dependencies.
-    /// Allows you to reference the path of an artifact _without_ introducing dependencies on it.
+    /// `ignore_artifacts=True` declares that the command records the paths of the referenced
+    /// artifacts but never reads their contents, so none of them is materialized for it.
+    /// An artifact whose path is independent of its contents introduces no dependency at all.
+    /// An artifact whose path embeds its content hash is built before the command runs,
+    /// since the path cannot be rendered otherwise, but is still not materialized; its
+    /// content reaches the command only through the rendered path.
+    ///
+    /// Artifacts in the `hidden` list of such a scope still introduce no dependency, and
+    /// a content-based one there is an error: nothing renders it, so nothing would carry
+    /// its content to the action.
     ///
     /// As an example where this can be useful, consider passing a dependency that is only accessed at runtime, but whose path
     /// must be baked into the binary. As an example:
@@ -1029,6 +1186,8 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
         prepend: Option<StringValue<'v>>,
         quote: Option<&str>,
         #[starlark(default = false)] ignore_artifacts: bool,
+        #[starlark(default = false, require = named, doc_hidden = true)]
+        experimental_salt_hidden: bool,
         absolute_prefix: Option<StringValue<'v>>,
         absolute_suffix: Option<StringValue<'v>>,
         #[starlark(default = 0)] parent: u32,
@@ -1048,6 +1207,7 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
             || prepend.is_some()
             || quote.is_some()
             || ignore_artifacts
+            || experimental_salt_hidden
             || absolute_prefix.is_some()
             || absolute_suffix.is_some()
             || parent != 0
@@ -1059,6 +1219,7 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
             opts.prepend = prepend;
             opts.quote = quote;
             opts.ignore_artifacts = ignore_artifacts;
+            opts.salt_hidden = experimental_salt_hidden;
             opts.absolute_prefix = absolute_prefix;
             opts.absolute_suffix = absolute_suffix;
             opts.parent = parent;
@@ -1075,7 +1236,7 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
             for (pattern, _replacement) in &replace_regex {
                 pattern.validate()?;
             }
-            builder.options_mut().replacements = Some(Box::new(replace_regex));
+            builder.options_mut().replacements = replace_regex.into();
         }
         for v in args.items {
             builder.add_value_typed(v)?;
@@ -1099,7 +1260,7 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
 )]
 pub struct StarlarkCommandLineInputs {
     #[starlark_pagable(pagable)]
-    pub inputs: BuckIndexSet<ArtifactGroup>,
+    pub inputs: BuckMutInsertionSet<ArtifactGroup>,
 }
 
 starlark_simple_value!(StarlarkCommandLineInputs);
@@ -1127,7 +1288,7 @@ impl<'v> StarlarkValue<'v> for StarlarkCommandLineInputs {
 
     fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {
         if let Some(other) = other.downcast_ref::<Self>() {
-            Ok(self.inputs == other.inputs)
+            Ok(self.inputs.eq_unordered(&other.inputs))
         } else {
             Ok(false)
         }

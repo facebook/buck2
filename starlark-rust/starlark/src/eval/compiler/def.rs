@@ -209,13 +209,6 @@ impl<'f, T> ParameterCompiled<'f, T> {
         }
     }
 
-    pub(crate) fn accepts_positional(&self) -> bool {
-        match self {
-            ParameterCompiled::Normal(..) => true,
-            _ => false,
-        }
-    }
-
     pub(crate) fn captured(&self) -> Captured {
         self.name_ty().0.captured
     }

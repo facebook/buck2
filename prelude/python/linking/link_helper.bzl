@@ -6,14 +6,14 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//cxx:attrs.bzl", "BUILD_INFO_ATTR")
 load(
     "@prelude//cxx:link_groups_types.bzl",
     "LINK_GROUP_MAP_ATTR",
 )
 load("@prelude//cxx:transformation_spec.bzl", "TransformationResultProvider")
-load("@prelude//decls:cxx_rules.bzl", "BUILD_INFO_ATTR")
 load("@prelude//python:internal_tools.bzl", "PythonInternalToolsInfo")
-load("@prelude//python:toolchain.bzl", "PythonToolchainInfo")
+load("@prelude//python:toolchain.bzl", "PackageStyle", "PythonToolchainInfo")
 load("@prelude//python/linking:native.bzl", "process_native_linking")
 
 LinkProviders = provider(
@@ -84,7 +84,7 @@ def _process_native_linking_rule_impl(ctx):
             raw_deps,
             python_toolchain,
             python_internal_tools,
-            ctx.attrs.package_style,
+            PackageStyle(ctx.attrs.package_style),
             ctx.attrs.allow_cache_upload,
             generated_build_info_invalidation_deps = ctx.attrs.generated_build_info_invalidation_deps,
             generated_build_info_invalidation_sources = ctx.attrs.generated_build_info_invalidation_sources,
@@ -112,7 +112,7 @@ process_native_linking_rule = rule(
         "dlopen_deps": attrs.list(attrs.dep(), default = []),
         "generated_build_info_invalidation_deps": attrs.list(attrs.dep(), default = []),
         "generated_build_info_invalidation_sources": attrs.list(attrs.source(), default = []),
-        "package_style": attrs.any(),
+        "package_style": attrs.string(),
         "rpath": attrs.string(),
         "shared_only_deps": attrs.list(attrs.dep(), default = []),
         "static_extension_utils": attrs.source(),

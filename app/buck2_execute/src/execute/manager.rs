@@ -17,7 +17,7 @@ use buck2_build_signals::env::WaitingData;
 use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_core::buck2_env;
 use buck2_events::dispatch::EventDispatcher;
-use buck2_hash::BuckIndexMap;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_util::time_span::TimeSpan;
 use futures::future::Future;
 use futures::future::FutureExt;
@@ -40,7 +40,7 @@ trait CommandExecutionManagerLike: Sized {
     fn result(
         self,
         status: CommandExecutionStatus,
-        outputs: BuckIndexMap<CommandExecutionOutput, ArtifactValue>,
+        outputs: BuckMutInsertionMap<CommandExecutionOutput, ArtifactValue>,
         std_streams: CommandStdStreams,
         exit_code: Option<i32>,
         timing: CommandExecutionMetadata,
@@ -127,7 +127,7 @@ impl CommandExecutionManager {
                 execution_kind,
                 reason: Some(reason),
             },
-            BuckIndexMap::default(),
+            BuckMutInsertionMap::default(),
             Default::default(),
             None,
             metadata,
@@ -159,7 +159,7 @@ impl CommandExecutionManagerLike for CommandExecutionManager {
     fn result(
         self,
         status: CommandExecutionStatus,
-        outputs: BuckIndexMap<CommandExecutionOutput, ArtifactValue>,
+        outputs: BuckMutInsertionMap<CommandExecutionOutput, ArtifactValue>,
         std_streams: CommandStdStreams,
         exit_code: Option<i32>,
         timing: CommandExecutionMetadata,
@@ -185,6 +185,7 @@ impl CommandExecutionManagerLike for CommandExecutionManager {
             action_result: None,
             scheduling_mode: None,
             waiting_data: self.inner.waiting_data,
+            outputs_lease: None,
         }
     }
 
@@ -212,7 +213,7 @@ impl CommandExecutionManagerWithClaim {
     pub fn success(
         self,
         execution_kind: CommandExecutionKind,
-        outputs: BuckIndexMap<CommandExecutionOutput, ArtifactValue>,
+        outputs: BuckMutInsertionMap<CommandExecutionOutput, ArtifactValue>,
         std_streams: CommandStdStreams,
         timing: CommandExecutionMetadata,
     ) -> CommandExecutionResult {
@@ -236,7 +237,7 @@ impl CommandExecutionManagerWithClaim {
                 execution_kind,
                 reason: None,
             },
-            BuckIndexMap::default(),
+            BuckMutInsertionMap::default(),
             Default::default(),
             None,
             timing,
@@ -254,7 +255,7 @@ impl CommandExecutionManagerLike for CommandExecutionManagerWithClaim {
     fn result(
         self,
         status: CommandExecutionStatus,
-        outputs: BuckIndexMap<CommandExecutionOutput, ArtifactValue>,
+        outputs: BuckMutInsertionMap<CommandExecutionOutput, ArtifactValue>,
         std_streams: CommandStdStreams,
         exit_code: Option<i32>,
         timing: CommandExecutionMetadata,
@@ -280,6 +281,7 @@ impl CommandExecutionManagerLike for CommandExecutionManagerWithClaim {
             action_result: None,
             scheduling_mode: None,
             waiting_data: self.inner.waiting_data,
+            outputs_lease: None,
         }
     }
 
@@ -292,7 +294,7 @@ pub trait CommandExecutionManagerExt: Sized {
     fn failure(
         self,
         execution_kind: CommandExecutionKind,
-        outputs: BuckIndexMap<CommandExecutionOutput, ArtifactValue>,
+        outputs: BuckMutInsertionMap<CommandExecutionOutput, ArtifactValue>,
         std_streams: CommandStdStreams,
         exit_code: Option<i32>,
         timing: CommandExecutionMetadata,
@@ -310,7 +312,7 @@ pub trait CommandExecutionManagerExt: Sized {
     fn timeout(
         self,
         execution_kind: CommandExecutionKind,
-        outputs: BuckIndexMap<CommandExecutionOutput, ArtifactValue>,
+        outputs: BuckMutInsertionMap<CommandExecutionOutput, ArtifactValue>,
         duration: Duration,
         std_streams: CommandStdStreams,
         timing: CommandExecutionMetadata,
@@ -340,7 +342,7 @@ where
     fn failure(
         self,
         execution_kind: CommandExecutionKind,
-        outputs: BuckIndexMap<CommandExecutionOutput, ArtifactValue>,
+        outputs: BuckMutInsertionMap<CommandExecutionOutput, ArtifactValue>,
         std_streams: CommandStdStreams,
         exit_code: Option<i32>,
         timing: CommandExecutionMetadata,
@@ -382,7 +384,7 @@ where
     fn timeout(
         self,
         execution_kind: CommandExecutionKind,
-        outputs: BuckIndexMap<CommandExecutionOutput, ArtifactValue>,
+        outputs: BuckMutInsertionMap<CommandExecutionOutput, ArtifactValue>,
         duration: Duration,
         std_streams: CommandStdStreams,
         timing: CommandExecutionMetadata,
@@ -415,7 +417,7 @@ where
                 execution_kind,
                 typ: error_type,
             },
-            BuckIndexMap::default(),
+            BuckMutInsertionMap::default(),
             Default::default(),
             None,
             CommandExecutionMetadata::empty(TimeSpan::empty_now()),

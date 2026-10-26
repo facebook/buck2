@@ -24,18 +24,19 @@ use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_core::target::name::TargetName;
 use buck2_fs::paths::file_name::FileNameBuf;
+use buck2_hash::BuckMutInsertionMap;
+use buck2_hash::buck_mut_insertion_map;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterResultsKey;
 use buck2_interpreter_for_build::super_package::package_value::SuperPackageValuesImpl;
+use buck2_node::attrs::arena::OwnedCoercedAttr;
 use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::attr_type::AttrType;
-use buck2_node::attrs::attr_type::any::AnyAttrType;
 use buck2_node::attrs::attr_type::bool::BoolLiteral;
 use buck2_node::attrs::attr_type::dep::DepAttr;
 use buck2_node::attrs::attr_type::dep::DepAttrTransition;
 use buck2_node::attrs::attr_type::dep::DepAttrType;
 use buck2_node::attrs::attr_type::list::ListLiteral;
 use buck2_node::attrs::attr_type::string::StringLiteral;
-use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::attrs::spec::internal::is_internal_attr;
@@ -55,8 +56,6 @@ use buck2_util::arc_str::ArcSlice;
 use dice::UserComputationData;
 use dice::testing::DiceBuilder;
 use dupe::Dupe;
-use starlark::collections::SmallMap;
-use starlark_map::smallmap;
 
 #[tokio::test]
 async fn test_get_node() -> buck2_error::Result<()> {
@@ -77,12 +76,12 @@ async fn test_get_node() -> buck2_error::Result<()> {
         (
             "bool_field",
             Attribute::new(None, "", AttrType::bool())?,
-            CoercedAttr::Bool(BoolLiteral(false)),
+            OwnedCoercedAttr::new_with(|b| b.encode_bool(false))?,
         ),
         (
             "another_field",
             Attribute::new(None, "", AttrType::string())?,
-            CoercedAttr::String(StringLiteral("some_string".into())),
+            OwnedCoercedAttr::new_with(|b| b.encode_string("some_string"))?,
         ),
         (
             "some_deps",
@@ -91,9 +90,11 @@ async fn test_get_node() -> buck2_error::Result<()> {
                 "",
                 AttrType::list(AttrType::dep(ProviderIdSet::EMPTY, PluginKindSet::EMPTY)),
             )?,
-            CoercedAttr::List(ListLiteral(ArcSlice::new([CoercedAttr::Dep(
-                ProvidersLabel::new(label2.dupe(), ProvidersName::Default),
-            )]))),
+            OwnedCoercedAttr::new_with(|b| {
+                let dep =
+                    b.encode_dep(&ProvidersLabel::new(label2.dupe(), ProvidersName::Default))?;
+                b.encode_list(&[dep])
+            })?,
         ),
     ];
 
@@ -103,12 +104,12 @@ async fn test_get_node() -> buck2_error::Result<()> {
         (
             "bool_field",
             Attribute::new(None, "", AttrType::bool())?,
-            CoercedAttr::Bool(BoolLiteral(true)),
+            OwnedCoercedAttr::new_with(|b| b.encode_bool(true))?,
         ),
         (
             "another_field",
             Attribute::new(None, "", AttrType::string())?,
-            CoercedAttr::String(StringLiteral("another_string".into())),
+            OwnedCoercedAttr::new_with(|b| b.encode_string("another_string"))?,
         ),
         (
             "some_deps",
@@ -117,7 +118,7 @@ async fn test_get_node() -> buck2_error::Result<()> {
                 "",
                 AttrType::list(AttrType::dep(ProviderIdSet::EMPTY, PluginKindSet::EMPTY)),
             )?,
-            AnyAttrType::empty_list(),
+            OwnedCoercedAttr::new_with(|b| b.encode_list(&[]))?,
         ),
     ];
 
@@ -150,7 +151,7 @@ async fn test_get_node() -> buck2_error::Result<()> {
     let node = computations.ctx().get_target_node(&label2).await?;
     assert_eq!(node, node2);
 
-    let conf_attrs1 = smallmap![
+    let conf_attrs1 = buck_mut_insertion_map![
         "bool_field" => ConfiguredAttr::Bool(BoolLiteral(false)),
         "another_field" =>
          ConfiguredAttr::String(StringLiteral("some_string".into())),
@@ -164,7 +165,7 @@ async fn test_get_node() -> buck2_error::Result<()> {
         ]))),
     ];
 
-    let conf_attrs2 = smallmap![
+    let conf_attrs2 = buck_mut_insertion_map![
         "bool_field" => ConfiguredAttr::Bool(BoolLiteral(true)),
         "another_field" =>
          ConfiguredAttr::String(StringLiteral("another_string".into())),
@@ -186,7 +187,7 @@ async fn test_get_node() -> buck2_error::Result<()> {
         .require_compatible()?
         .dupe();
 
-    let node_attrs: SmallMap<_, _> = node
+    let node_attrs: BuckMutInsertionMap<_, _> = node
         .attrs(AttrInspectOptions::All)
         .filter_map(|a| {
             if is_internal_attr(a.name) {
@@ -205,7 +206,7 @@ async fn test_get_node() -> buck2_error::Result<()> {
         .require_compatible()?
         .dupe();
 
-    let node_attrs: SmallMap<_, _> = node
+    let node_attrs: BuckMutInsertionMap<_, _> = node
         .attrs(AttrInspectOptions::All)
         .filter_map(|a| {
             if is_internal_attr(a.name) {

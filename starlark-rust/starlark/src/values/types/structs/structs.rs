@@ -19,9 +19,9 @@
 
 use allocative::Allocative;
 use dupe::Dupe;
+use mini_map::MiniFixedSortedMap;
 use pagable::Pagable;
 use starlark_derive::starlark_module;
-use starlark_map::sorted_map::SortedMap;
 
 use crate as starlark;
 use crate::codemap::Span;
@@ -72,7 +72,7 @@ impl TyCustomFunctionImpl for StructType {
         }
         let extra = args.kwargs.is_some();
         Ok(Ty::custom(TyStruct {
-            fields: SortedMap::from_iter(fields),
+            fields: MiniFixedSortedMap::from_iter(fields),
             extra,
         }))
     }

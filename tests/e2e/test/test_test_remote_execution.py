@@ -10,42 +10,46 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test(inplace=True)
-async def test_re_resource_exhausted_reported_as_infra_failure(buck: Buck) -> None:
-    result = await buck.test(
-        "--remote-only",
-        "--no-remote-cache",
-        "fbcode//buck2/tests/targets/rules/sh_test:test_remote_explicit",
-        env={
-            "BUCK2_TEST_FAIL_RE_RESOURCE_EXHAUSTED": "true",
-        },
-    )
-    assert "FATAL" not in result.stderr
-    assert "Infra Failure 1" in result.stderr
-    assert "resource exhausted" in result.stderr.lower()
+class TestRemoteExecutionTest(BuckTestCase):
+    @buck_test(inplace=True)
+    async def test_re_resource_exhausted_reported_as_infra_failure(
+        self, buck: Buck
+    ) -> None:
+        result = await buck.test(
+            "--remote-only",
+            "--no-remote-cache",
+            "fbcode//buck2/tests/targets/rules/sh_test:test_remote_explicit",
+            env={
+                "BUCK2_TEST_FAIL_RE_RESOURCE_EXHAUSTED": "true",
+            },
+        )
+        assert "FATAL" not in result.stderr
+        assert "Infra Failure 1" in result.stderr
+        assert "resource exhausted" in result.stderr.lower()
 
-
-@buck_test(inplace=True)
-async def test_cancel_test_if_re_queue_longer_than_threshold(buck: Buck) -> None:
-    args = [
-        "-c",
-        "build.remote_execution_cancel_on_estimated_queue_time_exceeds_s=10",
-        "--no-remote-cache",
-        "--remote-only",
-    ]
-    result = await buck.test(
-        *args,
-        "fbcode//buck2/tests/targets/rules/sh_test:test_remote_explicit_stays_in_queue",
-        env={"BUCK2_TEST_RE_QUEUE_ESTIMATE_S": "100"},
-    )
-    assert (
-        "Omitted: fbcode//buck2/tests/targets/rules/sh_test:test_remote_explicit_stays_in_queue - unmanaged"
-        in result.stderr
-    )
-    assert (
-        "The test execution stayed in RE queue for more than threshold time."
-        in result.stderr
-    )
+    @buck_test(inplace=True)
+    async def test_cancel_test_if_re_queue_longer_than_threshold(
+        self, buck: Buck
+    ) -> None:
+        args = [
+            "-c",
+            "build.remote_execution_cancel_on_estimated_queue_time_exceeds_s=10",
+            "--no-remote-cache",
+            "--remote-only",
+        ]
+        result = await buck.test(
+            *args,
+            "fbcode//buck2/tests/targets/rules/sh_test:test_remote_explicit_stays_in_queue",
+            env={"BUCK2_TEST_RE_QUEUE_ESTIMATE_S": "100"},
+        )
+        assert (
+            "Omitted: fbcode//buck2/tests/targets/rules/sh_test:test_remote_explicit_stays_in_queue - unmanaged"
+            in result.stderr
+        )
+        assert (
+            "The test execution stayed in RE queue for more than threshold time."
+            in result.stderr
+        )

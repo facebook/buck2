@@ -12,11 +12,10 @@ use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_error::internal_error;
 use buck2_interpreter::types::opaque_metadata::OpaqueMetadata;
+use buck2_node::attrs::arena::AttrToken;
 use buck2_node::attrs::attr_type::target_modifiers::TargetModifiersAttrType;
-use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
-use buck2_node::attrs::values::TargetModifiersValue;
 use starlark::values::Value;
 use starlark::values::type_repr::StarlarkTypeRepr;
 
@@ -24,17 +23,18 @@ use crate::attrs::coerce::AttrTypeCoerce;
 use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 
 impl AttrTypeCoerce for TargetModifiersAttrType {
-    fn coerce_item(
+    fn coerce_item<'v>(
         &self,
         configurable: AttrIsConfigurable,
-        _ctx: &dyn AttrCoercionContext,
-        value: Value,
-    ) -> buck2_error::Result<CoercedAttr> {
+        ctx: &dyn AttrCoercionContext<'v>,
+        value: Value<'v>,
+    ) -> buck2_error::Result<AttrToken> {
         if configurable == AttrIsConfigurable::Yes {
             return Err(internal_error!("modifiers attribute is not configurable"));
         }
-        let value = value
-            .to_json_value()
+        // Rejects values with no JSON form without building one: the
+        // serializer writes into a sink and allocates nothing of its own.
+        serde_json::to_writer(std::io::sink(), &value)
             .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
             .with_buck_error_context(|| {
                 format!(
@@ -42,10 +42,8 @@ impl AttrTypeCoerce for TargetModifiersAttrType {
                     value.to_repr(),
                 )
             })?;
-
-        Ok(CoercedAttr::TargetModifiers(TargetModifiersValue::new(
-            value,
-        )))
+        let modifiers = ctx.coerce_cfg_modifiers(value);
+        ctx.attr_arena().encode_target_modifiers(&modifiers)
     }
 
     fn starlark_type(&self) -> TyMaybeSelect {

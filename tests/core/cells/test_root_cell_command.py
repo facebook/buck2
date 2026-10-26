@@ -11,10 +11,11 @@
 from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_root_cell_with_ignored_buckconfig(buck: Buck) -> None:
-    r = await buck.root("--kind=cell", rel_cwd=Path("abc"))
-    assert r.stdout.strip() == str(buck.cwd)
+class RootCellCommandTest(BuckTestCase):
+    @buck_test()
+    async def test_root_cell_with_ignored_buckconfig(self, buck: Buck) -> None:
+        r = await buck.root("--kind=cell", rel_cwd=Path("abc"))
+        assert r.stdout.strip() == str(buck.cwd)

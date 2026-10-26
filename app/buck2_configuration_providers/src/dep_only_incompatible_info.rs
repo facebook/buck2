@@ -17,10 +17,11 @@ use buck2_core::error::validate_logview_category;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_hash::BuckFixedSortedMap;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
-use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
@@ -88,7 +89,7 @@ fn dep_only_incompatible_info_creator(globals: &mut GlobalsBuilder) {
         >,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<DepOnlyIncompatibleInfo<'v>> {
-        let mut result = SmallMap::with_capacity(custom_soft_errors.entries.len());
+        let mut result = BuckMutInsertionMap::with_capacity(custom_soft_errors.entries.len());
         for (category, value) in custom_soft_errors.entries {
             let category_str = category.to_value().unpack_str().ok_or_else(|| {
                 starlark::Error::from(buck2_error::internal_error!(
@@ -127,7 +128,8 @@ impl DepOnlyIncompatibleRolloutPatterns {
     }
 }
 
-pub type DepOnlyIncompatibleCustomSoftErrors = SmallMap<ArcStr, DepOnlyIncompatibleRolloutPatterns>;
+pub type DepOnlyIncompatibleCustomSoftErrors =
+    BuckFixedSortedMap<ArcStr, DepOnlyIncompatibleRolloutPatterns>;
 
 impl<'v> DepOnlyIncompatibleInfo<'v> {
     pub fn custom_soft_errors(
@@ -146,7 +148,7 @@ impl<'v> DepOnlyIncompatibleInfo<'v> {
                 )
             };
 
-        let custom_soft_errors: SmallMap<_, _> = DictRef::from_value(self.custom_soft_errors.get())
+        let custom_soft_errors = DictRef::from_value(self.custom_soft_errors.get())
             .expect("Internal error: expected to be a dict")
             .iter()
             .map(|(k, v)| {

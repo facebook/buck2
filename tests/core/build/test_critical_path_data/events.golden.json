@@ -20,8 +20,17 @@
     ]
   },
   {
+    "deps": [],
+    "key": "MatchedConfigurationSettingKeysKey(ResolvedConfigurationKey(target_cfg: <unspecified>, cell: root, configuration_deps size 0))",
+    "time_span": [
+      null,
+      null
+    ]
+  },
+  {
     "deps": [
-      "InterpreterResultsKey(root//)"
+      "InterpreterResultsKey(root//)",
+      "MatchedConfigurationSettingKeysKey(ResolvedConfigurationKey(target_cfg: <unspecified>, cell: root, configuration_deps size 0))"
     ],
     "key": "ConfiguredTargetNodeKey(root//:step_0 (<unspecified>))",
     "time_span": [
@@ -32,6 +41,7 @@
   {
     "deps": [
       "InterpreterResultsKey(root//)",
+      "MatchedConfigurationSettingKeysKey(ResolvedConfigurationKey(target_cfg: <unspecified>, cell: root, configuration_deps size 0))",
       "ConfiguredTargetNodeKey(root//:step_0 (<unspecified>))"
     ],
     "key": "ConfiguredTargetNodeKey(root//:step_1 (<unspecified>))",
@@ -43,6 +53,7 @@
   {
     "deps": [
       "InterpreterResultsKey(root//)",
+      "MatchedConfigurationSettingKeysKey(ResolvedConfigurationKey(target_cfg: <unspecified>, cell: root, configuration_deps size 0))",
       "ConfiguredTargetNodeKey(root//:step_1 (<unspecified>))"
     ],
     "key": "ConfiguredTargetNodeKey(root//:check_dynamic_input (<unspecified>))",
@@ -85,8 +96,7 @@
   },
   {
     "deps": [
-      "AnalysisKey(root//:step_0 (<unspecified>))",
-      "ConfiguredTargetNodeKey(root//:step_0 (<unspecified>))"
+      "AnalysisKey(root//:step_0 (<unspecified>))"
     ],
     "key": "BuildKey((target: `root//:step_0 (<unspecified>)`, id: `0`))",
     "time_span": [
@@ -97,8 +107,7 @@
   {
     "deps": [
       "AnalysisKey(root//:step_1 (<unspecified>))",
-      "BuildKey((target: `root//:step_0 (<unspecified>)`, id: `0`))",
-      "ConfiguredTargetNodeKey(root//:step_1 (<unspecified>))"
+      "BuildKey((target: `root//:step_0 (<unspecified>)`, id: `0`))"
     ],
     "key": "BuildKey((target: `root//:step_1 (<unspecified>)`, id: `0`))",
     "time_span": [
@@ -119,8 +128,7 @@
   },
   {
     "deps": [
-      "DynamicLambdaDiceKey(root//:check_dynamic_input (<unspecified>)_0)",
-      "ConfiguredTargetNodeKey(root//:check_dynamic_input (<unspecified>))"
+      "DynamicLambdaDiceKey(root//:check_dynamic_input (<unspecified>)_0)"
     ],
     "key": "BuildKey((target: `root//:check_dynamic_input (<unspecified>)_0`, id: `1`))",
     "time_span": [

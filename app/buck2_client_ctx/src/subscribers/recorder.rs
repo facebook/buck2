@@ -75,6 +75,7 @@ use termwiz::istty::IsTty;
 use tokio::sync::mpsc::Receiver;
 use variant_name::VariantName;
 
+use crate::agent_invocation_info::AgentInvocationInfo;
 use crate::client_ctx::ClientCommandContext;
 use crate::client_metadata::ClientMetadata;
 use crate::common::CommonBuildConfigurationOptions;
@@ -88,6 +89,7 @@ use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::system_warning::check_download_speed;
 use crate::subscribers::system_warning::check_memory_pressure;
 use crate::subscribers::system_warning::check_remaining_disk_space;
+use crate::subscribers::system_warning::is_disk_near_full;
 
 pub fn process_memory(snapshot: &buck2_data::Snapshot) -> Option<u64> {
     // buck2_rss is the resident set size observed by daemon (exluding subprocesses).
@@ -207,6 +209,9 @@ pub struct InvocationRecorder {
     bxl_ensure_artifacts_duration: Option<prost_types::Duration>,
     install_duration: Option<prost_types::Duration>,
     install_device_metadata: Vec<buck2_data::DeviceMetadata>,
+    /// Daemon timestamp of `CommandStart`, the origin of `command_duration`.
+    command_start_timestamp: Option<SystemTime>,
+    build_phase_end: Option<(SystemTime, buck2_data::BuildStatus)>,
     installer_log_url: Option<String>,
     installer_name: Option<String>,
     initial_re_upload_bytes: Option<u64>,
@@ -234,7 +239,7 @@ pub struct InvocationRecorder {
     daemon_was_started: Option<buck2_data::DaemonWasStartedReason>,
     should_restart: bool,
     client_metadata: Vec<buck2_data::ClientMetadata>,
-    agent_context: Vec<buck2_data::AgentContextEntry>,
+    agent_invocation_info: AgentInvocationInfo,
     command_errors: Vec<ErrorReport>,
     exit_code: Option<u32>,
     exit_result_name: Option<String>,
@@ -439,6 +444,8 @@ impl InvocationRecorder {
             bxl_ensure_artifacts_duration: None,
             install_duration: None,
             install_device_metadata: Vec::new(),
+            command_start_timestamp: None,
+            build_phase_end: None,
             installer_log_url: None,
             installer_name: None,
             initial_re_upload_bytes: None,
@@ -465,7 +472,7 @@ impl InvocationRecorder {
             daemon_was_started: None,
             should_restart: false,
             client_metadata: Vec::new(),
-            agent_context: Vec::new(),
+            agent_invocation_info: AgentInvocationInfo::default(),
             command_errors: Vec::new(),
             exit_code: None,
             exit_result_name: None,
@@ -576,7 +583,7 @@ impl InvocationRecorder {
             );
         }
 
-        self.agent_context = ctx.agent_context().to_proto();
+        self.agent_invocation_info = ctx.agent_invocation_info().clone();
 
         self.command_name = Some(command_name);
     }
@@ -704,12 +711,21 @@ impl InvocationRecorder {
 
     fn finalize_errors(&mut self) -> Vec<ProcessedErrorReport> {
         let mut errors = Vec::new();
+        let disk_near_full = match (
+            self.last_snapshot
+                .as_ref()
+                .and_then(|snapshot| snapshot.used_disk_space_bytes),
+            self.system_info.total_disk_space_bytes,
+        ) {
+            (Some(used), Some(total)) => is_disk_near_full(total.saturating_sub(used), total),
+            _ => false,
+        };
         for error in self.command_errors.drain(..) {
             // FIXME this error should be updated at the source if possible, and not only in the invocation record.
             let error: ErrorReport = if error.tags.contains(&(ErrorTag::ClientGrpc as i32)) {
                 let error: buck2_error::Error = error.into();
                 // Add stderr to GRPC connection errors if available
-                let error = classify_server_stderr(error, &self.server_stderr);
+                let error = classify_server_stderr(error, &self.server_stderr, disk_near_full);
                 let error = if self.server_stderr.is_empty() {
                     let error = error.context("buckd stderr is empty");
                     // Likely buckd received SIGKILL, may be due to memory pressure
@@ -1034,6 +1050,8 @@ impl InvocationRecorder {
             &buck2_action_parallelism::PERCENTILES,
         );
 
+        let agent_invocation_info = std::mem::take(&mut self.agent_invocation_info);
+        let agent_context = agent_invocation_info.agent_context().to_proto();
         let record = buck2_data::InvocationRecord {
             command_name: Some(self.command_name.unwrap_or("unknown").to_owned()),
             command_end: self.command_end.take(),
@@ -1192,13 +1210,18 @@ impl InvocationRecorder {
             daemon_was_started: self.daemon_was_started.map(|t| t as i32),
             should_restart: Some(self.should_restart),
             client_metadata: std::mem::take(&mut self.client_metadata),
-            agent_direct_call: self
-                .agent_context
+            agent_direct_call: agent_context
                 .iter()
                 .rev()
                 .find(|entry| entry.key == buck2_data::AgentContextEntry::KEY_DIRECT_CALL)
                 .and_then(|entry| entry.value.parse::<bool>().ok()),
-            agent_context: std::mem::take(&mut self.agent_context),
+            agent_inferred_direct_call: agent_invocation_info.inferred_direct_call(),
+            agent_callers: agent_invocation_info.inference().callers.clone(),
+            agent_detection_stop_reason: agent_invocation_info
+                .inference()
+                .stop_reason
+                .map(i32::from),
+            agent_context,
             errors,
             target_rule_type_names: unique_and_sorted(
                 std::mem::take(&mut self.target_rule_type_names).into_iter(),
@@ -1218,6 +1241,8 @@ impl InvocationRecorder {
             re_avg_upload_speed: self.re_avg_upload_speed.avg_per_second(),
             install_duration: self.install_duration.take(),
             install_device_metadata: std::mem::take(&mut self.install_device_metadata),
+            build_duration_ms: self.build_duration_ms(),
+            build_status: self.build_status().map(|s| s.into()),
             installer_log_url: self.installer_log_url.take(),
             installer_name: self.installer_name.take(),
             peak_process_memory_bytes: self.peak_process_memory_bytes.take(),
@@ -1383,6 +1408,10 @@ impl InvocationRecorder {
                 .paging_summary
                 .as_ref()
                 .and_then(|s| s.paging_memory_restored_bytes),
+            paging_arc_cache_entries: self
+                .paging_summary
+                .as_ref()
+                .and_then(|s| s.paging_arc_cache_entries),
             starlark_partial_deser: self
                 .paging_summary
                 .as_ref()
@@ -1458,6 +1487,7 @@ impl InvocationRecorder {
     ) -> buck2_error::Result<()> {
         self.metadata.extend(command.metadata.clone());
         self.time_to_command_start = Some(duration_since(event.timestamp(), self.start_time));
+        self.command_start_timestamp = Some(event.timestamp());
         Ok(())
     }
 
@@ -1898,6 +1928,47 @@ impl InvocationRecorder {
         self.time_to_first_test_run
             .get_or_insert_with(|| duration_since(event.timestamp(), self.start_time));
         Ok(())
+    }
+
+    fn handle_build_phase_end(
+        &mut self,
+        build_phase_end: &buck2_data::BuildPhaseEnd,
+    ) -> buck2_error::Result<()> {
+        let end_time = build_phase_end
+            .end_time
+            .internal_error("Missing `end_time` in BuildPhaseEnd")?;
+        let end_time = SystemTime::try_from(end_time)
+            .map_err(|e| internal_error!("Invalid `end_time` in BuildPhaseEnd: {e}"))?;
+        self.build_phase_end = Some(merge_build_phase_ends(
+            self.build_phase_end,
+            (end_time, build_phase_end.status()),
+        ));
+        Ok(())
+    }
+
+    fn build_duration_ms(&self) -> Option<u64> {
+        let (end_time, _) = self.build_phase_end?;
+        duration_as_millis(duration_since(end_time, self.command_start_timestamp?))
+    }
+
+    /// The build outcome for commands that have a build phase. Without a `BuildPhaseEnd`
+    /// event the outcome is inferred from how the command ended.
+    fn build_status(&self) -> Option<buck2_data::BuildStatus> {
+        if !matches!(
+            self.command_name,
+            Some("build" | "test" | "install" | "run")
+        ) {
+            return None;
+        }
+        if let Some((_, status)) = self.build_phase_end {
+            return Some(status);
+        }
+        Some(match (self.command_start_timestamp, self.outcome) {
+            (_, Some(InvocationOutcome::Cancelled)) => buck2_data::BuildStatus::Cancelled,
+            (None, _) => buck2_data::BuildStatus::NotStarted,
+            (Some(_), Some(InvocationOutcome::Failed)) => buck2_data::BuildStatus::Failed,
+            (Some(_), _) => buck2_data::BuildStatus::Unknown,
+        })
     }
 
     fn handle_test_result(
@@ -2580,6 +2651,9 @@ impl InvocationRecorder {
                     buck2_data::instant_event::Data::InstallFinished(install_finished) => {
                         self.handle_install_finished(install_finished)
                     }
+                    buck2_data::instant_event::Data::BuildPhaseEnd(build_phase_end) => {
+                        self.handle_build_phase_end(build_phase_end)
+                    }
                     buck2_data::instant_event::Data::SystemInfo(system_info) => {
                         self.handle_system_info(system_info)
                     }
@@ -2860,6 +2934,30 @@ fn duration_since(end_time: SystemTime, start_time: SystemTime) -> Duration {
     end_time.duration_since(start_time).unwrap_or_default()
 }
 
+/// A command sends one `BuildPhaseEnd` per independent build it runs (e.g. one per install
+/// request). The build phase ends with the last of them and has the worst of their statuses.
+fn merge_build_phase_ends(
+    prev: Option<(SystemTime, buck2_data::BuildStatus)>,
+    next: (SystemTime, buck2_data::BuildStatus),
+) -> (SystemTime, buck2_data::BuildStatus) {
+    fn severity(status: buck2_data::BuildStatus) -> u8 {
+        match status {
+            buck2_data::BuildStatus::Success => 0,
+            buck2_data::BuildStatus::Unknown => 1,
+            buck2_data::BuildStatus::Cancelled => 2,
+            buck2_data::BuildStatus::NotStarted => 3,
+            buck2_data::BuildStatus::Failed => 4,
+        }
+    }
+    match prev {
+        None => next,
+        Some((prev_time, prev_status)) => (
+            max(prev_time, next.0),
+            std::cmp::max_by_key(prev_status, next.1, |s| severity(*s)),
+        ),
+    }
+}
+
 fn duration_as_millis(duration: Duration) -> Option<u64> {
     u64::try_from(duration.as_millis()).ok()
 }
@@ -2883,6 +2981,7 @@ mod tests {
     use crate::exit_result::ExecEnvironment;
     use crate::exit_result::ExitResult;
     use crate::subscribers::recorder::InvocationRecorder;
+    use crate::subscribers::recorder::merge_build_phase_ends;
     use crate::subscribers::recorder::truncate_stderr;
     use crate::subscribers::subscriber::EventSubscriber;
 
@@ -2924,6 +3023,73 @@ mod tests {
         let err = buck2_error!(ErrorTag::IoClientBrokenPipe, "test");
         let exit_result = ExitResult::err(err);
         assert_eq!(recorder.outcome(&exit_result), InvocationOutcome::Cancelled);
+    }
+
+    fn recorder_for(command_name: &'static str) -> InvocationRecorder {
+        let mut recorder =
+            InvocationRecorder::new(TraceId::new(), None, SystemTime::UNIX_EPOCH, vec![]);
+        recorder.command_name = Some(command_name);
+        recorder
+    }
+
+    fn at_secs(secs: u64) -> SystemTime {
+        SystemTime::UNIX_EPOCH + Duration::from_secs(secs)
+    }
+
+    #[test]
+    fn test_build_status_from_build_phase_end() {
+        let mut recorder = recorder_for("test");
+        recorder.command_start_timestamp = Some(at_secs(100));
+        recorder.build_phase_end = Some((at_secs(160), buck2_data::BuildStatus::Success));
+        // Tests failing after the build don't change the build outcome.
+        recorder.outcome = Some(InvocationOutcome::Failed);
+        assert_eq!(
+            recorder.build_status(),
+            Some(buck2_data::BuildStatus::Success)
+        );
+        assert_eq!(recorder.build_duration_ms(), Some(60_000));
+    }
+
+    #[test]
+    fn test_merge_build_phase_ends() {
+        use buck2_data::BuildStatus;
+        let merged = [
+            (at_secs(30), BuildStatus::Success),
+            (at_secs(50), BuildStatus::Success),
+            (at_secs(40), BuildStatus::Failed),
+        ]
+        .into_iter()
+        .fold(None, |acc, next| Some(merge_build_phase_ends(acc, next)));
+        assert_eq!(merged, Some((at_secs(50), BuildStatus::Failed)));
+    }
+
+    #[test]
+    fn test_build_status_without_build_phase_end() {
+        let mut recorder = recorder_for("build");
+        assert_eq!(
+            recorder.build_status(),
+            Some(buck2_data::BuildStatus::NotStarted)
+        );
+        assert_eq!(recorder.build_duration_ms(), None);
+
+        recorder.command_start_timestamp = Some(at_secs(100));
+        recorder.outcome = Some(InvocationOutcome::Failed);
+        assert_eq!(
+            recorder.build_status(),
+            Some(buck2_data::BuildStatus::Failed)
+        );
+        recorder.outcome = Some(InvocationOutcome::Cancelled);
+        assert_eq!(
+            recorder.build_status(),
+            Some(buck2_data::BuildStatus::Cancelled)
+        );
+        recorder.outcome = Some(InvocationOutcome::Crashed);
+        assert_eq!(
+            recorder.build_status(),
+            Some(buck2_data::BuildStatus::Unknown)
+        );
+
+        assert_eq!(recorder_for("targets").build_status(), None);
     }
 
     #[test]
