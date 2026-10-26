@@ -35,16 +35,6 @@ PackageError = record(
     Msg = field(str),
 )
 
-DriverData = record(
-    targets = field(dict[str, TargetData]),
-    build_results = field(dict[Artifact, bxl.Result]),
-    import_table = field(dict[str, str]),
-    load_mode = field(LoadMode),
-    errors = field(list[dict[str, str | list[PackageError]]]),
-    roots = field(list[str]),
-    go_version = field(int),
-)
-
 # BXL implementation of [Go Packages Driver Protocol](https://pkg.go.dev/golang.org/x/tools@v0.23.0/go/packages#hdr-The_driver_protocol)
 #
 # It can't be used on it's own, it need a thin go-wrapper that
@@ -84,7 +74,6 @@ def _driver(ctx):
 
     analysis_results = catch_resolve_lazy_dict(ctx, {id: ctx.lazy.analysis(target) for id, target in unique_go_targets.items()})
 
-    go_list_artifacts = []
     artifacts_to_ensure = []
 
     targets_data = {}
@@ -105,8 +94,6 @@ def _driver(ctx):
         if target.rule_type.rsplit(":", 1)[-1] == "go_library":
             import_table[go_package_info.pkg_import_path] = _target_id(target)
 
-        go_list_artifacts.append(go_package_info.go_list_out)
-
         if need_inputs:
             artifacts_to_ensure.extend(go_package_info.srcs)
 
@@ -116,76 +103,47 @@ def _driver(ctx):
         if load_mode.need_compiled_go_files:
             artifacts_to_ensure.append(go_package_info.cgo_gen_dir)
 
-    build_results = catch_resolve_lazy_dict(ctx, {artifact: ctx.lazy.build_artifact(artifact) for artifact in go_list_artifacts + artifacts_to_ensure})
+    lazies = {td.go_package_info.go_list_value: ctx.lazy.resolve_dynamic_value(td.go_package_info.go_list_value) for td in targets_data.values()}
+    lazies |= {artifact: ctx.lazy.build_artifact(artifact) for artifact in artifacts_to_ensure}
+    results = catch_resolve_lazy_dict(ctx, lazies)
+    build_results = {artifact: results[artifact] for artifact in artifacts_to_ensure}
 
     # Materialize the only artifacts we were able to build to avoid script execution failure
     ctx.output.ensure_multiple([a for a in artifacts_to_ensure if build_results[a].is_ok()])
 
-    actions = ctx.bxl_actions().actions
-    dynamic_out = actions.declare_output("dynamic_out.json", has_content_based_path = False)
-
-    go_version = ctx.analysis(ctx.configured_targets("toolchains//:go")).providers()[GoToolchainInfo].version
-    actions.dynamic_output_new(
-        _produce_result_json(
-            data = DriverData(
-                targets = targets_data,
-                build_results = build_results,
-                import_table = import_table,
-                load_mode = load_mode,
-                errors = errors,
-                roots = [str(t.label) for t in go_root_targets],
-                go_version = go_version.minor if go_version else 0,
-            ),
-            go_list_values = {
-                td.go_package_info.go_list_out: td.go_package_info.go_list_value
-                for td in targets_data.values()
-                if build_results[td.go_package_info.go_list_out].is_ok()
-            },
-            output = dynamic_out.as_output(),
-        ),
-    )
-
-    ctx.output.print(ctx.output.ensure(dynamic_out).abs_path())
-
-def _produce_result_json_impl(bxl_ctx: bxl.Context, data: DriverData, go_list_values, output):
     packages = []
-    for td in data.targets.values():
+    for td in targets_data.values():
         info = td.go_package_info
-        if info.go_list_out not in go_list_values:
+        go_list_result = results[info.go_list_value]
+        if not go_list_result.is_ok():
             go_files = [src for src in info.srcs if src.extension == ".go"]
             package = {
                 "CompiledGoFiles": go_files,
-                "Errors": [PackageError(Msg = data.build_results[info.go_list_out].unwrap_err().message)],
+                "Errors": [PackageError(Msg = go_list_result.unwrap_err().message)],
                 "GoFiles": go_files,
                 "ID": _target_id(td.target),
                 "PkgPath": info.pkg_import_path,
             }
         else:
-            go_list_out = go_list_values[info.go_list_out].providers[GoListDynamicValue].go_list_out
-            package = _make_protocol_package(data.load_mode, go_list_out, td, data.import_table, data.build_results)
+            go_list_out = go_list_result.unwrap().providers[GoListDynamicValue].go_list_out
+            package = _make_protocol_package(load_mode, go_list_out, td, import_table, build_results)
 
         packages.append(package)
 
-    bxl_ctx.bxl_actions().actions.write_json(
+    actions = ctx.bxl_actions().actions
+    output = actions.declare_output("dynamic_out.json", has_content_based_path = False)
+    go_version = ctx.analysis(ctx.configured_targets("toolchains//:go")).providers()[GoToolchainInfo].version
+    actions.write_json(
         output,
         {
-            "GoVersion": data.go_version,
-            "Packages": packages + data.errors,
-            "Roots": data.roots,
+            "GoVersion": go_version.minor if go_version else 0,
+            "Packages": packages + errors,
+            "Roots": [str(t.label) for t in go_root_targets],
         },
         pretty = True,
         absolute = True,
     )
-    return []
-
-_produce_result_json = bxl.dynamic_actions(
-    impl = _produce_result_json_impl,
-    attrs = {
-        "data": dynattrs.value(DriverData),
-        "go_list_values": dynattrs.dict(Artifact, dynattrs.dynamic_value()),
-        "output": dynattrs.output(),
-    },
-)
+    ctx.output.print(ctx.output.ensure(output).abs_path())
 
 def _make_protocol_package(
     load_mode: LoadMode, go_list_out: GoListOut, td: TargetData, import_table: dict[str, str], build_results: dict[Artifact, bxl.Result]
