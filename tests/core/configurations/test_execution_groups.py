@@ -106,6 +106,10 @@ class ExecutionGroupsTest(BuckTestCase):
         assert len(toolchain) == 1, deps
 
     @buck_test()
+    async def test_group_exec_dep_passed_to_anon_target(self, buck: Buck) -> None:
+        await buck.aquery("root//anon_tool:t")
+
+    @buck_test()
     async def test_rule_without_groups_has_no_group_platforms(self, buck: Buck) -> None:
         node = await _cquery_node(buck, "root//groups:plain")
         assert "buck.execution_platform" in node
@@ -120,6 +124,14 @@ class ExecutionGroupsTest(BuckTestCase):
             "root//unbound:t", "--target-platforms", "root//config:linux_local"
         )
         assert result.stdout.startswith("root//unbound:t "), result.stdout
+
+    @buck_test()
+    async def test_unbound_node_analyzes_group_exec_dep(self, buck: Buck) -> None:
+        # Analysis of the unbound `:constraint` resolves its grouped exec dep and toolchain dep
+        # against the unspecified execution platform resolution.
+        await buck.build(
+            "root//unbound:t", "--target-platforms", "root//config:linux_local"
+        )
 
     @buck_test()
     async def test_attr_with_undeclared_group(self, buck: Buck) -> None:

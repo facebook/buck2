@@ -500,6 +500,20 @@ impl ExecutionPlatformResolution {
         Ok(Some((&g.base, &g.exec_dep_cfgs)))
     }
 
+    /// This resolution as seen from `group`: the group's execution platform and exec dep cfgs,
+    /// with no named execution groups of its own. An unspecified resolution resolves no groups,
+    /// so every group sees it unchanged.
+    pub fn resolution_for_group(&self, group: &ExecutionGroup) -> buck2_error::Result<Self> {
+        let (ExecutionGroup::Named(named), Self::Resolved { base, .. }) = (group, self) else {
+            return Ok(self.dupe());
+        };
+        let group_resolution = base.execution_group(named)?;
+        Ok(Self::Resolved {
+            base: group_resolution.base.dupe(),
+            exec_dep_cfgs: group_resolution.exec_dep_cfgs.dupe(),
+        })
+    }
+
     /// The execution platform cfg of `group`.
     pub fn base_cfg_for_group(
         &self,
@@ -627,6 +641,50 @@ mod tests {
             .map(|(g, p, skipped)| (g.dupe(), p.map(|p| p.cfg().dupe()), skipped.len()))
             .collect();
         assert_eq!(platforms, vec![(link(), Some(cfg("link")), 0)]);
+    }
+
+    #[test]
+    fn test_resolution_for_group() {
+        let resolution = partial("default").finalize_with_execution_groups(
+            BuckFixedSortedMap::from_iter([(tool(), cfg("default_tool"))]),
+            vec![ExecutionGroupResolutionPartial {
+                group: link(),
+                partial: partial("link"),
+                exec_dep_cfgs: BuckFixedSortedMap::from_iter([(tool(), cfg("link_tool"))]),
+            }],
+        );
+        let for_link = resolution
+            .resolution_for_group(&ExecutionGroup::Named(link()))
+            .unwrap();
+        assert_eq!(for_link.base_cfg().cfg(), &cfg("link"));
+        assert_eq!(
+            for_link.cfg_for_exec_dep(&tool()).unwrap(),
+            cfg("link_tool")
+        );
+        assert!(!for_link.has_execution_groups());
+        assert_eq!(
+            resolution
+                .resolution_for_group(&ExecutionGroup::Default)
+                .unwrap(),
+            resolution
+        );
+        let other = NamedExecutionGroup::new(
+            "Resources".to_owned(),
+            CellPath::testing_new("root//defs.bzl"),
+        );
+        assert!(
+            resolution
+                .resolution_for_group(&ExecutionGroup::Named(other))
+                .is_err()
+        );
+        let unspecified = ExecutionPlatformResolution::unspecified();
+        assert_eq!(
+            unspecified
+                .resolution_for_group(&ExecutionGroup::Named(link()))
+                .unwrap(),
+            unspecified,
+            "an unspecified resolution is the same for every group"
+        );
     }
 
     #[test]
