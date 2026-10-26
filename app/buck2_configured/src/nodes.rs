@@ -189,7 +189,6 @@ fn unpack_target_compatible_with_attr(
     struct AttrConfigurationContextToResolveCompatibleWith<'c> {
         target_label: &'c ConfiguredTargetLabel,
         resolved_cfg: &'c MatchedConfigurationSettingKeysWithCfg,
-        label: TargetLabel,
     }
 
     impl AttrConfigurationContext for AttrConfigurationContextToResolveCompatibleWith<'_> {
@@ -199,10 +198,6 @@ fn unpack_target_compatible_with_attr(
 
         fn cfg(&self) -> ConfigurationNoExec {
             self.resolved_cfg.cfg().dupe()
-        }
-
-        fn target_label(&self) -> Option<&TargetLabel> {
-            Some(&self.label)
         }
 
         fn base_exec_cfg(&self) -> buck2_error::Result<ConfigurationNoExec> {
@@ -249,7 +244,6 @@ fn unpack_target_compatible_with_attr(
     let attr = match attr
         .configure(&AttrConfigurationContextToResolveCompatibleWith {
             resolved_cfg,
-            label: target_node.label().dupe(),
             target_label,
         })
         .with_buck_error_context(|| format!("Error configuring attribute `{}`", attr.name))
@@ -874,7 +868,6 @@ async fn resolve_transition_input_attrs<'a>(
         matched_cfg_keys: &'c MatchedConfigurationSettingKeysWithCfg,
         toolchain_cfg: ConfigurationWithExec,
         platform_cfgs: &'c BuckFixedSortedMap<TargetLabel, ConfigurationData>,
-        label: TargetLabel,
     }
 
     impl AttrConfigurationContext for AttrConfigurationContextToResolveTransitionAttrs<'_> {
@@ -884,10 +877,6 @@ async fn resolve_transition_input_attrs<'a>(
 
         fn cfg(&self) -> ConfigurationNoExec {
             self.matched_cfg_keys.cfg().dupe()
-        }
-
-        fn target_label(&self) -> Option<&TargetLabel> {
-            Some(&self.label)
         }
 
         fn base_exec_cfg(&self) -> buck2_error::Result<ConfigurationNoExec> {
@@ -936,7 +925,6 @@ async fn resolve_transition_input_attrs<'a>(
         toolchain_cfg: matched_cfg_keys
             .cfg()
             .make_toolchain(&ConfigurationNoExec::unbound_exec()),
-        label: target_node.label().dupe(),
     };
     let mut result = BuckMutInsertionMap::default();
     for tr in transitions {
@@ -1058,7 +1046,6 @@ pub(crate) fn unspecified_attr_cfg_ctx<'v>(
         &UNSPECIFIED_RESOLUTION,
         resolved_transitions,
         platform_cfgs,
-        Some(target_label.unconfigured().dupe()),
     )
 }
 
