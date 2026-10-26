@@ -203,7 +203,6 @@ provide_output_file(
     #test_env{
         output_dir = OutputDir,
         tests = Tests,
-        suite = Suite,
         artifact_annotation_mfa = ArtifactAnnotationFunction
     },
     ResultExec,
@@ -223,7 +222,7 @@ provide_output_file(
         case Status of
             failed ->
                 collect_results_broken_run(
-                    Tests, Suite, ~"internal crash", ResultExec, LogFilesForCrashes
+                    Tests, ~"internal crash", ResultExec, LogFilesForCrashes
                 );
             timeout ->
                 % Once the suite watchdog fires, group/suite teardown may not
@@ -242,7 +241,7 @@ provide_output_file(
                                         ]
                                     ),
                                 collect_results_broken_run(
-                                    Tests, Suite, ErrorMsg, ResultExec, LogFilesForCrashes
+                                    Tests, ErrorMsg, ResultExec, LogFilesForCrashes
                                 );
                             _ ->
                                 {ok, CollectedStdOut} = ct_stdout:collect_method_stdout(
@@ -258,7 +257,7 @@ provide_output_file(
                             ResultsFile
                         ]),
                         collect_results_broken_run(
-                            Tests, Suite, ErrorMsg, ResultExec, LogFilesForCrashes
+                            Tests, ErrorMsg, ResultExec, LogFilesForCrashes
                         )
                 end
         end,
@@ -308,18 +307,17 @@ trimmed_content_file(File) ->
 -doc """
 Provide tpx with a result when CT failed to provide results for tests.
 """.
--spec collect_results_broken_run(Tests, Suite, ErrorMsg, ResultExec, RelevantLogFiles) ->
+-spec collect_results_broken_run(Tests, ErrorMsg, ResultExec, RelevantLogFiles) ->
     [cth_tpx_test_tree:collected_result()]
 when
     Tests :: [#ct_test{}],
-    Suite :: module(),
     ErrorMsg :: unicode:chardata(),
     ResultExec :: unicode:chardata(),
     RelevantLogFiles :: #{
         ct_executor_log => file:filename_all(),
         ct_executor_stdout := file:filename_all()
     }.
-collect_results_broken_run(Tests, _Suite, ErrorMsg, ResultExec, RelevantLogFiles) ->
+collect_results_broken_run(Tests, ErrorMsg, ResultExec, RelevantLogFiles) ->
     #{ct_executor_stdout := StdOutFile} = RelevantLogFiles,
     TrimmedStdOut = trimmed_content_file(StdOutFile),
     StdOut =

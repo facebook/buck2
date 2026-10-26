@@ -298,7 +298,7 @@ Called before init_per_suite is called.
 -spec pre_init_per_suite(ct_suite(), ct_config(), hook_state()) -> {ct_config_or_skip_or_fail(), hook_state()}.
 pre_init_per_suite(Suite, Config, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Config, fun(State) ->
-        State1 = collect_start_info(State, ?INIT_PER_SUITE, Suite),
+        State1 = collect_start_info(State, ?INIT_PER_SUITE),
         {Config, State1#state{
             suite = Suite,
             groups = [],
@@ -335,9 +335,9 @@ post_init_per_suite(_Suite, _Config, Return, HookState) ->
     end).
 
 -spec pre_end_per_suite(ct_suite(), ct_config(), hook_state()) -> {ct_config(), hook_state()}.
-pre_end_per_suite(Suite, Config, HookState) ->
+pre_end_per_suite(_Suite, Config, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Config, fun(State) ->
-        {Config, collect_start_info(State, ?END_PER_SUITE, Suite)}
+        {Config, collect_start_info(State, ?END_PER_SUITE)}
     end).
 
 -spec post_end_per_suite(ct_suite(), ct_config(), ct_config_or_skip_or_fail_or_term(), hook_state()) ->
@@ -396,13 +396,13 @@ clear_suite(State) ->
     }.
 
 -spec pre_init_per_group(ct_suite(), ct_groupname(), ct_config(), hook_state()) -> {ct_config(), hook_state()}.
-pre_init_per_group(_SuiteName, Group, Config, HookState) ->
+pre_init_per_group(_SuiteName, _Group, Config, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Config, fun
         (State = #state{groups = [_ | Groups], previous_group_failed = true}) ->
-            State1 = collect_start_info(State, ?INIT_PER_GROUP, Group),
+            State1 = collect_start_info(State, ?INIT_PER_GROUP),
             {Config, State1#state{groups = Groups, previous_group_failed = false}};
         (#state{} = State) ->
-            {Config, collect_start_info(State, ?INIT_PER_GROUP, Group)}
+            {Config, collect_start_info(State, ?INIT_PER_GROUP)}
     end).
 
 -spec post_init_per_group(ct_suite(), ct_groupname(), ct_config(), ct_config_or_skip_or_fail_or_term(), hook_state()) ->
@@ -469,9 +469,9 @@ fail_group(State) ->
     State#state{previous_group_failed = true}.
 
 -spec pre_end_per_group(ct_suite(), ct_groupname(), ct_config(), hook_state()) -> {ct_config(), hook_state()}.
-pre_end_per_group(_SuiteName, Group, Config, HookState) ->
+pre_end_per_group(_SuiteName, _Group, Config, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Config, fun(State) ->
-        {Config, collect_start_info(State, ?END_PER_GROUP, Group)}
+        {Config, collect_start_info(State, ?END_PER_GROUP)}
     end).
 
 -spec post_end_per_group(ct_suite(), ct_groupname(), ct_config(), ct_config_or_skip_or_fail_or_term(), hook_state()) ->
@@ -532,8 +532,8 @@ pre_init_per_testcase(_Suite, TestCase, Config, HookState) ->
         %%  2) For the whole testcase = init + actual_testcase + end
         %% The reason behind is that capturing the timing for the actual_testcase
         %% is not straightforward, as there is no pre/post method for it.
-        State1 = collect_start_info(State, {TestCase, ?INIT_PER_TESTCASE}, TestCase),
-        State2 = collect_start_info(State1, {TestCase, ?MAIN_TESTCASE}, TestCase),
+        State1 = collect_start_info(State, {TestCase, ?INIT_PER_TESTCASE}),
+        State2 = collect_start_info(State1, {TestCase, ?MAIN_TESTCASE}),
         {Config, State2}
     end).
 
@@ -646,7 +646,7 @@ method_name(Method, Groups) ->
 -spec pre_end_per_testcase(ct_suite(), ct_testname(), ct_config(), hook_state()) -> {ct_config(), hook_state()}.
 pre_end_per_testcase(_Suite, TC, Config, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Config, fun(State) ->
-        {Config, collect_start_info(State, {TC, ?END_PER_TESTCASE}, TC)}
+        {Config, collect_start_info(State, {TC, ?END_PER_TESTCASE})}
     end).
 
 -spec post_end_per_testcase(ct_suite(), ct_testname(), ct_config(), ct_config_or_skip_or_fail_or_term(), hook_state()) ->
@@ -768,11 +768,10 @@ write_output({file, FN}, JSON) ->
 write_output(stdout, JSON) ->
     io:format(user, "~tp", [JSON]).
 
--spec collect_start_info(State, MethodId, Context) -> shared_state() when
+-spec collect_start_info(State, MethodId) -> shared_state() when
     State :: shared_state(),
-    MethodId :: method_id(),
-    Context :: atom().
-collect_start_info(#state{start_info = ST0} = State, MethodId, _Context) ->
+    MethodId :: method_id().
+collect_start_info(#state{start_info = ST0} = State, MethodId) ->
     ProgressLine = ct_stdout:emit_progress(
         State#state.cached_user_process,
         State#state.ct_stdout_fingerprint,
