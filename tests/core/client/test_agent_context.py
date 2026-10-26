@@ -13,8 +13,9 @@ import json
 import os
 import shutil
 import sys
-import unittest
 from pathlib import PurePosixPath
+
+import unittest # @oss-enable
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
@@ -261,11 +262,9 @@ class AgentContextTest(BuckTestCase):
         )
         assert res.invocation_record()["agent_direct_call"] is True
 
-    @unittest.skipIf(
-        sys.platform != "linux", reason="Ancestry inference is enabled only on Linux"
-    )
+    # Ancestry inference is enabled only on Linux.
     @unittest.skip("Ancestry inference requires a Meta internal build") # @oss-enable
-    @buck_test()
+    @buck_test(skip_for_os=["darwin", "windows"])
     async def test_detect_direct_agent_and_stop_at_tools(self, buck: Buck) -> None:
         # Prost serializes protobuf enum fields as integers in invocation-record JSON.
         caller_agent, caller_command_shell, caller_other = 1, 2, 3
