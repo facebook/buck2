@@ -198,32 +198,15 @@ def _target_id(target: bxl.ConfiguredTargetNode) -> str:
     return str(target.label.raw_target())
 
 def _to_protocol_error(error: bxl.Error, expected_target: bxl.ConfiguredTargetNode) -> PackageError:
-    msg = error.message
+    action = error.action_error
+    target = action.target if action != None else None
+    if target == None:
+        return PackageError(Msg = error.message)
 
-    # HACK: Parse errors manually until the structured API provided T208804014
-
-    # Extract valuable part of an action failure message
-    if msg.startswith("Action failed:"):
-        if msg.startswith("Action failed: {} ".format(_target_id(expected_target))):
-            # Throw away all the information besides stdin and stdout
-            if "\nStdout:" in msg:
-                _, _, actual_error = msg.partition("\nStdout:")
-                msg = actual_error
-        else:
-            # Note: The `go list` driver doesn't return any information if a dependency failed.
-            # It might be a good idea to follow this pattern, despite it looks entirely wrong.
-            first_line, _, _ = msg.partition("\n")
-            msg = "A dependency has an error:\n" + first_line
-
-    elif msg.startswith("Error running dynamic analysis for "):
-        if "\nCaused by:\n" in msg:
-            _, _, actual_error = msg.partition("\nCaused by:\n")
-            msg = "Analysis error root-cause:\n" + actual_error
-
-    # Todo: if an error is a compilation error parse line info?
-    # Question: Shall we do it in the Go part of the driver?
-
-    return PackageError(Msg = msg)
+    output = "\n".join([stream for stream in [action.stdout, action.stderr] if stream])
+    if target != expected_target.label.raw_target():
+        return PackageError(Msg = "A dependency has an error:\n{}:\n{}".format(target, output or error.root_message))
+    return PackageError(Msg = output or error.message)
 
 # https://github.com/golang/tools/blob/v0.23.0/go/packages/packages.go#L41-L42
 # The zero value is a special case, equivalent to combining
