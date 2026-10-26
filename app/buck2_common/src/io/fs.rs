@@ -21,8 +21,10 @@ use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
 use buck2_fs::IoResultExt;
 use buck2_fs::async_fs_util::spawn_blocking;
+use buck2_fs::error::tag_eden_io_error;
 use buck2_fs::fs_util;
 use buck2_fs::paths::RelativePathBuf;
+use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_path::AbsPath;
 use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_fs::paths::file_name::FileName;
@@ -105,6 +107,51 @@ enum FsIoError {
     NotUtf8(OsString),
 }
 
+/// Classify an I/O error from a project path when the project is known to be on EdenFS.
+///
+/// `is_eden` was detected when the daemon started and the mount was healthy. That beats probing
+/// the mount again once a read has failed: an `EIO`/`ENOTCONN` mount fails the probe too, so
+/// EdenFS failures ended up filed as plain buck2 I/O errors exactly when EdenFS was broken.
+/// `path` lets the mount table rule out paths that are inside the checkout but on another
+/// filesystem, such as a `buck-out` redirection.
+fn classify_eden_error(is_eden: bool, path: &AbsPath, e: buck2_error::Error) -> buck2_error::Error {
+    if is_eden {
+        tag_eden_io_error(path, e)
+    } else {
+        e
+    }
+}
+
+fn read_dir_entries(path: &AbsNormPath, is_eden: bool) -> buck2_error::Result<ReadDirOutcome> {
+    let dir_entries = match fs_util::read_dir(path) {
+        Ok(entries) => entries,
+        Err(e) if is_eden && e.io_error_kind() == Some(std::io::ErrorKind::PermissionDenied) => {
+            tracing::debug!(
+                "read_dir({}): permission denied on Eden repo, treating as restricted directory",
+                path.display()
+            );
+            return Ok(ReadDirOutcome::EdenPermissionDenied);
+        }
+        Err(e) => return Err(e.categorize_input()),
+    };
+
+    let mut entries = Vec::new();
+
+    for entry in dir_entries {
+        let e = entry.buck_error_context("Error accessing directory entry")?;
+        let file_name = e.file_name();
+        let file_name = file_name
+            .to_str()
+            .ok_or_else(|| FsIoError::NotUtf8(file_name.clone()))?;
+        entries.push(RawDirEntry {
+            file_type: e.file_type()?.into(),
+            file_name: CompactString::from(file_name),
+        });
+    }
+
+    Ok(ReadDirOutcome::Entries(entries))
+}
+
 /// i/o operations use tokio's blocking threads to not block the cpu threads on i/o. This avoids a lot of bottlenecks
 /// and is especially important when fs operations are particularly slow (when using a network fs or something like
 /// edenfs, for example).
@@ -115,6 +162,7 @@ impl IoProvider for FsIoProvider {
         path: ProjectRelativePathBuf,
     ) -> buck2_error::Result<Option<String>> {
         let path = self.fs.resolve(&path);
+        let is_eden = self.is_eden;
 
         // Don't want to totally saturate the executor with these so that some other work can progress.
         // For normal fs (or warm eden), something smaller would probably be fine, for eden this is probably
@@ -122,7 +170,11 @@ impl IoProvider for FsIoProvider {
         static SEMAPHORE: LazyLock<Semaphore> = LazyLock::new(|| Semaphore::new(100));
         let _permit = SEMAPHORE.acquire().await.unwrap();
 
-        spawn_blocking(move || fs_util::read_to_string_if_exists(path)).await?
+        spawn_blocking(move || {
+            fs_util::read_to_string_if_exists(&path)
+                .map_err(|e| classify_eden_error(is_eden, path.as_abs_path(), e))
+        })
+        .await?
     }
 
     async fn read_dir_impl(
@@ -139,33 +191,8 @@ impl IoProvider for FsIoProvider {
         let is_eden = self.is_eden;
 
         spawn_blocking(move || {
-            let dir_entries = match fs_util::read_dir(&path) {
-                Ok(entries) => entries,
-                Err(e) if is_eden && e.io_error_kind() == Some(std::io::ErrorKind::PermissionDenied) => {
-                    tracing::debug!(
-                        "read_dir({}): permission denied on Eden repo, treating as restricted directory",
-                        path.display()
-                    );
-                    return Ok(ReadDirOutcome::EdenPermissionDenied);
-                }
-                Err(e) => return Err(e.categorize_input()),
-            };
-
-            let mut entries = Vec::new();
-
-            for entry in dir_entries {
-                let e = entry.buck_error_context("Error accessing directory entry")?;
-                let file_name = e.file_name();
-                let file_name = file_name
-                    .to_str()
-                    .ok_or_else(|| FsIoError::NotUtf8(file_name.clone()))?;
-                entries.push(RawDirEntry {
-                    file_type: e.file_type()?.into(),
-                    file_name: CompactString::from(file_name),
-                });
-            }
-
-            buck2_error::Ok(ReadDirOutcome::Entries(entries))
+            read_dir_entries(&path, is_eden)
+                .map_err(|e| classify_eden_error(is_eden, path.as_abs_path(), e))
         })
         .await?
         .buck_error_context("Error listing directory")
@@ -178,10 +205,13 @@ impl IoProvider for FsIoProvider {
         let fs = self.fs.dupe();
         let path = path.into_forward_relative_path_buf();
         let file_digest_config = FileDigestConfig::source(self.cas_digest_config);
+        let is_eden = self.is_eden;
         spawn_blocking(move || {
-            let meta = read_path_metadata(fs.root(), &path, file_digest_config)?.map(
-                |raw_meta_or_redirection| raw_meta_or_redirection.map(ProjectRelativePathBuf::from),
-            );
+            let meta = read_path_metadata(fs.root(), &path, file_digest_config)
+                .map_err(|e| classify_eden_error(is_eden, fs.root().join(&path).as_abs_path(), e))?
+                .map(|raw_meta_or_redirection| {
+                    raw_meta_or_redirection.map(ProjectRelativePathBuf::from)
+                });
 
             Ok(meta)
         })
