@@ -83,3 +83,46 @@ class MakePyPackageManifestModuleTest(unittest.TestCase):
             module_text = output.read_text()
             self.assertIn("'pkg.module'", module_text)
             self.assertIn("'pkg.__init__'", module_text)
+
+
+class ModuleNamesTest(unittest.TestCase):
+    def _modules_for(self, manifest: list[list[str]]) -> list[str]:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            module_manifest = root / "module-manifest.json"
+            module_manifests = root / "module-manifests.txt"
+            output = root / "__manifest__.py"
+            module_manifest.write_text(json.dumps(manifest))
+            module_manifests.write_text(str(module_manifest) + "\n")
+            old_argv = sys.argv
+            sys.argv = [
+                "make_py_package_manifest_module.py",
+                "--module-manifests",
+                str(module_manifests),
+                "--output",
+                str(output),
+            ]
+            try:
+                make_py_package_manifest_module.main()
+            finally:
+                sys.argv = old_argv
+            namespace: dict[str, object] = {}
+            exec(output.read_text(), namespace)
+            return list(namespace["modules"])  # pyre-ignore[6]
+
+    def test_extensions_keep_their_abi_tag_and_resource_dirs_get_an_init(self) -> None:
+        modules = self._modules_for(
+            [
+                ["pkg/__init__.py", "src", "origin"],
+                ["pkg/_speedups.cpython-312-x86_64-linux-gnu.so", "src", "origin"],
+                ["pkg/data/table.json", "src", "origin"],
+            ]
+        )
+        self.assertEqual(
+            modules,
+            [
+                "pkg.__init__",
+                "pkg._speedups.cpython-312-x86_64-linux-gnu",
+                "pkg.data.__init__",
+            ],
+        )

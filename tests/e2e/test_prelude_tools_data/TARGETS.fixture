@@ -1,0 +1,17 @@
+load("@prelude//toolchains:python.bzl", "system_python_bootstrap_toolchain")
+load(":defs.bzl", "manifest_module")
+
+# The prelude tools are python_bootstrap_binary targets.
+system_python_bootstrap_toolchain(
+    name = "python_bootstrap",
+    visibility = ["PUBLIC"],
+)
+
+manifest_module(
+    name = "manifest_module",
+    paths = [
+        "pkg/__init__.py",
+        "pkg/_speedups.cpython-312-x86_64-linux-gnu.so",
+        "pkg/data/table.json",
+    ],
+)
