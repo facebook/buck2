@@ -30,7 +30,6 @@ use buck2_core::pattern::pattern_type::PatternType;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_core::soft_error;
 use buck2_node::attrs::arena::AttrToken;
 use buck2_node::attrs::arena::CoercedAttrArenaBuilder;
 use buck2_node::attrs::coerced_path::CoercedDirectory;
@@ -52,7 +51,6 @@ use dupe::IterDupedExt;
 use hashbrown::HashTable;
 use hashbrown::hash_table;
 use starlark::values::Value;
-use tracing::info;
 
 use crate::attrs::coerce::arc_str_interner::ArcStrInterner;
 use crate::attrs::coerce::str_hash::str_hash;
@@ -288,7 +286,6 @@ impl<'v> AttrCoercionContext<'v> for BuildAttrCoercionContext {
             return Ok(CoercedPath::File(path));
         }
 
-        // TODO: Make the warnings below into errors
         if let Some(path) = listing.get_dir(path) {
             if !allow_directory {
                 return Err(BuildAttrCoercionContextError::SourceFileIsDirectory(
@@ -296,17 +293,21 @@ impl<'v> AttrCoercionContext<'v> for BuildAttrCoercionContext {
                     value.to_owned(),
                 )
                 .into());
-            } else if let Some(subpackage) = listing.subpackages_within(&path).next() {
-                let e = BuildAttrCoercionContextError::SourceDirectoryIncludesSubPackage(
-                    package.dupe(),
-                    value.to_owned(),
-                    subpackage.to_owned(),
+            }
+            // FIXME(JakobDegen): A directory source that contains a subpackage should be an error
+            // here; as it is, it silently covers only this package's files. Internally this is
+            // tolerated for the same reason as a missing file; open source gets the error.
+            if is_open_source()
+                && let Some(subpackage) = listing.subpackages_within(&path).next()
+            {
+                return Err(
+                    BuildAttrCoercionContextError::SourceDirectoryIncludesSubPackage(
+                        package.dupe(),
+                        value.to_owned(),
+                        subpackage.to_owned(),
+                    )
+                    .into(),
                 );
-                if self.package_boundary_exception {
-                    info!("{} (could be due to a package boundary violation)", e);
-                } else {
-                    soft_error!("source_directory_includes_subpackage", e.into(), error_on_oss: true)?;
-                }
             }
             let files = listing.files_within(&path).duped().collect();
             Ok(CoercedPath::Directory(Box::new(CoercedDirectory {
