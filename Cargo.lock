@@ -1514,7 +1514,7 @@ dependencies = [
  "prost-types",
  "serde",
  "tokio",
- "tokio-util 0.7.19",
+ "tokio-util 0.7.20",
  "tonic",
  "tonic-prost",
 ]
@@ -1557,7 +1557,7 @@ dependencies = [
  "threadpool",
  "tokio",
  "tokio-stream",
- "tokio-util 0.7.19",
+ "tokio-util 0.7.20",
  "tonic",
  "tracing",
  "uuid",
@@ -1628,7 +1628,7 @@ dependencies = [
  "termwiz",
  "tokio",
  "tokio-stream",
- "tokio-util 0.7.19",
+ "tokio-util 0.7.20",
  "toml",
  "tonic",
  "tracing",
@@ -2431,7 +2431,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "tokio-stream",
- "tokio-util 0.7.19",
+ "tokio-util 0.7.20",
  "tracing",
 ]
 
@@ -2654,7 +2654,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "tokio-stream",
- "tokio-util 0.7.19",
+ "tokio-util 0.7.20",
  "tracing",
  "windows-sys 0.61.2",
 ]
@@ -2892,7 +2892,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "tokio-rustls",
- "tokio-util 0.7.19",
+ "tokio-util 0.7.20",
  "tower-service",
  "tracing",
 ]
@@ -3275,7 +3275,7 @@ dependencies = [
  "nix 0.31.3",
  "ref-cast",
  "tokio",
- "tokio-util 0.7.19",
+ "tokio-util 0.7.20",
 ]
 
 [[package]]
@@ -6013,7 +6013,7 @@ dependencies = [
  "indexmap",
  "slab",
  "tokio",
- "tokio-util 0.7.19",
+ "tokio-util 0.7.20",
  "tracing",
 ]
 
@@ -9292,7 +9292,7 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.21",
  "tokio",
- "tokio-util 0.7.19",
+ "tokio-util 0.7.20",
  "tonic",
  "tower",
  "tracing",
@@ -10731,7 +10731,7 @@ dependencies = [
  "thiserror 2.0.21",
  "tokio",
  "tokio-stream",
- "tokio-util 0.7.19",
+ "tokio-util 0.7.20",
  "tracing",
  "unicode-segmentation",
  "unicode-width 0.2.2",
@@ -11227,7 +11227,7 @@ dependencies = [
  "futures-core",
  "pin-project-lite",
  "tokio",
- "tokio-util 0.7.19",
+ "tokio-util 0.7.20",
 ]
 
 [[package]]
@@ -11248,9 +11248,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-util"
-version = "0.7.19"
+version = "0.7.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "494815d09bf52b5548659851081238f0ca39ff638363907596da739561c62c52"
+checksum = "e464cf451ba96ebfc6f9b6542f17ee8b8956e33f1e40d9690624e59d7a7f8a4b"
 dependencies = [
  "bytes",
  "futures-core",
@@ -11399,7 +11399,7 @@ dependencies = [
  "slab",
  "sync_wrapper",
  "tokio",
- "tokio-util 0.7.19",
+ "tokio-util 0.7.20",
  "tower-layer",
  "tower-service",
  "tracing",
@@ -11427,7 +11427,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
- "tokio-util 0.7.19",
+ "tokio-util 0.7.20",
  "tower",
  "tracing",
 ]
