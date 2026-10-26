@@ -60,7 +60,7 @@ def _unarchive_cmd(ext_type: str, archive: Artifact, strip_prefix: [str, None]) 
         ), False
     elif ext_type == "zip":
         # gnutar does not intrinsically support zip
-        return cmd_args(archive, format = "unzip {}"), bool(strip_prefix)
+        return cmd_args("unzip", archive), bool(strip_prefix)
     else:
         fail()
 
@@ -71,6 +71,10 @@ def _tar_strip_prefix_flags(strip_prefix: [str, None]) -> list[str]:
         return ["--strip-components=" + str(count), strip_prefix]
     return []
 
+def _powershell_quote(arg) -> cmd_args:
+    # A single quote in a PowerShell single-quoted string is written twice.
+    return cmd_args(arg, replace_regex = ("'", "''"), format = "'{}'")
+
 # buck-out on Windows on eden is a symlink. bsdtar which ships with Windows will
 # not extract files when the cwd contains a path segment that is a symlink (as
 # a side effect of or excessively cautious against wild writes to the system).
@@ -79,12 +83,13 @@ def _tar_strip_prefix_flags(strip_prefix: [str, None]) -> list[str]:
 # passing -P.
 def _windows_unpack_ps1(out: OutputArtifact, archive: Artifact, ext_type: str, strip_prefix: [str, None], exclude_flags: list) -> list:
     tar = '"$env:SystemRoot\\System32\\tar.exe"'
-    quoted_archive = cmd_args(archive, format = "'{}'")
-    strip = _tar_strip_prefix_flags(strip_prefix)
+    quoted_archive = _powershell_quote(archive)
+    strip = [_powershell_quote(arg) for arg in _tar_strip_prefix_flags(strip_prefix)]
+    quoted_exclude_flags = [_powershell_quote(arg) for arg in exclude_flags]
 
     lines = [
         "$ErrorActionPreference = 'Stop'",
-        cmd_args(out, format = "$out = '{}'"),
+        cmd_args(_powershell_quote(out), format = "$out = {}"),
         "New-Item -ItemType Directory -Force -Path $out | Out-Null",
         "$link = (Get-Item -LiteralPath 'buck-out').Target",
         "if ($link) { $real = Join-Path @($link)[0] $out.Substring('buck-out'.Length).TrimStart('\\', '/') } else { $real = $out }",
@@ -98,7 +103,7 @@ def _windows_unpack_ps1(out: OutputArtifact, archive: Artifact, ext_type: str, s
             "if (-not $scratch) { $scratch = [System.IO.Path]::GetTempPath() }",
             "$tmp = Join-Path $scratch 'http_archive_unpack.tar'",
             cmd_args("zstd", "-d", "-f", quoted_archive, "-o", '"$tmp"', delimiter = " "),
-            cmd_args("&", tar, "-x", "-C", '"$real"', "-f", '"$tmp"', strip, exclude_flags, delimiter = " "),
+            cmd_args("&", tar, "-x", "-C", '"$real"', "-f", '"$tmp"', strip, quoted_exclude_flags, delimiter = " "),
             "Remove-Item -LiteralPath $tmp -Force",
         ]
     elif ext_type == "zip":
@@ -107,7 +112,7 @@ def _windows_unpack_ps1(out: OutputArtifact, archive: Artifact, ext_type: str, s
         ]
     elif ext_type in _TAR_FLAGS:
         return lines + [
-            cmd_args("&", tar, _TAR_FLAGS[ext_type], "-x", "-C", '"$real"', "-f", quoted_archive, strip, exclude_flags, delimiter = " "),
+            cmd_args("&", tar, _TAR_FLAGS[ext_type], "-x", "-C", '"$real"', "-f", quoted_archive, strip, quoted_exclude_flags, delimiter = " "),
         ]
     else:
         fail("unsupported archive type on Windows: {}".format(ext_type))
@@ -206,7 +211,7 @@ def unarchive(
         script_lines = [
             cmd_args(script_output.as_output(), format = "mkdir -p {}"),
             cmd_args(script_output.as_output(), format = "cd {}"),
-            cmd_args([unarchive_cmd] + exclude_flags, delimiter = " ", relative_to = script_output.as_output()),
+            cmd_args([unarchive_cmd] + exclude_flags, delimiter = " ", quote = "shell", relative_to = script_output.as_output()),
         ]
 
     script, _ = ctx.actions.write(
