@@ -1,4 +1,9 @@
-load(":rules.bzl", "binary", "same_platform", "tool")
+load(":rules.bzl", "binary", "bundle", "same_platform", "same_platform_toolchain", "tool", "toolchain")
+
+tool(
+    name = "macos_tool",
+    target_compatible_with = ["//config:macos"],
+)
 
 tool(
     name = "remote_tool",
@@ -12,6 +17,25 @@ tool(
 
 tool(name = "any_tool")
 
+toolchain(
+    name = "resource_toolchain",
+    tool = ":macos_tool",
+)
+
+toolchain(
+    name = "package_toolchain",
+    tool = ":remote_tool",
+)
+
+bundle(name = "bundle")
+
 binary(name = "binary")
 
 same_platform(name = "same_platform")
+
+toolchain(
+    name = "any_toolchain",
+    tool = ":any_tool",
+)
+
+same_platform_toolchain(name = "same_platform_toolchain")

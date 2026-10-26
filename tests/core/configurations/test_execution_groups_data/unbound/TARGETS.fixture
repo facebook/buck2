@@ -1,7 +1,14 @@
-load("//groups:rules.bzl", "tool")
+load("//groups:rules.bzl", "tool", "toolchain")
 load(":rules.bzl", "constraint_with_group", "uses_select")
 
 tool(name = "tool")
+
+tool(name = "toolchain_tool")
+
+toolchain(
+    name = "toolchain",
+    tool = ":toolchain_tool",
+)
 
 constraint_with_group(name = "constraint")
 

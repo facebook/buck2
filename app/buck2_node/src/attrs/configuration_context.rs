@@ -98,6 +98,15 @@ pub trait AttrConfigurationContext {
         self.configure_exec_target(label)
     }
 
+    /// Configure a toolchain dep that belongs to a named execution group.
+    fn configure_toolchain_target_in_group(
+        &self,
+        label: &ProvidersLabel,
+        _group: &NamedExecutionGroup,
+    ) -> buck2_error::Result<ConfiguredProvidersLabel> {
+        Ok(self.configure_toolchain_target(label))
+    }
+
     /// Configure a transition target.
     fn configure_transition_target(
         &self,
@@ -209,6 +218,23 @@ impl AttrConfigurationContext for AttrConfigurationContextImpl<'_> {
             .execution_platform_resolution
             .cfg_for_exec_dep_in_group(&ExecutionGroup::Named(group.dupe()), label.target())?;
         Ok(label.configure(cfg))
+    }
+
+    fn configure_toolchain_target_in_group(
+        &self,
+        label: &ProvidersLabel,
+        group: &NamedExecutionGroup,
+    ) -> buck2_error::Result<ConfiguredProvidersLabel> {
+        let exec_cfg = self
+            .execution_platform_resolution
+            .base_cfg_for_group(&ExecutionGroup::Named(group.dupe()))?;
+        Ok(label.configure_pair(
+            self.resolved_cfg
+                .cfg()
+                .make_toolchain(&exec_cfg)
+                .cfg_pair()
+                .dupe(),
+        ))
     }
 
     fn toolchain_cfg(&self) -> ConfigurationWithExec {

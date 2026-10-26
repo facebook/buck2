@@ -537,6 +537,7 @@ pub(crate) struct GatheredDeps {
 #[derive(Default)]
 pub(crate) struct GatheredExecutionGroupDeps {
     pub(crate) exec_deps: BuckMutInsertionMap<ConfiguredProvidersLabel, CheckVisibility>,
+    pub(crate) toolchain_deps: BuckMutInsertionSet<TargetConfiguredTargetLabel>,
 }
 
 pub(crate) async fn gather_deps(
@@ -601,6 +602,21 @@ pub(crate) async fn gather_deps(
                 .or_default()
                 .exec_deps
                 .insert(dep.dupe(), CheckVisibility::Yes);
+            Ok(())
+        }
+
+        fn toolchain_dep_in_group(
+            &mut self,
+            dep: &ConfiguredProvidersLabel,
+            group: &NamedExecutionGroup,
+        ) -> buck2_error::Result<()> {
+            self.execution_group_deps
+                .entry(group.dupe())
+                .or_default()
+                .toolchain_deps
+                .insert(TargetConfiguredTargetLabel::new_without_exec_cfg(
+                    dep.target().dupe(),
+                ));
             Ok(())
         }
     }
@@ -681,10 +697,12 @@ pub(crate) async fn gather_deps(
     ))
 }
 
-/// A named execution group's execution platform, and its exec deps configured for that platform.
+/// A named execution group's execution platform, and its exec deps and toolchain deps configured
+/// for that platform.
 struct ConfiguredExecutionGroup<'d> {
     group: NamedExecutionGroup,
     partial: ExecutionPlatformResolutionPartial,
+    toolchain_deps: Vec<ResultMaybeCompatible<&'d ConfiguredTargetNode>>,
     exec_deps: Vec<(
         ResultMaybeCompatible<&'d ConfiguredTargetNode>,
         CheckVisibility,
@@ -692,7 +710,7 @@ struct ConfiguredExecutionGroup<'d> {
 }
 
 /// Resolves the execution platform of every named execution group the rule declares, and
-/// configures the exec deps of each group for its platform. The groups are resolved
+/// configures the exec deps and toolchain deps of each group for its platform. The groups are resolved
 /// concurrently; the result is in declaration order, and its error is that of the first failing
 /// group in declaration order.
 async fn configure_execution_groups<'d>(
@@ -740,42 +758,74 @@ async fn configure_execution_group<'d>(
         format!("Error resolving the execution platform of execution group `{group}`")
     })?;
     let group_cfg = &partial.cfg();
-    let group_exec_deps = match gathered_deps.execution_group_deps.get(group) {
-        Some(group_deps) => &group_deps.exec_deps,
-        None => &BuckMutInsertionMap::default(),
-    };
+    let no_deps = GatheredExecutionGroupDeps::default();
+    let group_deps = gathered_deps
+        .execution_group_deps
+        .get(group)
+        .unwrap_or(&no_deps);
 
-    let exec_deps = ctx
-        .compute_join(group_exec_deps, async |ctx, (target, check_visibility)| {
-            let result = configure_exec_dep_with_modifiers(
-                ctx,
-                target.target().unconfigured(),
-                group_cfg.cfg(),
-            )
-            .await;
-            (result, *check_visibility)
-        })
-        .await;
+    let get_toolchain_deps = DiceComputations::declare_closure(async |ctx| {
+        ctx.compute_join(
+            &group_deps.toolchain_deps,
+            async |ctx, target: &TargetConfiguredTargetLabel| {
+                ctx.get_internal_configured_target_node(
+                    &target.with_exec_cfg(group_cfg.cfg().dupe()),
+                )
+                .await
+            },
+        )
+        .await
+    });
+    let get_exec_deps = DiceComputations::declare_closure(async |ctx| {
+        ctx.compute_join(
+            &group_deps.exec_deps,
+            async |ctx, (target, check_visibility)| {
+                let result = configure_exec_dep_with_modifiers(
+                    ctx,
+                    target.target().unconfigured(),
+                    group_cfg.cfg(),
+                )
+                .await;
+                (result, *check_visibility)
+            },
+        )
+        .await
+    });
+    let (toolchain_deps, exec_deps) = ctx.compute2(get_toolchain_deps, get_exec_deps).await;
     Ok(ConfiguredExecutionGroup {
         group: group.dupe(),
         partial,
+        toolchain_deps,
         exec_deps,
     })
 }
 
-/// Adds the exec deps of each configured execution group to the node's `exec_deps`, and returns
-/// each group's resolution. A dep configured identically in several groups is an exec dep of
-/// the node once.
+/// Adds the toolchain deps of each configured execution group to the node's `deps` and its exec
+/// deps to the node's `exec_deps`, and returns each group's resolution. A dep configured
+/// identically in several groups is a dep of the node once.
 fn merge_execution_groups(
     groups: Vec<ConfiguredExecutionGroup<'_>>,
     partial_target_label: &TargetConfiguredTargetLabel,
     package_visibility: PackageVisibilityDefaultIntersection,
     errors_and_incompats: &mut ErrorsAndIncompatibilities,
+    deps: &mut Vec<ConfiguredTargetNode>,
     exec_deps: &mut Vec<ConfiguredTargetNode>,
 ) -> Vec<ExecutionGroupResolutionPartial> {
     groups
         .into_iter()
         .map(|group| {
+            let mut group_toolchain_deps = Vec::with_capacity(group.toolchain_deps.len());
+            for dep in group.toolchain_deps {
+                errors_and_incompats.unpack_dep_into(
+                    partial_target_label,
+                    dep,
+                    CheckVisibility::Yes,
+                    package_visibility,
+                    &mut group_toolchain_deps,
+                );
+            }
+            push_new_deps(deps, group_toolchain_deps);
+
             let mut group_exec_deps = Vec::with_capacity(group.exec_deps.len());
             for (dep, check_visibility) in group.exec_deps {
                 errors_and_incompats.unpack_dep_into(
@@ -1162,10 +1212,23 @@ async fn compute_configured_target_node_no_transition(
     // We now need to replace the dummy exec config we used above with the real one
 
     let execution_platform_cfg = &execution_platform_cfg;
-    let toolchain_deps = &gathered_deps.toolchain_deps;
-    // An unbound node resolves no execution platforms, so the exec deps of its named execution
-    // groups are configured with the unspecified execution configuration, like the default
-    // group's. Boxed to keep this future within its size assert.
+    // An unbound node resolves no execution platforms, so the exec deps and toolchain deps of its
+    // named execution groups are configured with the unspecified execution configuration, like
+    // the default group's. Boxed to keep this future within its size assert.
+    let unbound_toolchain_deps: Box<BuckMutInsertionSet<TargetConfiguredTargetLabel>>;
+    let toolchain_deps =
+        if execution_platform_partial.is_none() && !gathered_deps.execution_group_deps.is_empty() {
+            let mut all = gathered_deps.toolchain_deps.clone();
+            for group_deps in gathered_deps.execution_group_deps.values() {
+                for dep in &group_deps.toolchain_deps {
+                    all.insert(dep.dupe());
+                }
+            }
+            unbound_toolchain_deps = Box::new(all);
+            &*unbound_toolchain_deps
+        } else {
+            &gathered_deps.toolchain_deps
+        };
     let unbound_exec_deps: Box<BuckMutInsertionMap<ConfiguredProvidersLabel, CheckVisibility>>;
     let exec_deps =
         if execution_platform_partial.is_none() && !gathered_deps.execution_group_deps.is_empty() {
@@ -1280,6 +1343,7 @@ async fn compute_configured_target_node_no_transition(
         partial_target_label,
         package_visibility,
         &mut errors_and_incompats,
+        &mut deps,
         &mut exec_deps,
     );
 

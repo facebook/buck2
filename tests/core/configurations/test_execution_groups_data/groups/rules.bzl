@@ -6,6 +6,8 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+Resources = exec_group()
+Package = exec_group()
 Link = exec_group()
 Unused = exec_group()
 
@@ -22,8 +24,34 @@ def _tool_impl(ctx):
 
 tool = rule(impl = _tool_impl, attrs = {})
 
+def _toolchain_impl(ctx):
+    return [DefaultInfo(), ctx.attrs.tool[RunInfo]]
+
+toolchain = rule(
+    impl = _toolchain_impl,
+    attrs = {"tool": attrs.exec_dep(providers = [RunInfo])},
+    is_toolchain_rule = True,
+)
+
 def _noop_impl(_ctx):
     return [DefaultInfo()]
+
+# Resources and packaging use toolchains that need different platforms; neither constrains
+# the default execution group.
+bundle = rule(
+    impl = _noop_impl,
+    attrs = {
+        "_package_toolchain": attrs.toolchain_dep(
+            default = "//groups:package_toolchain",
+            exec_group = Package,
+        ),
+        "_resource_toolchain": attrs.toolchain_dep(
+            default = "//groups:resource_toolchain",
+            exec_group = Resources,
+        ),
+    },
+    exec_groups = [Resources, Package],
+)
 
 # Compiles remotely and links locally; `Unused` has no deps and still resolves.
 binary = rule(
@@ -44,6 +72,16 @@ same_platform = rule(
     attrs = {
         "_tool": attrs.exec_dep(default = "//groups:any_tool"),
         "_tool_in_link": attrs.exec_dep(default = "//groups:any_tool", exec_group = Link),
+    },
+    exec_groups = [Link],
+)
+
+# The same toolchain in the default group and in `Link`, both resolving to the same platform.
+same_platform_toolchain = rule(
+    impl = _noop_impl,
+    attrs = {
+        "_toolchain": attrs.toolchain_dep(default = "//groups:any_toolchain"),
+        "_toolchain_in_link": attrs.toolchain_dep(default = "//groups:any_toolchain", exec_group = Link),
     },
     exec_groups = [Link],
 )

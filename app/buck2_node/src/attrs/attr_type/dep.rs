@@ -66,6 +66,8 @@ pub enum DepAttrTransition {
     Toolchain,
     /// Transition to the execution platform of a named execution group.
     ExecInGroup(NamedExecutionGroup),
+    /// Transition to toolchain, with the execution platform of a named execution group.
+    ToolchainInGroup(NamedExecutionGroup),
 }
 
 /// A dep attribute accepts a target label and will resolve to the provider collection from that label's analysis.
@@ -113,6 +115,9 @@ impl DepAttr<ConfiguredProvidersLabel> {
             DepAttrTransition::ExecInGroup(group) => {
                 traversal.exec_dep_in_group(&self.label, group)
             }
+            DepAttrTransition::ToolchainInGroup(group) => {
+                traversal.toolchain_dep_in_group(&self.label, group)
+            }
         }
     }
 }
@@ -136,7 +141,9 @@ impl DepAttr<ProvidersLabel> {
             DepAttrTransition::Exec | DepAttrTransition::ExecInGroup(_) => {
                 traversal.exec_dep(label)
             }
-            DepAttrTransition::Toolchain => traversal.toolchain_dep(label),
+            DepAttrTransition::Toolchain | DepAttrTransition::ToolchainInGroup(_) => {
+                traversal.toolchain_dep(label)
+            }
         }
     }
 }
@@ -160,6 +167,9 @@ impl DepAttrType {
             DepAttrTransition::Toolchain => ctx.configure_toolchain_target(label),
             DepAttrTransition::ExecInGroup(group) => {
                 ctx.configure_exec_target_in_group(label, group)?
+            }
+            DepAttrTransition::ToolchainInGroup(group) => {
+                ctx.configure_toolchain_target_in_group(label, group)?
             }
         };
         Ok(ConfiguredAttr::Dep(Box::new(DepAttr {

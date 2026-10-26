@@ -206,15 +206,26 @@ fn attr_module(registry: &mut GlobalsBuilder) {
     /// Takes a target from the user, as a string, and supplies a dependency to the rule.
     /// The dependency will be a toolchain dependency, meaning that its execution platform
     /// dependencies will be used to select the execution platform for this rule.
+    ///
+    /// With `exec_group`, the toolchain's execution platform dependencies select the
+    /// execution platform of that group instead, and the toolchain is configured with that
+    /// group's execution platform. The rule must declare the group in
+    /// `rule(exec_groups = ...)`.
     fn toolchain_dep<'v>(
         #[starlark(require = named, default = UnpackListOrTuple::default())]
         providers: UnpackListOrTuple<Value<'v>>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
+        #[starlark(require = named, default = NoneOr::None)] exec_group: NoneOr<ExecutionGroupArg>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkAttribute> {
         let required_providers = dep_like_attr_handle_providers_arg(providers.items)?;
-        let coercer = AttrType::toolchain_dep(required_providers);
+        let coercer = match exec_group.into_option() {
+            None => AttrType::toolchain_dep(required_providers),
+            Some(ExecutionGroupArg { group }) => {
+                AttrType::toolchain_dep_in_group(required_providers, group)
+            }
+        };
         Ok(Attribute::attr(eval, default, doc, coercer)?)
     }
 

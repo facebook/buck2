@@ -246,11 +246,20 @@ impl ExecutionPlatformConstraints {
         group: &NamedExecutionGroup,
         cfg_ctx: &(dyn AttrConfigurationContext + Sync),
     ) -> buck2_error::Result<Self> {
-        let exec_deps = match gathered_deps.execution_group_deps.get(group) {
-            Some(group_deps) => &group_deps.exec_deps,
-            None => &BuckMutInsertionMap::default(),
-        };
-        Self::new_for_deps(node, exec_deps, &BuckMutInsertionSet::default(), cfg_ctx)
+        match gathered_deps.execution_group_deps.get(group) {
+            Some(group_deps) => Self::new_for_deps(
+                node,
+                &group_deps.exec_deps,
+                &group_deps.toolchain_deps,
+                cfg_ctx,
+            ),
+            None => Self::new_for_deps(
+                node,
+                &BuckMutInsertionMap::default(),
+                &BuckMutInsertionSet::default(),
+                cfg_ctx,
+            ),
+        }
     }
 
     fn new_for_deps(

@@ -324,11 +324,28 @@ impl AttrType {
         )
     }
 
+    /// A toolchain dependency attribute whose toolchain uses the execution platform of the
+    /// given execution group.
+    pub fn toolchain_dep_in_group(
+        required_providers: ProviderIdSet,
+        group: ExecutionGroup,
+    ) -> Self {
+        let transition = match group {
+            ExecutionGroup::Default => DepAttrTransition::Toolchain,
+            ExecutionGroup::Named(group) => DepAttrTransition::ToolchainInGroup(group),
+        };
+        Self::of(
+            AttrTypeInner::Dep(DepAttrType::new(required_providers, transition)),
+            false,
+        )
+    }
+
     /// Calls `f` for every named execution group a dep within this attribute belongs to.
     pub fn for_each_named_execution_group(&self, f: &mut dyn FnMut(&NamedExecutionGroup)) {
         match &self.0.inner {
             AttrTypeInner::Dep(DepAttrType {
-                transition: DepAttrTransition::ExecInGroup(group),
+                transition:
+                    DepAttrTransition::ExecInGroup(group) | DepAttrTransition::ToolchainInGroup(group),
                 ..
             }) => f(group),
             AttrTypeInner::List(x) => x.inner.for_each_named_execution_group(f),

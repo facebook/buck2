@@ -18,10 +18,14 @@ def _constraint_impl(ctx):
     ]
 
 # Configuration targets, such as `select()` keys, are configured unbound, which resolves no
-# execution platforms. The grouped exec dep must still be a dep, and analysis must resolve it.
+# execution platforms. The grouped exec dep and toolchain dep must still be deps, and analysis
+# must resolve them.
 constraint_with_group = rule(
     impl = _constraint_impl,
-    attrs = {"_tool": attrs.exec_dep(default = "//unbound:tool", exec_group = Link)},
+    attrs = {
+        "_tool": attrs.exec_dep(default = "//unbound:tool", exec_group = Link),
+        "_toolchain": attrs.toolchain_dep(default = "//unbound:toolchain", exec_group = Link),
+    },
     exec_groups = [Link],
 )
 

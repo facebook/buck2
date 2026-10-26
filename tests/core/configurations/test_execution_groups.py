@@ -20,6 +20,19 @@ def _platform(platform: str) -> str:
 
 class ExecutionGroupsTest(BuckTestCase):
     @buck_test()
+    async def test_group_toolchain_deps_use_group_platform(self, buck: Buck) -> None:
+        result = await buck.cquery("deps(root//groups:bundle, 2)")
+        deps = result.stdout.splitlines()
+        assert any(
+            dep.startswith("root//groups:macos_tool (root//config:macos_local")
+            for dep in deps
+        ), deps
+        assert any(
+            dep.startswith("root//groups:remote_tool (root//config:linux_remote")
+            for dep in deps
+        ), deps
+
+    @buck_test()
     async def test_exec_dep_in_two_groups_is_configured_for_each(
         self, buck: Buck
     ) -> None:
@@ -43,9 +56,23 @@ class ExecutionGroupsTest(BuckTestCase):
         assert len(any_tool) == 1, deps
 
     @buck_test()
+    async def test_toolchain_configured_identically_in_two_groups_is_one_dep(
+        self, buck: Buck
+    ) -> None:
+        result = await buck.cquery(
+            "root//groups:same_platform_toolchain",
+            "--output-attribute=buck.deps",
+            "--json",
+        )
+        [deps] = [n["buck.deps"] for n in json.loads(result.stdout).values()]
+        toolchain = [d for d in deps if d.startswith("root//groups:any_toolchain ")]
+        assert len(toolchain) == 1, deps
+
+    @buck_test()
     async def test_unbound_node_keeps_group_deps(self, buck: Buck) -> None:
         # The `select()` key `:constraint` is configured unbound, which resolves no execution
-        # platforms. Its analysis reads its grouped exec dep, so that dep must still be a dep.
+        # platforms. Its analysis reads its grouped exec dep and toolchain dep, so they must still
+        # be deps.
         result = await buck.cquery(
             "root//unbound:t", "--target-platforms", "root//config:linux_local"
         )

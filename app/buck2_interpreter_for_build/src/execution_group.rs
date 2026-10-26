@@ -39,8 +39,9 @@ fn register_execution_group_globals(r: &mut GlobalsBuilder) {
     /// ```
     ///
     /// Each execution group a rule declares gets its own execution platform, resolved from the
-    /// target's `exec_compatible_with` and the exec deps in that group. Exec deps without an
-    /// `exec_group` are in `DefaultExecGroup`, whose platform is the target's execution platform.
+    /// target's `exec_compatible_with` and the exec deps and toolchain deps in that group. Exec
+    /// deps and toolchain deps without an `exec_group` are in `DefaultExecGroup`, whose
+    /// platform is the target's execution platform.
     fn exec_group<'v>(
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkExecutionGroup> {

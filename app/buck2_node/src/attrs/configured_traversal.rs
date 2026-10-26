@@ -48,6 +48,14 @@ pub trait ConfiguredAttrTraversal {
         self.exec_dep(dep)
     }
 
+    fn toolchain_dep_in_group(
+        &mut self,
+        dep: &ConfiguredProvidersLabel,
+        _group: &NamedExecutionGroup,
+    ) -> buck2_error::Result<()> {
+        self.toolchain_dep(dep)
+    }
+
     fn configuration_dep(&mut self, _dep: &ProvidersLabel) -> buck2_error::Result<()> {
         Ok(())
     }
