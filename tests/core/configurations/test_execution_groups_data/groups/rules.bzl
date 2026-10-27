@@ -10,6 +10,7 @@ Resources = exec_group()
 Package = exec_group()
 Link = exec_group()
 Unused = exec_group()
+TestRun = exec_group()
 
 ToolPlugin = plugins.kind()
 
@@ -196,6 +197,58 @@ arg_tools = rule(
         "_compiler": attrs.exec_dep(default = "//groups:remote_tool"),
     },
     exec_groups = [Link],
+)
+
+# A remote-only exec dep keeps the default group remote; the test runs in the local `TestRun`.
+def _group_test_impl(_ctx):
+    return [
+        DefaultInfo(),
+        ExternalRunnerTestInfo(
+            type = "custom",
+            command = ["python3", "-c", "pass"],
+            exec_group = TestRun,
+        ),
+    ]
+
+group_test = rule(
+    impl = _group_test_impl,
+    attrs = {
+        "_compiler": attrs.exec_dep(default = "//groups:remote_tool"),
+        "_runner": attrs.exec_dep(default = "//groups:local_tool", exec_group = TestRun),
+    },
+    exec_groups = [TestRun],
+)
+
+# Returns the test info of `test` without declaring its group. The remote-only exec dep keeps this
+# rule's default group remote, so the test only runs locally if it keeps `TestRun`'s executor.
+forwarding_test = rule(
+    impl = lambda ctx: [DefaultInfo(), ctx.attrs.test[ExternalRunnerTestInfo]],
+    attrs = {
+        "test": attrs.dep(),
+        "_compiler": attrs.exec_dep(default = "//groups:remote_tool"),
+    },
+)
+
+def _copying_test_impl(ctx):
+    info = ctx.attrs.test[ExternalRunnerTestInfo]
+    return [
+        DefaultInfo(),
+        ExternalRunnerTestInfo(
+            type = info.test_type,
+            command = info.command,
+            default_executor = info.default_executor,
+            exec_group = info.exec_group,
+        ),
+    ]
+
+# Re-creates the test info of `test` field by field without declaring its group: the recorded
+# `default_executor` wins over `exec_group`, so the test keeps `TestRun`'s executor.
+copying_test = rule(
+    impl = _copying_test_impl,
+    attrs = {
+        "test": attrs.dep(),
+        "_compiler": attrs.exec_dep(default = "//groups:remote_tool"),
+    },
 )
 
 # `exec_group = None` is the default group, so wrappers can pass an optional group through.

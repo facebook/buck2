@@ -396,6 +396,84 @@ class ExecutionGroupsTest(BuckTestCase):
             stderr_regex="Args whose macros refer to dependencies in an execution group cannot be passed to anon targets",
         )
 
+    # Runs a `python3` test locally; the default group would run it on a Linux RE platform.
+    @buck_test(skip_for_os=["windows"])
+    async def test_test_runs_on_its_group_platform(self, buck: Buck) -> None:
+        await buck.test("root//groups:group_test", "--no-remote-cache")
+        result = await buck.log("what-ran", "--format", "json")
+        entries = [json.loads(line) for line in result.stdout.splitlines()]
+        test_runs = [
+            e["reproducer"]["executor"] for e in entries if e["reason"] == "test.run"
+        ]
+        assert test_runs == ["Local"], entries
+
+    # Runs a `python3` test locally through a rule that re-creates the test info field by field.
+    @buck_test(skip_for_os=["windows"])
+    async def test_test_info_copied_field_by_field(self, buck: Buck) -> None:
+        await buck.test("root//groups:copied_group_test", "--no-remote-cache")
+        result = await buck.log("what-ran", "--format", "json")
+        entries = [json.loads(line) for line in result.stdout.splitlines()]
+        test_runs = [
+            e["reproducer"]["executor"] for e in entries if e["reason"] == "test.run"
+        ]
+        assert test_runs == ["Local"], entries
+
+    # Runs a `python3` test locally through a forwarding rule.
+    @buck_test(skip_for_os=["windows"])
+    async def test_test_info_forwarded_from_other_rule(self, buck: Buck) -> None:
+        await buck.test("root//groups:forwarded_group_test", "--no-remote-cache")
+        result = await buck.log("what-ran", "--format", "json")
+        entries = [json.loads(line) for line in result.stdout.splitlines()]
+        test_runs = [
+            e["reproducer"]["executor"] for e in entries if e["reason"] == "test.run"
+        ]
+        assert test_runs == ["Local"], entries
+
+    @buck_test()
+    async def test_test_group_without_platform_fails_when_run(self, buck: Buck) -> None:
+        target_platform = "--target-platforms=root//config:linux_local"
+        await buck.aquery("root//errors/test_group_no_platform:t", target_platform)
+        await expect_failure(
+            buck.test("root//errors/test_group_no_platform:t", target_platform),
+            stderr_regex="No compatible execution platform",
+        )
+
+    @buck_test()
+    async def test_test_info_without_executor_copied_field_by_field(
+        self, buck: Buck
+    ) -> None:
+        target_platform = "--target-platforms=root//config:linux_local"
+        await buck.build("root//errors/test_group_no_platform:copied", target_platform)
+        await expect_failure(
+            buck.test("root//errors/test_group_no_platform:copied", target_platform),
+            stderr_regex="names execution group `TestRun`, but no executor was recorded for it when the test info was created",
+        )
+
+    @buck_test()
+    async def test_test_info_with_undeclared_group(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.test("root//errors/test_group_undeclared:t"),
+            stderr_regex="Execution group `G` is not declared by this rule",
+        )
+
+    @buck_test()
+    async def test_group_constraints_select_on_target_platform(
+        self, buck: Buck
+    ) -> None:
+        for target_platform, link_platform in [
+            ("root//config:macos_local", "root//config:macos_local"),
+            ("root//config:linux_local", "root//config:linux_local"),
+        ]:
+            node = await _cquery_node(
+                buck,
+                "root//groups:link_follows_target_os",
+                f"--target-platforms={target_platform}",
+            )
+            assert {
+                group: _platform(platform)
+                for group, platform in node["buck.exec_group_platforms"].items()
+            } == {"Link": link_platform}, target_platform
+
     @buck_test()
     async def test_unbound_node_keeps_group_deps(self, buck: Buck) -> None:
         # The `select()` key `:constraint` is configured unbound, which resolves no execution

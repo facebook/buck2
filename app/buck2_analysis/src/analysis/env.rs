@@ -13,6 +13,7 @@ use std::sync::Arc;
 use buck2_build_api::analysis::AnalysisResult;
 use buck2_build_api::analysis::AnalysisSplitInstants;
 use buck2_build_api::analysis::anon_promises_dyn::RunAnonPromisesAccessorPair;
+use buck2_build_api::analysis::extra_v::AnalysisExtraValue;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value::CommandLineArg;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
@@ -31,6 +32,7 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
+use buck2_error::internal_error;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_hash::BuckFixedSortedMap;
@@ -285,6 +287,16 @@ async fn run_analysis_with_env_underlying(
         let (ctx, list_res) = reentrant_eval.with_evaluator(|eval| {
             eval.set_print_handler(&print);
             eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
+
+            // Test infos that name an execution group record that group's executor at creation,
+            // so a test runs with it even when another rule returns the test info.
+            if AnalysisExtraValue::get_or_init(eval.module())?
+                .execution_platform_resolution
+                .set(node.execution_platform_resolution().dupe())
+                .is_err()
+            {
+                return Err(internal_error!("execution platform resolution set twice").into());
+            }
 
             let ctx = AnalysisContext::prepare(
                 eval.heap(),
