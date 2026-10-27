@@ -757,22 +757,13 @@ impl DaemonStartupConfig {
                     })
                     .map(ToOwned::to_owned);
                 if buck2_env!("BUCK2_DISABLE_MACOS_QOS", bool)? {
-                    buck2_core::soft_error!(
-                        "disable_macos_qos_env_var",
-                        buck2_error::buck2_error!(
-                            buck2_error::ErrorTag::Input,
-                            "BUCK2_DISABLE_MACOS_QOS is deprecated. \
-                             Use `[buck2] macos_qos_class = skip_lowering` in buckconfig instead. \
-                             This will be the default very soon."
-                        ),
-                        deprecation: true,
-                        quiet: false,
-                        error_on_oss: true
-                    )?;
-                    Some(from_config.unwrap_or_else(|| "skip_lowering".to_owned()))
-                } else {
-                    from_config
+                    return Err(buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::Input,
+                        "`BUCK2_DISABLE_MACOS_QOS` is not supported, set \
+                         `[buck2] macos_qos_class = skip_lowering` in buckconfig instead"
+                    ));
                 }
+                from_config
             },
             daemon_idle_timeout_s: config.parse(BuckconfigKeyRef {
                 section: "buck2",
