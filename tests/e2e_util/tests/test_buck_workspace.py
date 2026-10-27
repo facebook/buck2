@@ -75,17 +75,25 @@ class ParametrizeTest(unittest.TestCase):  # lint-ignore: AsyncTestInTestCase
             ["test_grid_x_1", "test_grid_x_2", "test_grid_y_1", "test_grid_y_2"],
         )
 
-    def test_an_empty_parameter_set_skips(self) -> None:
+    def test_an_empty_parameter_set_leaves_no_case(self) -> None:
         class Case(BuckTestCase):
             @parametrize("n", [])
             async def test_none(self, n: int) -> None:
                 raise AssertionError("ran")
 
+            @parametrize("a", [1, 2])
+            @parametrize("b", [])
+            async def test_empty_factor(self, a: int, b: int) -> None:
+                raise AssertionError("ran")
+
+            async def test_other(self) -> None:
+                pass
+
         result = unittest.TextTestRunner(stream=io.StringIO()).run(
             unittest.defaultTestLoader.loadTestsFromTestCase(Case)
         )
-        self.assertEqual(_test_names(Case), ["test_none"])
-        self.assertEqual((result.testsRun, len(result.skipped)), (1, 1))
+        self.assertEqual(_test_names(Case), ["test_other"])
+        self.assertEqual((result.testsRun, result.skipped), (1, []))
 
     def test_a_subclass_redefining_a_case_replaces_it(self) -> None:
         class Base(BuckTestCase):
