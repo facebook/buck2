@@ -114,6 +114,9 @@ def _get_common_linker_flags(ctx: AnalysisContext, link_infos: list[LinkInfo], e
     for link in link_infos:
         result.add(link.pre_flags)
         result.add(link.post_flags)
+        for linkable in link.linkables:
+            if isinstance(linkable, ArchiveLinkable):
+                result.add(cmd_args(hidden = linkable.archive.hidden))
 
     return result
 
