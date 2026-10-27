@@ -238,7 +238,10 @@ def _aggregator_impl(ctx: AnalysisContext, dep_infos: list[NodejsLibraryInfo]) -
     return [
         DefaultInfo(
             default_output = node_modules,
-            sub_targets = {"node_modules": [DefaultInfo(default_output = node_modules)]},
+            sub_targets = {
+                "node_modules": [DefaultInfo(default_output = node_modules)],
+                "sources": [DefaultInfo(default_output = ctx.actions.copied_dir("sources", {}))],
+            },
         ),
         NodejsLibraryInfo(
             transitive_outputs = transitive_outputs,
@@ -380,13 +383,34 @@ def nodejs_library_impl(ctx: AnalysisContext) -> list[Provider]:
     transitive_outputs = get_transitive_outputs(ctx.actions, value = own_package, deps = dep_infos)
     node_modules = build_node_modules(ctx.actions, "node_modules", transitive_outputs, own_package = own_package)
 
+    source_files = {}
+    for src in ctx.attrs.srcs:
+        existing = source_files.get(src.short_path)
+        if existing != None and existing != src:
+            fail("nodejs_library {}: `srcs` entries '{}' and '{}' both have the short path '{}'".format(ctx.label, existing, src, src.short_path))
+        source_files[src.short_path] = src
+    if ctx.attrs.package_json != None:
+        source_files["package.json"] = ctx.attrs.package_json
+    if ctx.attrs.tsconfig != None:
+        source_files[ctx.attrs.tsconfig.short_path] = ctx.attrs.tsconfig
+    sources = None
+    if ctx.attrs.module != None:
+        sources = module_dir
+    elif prebuilt != None:
+        sources = prebuilt
+    elif source_files:
+        sources = ctx.actions.copied_dir("sources", source_files)
+    sub_targets = {
+        "node_modules": [DefaultInfo(default_output = node_modules)],
+        "runtime": [DefaultInfo(default_output = runtime_dir)],
+    }
+    if sources != None:
+        sub_targets["sources"] = [DefaultInfo(default_output = sources)]
+
     return [
         DefaultInfo(
             default_output = package_dir,
-            sub_targets = {
-                "node_modules": [DefaultInfo(default_output = node_modules)],
-                "runtime": [DefaultInfo(default_output = runtime_dir)],
-            },
+            sub_targets = sub_targets,
         ),
         NodejsLibraryInfo(
             bins = bins,
@@ -549,6 +573,13 @@ nodejs_library = prelude_rule(
     sub-target is the package directory without its `.d.ts`, `.d.mts` and
     `.d.cts` files and their maps, with symlinks copied as their targets;
     `nodejs_binary` and `nodejs_test` stage it in their composed tree.
+    The `[sources]` sub-target is a directory holding the library's
+    original sources at their package-relative paths: its `srcs`, its
+    `package_json` (at `package.json`) and its `tsconfig`, for consumers
+    that work on sources rather than the staged package, such as source
+    typecheckers. For a `module` library it is the module directory, and
+    for a `prebuilt` library the `prebuilt` directory; an aggregate
+    library's is an empty directory.
     A library with `deps` or `node_modules` and none of `srcs`,
     `resources`, `module`, `prebuilt`, `package_json` or `tsconfig` stages
     no package: its default output, like its `[node_modules]`, is the
