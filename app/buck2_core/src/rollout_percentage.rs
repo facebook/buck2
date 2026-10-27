@@ -278,9 +278,10 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(miri, ignore = "hashes thousands of keys, which Miri runs too slowly")]
     fn test_fraction_includes() {
-        let keys: Vec<Vec<u8>> = (0..4_000u32).map(|i| i.to_le_bytes().to_vec()).collect();
+        // Miri interprets each hash, so it checks a smaller sample.
+        let count = if cfg!(miri) { 1_000u32 } else { 4_000 };
+        let keys: Vec<Vec<u8>> = (0..count).map(|i| i.to_le_bytes().to_vec()).collect();
         for key in &keys {
             assert!(!RolloutFraction::none().includes(key));
             assert!(RolloutFraction::all().includes(key));
