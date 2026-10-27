@@ -29,11 +29,13 @@ use buck2_interpreter::types::rule::FROZEN_PROMISE_ARTIFACT_MAPPINGS_GET_IMPL;
 use buck2_interpreter::types::rule::FROZEN_RULE_GET_IMPL;
 use buck2_interpreter::types::transition::transition_id_from_value;
 use buck2_node::attrs::attr::Attribute;
+use buck2_node::attrs::spec::AttributeId;
 use buck2_node::attrs::spec::AttributeSpec;
 use buck2_node::bzl_or_bxl_path::BzlOrBxlPath;
 use buck2_node::nodes::unconfigured::RuleKind;
 use buck2_node::nodes::unconfigured::UnsealedTargetNode;
 use buck2_node::rule::Rule;
+use buck2_node::rule::RuleExecutionGroup;
 use buck2_node::rule::RuleIncomingTransition;
 use buck2_node::rule_type::RuleType;
 use buck2_node::rule_type::StarlarkRuleType;
@@ -116,9 +118,11 @@ pub struct StarlarkRuleCallable<'v> {
     /// The plugins that are used by these targets
     uses_plugins: Vec<PluginKind>,
     /// The named execution groups these targets use
-    execution_groups: Vec<NamedExecutionGroup>,
+    execution_groups: Vec<RuleExecutionGroup>,
     /// Whether these targets list `DefaultExecGroup` or declare no named execution groups
     default_execution_group: bool,
+    /// The attribute constraining the execution platform of the default execution group only
+    default_exec_compatible_with_attr: Option<AttributeId>,
     /// This kind of the rule, e.g. whether it can be used in configuration context.
     rule_kind: RuleKind,
     /// The raw docstring for this rule
@@ -192,6 +196,14 @@ enum RuleError {
         declared: String,
         message: String,
     },
+    #[error(
+        "Execution group `{group}` has more than one `attrs.exec_compatible_with()` attribute: `{first}` and `{second}`"
+    )]
+    MultipleExecCompatibleWith {
+        group: String,
+        first: String,
+        second: String,
+    },
 }
 
 impl<'v> AllocValue<'v> for StarlarkRuleCallable<'v> {
@@ -231,6 +243,17 @@ impl<'v> StarlarkRuleCallable<'v> {
                 "unreachable, since bxl.anon_rule is not registered for eval for bzl files"
             ),
         };
+
+        let exec_compatible_with_attrs: Vec<(String, ExecutionGroup)> = attrs
+            .entries
+            .iter()
+            .filter_map(|(name, attr)| {
+                Some((
+                    (*name).to_owned(),
+                    attr.exec_compatible_with_group()?.dupe(),
+                ))
+            })
+            .collect();
 
         let sorted_validated_attrs = attrs
             .entries
@@ -273,18 +296,20 @@ impl<'v> StarlarkRuleCallable<'v> {
             }
         }
 
-        let (execution_groups, default_execution_group) = validate_execution_groups(
-            execution_groups,
-            rule_kind,
-            &sorted_validated_attrs,
-            build_context.cell_resolver(),
-        )?;
-
         let attributes = AttributeSpec::from(
             sorted_validated_attrs,
             artifact_promise_mappings.is_some(),
             &cfg,
         )?;
+
+        let (execution_groups, default_execution_group, default_exec_compatible_with_attr) =
+            validate_execution_groups(
+                execution_groups,
+                rule_kind,
+                &attributes,
+                exec_compatible_with_attrs,
+                build_context.cell_resolver(),
+            )?;
         let ty = Ty::ty_function(attributes.ty_function());
 
         Ok(StarlarkRuleCallable {
@@ -298,6 +323,7 @@ impl<'v> StarlarkRuleCallable<'v> {
             uses_plugins,
             execution_groups,
             default_execution_group,
+            default_exec_compatible_with_attr,
             docs: Some(doc.to_owned()),
             ignore_attrs_for_profiling: build_context.ignore_attrs_for_profiling,
             artifact_promise_mappings,
@@ -403,14 +429,15 @@ impl<'v> StarlarkRuleCallable<'v> {
 }
 
 /// Checks the `exec_groups` a rule declares, and that every execution group its attributes
-/// use is among them. Returns the named groups, and whether the rule lists
-/// `DefaultExecGroup` or declares no named groups.
+/// use is among them. Returns the named groups, whether the rule lists `DefaultExecGroup` or
+/// declares no named groups, and the `attrs.exec_compatible_with()` attribute of the default group.
 fn validate_execution_groups(
     execution_groups: Vec<ExecutionGroup>,
     rule_kind: RuleKind,
-    attrs: &[(String, Attribute)],
+    attributes: &AttributeSpec,
+    exec_compatible_with_attrs: Vec<(String, ExecutionGroup)>,
     cell_resolver: &CellResolver,
-) -> buck2_error::Result<(Vec<NamedExecutionGroup>, bool)> {
+) -> buck2_error::Result<(Vec<RuleExecutionGroup>, bool, Option<AttributeId>)> {
     // The project-relative path of the file that defines `group`, or its cell path when that
     // does not resolve, so the error that names the file always surfaces.
     let defining_file = |group: &NamedExecutionGroup| {
@@ -431,7 +458,7 @@ fn validate_execution_groups(
         }
     }
 
-    let mut declared: Vec<NamedExecutionGroup> = Vec::with_capacity(execution_groups.len());
+    let mut declared: Vec<RuleExecutionGroup> = Vec::with_capacity(execution_groups.len());
     let mut default_listed = false;
     for group in execution_groups {
         let group = match group {
@@ -449,13 +476,13 @@ fn validate_execution_groups(
             ExecutionGroup::Named(group) => group,
         };
         // Names, not `(name, .bzl file)`, must be distinct: users see a target's groups by name.
-        if let Some(first) = declared.iter().find(|g| g.name() == group.name()) {
-            let defined_in = if *first == group {
+        if let Some(first) = declared.iter().find(|g| g.group.name() == group.name()) {
+            let defined_in = if first.group == group {
                 String::new()
             } else {
                 format!(
                     " (defined in `{}` and in `{}`)",
-                    defining_file(first),
+                    defining_file(&first.group),
                     defining_file(&group)
                 )
             };
@@ -465,27 +492,43 @@ fn validate_execution_groups(
             }
             .into());
         }
-        declared.push(group);
+        declared.push(RuleExecutionGroup {
+            group,
+            exec_compatible_with_attr: None,
+        });
     }
 
-    let mut used = Vec::new();
-    for (name, attr) in attrs {
+    let mut used: Vec<(&str, NamedExecutionGroup)> = Vec::new();
+    for (name, _, attr) in attributes.attr_specs() {
         attr.coercer()
             .for_each_named_execution_group(&mut |group| used.push((name, group.dupe())));
     }
-    if rule_kind == RuleKind::Toolchain && !used.is_empty() {
+    used.extend(
+        exec_compatible_with_attrs
+            .iter()
+            .filter_map(|(name, group)| match group {
+                ExecutionGroup::Named(group) => Some((name.as_str(), group.dupe())),
+                ExecutionGroup::Default => None,
+            }),
+    );
+    if rule_kind == RuleKind::Toolchain
+        && !(used.is_empty() && exec_compatible_with_attrs.is_empty())
+    {
         return Err(RuleError::ExecutionGroupsOnToolchainRule.into());
     }
-    if let Some((attr, group)) = used.into_iter().find(|(_, g)| !declared.contains(g)) {
+    if let Some((attr, group)) = used
+        .into_iter()
+        .find(|(_, g)| !declared.iter().any(|d| &d.group == g))
+    {
         return Err(RuleError::UndeclaredExecutionGroup {
             attr: attr.to_owned(),
             group: group.name().to_owned(),
             declared: declared
                 .iter()
-                .map(|g| format!("`{g}`"))
+                .map(|g| format!("`{}`", g.group))
                 .collect::<Vec<_>>()
                 .join(", "),
-            message: match group.same_name_in(&declared) {
+            message: match group.same_name_in(declared.iter().map(|d| &d.group)) {
                 Some(d) => format!(
                     ". The declared `{}` is defined in `{}`, this one in `{}`",
                     group.name(),
@@ -497,8 +540,40 @@ fn validate_execution_groups(
         }
         .into());
     }
+
+    let mut default_exec_compatible_with_attr: Option<AttributeId> = None;
+    for (name, group) in exec_compatible_with_attrs {
+        let slot = match &group {
+            ExecutionGroup::Default => &mut default_exec_compatible_with_attr,
+            ExecutionGroup::Named(named) => {
+                &mut declared
+                    .iter_mut()
+                    .find(|d| &d.group == named)
+                    .expect("checked above that every used group is declared")
+                    .exec_compatible_with_attr
+            }
+        };
+        if let Some(first) = slot {
+            return Err(RuleError::MultipleExecCompatibleWith {
+                group: group.to_string(),
+                first: attributes.attribute_name_by_id(*first).to_owned(),
+                second: name,
+            }
+            .into());
+        }
+        *slot = Some(
+            attributes
+                .attribute_id_by_name(&name)
+                .expect("every attribute of the rule is in its spec"),
+        );
+    }
+
     let default_execution_group = declared.is_empty() || default_listed;
-    Ok((declared, default_execution_group))
+    Ok((
+        declared,
+        default_execution_group,
+        default_exec_compatible_with_attr,
+    ))
 }
 
 #[starlark_value(type = "Rule")]
@@ -601,6 +676,7 @@ impl<'v> Freeze<'v> for StarlarkRuleCallable<'v> {
                 uses_plugins: self.uses_plugins,
                 execution_groups: self.execution_groups,
                 default_execution_group: self.default_execution_group,
+                default_exec_compatible_with_attr: self.default_exec_compatible_with_attr,
             }),
             rule_type,
             implementation: frozen_impl,

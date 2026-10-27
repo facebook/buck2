@@ -19,6 +19,7 @@ use buck2_interpreter::types::provider::callable::ValueAsProviderCallableLike;
 use buck2_interpreter::types::transition::transition_id_from_value;
 use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::attr_type::AttrType;
+use buck2_node::attrs::attr_type::configuration_dep::ConfigurationDepKind;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
@@ -201,6 +202,28 @@ fn attr_module(registry: &mut GlobalsBuilder) {
             }
         };
         Ok(Attribute::attr(eval, default, doc, coercer)?)
+    }
+
+    /// Takes a list of constraints from the user that the execution platform of `exec_group`
+    /// must satisfy, in addition to the target's `exec_compatible_with`, which applies to every
+    /// group. With `DefaultExecGroup`, the constraints apply to the default group only. A rule
+    /// may have at most one such attribute per group, and must declare the group in
+    /// `rule(exec_groups = ...)` (`DefaultExecGroup` is declared implicitly by rules
+    /// without named groups). Supplies the constraint labels as strings to the rule.
+    fn exec_compatible_with<'v>(
+        #[starlark(require = named)] exec_group: ExecutionGroupArg,
+        #[starlark(require = named)] default: Option<Value<'v>>,
+        #[starlark(require = named, default = "")] doc: &str,
+        eval: &mut Evaluator<'v, '_, '_>,
+    ) -> starlark::Result<StarlarkAttribute> {
+        let coercer = AttrType::list(AttrType::configuration_dep(
+            ConfigurationDepKind::CompatibilityAttribute,
+        ));
+        let attr = Attribute::attr(eval, default, doc, coercer)?;
+        Ok(StarlarkAttribute::new_exec_compatible_with(
+            attr.clone_attribute(),
+            exec_group.group,
+        ))
     }
 
     /// Takes a target from the user, as a string, and supplies a dependency to the rule.
@@ -431,7 +454,7 @@ fn attr_module(registry: &mut GlobalsBuilder) {
         Ok(StarlarkAttribute::new(Attribute::new_default_only(
             default,
             doc,
-            inner.coercer_for_default_only(),
+            inner.coercer_for_default_only()?,
         )))
     }
 

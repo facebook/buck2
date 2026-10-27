@@ -9,6 +9,7 @@
  */
 
 use allocative::Allocative;
+use buck2_core::execution_types::execution_group::ExecutionGroup;
 use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::attr_type::AttrType;
 use dupe::Dupe;
@@ -28,6 +29,10 @@ use starlark::values::starlark_value;
 enum StarlarkAttributeError {
     #[error("`attrs.default_only()` cannot be used in nested attributes")]
     DefaultOnlyInNested,
+    #[error("`attrs.exec_compatible_with()` cannot be used in nested attributes")]
+    ExecCompatibleWithInNested,
+    #[error("`attrs.default_only()` cannot wrap `attrs.exec_compatible_with()`")]
+    ExecCompatibleWithInDefaultOnly,
 }
 
 #[derive(
@@ -38,7 +43,15 @@ enum StarlarkAttributeError {
     Allocative,
     StarlarkPagable
 )]
-pub struct StarlarkAttribute(#[starlark_pagable(pagable)] Attribute);
+#[display("{}", attribute)]
+pub struct StarlarkAttribute {
+    #[starlark_pagable(pagable)]
+    attribute: Attribute,
+    /// The execution group whose platform the attribute's constraints apply to, for attributes
+    /// created by `attrs.exec_compatible_with()`.
+    #[starlark_pagable(pagable)]
+    exec_compatible_with_group: Option<ExecutionGroup>,
+}
 
 starlark_simple_value!(StarlarkAttribute);
 
@@ -58,27 +71,47 @@ impl<'v> StarlarkValue<'v> for StarlarkAttribute {
 
 impl StarlarkAttribute {
     pub fn new(attr: Attribute) -> Self {
-        Self(attr)
+        Self {
+            attribute: attr,
+            exec_compatible_with_group: None,
+        }
+    }
+
+    pub(crate) fn new_exec_compatible_with(attr: Attribute, group: ExecutionGroup) -> Self {
+        Self {
+            attribute: attr,
+            exec_compatible_with_group: Some(group),
+        }
     }
 
     pub fn attribute(&self) -> &Attribute {
-        &self.0
+        &self.attribute
     }
 
     pub fn clone_attribute(&self) -> Attribute {
-        self.0.clone()
+        self.attribute.clone()
+    }
+
+    pub(crate) fn exec_compatible_with_group(&self) -> Option<&ExecutionGroup> {
+        self.exec_compatible_with_group.as_ref()
     }
 
     /// Coercer to put into higher lever coercer (e. g. for `attrs.list(xxx)`).
     pub fn coercer_for_inner(&self) -> buck2_error::Result<AttrType> {
-        if self.0.is_default_only() {
+        if self.attribute.is_default_only() {
             return Err(StarlarkAttributeError::DefaultOnlyInNested.into());
         }
-        Ok(self.0.coercer().dupe())
+        if self.exec_compatible_with_group.is_some() {
+            return Err(StarlarkAttributeError::ExecCompatibleWithInNested.into());
+        }
+        Ok(self.attribute.coercer().dupe())
     }
 
-    pub fn coercer_for_default_only(&self) -> AttrType {
-        self.0.coercer().dupe()
+    pub fn coercer_for_default_only(&self) -> buck2_error::Result<AttrType> {
+        if self.exec_compatible_with_group.is_some() {
+            return Err(StarlarkAttributeError::ExecCompatibleWithInDefaultOnly.into());
+        }
+        Ok(self.attribute.coercer().dupe())
     }
 }
 

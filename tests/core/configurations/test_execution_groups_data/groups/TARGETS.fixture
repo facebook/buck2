@@ -1,4 +1,18 @@
-load(":rules.bzl", "binary", "bundle", "dynamic_binary", "plain", "plugin_user", "same_platform", "same_platform_toolchain", "tool", "toolchain")
+load(
+    ":rules.bzl",
+    "binary",
+    "bundle",
+    "constrained_link",
+    "default_constrained",
+    "default_constrained_no_groups",
+    "dynamic_binary",
+    "plain",
+    "plugin_user",
+    "same_platform",
+    "same_platform_toolchain",
+    "tool",
+    "toolchain",
+)
 
 tool(
     name = "macos_tool",
@@ -45,3 +59,35 @@ dynamic_binary(name = "dynamic_binary")
 plain(name = "plain")
 
 plugin_user(name = "plugin_user")
+
+constrained_link(
+    name = "link_on_macos",
+    link_constraints = ["//config:macos"],
+)
+
+default_constrained(
+    name = "default_on_macos",
+    default_constraints = ["//config:macos"],
+)
+
+default_constrained_no_groups(
+    name = "no_groups_on_remote",
+    default_constraints = ["//config:remote"],
+)
+
+# No platform is both macOS and remote.
+constrained_link(
+    name = "link_on_macos_remote",
+    link_constraints = [
+        "//config:macos",
+        "//config:remote",
+    ],
+)
+
+constrained_link(
+    name = "link_on_macos_via_select",
+    link_constraints = select({
+        "//config:linux": ["//config:macos"],
+        "DEFAULT": [],
+    }),
+)

@@ -32,7 +32,6 @@ use buck2_core::execution_types::execution::ExecutionPlatform;
 use buck2_core::execution_types::execution::ExecutionPlatformError;
 use buck2_core::execution_types::execution::ExecutionPlatformIncompatibleReason;
 use buck2_core::execution_types::execution::ExecutionPlatformResolutionPartial;
-use buck2_core::execution_types::execution_group::NamedExecutionGroup;
 use buck2_core::execution_types::execution_platforms::ExecutionPlatformFallback;
 use buck2_core::execution_types::execution_platforms::ExecutionPlatforms;
 use buck2_core::execution_types::execution_platforms::ExecutionPlatformsData;
@@ -47,6 +46,7 @@ use buck2_hash::BuckMutInsertionMap;
 use buck2_hash::BuckMutInsertionSet;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
+use buck2_node::attrs::spec::AttributeId;
 use buck2_node::attrs::spec::internal::EXEC_COMPATIBLE_WITH_ATTRIBUTE;
 use buck2_node::cfg_constructor::CFG_CONSTRUCTOR_CALCULATION_IMPL;
 use buck2_node::cfg_constructor::CfgConstructorModifiers;
@@ -63,6 +63,7 @@ use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNodeRef;
+use buck2_node::rule::RuleExecutionGroup;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::EqualityBehavior;
@@ -236,62 +237,74 @@ impl ExecutionPlatformConstraints {
             node,
             &gathered_deps.exec_deps,
             &gathered_deps.toolchain_deps,
+            node.default_exec_compatible_with_attr(),
             cfg_ctx,
         )
     }
 
     /// The constraints that select the execution platform of the named execution group `group`:
-    /// the target's `exec_compatible_with` and the deps in that group.
+    /// the target's `exec_compatible_with`, the group's `attrs.exec_compatible_with()` attribute,
+    /// and the deps in the group.
     fn for_execution_group(
         node: TargetNodeRef,
         gathered_deps: &GatheredDeps,
-        group: &NamedExecutionGroup,
+        group: &RuleExecutionGroup,
         cfg_ctx: &(dyn AttrConfigurationContext + Sync),
     ) -> buck2_error::Result<Self> {
-        match gathered_deps.execution_group_deps.get(group) {
+        match gathered_deps.execution_group_deps.get(&group.group) {
             Some(group_deps) => Self::new_for_deps(
                 node,
                 &group_deps.exec_deps,
                 &group_deps.toolchain_deps,
+                group.exec_compatible_with_attr,
                 cfg_ctx,
             ),
             None => Self::new_for_deps(
                 node,
                 &BuckMutInsertionMap::default(),
                 &BuckMutInsertionSet::default(),
+                group.exec_compatible_with_attr,
                 cfg_ctx,
             ),
         }
     }
 
+    /// `extra_exec_compatible_with_attr` is a rule attribute with further constraints, as
+    /// created by `attrs.exec_compatible_with()`.
     fn new_for_deps(
         node: TargetNodeRef,
         exec_deps: &BuckMutInsertionMap<ConfiguredProvidersLabel, CheckVisibility>,
         toolchain_deps: &BuckMutInsertionSet<TargetConfiguredTargetLabel>,
+        extra_exec_compatible_with_attr: Option<AttributeId>,
         cfg_ctx: &(dyn AttrConfigurationContext + Sync),
     ) -> buck2_error::Result<Self> {
-        let exec_compatible_with: Arc<[_]> = if let Some(a) =
-            node.known_attr_or_none(EXEC_COMPATIBLE_WITH_ATTRIBUTE.id, AttrInspectOptions::All)
-        {
+        let internal_attr =
+            node.known_attr_or_none(EXEC_COMPATIBLE_WITH_ATTRIBUTE.id, AttrInspectOptions::All);
+        let extra_attr = extra_exec_compatible_with_attr
+            .and_then(|id| node.known_attr_or_none(id, AttrInspectOptions::All));
+        let has_extra_attr = extra_attr.is_some();
+        let mut exec_compatible_with = Vec::new();
+        for a in internal_attr.into_iter().chain(extra_attr) {
+            let name = a.name;
             let configured_attr = a
                 .configure(cfg_ctx)
                 .with_buck_error_context(|| {
-                    format!(
-                        "Error configuring attribute `{}` to resolve execution platform",
-                        EXEC_COMPATIBLE_WITH_ATTRIBUTE.name
-                    )
+                    format!("Error configuring attribute `{name}` to resolve execution platform")
                 })
                 .require_compatible()?;
-            ConfiguredTargetNode::attr_as_target_compatible_with(configured_attr.value)
-                .map(|label| {
-                    label.with_buck_error_context(|| {
-                        format!("attribute `{}`", EXEC_COMPATIBLE_WITH_ATTRIBUTE.name)
-                    })
-                })
-                .collect::<Result<_, _>>()?
-        } else {
-            Arc::new([])
-        };
+            for label in ConfiguredTargetNode::attr_as_target_compatible_with(configured_attr.value)
+            {
+                exec_compatible_with
+                    .push(label.with_buck_error_context(|| format!("attribute `{name}`"))?);
+            }
+        }
+        if has_extra_attr {
+            // Equal constraint sets share the resolution key whatever order the two attributes
+            // list them in.
+            exec_compatible_with.sort();
+            exec_compatible_with.dedup();
+        }
+        let exec_compatible_with: Arc<[_]> = exec_compatible_with.into();
 
         Ok(Self::new_constraints(
             exec_deps
@@ -503,7 +516,7 @@ pub(crate) async fn resolve_execution_group_platform(
     node: TargetNodeRef<'_>,
     matched_cfg_keys: &MatchedConfigurationSettingKeysWithCfg,
     gathered_deps: &GatheredDeps,
-    group: &NamedExecutionGroup,
+    group: &RuleExecutionGroup,
     cfg_ctx: &(dyn AttrConfigurationContext + Sync),
 ) -> buck2_error::Result<ExecutionPlatformResolutionPartial> {
     resolve_execution_platform_with_constraints(ctx, node, matched_cfg_keys, || {
@@ -1107,7 +1120,7 @@ async fn diagnose_execution_platform_resolution(
                 Ok(constraints) => diagnose_constraints(ctx, cell, &constraints).await,
                 Err(e) => Err(e),
             };
-            (group.dupe(), outcomes)
+            (group.group.dupe(), outcomes)
         })
         .await;
 

@@ -16,8 +16,8 @@ from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 from buck2.tests.e2e_util.helper.golden import golden_replace_cfg_hash
 
 
-async def _cquery_node(buck: Buck, target: str) -> dict[str, Any]:
-    result = await buck.cquery("--output-all-attributes", target)
+async def _cquery_node(buck: Buck, target: str, *args: str) -> dict[str, Any]:
+    result = await buck.cquery("--output-all-attributes", target, *args)
     nodes = json.loads(result.stdout)
     assert len(nodes) == 1, nodes
     return next(iter(nodes.values()))
@@ -227,6 +227,112 @@ class ExecutionGroupsTest(BuckTestCase):
             "dynamic_compile": ["Re"],
             "dynamic_link": ["Local"],
         }, entries
+
+    @buck_test()
+    async def test_exec_compatible_with_attr_constrains_its_group(
+        self, buck: Buck
+    ) -> None:
+        # Constraint labels are also matched in the target configuration, as for the target's
+        # `exec_compatible_with`, so these targets need a real target platform.
+        target_platform = "--target-platforms=root//config:linux_local"
+        macos = await _cquery_node(buck, "root//groups:link_on_macos", target_platform)
+        assert (
+            _platform(macos["buck.execution_platform"]) == "root//config:linux_remote"
+        )
+        assert {
+            group: _platform(platform)
+            for group, platform in macos["buck.exec_group_platforms"].items()
+        } == {"Link": "root//config:macos_local"}
+
+        # The select keys on the target platform's `linux` constraint; without it `Link` would
+        # resolve to `linux_local`, the first platform.
+        via_select = await _cquery_node(
+            buck, "root//groups:link_on_macos_via_select", target_platform
+        )
+        assert {
+            group: _platform(platform)
+            for group, platform in via_select["buck.exec_group_platforms"].items()
+        } == {"Link": "root//config:macos_local"}
+
+    @buck_test()
+    async def test_audit_explains_group_constraints(self, buck: Buck) -> None:
+        result = await buck.audit(
+            "execution-platform-resolution",
+            "root//groups:link_on_macos_remote",
+            "--target-platforms=root//config:linux_local",
+            "-c",
+            "build.execution_platforms=root//config:platforms_error_fallback",
+        )
+        golden_replace_cfg_hash(
+            output=result.stdout, rel_path="audit_group_constraints.txt.golden"
+        )
+
+    @buck_test()
+    async def test_run_in_group_without_platform(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.build(
+                "root//errors/run_no_group_platform:t",
+                "--target-platforms=root//config:linux_local",
+            ),
+            stderr_regex="Action with category `compile` and identifier `main` runs in execution group `G`, which has no compatible execution platform",
+        )
+
+    @buck_test()
+    async def test_exec_compatible_with_attr_for_default_group(
+        self, buck: Buck
+    ) -> None:
+        target_platform = "--target-platforms=root//config:linux_local"
+        # Only the default group is constrained to macOS; `Link` still takes the first platform.
+        node = await _cquery_node(
+            buck, "root//groups:default_on_macos", target_platform
+        )
+        assert _platform(node["buck.execution_platform"]) == "root//config:macos_local"
+        assert {
+            group: _platform(platform)
+            for group, platform in node["buck.exec_group_platforms"].items()
+        } == {"Link": "root//config:linux_local"}
+
+        no_groups = await _cquery_node(
+            buck, "root//groups:no_groups_on_remote", target_platform
+        )
+        assert (
+            _platform(no_groups["buck.execution_platform"])
+            == "root//config:linux_remote"
+        )
+
+    @buck_test()
+    async def test_two_exec_compatible_with_attrs_for_default_group(
+        self, buck: Buck
+    ) -> None:
+        await expect_failure(
+            buck.uquery("root//errors/exec_compatible_with_default:t"),
+            stderr_regex="Execution group `DefaultExecGroup` has more than one `attrs.exec_compatible_with\\(\\)` attribute: `a` and `b`",
+        )
+
+    @buck_test()
+    async def test_exec_compatible_with_attr_in_default_only(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.uquery("root//errors/exec_compatible_with_default_only:t"),
+            stderr_regex="`attrs.default_only\\(\\)` cannot wrap `attrs.exec_compatible_with\\(\\)`",
+        )
+
+    @buck_test()
+    async def test_two_exec_compatible_with_attrs_for_one_group(
+        self, buck: Buck
+    ) -> None:
+        await expect_failure(
+            buck.uquery("root//errors/exec_compatible_with_twice:t"),
+            stderr_regex="Execution group `G` has more than one `attrs.exec_compatible_with\\(\\)` attribute: `a` and `b`",
+        )
+
+    @buck_test()
+    async def test_exec_compatible_with_attr_with_undeclared_group(
+        self, buck: Buck
+    ) -> None:
+        await expect_failure(
+            buck.uquery("root//errors/exec_compatible_with_undeclared:t"),
+            stderr_regex="Attribute `c` uses execution group `G`, which the rule does not declare",
+        )
 
     @buck_test()
     async def test_unbound_node_keeps_group_deps(self, buck: Buck) -> None:

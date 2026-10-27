@@ -19,6 +19,7 @@ use buck2_hash::BuckHasher;
 use pagable::Pagable;
 use static_interner::interner;
 
+use crate::attrs::spec::AttributeId;
 use crate::attrs::spec::AttributeSpec;
 use crate::nodes::unconfigured::RuleKind;
 use crate::rule_type::RuleType;
@@ -46,9 +47,22 @@ pub struct Rule {
     /// The plugin kinds that are used by the target
     pub uses_plugins: Vec<PluginKind>,
     /// The named execution groups the rule declares, in declaration order.
-    pub execution_groups: Vec<NamedExecutionGroup>,
+    pub execution_groups: Vec<RuleExecutionGroup>,
     /// Whether the rule lists `DefaultExecGroup` or declares no named execution groups.
     pub default_execution_group: bool,
+    /// The attribute created by `attrs.exec_compatible_with(exec_group =
+    /// DefaultExecGroup)`, whose constraints only the default group's execution platform must
+    /// satisfy.
+    pub default_exec_compatible_with_attr: Option<AttributeId>,
+}
+
+/// A named execution group a rule declares.
+#[derive(Debug, Eq, PartialEq, Hash, Pagable, Allocative)]
+pub struct RuleExecutionGroup {
+    pub group: NamedExecutionGroup,
+    /// The attribute created by `attrs.exec_compatible_with(exec_group = ...)` for this
+    /// group, whose constraints the group's execution platform must satisfy.
+    pub exec_compatible_with_attr: Option<AttributeId>,
 }
 
 interner!(INTERNER, BuckHasher, Rule);

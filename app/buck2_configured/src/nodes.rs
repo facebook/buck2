@@ -84,6 +84,7 @@ use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::nodes::unconfigured::TargetNodeRef;
 use buck2_node::package_visibility::HasPackageVisibilityDefaultIntersection;
+use buck2_node::rule::RuleExecutionGroup;
 use buck2_node::rule::RuleIncomingTransition;
 use buck2_util::arc_str::ArcStr;
 use derive_more::Display;
@@ -736,15 +737,16 @@ async fn configure_execution_group<'d>(
     target_node: TargetNodeRef<'_>,
     resolved_configuration: &MatchedConfigurationSettingKeysWithCfg,
     gathered_deps: &GatheredDeps,
-    group: &NamedExecutionGroup,
+    rule_group: &RuleExecutionGroup,
     attr_cfg_ctx: &(dyn AttrConfigurationContext + Sync),
 ) -> buck2_error::Result<ConfiguredExecutionGroup<'d>> {
+    let group = &rule_group.group;
     let partial = resolve_execution_group_platform(
         ctx,
         target_node,
         resolved_configuration,
         gathered_deps,
-        group,
+        rule_group,
         attr_cfg_ctx,
     )
     .await

@@ -155,5 +155,33 @@ plugin_user = rule(
     uses_plugins = [ToolPlugin],
 )
 
+# The target, not the rule, says what the `Link` platform must satisfy.
+constrained_link = rule(
+    impl = _noop_impl,
+    attrs = {
+        "link_constraints": attrs.exec_compatible_with(exec_group = Link, default = []),
+        "_compiler": attrs.exec_dep(default = "//groups:remote_tool"),
+    },
+    exec_groups = [Link],
+)
+
+# `default_constraints` constrains only the default group; `Link` resolves on its own.
+default_constrained = rule(
+    impl = _noop_impl,
+    attrs = {
+        "default_constraints": attrs.exec_compatible_with(exec_group = DefaultExecGroup, default = []),
+        "_linker": attrs.exec_dep(default = "//groups:any_tool", exec_group = Link),
+    },
+    exec_groups = [DefaultExecGroup, Link],
+)
+
+# A rule without named groups constrains its only group, the default, the same way.
+default_constrained_no_groups = rule(
+    impl = _noop_impl,
+    attrs = {
+        "default_constraints": attrs.exec_compatible_with(exec_group = DefaultExecGroup, default = []),
+    },
+)
+
 # `exec_group = None` is the default group, so wrappers can pass an optional group through.
 plain = rule(impl = _noop_impl, attrs = {"_tool": attrs.exec_dep(default = "//groups:any_tool", exec_group = None)})
