@@ -48,8 +48,6 @@ fn validate_category(category: &str) -> starlark::Result<()> {
 pub(crate) fn register_soft_error(builder: &mut GlobalsBuilder) {
     /// Produce an error that will become a hard error at some point in the future, but
     /// for now is a warning which is logged to the server.
-    /// In the open source version of Buck2 this function always results in an error
-    /// (deprecation soft errors are promoted to hard errors in OSS builds).
     ///
     /// Called passing a stable key (must be `snake_case` and start with `starlark_`,
     /// used for consistent reporting) and an arbitrary message (used for debugging).
@@ -86,7 +84,7 @@ pub(crate) fn register_soft_error(builder: &mut GlobalsBuilder) {
             .into()
         };
 
-        soft_error!(category, err, quiet: quiet.unwrap_or_default(), error_on_oss: true)?;
+        soft_error!(category, err, quiet: quiet.unwrap_or_default())?;
         Ok(NoneType)
     }
 

@@ -21,6 +21,7 @@ pub(crate) mod assembled_dir;
 mod copy;
 mod download;
 pub(crate) mod dynamic_output;
+mod execution_group;
 pub(crate) mod run;
 mod unsorted;
 mod write;

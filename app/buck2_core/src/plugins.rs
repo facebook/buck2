@@ -26,36 +26,9 @@ use pagable::PagableSerializer;
 use static_interner::Intern;
 use static_interner::interner;
 
+use crate::bzl_global::BzlGlobalId;
 use crate::cells::cell_path::CellPath;
 use crate::target::label::label::TargetLabel;
-
-#[derive(
-    Clone,
-    Pagable,
-    strong_hash::StrongHash,
-    Debug,
-    Display,
-    Eq,
-    PartialEq,
-    Hash,
-    Ord,
-    PartialOrd,
-    Allocative
-)]
-#[display("{name}")]
-struct PluginKindInner {
-    // The name and cell path aren't used for anything except that they serve as a unique identifier
-    // for the plugin kind. This allows us to treat `plugins.kind()` as if it returns a new value
-    // each time it's invoked.
-    name: String,
-    cell: CellPath,
-}
-
-impl<'a> From<&'a PluginKindInner> for PluginKindInner {
-    fn from(x: &'a PluginKindInner) -> Self {
-        x.clone()
-    }
-}
 
 #[derive(
     Clone,
@@ -71,21 +44,16 @@ impl<'a> From<&'a PluginKindInner> for PluginKindInner {
     strong_hash::StrongHash,
     Pagable
 )]
-pub struct PluginKind(Intern<PluginKindInner>);
-
-interner!(PLUGIN_KIND_INTERNER, BuckHasher, PluginKindInner);
+pub struct PluginKind(BzlGlobalId);
 
 impl PluginKind {
     /// Creates a new `PluginKind` instance.
     pub fn new(name: String, cell: CellPath) -> Self {
-        // FIXME(JakobDegen): Interning is overkill here, this is never called with the same
-        // arguments twice. However, we do want pointer equality and pre-hashing, is there an easier
-        // way to get that?
-        Self(PLUGIN_KIND_INTERNER.intern(PluginKindInner { name, cell }))
+        Self(BzlGlobalId::new(name, cell))
     }
 
     pub fn as_str(&self) -> &str {
-        &self.0.deref_static().name
+        self.0.name()
     }
 }
 
@@ -351,5 +319,132 @@ impl PluginListsBuilder {
 
     pub fn freeze(self) -> PluginLists {
         PluginLists(self.0.into_iter().map(|(k, v)| (k, v.freeze())).collect())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::hash::DefaultHasher;
+    use std::hash::Hash;
+    use std::hash::Hasher;
+
+    use allocative::Allocative;
+    use buck2_hash::BuckHasher;
+    use derive_more::Display;
+    use pagable::Pagable;
+    use pagable::PagableDeserialize;
+    use pagable::PagableSerialize;
+    use pagable::testing::TestingDeserializer;
+    use pagable::testing::TestingSerializer;
+    use static_interner::Intern;
+    use static_interner::interner;
+    use strong_hash::StrongHash;
+
+    use super::PluginKind;
+    use crate::cells::cell_path::CellPath;
+
+    /// A `PluginKind` defined directly over its own interned `{ name, cell }`, which
+    /// `PluginKind` must stay indistinguishable from.
+    #[derive(
+        Clone,
+        Pagable,
+        strong_hash::StrongHash,
+        Debug,
+        Display,
+        Eq,
+        PartialEq,
+        Hash,
+        Ord,
+        PartialOrd,
+        Allocative
+    )]
+    #[display("{name}")]
+    struct DirectInner {
+        name: String,
+        cell: CellPath,
+    }
+
+    impl<'a> From<&'a DirectInner> for DirectInner {
+        fn from(x: &'a DirectInner) -> Self {
+            x.clone()
+        }
+    }
+
+    interner!(DIRECT_INTERNER, BuckHasher, DirectInner);
+
+    fn direct(name: &str, cell: &str) -> Intern<DirectInner> {
+        DIRECT_INTERNER.intern(DirectInner {
+            name: name.to_owned(),
+            cell: CellPath::testing_new(cell),
+        })
+    }
+
+    fn kind(name: &str, cell: &str) -> PluginKind {
+        PluginKind::new(name.to_owned(), CellPath::testing_new(cell))
+    }
+
+    fn std_hash(v: &impl Hash) -> u64 {
+        let mut h = DefaultHasher::new();
+        v.hash(&mut h);
+        h.finish()
+    }
+
+    fn strong_hash(v: &impl StrongHash) -> u64 {
+        let mut h = DefaultHasher::new();
+        v.strong_hash(&mut h);
+        h.finish()
+    }
+
+    fn serialize(v: &impl PagableSerialize) -> Vec<u8> {
+        let mut ser = TestingSerializer::new();
+        v.pagable_serialize(&mut ser).unwrap();
+        ser.finish()
+    }
+
+    #[test]
+    fn test_plugin_kind_matches_direct_interned_identity() {
+        let k = kind("python", "root//defs.bzl");
+        let d = direct("python", "root//defs.bzl");
+
+        assert_eq!(k.to_string(), d.to_string(), "Display is the name");
+        assert_eq!(k.as_str(), "python");
+        assert_eq!(std_hash(&k), std_hash(&d), "Hash is the interned pre-hash");
+        assert_eq!(
+            strong_hash(&k),
+            strong_hash(&d),
+            "StrongHash covers name then cell"
+        );
+
+        let from_direct =
+            PluginKind::pagable_deserialize(&mut TestingDeserializer::new(&serialize(&d))).unwrap();
+        assert_eq!(
+            from_direct, k,
+            "the direct form deserializes as the same kind"
+        );
+        let to_direct = Intern::<DirectInner>::pagable_deserialize(&mut TestingDeserializer::new(
+            &serialize(&k),
+        ))
+        .unwrap();
+        assert_eq!(to_direct, d, "a kind deserializes as the same direct value");
+    }
+
+    #[test]
+    fn test_plugin_kind_identity_and_order() {
+        let a = kind("a", "root//x.bzl");
+        let b_x = kind("b", "root//x.bzl");
+        let b_y = kind("b", "root//y.bzl");
+
+        assert_eq!(a, kind("a", "root//x.bzl"));
+        assert_ne!(b_x, b_y, "the defining file is part of the identity");
+        assert_eq!(
+            [&a, &b_x, &b_y].map(|k| k.cmp(&b_x)),
+            [
+                direct("a", "root//x.bzl"),
+                direct("b", "root//x.bzl"),
+                direct("b", "root//y.bzl")
+            ]
+            .map(|d| d.cmp(&direct("b", "root//x.bzl"))),
+            "Ord compares the name, then the cell"
+        );
     }
 }

@@ -423,7 +423,7 @@ impl<'d, T> DiceTaskRef<'d, T> {
         let internal = &*self.internal;
         if internal
             .strong_count
-            .fetch_update(Ordering::Relaxed, Ordering::Acquire, |v| {
+            .try_update(Ordering::Relaxed, Ordering::Acquire, |v| {
                 if v == 0 { None } else { Some(v + 1) }
             })
             .is_ok()
@@ -450,7 +450,7 @@ impl<'d, T> DiceTaskRef<'d, T> {
         // until we confirm that we are actually the restarter.
         if internal
             .strong_count
-            .fetch_update(Ordering::Relaxed, Ordering::Acquire, |v| {
+            .try_update(Ordering::Relaxed, Ordering::Acquire, |v| {
                 if v == 0 { None } else { Some(v + 1) }
             })
             .is_ok()
@@ -644,7 +644,7 @@ impl<'d, T> DiceTaskRef<'d, T> {
         if self
             .internal
             .strong_count
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |v| {
+            .try_update(Ordering::Relaxed, Ordering::Relaxed, |v| {
                 if v == 1 { None } else { Some(v - 1) }
             })
             .is_ok()

@@ -49,6 +49,10 @@ pub mod attributes {
     /// The resolved execution platform for this node.
     pub const EXECUTION_PLATFORM: &'static str = "buck.execution_platform";
 
+    /// The resolved execution platform of each named execution group of this node. Only present
+    /// for nodes whose rule declares named execution groups.
+    pub const EXECUTION_GROUP_PLATFORMS: &'static str = "buck.exec_group_platforms";
+
     /// The resolved target configuration for this node.
     pub const TARGET_CONFIGURATION: &'static str = "buck.target_configuration";
 

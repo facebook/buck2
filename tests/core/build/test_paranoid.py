@@ -109,8 +109,9 @@ class ParanoidTest(BuckTestCase):
                 f"test.cache_buster={random_string()}",
             ]
 
+        # The local leg blocks until killed, so only the failing remote leg can finish.
         await expect_failure(
-            buck.build(*args()),
+            buck.build(*args(), "-c", "test.block_locally=true"),
             stderr_regex="Remote command returned non-zero exit code 1",
         )
 

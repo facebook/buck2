@@ -179,67 +179,7 @@ fn strip_cfg_into(
                                 macr,
                             ) => buck2_node::attrs::attr_type::arg::StringWithMacrosPart::Macro(
                                 *write_to_file,
-                                match macr {
-                                    buck2_node::attrs::attr_type::arg::MacroBase::Location {
-                                        label,
-                                        dep_kind,
-                                    } => buck2_node::attrs::attr_type::arg::MacroBase::Location {
-                                        label: label.unconfigured(),
-                                        dep_kind: *dep_kind,
-                                    },
-                                    buck2_node::attrs::attr_type::arg::MacroBase::Exe {
-                                        label,
-                                        exec_dep,
-                                    } => buck2_node::attrs::attr_type::arg::MacroBase::Exe {
-                                        label: label.unconfigured(),
-                                        exec_dep: *exec_dep,
-                                    },
-                                    buck2_node::attrs::attr_type::arg::MacroBase::UserUnkeyedPlaceholder(
-                                        var_name,
-                                    ) => {
-                                        buck2_node::attrs::attr_type::arg::MacroBase::UserUnkeyedPlaceholder(
-                                            var_name.clone(),
-                                        )
-                                    }
-                                    buck2_node::attrs::attr_type::arg::MacroBase::UserKeyedPlaceholder(
-                                        box_value,
-                                    ) => {
-                                        let (var_name, target, arg) = &**box_value;
-                                        buck2_node::attrs::attr_type::arg::MacroBase::UserKeyedPlaceholder(
-                                            Box::new((var_name.clone(), target.unconfigured(), arg.clone())),
-                                        )
-                                    }
-                                    buck2_node::attrs::attr_type::arg::MacroBase::Query(
-                                        query_macro,
-                                    ) => {
-                                        buck2_node::attrs::attr_type::arg::MacroBase::Query(
-                                            Box::new(
-                                                buck2_node::attrs::attr_type::query::QueryMacroBase {
-                                                    expansion_type: query_macro
-                                                        .expansion_type
-                                                        .clone(),
-                                                    query: buck2_node::attrs::attr_type::query::QueryAttrBase {
-                                                        query: query_macro.query.query.clone(),
-                                                        resolved_literals: buck2_node::attrs::attr_type::query::ResolvedQueryLiterals(
-                                                            query_macro
-                                                                .query
-                                                                .resolved_literals
-                                                                .0
-                                                                .iter()
-                                                                .map(|(k, v)| (*k, v.unconfigured()))
-                                                                .collect(),
-                                                        ),
-                                                    },
-                                                },
-                                            ),
-                                        )
-                                    }
-                                    buck2_node::attrs::attr_type::arg::MacroBase::Source(path) => {
-                                        buck2_node::attrs::attr_type::arg::MacroBase::Source(
-                                            path.clone(),
-                                        )
-                                    }
-                                },
+                                unconfigure_macro(macr),
                             ),
                         })
                         .collect::<Vec<_>>()
@@ -403,6 +343,10 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     /// You should store the result of this function call for further usage in the code rather than calling
     /// `attrs_eager()` each time you need to access the attrs.
     ///
+    /// The result includes the special attributes (those that start with `buck.`, as in
+    /// `buck2 cquery -A`). `buck.exec_group_platforms` is present only for targets whose rule
+    /// declares named execution groups.
+    ///
     /// Right now, it is not recommended to use this method. Instead, use `get_attr` and `get_attrs` methods.
     /// We will deprecate this method in the future.
     ///
@@ -448,6 +392,10 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     /// You should store the result of this function call for further usage in the code rather than calling
     /// `attrs_lazy()` each time to get the `lazy_attrs` object. Note that if the `get()` is `None`,
     /// then any methods called on `None` will result in an error.
+    ///
+    /// `get()` also returns the special attributes (those that start with `buck.`, as in
+    /// `buck2 cquery -A`). `buck.exec_group_platforms` is present only for targets whose rule
+    /// declares named execution groups.
     ///
     /// Right now, it is not recommended to use this method. Instead, use `get_attr` and `get_attrs` methods.
     /// We will deprecate this method in the future.
@@ -1096,5 +1044,63 @@ fn lazy_resolved_attrs_methods(builder: &mut MethodsBuilder) {
                 }
             },
         )
+    }
+}
+
+fn unconfigure_macro(
+    macr: &buck2_node::attrs::attr_type::arg::ConfiguredMacro,
+) -> buck2_node::attrs::attr_type::arg::UnconfiguredMacro {
+    match macr {
+        buck2_node::attrs::attr_type::arg::MacroBase::Location { label, dep_kind } => {
+            buck2_node::attrs::attr_type::arg::MacroBase::Location {
+                label: label.unconfigured(),
+                dep_kind: *dep_kind,
+            }
+        }
+        buck2_node::attrs::attr_type::arg::MacroBase::Exe { label, exec_dep } => {
+            buck2_node::attrs::attr_type::arg::MacroBase::Exe {
+                label: label.unconfigured(),
+                exec_dep: *exec_dep,
+            }
+        }
+        buck2_node::attrs::attr_type::arg::MacroBase::UserUnkeyedPlaceholder(var_name) => {
+            buck2_node::attrs::attr_type::arg::MacroBase::UserUnkeyedPlaceholder(var_name.clone())
+        }
+        buck2_node::attrs::attr_type::arg::MacroBase::UserKeyedPlaceholder(box_value) => {
+            let (var_name, target, arg) = &**box_value;
+            buck2_node::attrs::attr_type::arg::MacroBase::UserKeyedPlaceholder(Box::new((
+                var_name.clone(),
+                target.unconfigured(),
+                arg.clone(),
+            )))
+        }
+        buck2_node::attrs::attr_type::arg::MacroBase::Query(query_macro) => {
+            buck2_node::attrs::attr_type::arg::MacroBase::Query(Box::new(
+                buck2_node::attrs::attr_type::query::QueryMacroBase {
+                    expansion_type: query_macro.expansion_type.clone(),
+                    query: buck2_node::attrs::attr_type::query::QueryAttrBase {
+                        query: query_macro.query.query.clone(),
+                        resolved_literals:
+                            buck2_node::attrs::attr_type::query::ResolvedQueryLiterals(
+                                query_macro
+                                    .query
+                                    .resolved_literals
+                                    .0
+                                    .iter()
+                                    .map(|(k, v)| (*k, v.unconfigured()))
+                                    .collect(),
+                            ),
+                    },
+                },
+            ))
+        }
+        buck2_node::attrs::attr_type::arg::MacroBase::Source(path) => {
+            buck2_node::attrs::attr_type::arg::MacroBase::Source(path.clone())
+        }
+        // The group comes from the attribute type at configuration, so the coerced macro is
+        // the ungrouped one.
+        buck2_node::attrs::attr_type::arg::MacroBase::InGroup(in_group) => {
+            unconfigure_macro(&in_group.0)
+        }
     }
 }

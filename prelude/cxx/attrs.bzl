@@ -574,7 +574,7 @@ cxx_common = struct(
 
 BUILD_INFO_ATTR = attrs.dict(
     key = attrs.string(),
-    value = attrs.option(attrs.any()),
+    value = attrs.option(attrs.one_of(attrs.string(), attrs.int(), attrs.bool(), attrs.list(attrs.string()))),
     sorted = False,
     default = {},
     doc = "Build info that is passed along here will be late-stamped into a fb_build_info section on the output binary",

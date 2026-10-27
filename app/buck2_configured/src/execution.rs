@@ -35,14 +35,18 @@ use buck2_core::execution_types::execution::ExecutionPlatformResolutionPartial;
 use buck2_core::execution_types::execution_platforms::ExecutionPlatformFallback;
 use buck2_core::execution_types::execution_platforms::ExecutionPlatforms;
 use buck2_core::execution_types::execution_platforms::ExecutionPlatformsData;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_core::target::target_configured_target_label::TargetConfiguredTargetLabel;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use buck2_hash::BuckFixedSortedMap;
+use buck2_hash::BuckMutInsertionMap;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
+use buck2_node::attrs::spec::AttributeId;
 use buck2_node::attrs::spec::internal::EXEC_COMPATIBLE_WITH_ATTRIBUTE;
 use buck2_node::cfg_constructor::CFG_CONSTRUCTOR_CALCULATION_IMPL;
 use buck2_node::cfg_constructor::CfgConstructorModifiers;
@@ -50,6 +54,8 @@ use buck2_node::configuration::calculation::CellNameForConfigurationResolution;
 use buck2_node::configuration::resolved::ConfigurationSettingKey;
 use buck2_node::configuration::resolved::MatchedConfigurationSettingKeysWithCfg;
 use buck2_node::execution::EXECUTION_PLATFORMS_BUCKCONFIG;
+use buck2_node::execution::ExecutionPlatformCandidateOutcomes;
+use buck2_node::execution::ExecutionPlatformDiagnosis;
 use buck2_node::execution::GET_EXECUTION_PLATFORMS;
 use buck2_node::execution::GetExecutionPlatforms;
 use buck2_node::execution::GetExecutionPlatformsImpl;
@@ -57,6 +63,7 @@ use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNodeRef;
+use buck2_node::rule::RuleExecutionGroup;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::EqualityBehavior;
@@ -75,6 +82,7 @@ use pagable::pagable_typetag;
 use crate::configuration::compute_platform_cfgs;
 use crate::configuration::get_matched_cfg_keys;
 use crate::configuration::get_matched_cfg_keys_for_node;
+use crate::nodes::CheckVisibility;
 use crate::nodes::GatheredDeps;
 use crate::nodes::LookingUpConfiguredNodeContext;
 use crate::nodes::compute_configured_node_preamble;
@@ -225,40 +233,85 @@ impl ExecutionPlatformConstraints {
         gathered_deps: &GatheredDeps,
         cfg_ctx: &(dyn AttrConfigurationContext + Sync),
     ) -> buck2_error::Result<Self> {
-        let exec_compatible_with: Arc<[_]> = if let Some(a) =
-            node.known_attr_or_none(EXEC_COMPATIBLE_WITH_ATTRIBUTE.id, AttrInspectOptions::All)
-        {
+        Self::new_for_deps(
+            node,
+            &gathered_deps.exec_deps,
+            &gathered_deps.toolchain_deps,
+            node.default_exec_compatible_with_attr(),
+            cfg_ctx,
+        )
+    }
+
+    /// The constraints that select the execution platform of the named execution group `group`:
+    /// the target's `exec_compatible_with`, the group's `attrs.exec_compatible_with()` attribute,
+    /// and the deps in the group.
+    fn for_execution_group(
+        node: TargetNodeRef,
+        gathered_deps: &GatheredDeps,
+        group: &RuleExecutionGroup,
+        cfg_ctx: &(dyn AttrConfigurationContext + Sync),
+    ) -> buck2_error::Result<Self> {
+        match gathered_deps.execution_group_deps.get(&group.group) {
+            Some(group_deps) => Self::new_for_deps(
+                node,
+                &group_deps.exec_deps,
+                &group_deps.toolchain_deps,
+                group.exec_compatible_with_attr,
+                cfg_ctx,
+            ),
+            None => Self::new_for_deps(
+                node,
+                &BuckMutInsertionMap::default(),
+                &BuckMutInsertionSet::default(),
+                group.exec_compatible_with_attr,
+                cfg_ctx,
+            ),
+        }
+    }
+
+    /// `extra_exec_compatible_with_attr` is a rule attribute with further constraints, as
+    /// created by `attrs.exec_compatible_with()`.
+    fn new_for_deps(
+        node: TargetNodeRef,
+        exec_deps: &BuckMutInsertionMap<ConfiguredProvidersLabel, CheckVisibility>,
+        toolchain_deps: &BuckMutInsertionSet<TargetConfiguredTargetLabel>,
+        extra_exec_compatible_with_attr: Option<AttributeId>,
+        cfg_ctx: &(dyn AttrConfigurationContext + Sync),
+    ) -> buck2_error::Result<Self> {
+        let internal_attr =
+            node.known_attr_or_none(EXEC_COMPATIBLE_WITH_ATTRIBUTE.id, AttrInspectOptions::All);
+        let extra_attr = extra_exec_compatible_with_attr
+            .and_then(|id| node.known_attr_or_none(id, AttrInspectOptions::All));
+        let has_extra_attr = extra_attr.is_some();
+        let mut exec_compatible_with = Vec::new();
+        for a in internal_attr.into_iter().chain(extra_attr) {
+            let name = a.name;
             let configured_attr = a
                 .configure(cfg_ctx)
                 .with_buck_error_context(|| {
-                    format!(
-                        "Error configuring attribute `{}` to resolve execution platform",
-                        EXEC_COMPATIBLE_WITH_ATTRIBUTE.name
-                    )
+                    format!("Error configuring attribute `{name}` to resolve execution platform")
                 })
                 .require_compatible()?;
-            ConfiguredTargetNode::attr_as_target_compatible_with(configured_attr.value)
-                .map(|label| {
-                    label.with_buck_error_context(|| {
-                        format!("attribute `{}`", EXEC_COMPATIBLE_WITH_ATTRIBUTE.name)
-                    })
-                })
-                .collect::<Result<_, _>>()?
-        } else {
-            Arc::new([])
-        };
+            for label in ConfiguredTargetNode::attr_as_target_compatible_with(configured_attr.value)
+            {
+                exec_compatible_with
+                    .push(label.with_buck_error_context(|| format!("attribute `{name}`"))?);
+            }
+        }
+        if has_extra_attr {
+            // Equal constraint sets share the resolution key whatever order the two attributes
+            // list them in.
+            exec_compatible_with.sort();
+            exec_compatible_with.dedup();
+        }
+        let exec_compatible_with: Arc<[_]> = exec_compatible_with.into();
 
         Ok(Self::new_constraints(
-            gathered_deps
-                .exec_deps
+            exec_deps
                 .iter()
                 .map(|c| c.0.target().unconfigured().dupe())
                 .collect(),
-            gathered_deps
-                .toolchain_deps
-                .iter()
-                .map(|c| c.dupe())
-                .collect(),
+            toolchain_deps.iter().map(|c| c.dupe()).collect(),
             exec_compatible_with,
         ))
     }
@@ -451,6 +504,33 @@ pub(crate) async fn resolve_execution_platform(
     gathered_deps: &GatheredDeps,
     cfg_ctx: &(dyn AttrConfigurationContext + Sync),
 ) -> buck2_error::Result<ExecutionPlatformResolutionPartial> {
+    resolve_execution_platform_with_constraints(ctx, node, matched_cfg_keys, || {
+        ExecutionPlatformConstraints::new(node, gathered_deps, cfg_ctx)
+    })
+    .await
+}
+
+/// Resolves the execution platform of a named execution group from the deps in that group.
+pub(crate) async fn resolve_execution_group_platform(
+    ctx: &mut DiceComputations<'_>,
+    node: TargetNodeRef<'_>,
+    matched_cfg_keys: &MatchedConfigurationSettingKeysWithCfg,
+    gathered_deps: &GatheredDeps,
+    group: &RuleExecutionGroup,
+    cfg_ctx: &(dyn AttrConfigurationContext + Sync),
+) -> buck2_error::Result<ExecutionPlatformResolutionPartial> {
+    resolve_execution_platform_with_constraints(ctx, node, matched_cfg_keys, || {
+        ExecutionPlatformConstraints::for_execution_group(node, gathered_deps, group, cfg_ctx)
+    })
+    .await
+}
+
+async fn resolve_execution_platform_with_constraints(
+    ctx: &mut DiceComputations<'_>,
+    node: TargetNodeRef<'_>,
+    matched_cfg_keys: &MatchedConfigurationSettingKeysWithCfg,
+    constraints: impl FnOnce() -> buck2_error::Result<ExecutionPlatformConstraints>,
+) -> buck2_error::Result<ExecutionPlatformResolutionPartial> {
     // If no execution platforms are configured, we fall back to the legacy execution
     // platform behavior. We currently only support legacy execution platforms. That behavior is that there is a
     // single executor config (the fallback config) and the execution platform is in the same
@@ -464,8 +544,7 @@ pub(crate) async fn resolve_execution_platform(
         ));
     };
 
-    let constraints = ExecutionPlatformConstraints::new(node, gathered_deps, cfg_ctx)?;
-    constraints
+    constraints()?
         .one_for_cell(
             ctx,
             CellNameForConfigurationResolution(node.label().pkg().cell_name()),
@@ -981,8 +1060,8 @@ impl Key for ExecutionPlatformsKey {
 struct Diagnose;
 
 impl ResolutionMode for Diagnose {
-    type Accumulator = Vec<(String, Result<(), ExecutionPlatformIncompatibleReason>)>;
-    type Output = Vec<(String, Result<(), ExecutionPlatformIncompatibleReason>)>;
+    type Accumulator = ExecutionPlatformCandidateOutcomes;
+    type Output = ExecutionPlatformCandidateOutcomes;
 
     fn visit(
         mut accumulator: Self::Accumulator,
@@ -1011,7 +1090,7 @@ impl ResolutionMode for Diagnose {
 async fn diagnose_execution_platform_resolution(
     ctx: &mut DiceComputations<'_>,
     target: &TargetConfiguredTargetLabel,
-) -> buck2_error::Result<Vec<(String, Result<(), ExecutionPlatformIncompatibleReason>)>> {
+) -> buck2_error::Result<ExecutionPlatformDiagnosis> {
     let node = ctx.get_target_node(target.unconfigured()).await?;
     let mut preamble = compute_configured_node_preamble(ctx, target.inner(), &node)
         .await
@@ -1021,12 +1100,44 @@ async fn diagnose_execution_platform_resolution(
         .require_compatible()?;
 
     let cfg_ctx = preamble.attr_cfg_ctx(target.inner());
-    let constraints =
-        ExecutionPlatformConstraints::new(node.as_ref(), &preamble.gathered_deps, &cfg_ctx)?;
+    let cell = CellNameForConfigurationResolution(target.pkg().cell_name());
+    let default =
+        match ExecutionPlatformConstraints::new(node.as_ref(), &preamble.gathered_deps, &cfg_ctx) {
+            Ok(constraints) => diagnose_constraints(ctx, cell, &constraints).await,
+            Err(e) => Err(e),
+        };
 
+    let gathered_deps = &preamble.gathered_deps;
+    let cfg_ctx = &cfg_ctx;
+    let execution_groups = ctx
+        .compute_join(node.execution_groups(), async |ctx, group| {
+            let outcomes = match ExecutionPlatformConstraints::for_execution_group(
+                node.as_ref(),
+                gathered_deps,
+                group,
+                cfg_ctx,
+            ) {
+                Ok(constraints) => diagnose_constraints(ctx, cell, &constraints).await,
+                Err(e) => Err(e),
+            };
+            (group.group.dupe(), outcomes)
+        })
+        .await;
+
+    Ok(ExecutionPlatformDiagnosis {
+        default,
+        execution_groups,
+    })
+}
+
+async fn diagnose_constraints(
+    ctx: &mut DiceComputations<'_>,
+    cell: CellNameForConfigurationResolution,
+    constraints: &ExecutionPlatformConstraints,
+) -> buck2_error::Result<ExecutionPlatformCandidateOutcomes> {
     resolve_execution_platform_candidates::<Diagnose>(
         ctx,
-        CellNameForConfigurationResolution(target.pkg().cell_name()),
+        cell,
         &constraints.exec_compatible_with,
         &constraints.exec_deps,
         &constraints.toolchain_deps,
@@ -1075,7 +1186,7 @@ impl GetExecutionPlatformsImpl for GetExecutionPlatformsInstance {
         &self,
         dice: &mut DiceComputations<'_>,
         target: &TargetConfiguredTargetLabel,
-    ) -> buck2_error::Result<Vec<(String, Result<(), ExecutionPlatformIncompatibleReason>)>> {
+    ) -> buck2_error::Result<ExecutionPlatformDiagnosis> {
         diagnose_execution_platform_resolution(dice, target).await
     }
 }

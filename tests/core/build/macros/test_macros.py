@@ -38,7 +38,7 @@ class MacrosTest(BuckTestCase):
     async def test_no_dep_in_source(self, buck: Buck) -> None:
         await expect_failure(
             buck.build("//dep_as_source:uses_dep"),
-            stderr_regex="Source file `:trivial` does not exist",
+            stderr_regex="File not found: `root//dep_as_source/:trivial`",
         )
 
     @buck_test(allow_soft_errors=True)

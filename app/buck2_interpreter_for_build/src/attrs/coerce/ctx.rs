@@ -19,6 +19,7 @@ use buck2_core::cells::CellResolver;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedRelativeDir;
 use buck2_core::cells::name::CellName;
+use buck2_core::is_open_source;
 use buck2_core::package::PackageLabel;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::package_relative_path::PackageRelativePathBuf;
@@ -29,7 +30,6 @@ use buck2_core::pattern::pattern_type::PatternType;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_core::soft_error;
 use buck2_node::attrs::arena::AttrToken;
 use buck2_node::attrs::arena::CoercedAttrArenaBuilder;
 use buck2_node::attrs::coerced_path::CoercedDirectory;
@@ -51,7 +51,6 @@ use dupe::IterDupedExt;
 use hashbrown::HashTable;
 use hashbrown::hash_table;
 use starlark::values::Value;
-use tracing::info;
 
 use crate::attrs::coerce::arc_str_interner::ArcStrInterner;
 use crate::attrs::coerce::str_hash::str_hash;
@@ -86,8 +85,6 @@ pub struct BuildAttrCoercionContext {
     enclosing_package: Option<(PackageLabel, PackageListing)>,
     /// This defines the limited scope in which we allow parsing patterns beginning with `../`
     current_dir_with_allowed_relative_dirs: CellPathWithAllowedRelativeDir,
-    /// Does this package (if present) have a package boundary exception on it.
-    package_boundary_exception: bool,
     /// Whether to infer a target name when a pattern does not provide one,
     /// making `//foo/bar` equivalent to `//foo/bar:bar`. Controlled by the
     /// `buck2.infer_target_names` buckconfig.
@@ -123,7 +120,6 @@ impl BuildAttrCoercionContext {
         cell_name: CellName,
         cell_alias_resolver: CellAliasResolver,
         enclosing_package: Option<(PackageLabel, PackageListing)>,
-        package_boundary_exception: bool,
         current_dir_with_allowed_relative_dirs: CellPathWithAllowedRelativeDir,
         infer_target_names: InferTargetNames,
     ) -> Self {
@@ -133,7 +129,6 @@ impl BuildAttrCoercionContext {
             cell_alias_resolver,
             enclosing_package,
             current_dir_with_allowed_relative_dirs,
-            package_boundary_exception,
             infer_target_names,
             alloc: Bump::new(),
             label_cache: RefCell::new(HashTable::new()),
@@ -171,7 +166,6 @@ impl BuildAttrCoercionContext {
             cell_name,
             cell_alias_resolver,
             None,
-            false,
             CellPathWithAllowedRelativeDir::backwards_relative_not_supported(CellPath::empty(
                 cell_name,
             )),
@@ -183,7 +177,6 @@ impl BuildAttrCoercionContext {
         cell_resolver: CellResolver,
         cell_alias_resolver: CellAliasResolver,
         enclosing_package: (PackageLabel, PackageListing),
-        package_boundary_exception: bool,
         current_dir_with_allowed_relative_dirs: CellPathWithAllowedRelativeDir,
         infer_target_names: InferTargetNames,
     ) -> Self {
@@ -192,7 +185,6 @@ impl BuildAttrCoercionContext {
             enclosing_package.0.cell_name(),
             cell_alias_resolver,
             Some(enclosing_package),
-            package_boundary_exception,
             current_dir_with_allowed_relative_dirs,
             infer_target_names,
         )
@@ -287,7 +279,6 @@ impl<'v> AttrCoercionContext<'v> for BuildAttrCoercionContext {
             return Ok(CoercedPath::File(path));
         }
 
-        // TODO: Make the warnings below into errors
         if let Some(path) = listing.get_dir(path) {
             if !allow_directory {
                 return Err(BuildAttrCoercionContextError::SourceFileIsDirectory(
@@ -295,17 +286,21 @@ impl<'v> AttrCoercionContext<'v> for BuildAttrCoercionContext {
                     value.to_owned(),
                 )
                 .into());
-            } else if let Some(subpackage) = listing.subpackages_within(&path).next() {
-                let e = BuildAttrCoercionContextError::SourceDirectoryIncludesSubPackage(
-                    package.dupe(),
-                    value.to_owned(),
-                    subpackage.to_owned(),
+            }
+            // FIXME(JakobDegen): A directory source that contains a subpackage should be an error
+            // here; as it is, it silently covers only this package's files. Internally this is
+            // tolerated for the same reason as a missing file; open source gets the error.
+            if is_open_source()
+                && let Some(subpackage) = listing.subpackages_within(&path).next()
+            {
+                return Err(
+                    BuildAttrCoercionContextError::SourceDirectoryIncludesSubPackage(
+                        package.dupe(),
+                        value.to_owned(),
+                        subpackage.to_owned(),
+                    )
+                    .into(),
                 );
-                if self.package_boundary_exception {
-                    info!("{} (could be due to a package boundary violation)", e);
-                } else {
-                    soft_error!("source_directory_includes_subpackage", e.into(), error_on_oss: true)?;
-                }
             }
             let files = listing.files_within(&path).duped().collect();
             Ok(CoercedPath::Directory(Box::new(CoercedDirectory {
@@ -313,14 +308,16 @@ impl<'v> AttrCoercionContext<'v> for BuildAttrCoercionContext {
                 files,
             })))
         } else {
-            let e =
-                BuildAttrCoercionContextError::SourceFileMissing(package.dupe(), value.to_owned());
-            if self.package_boundary_exception {
-                info!("{} (could be due to a package boundary violation)", e);
-            } else {
-                soft_error!("source_file_missing", e.into(), quiet: true, error_on_oss: true)?;
+            // FIXME(JakobDegen): A source file that is not in the package listing should be an
+            // error here, not only once something reads it. Internally it is tolerated because
+            // of misconfigured sparse checkouts; open source has no such excuse.
+            if is_open_source() {
+                return Err(BuildAttrCoercionContextError::SourceFileMissing(
+                    package.dupe(),
+                    value.to_owned(),
+                )
+                .into());
             }
-
             Ok(CoercedPath::File(path.to_arc()))
         }
     }

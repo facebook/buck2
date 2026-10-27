@@ -71,7 +71,6 @@ pub(crate) fn maybe_schedule_termination() -> buck2_error::Result<()> {
                 ),
                 quiet: false,
                 task: false,
-                error_on_oss: false
             );
             process::exit(1);
         })?;

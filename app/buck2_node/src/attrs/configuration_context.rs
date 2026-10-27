@@ -18,6 +18,8 @@ use buck2_core::configuration::pair::ConfigurationWithExec;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
+use buck2_core::execution_types::execution_group::ExecutionGroup;
+use buck2_core::execution_types::execution_group::NamedExecutionGroup;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
@@ -43,14 +45,13 @@ pub trait AttrConfigurationContext {
 
     fn cfg(&self) -> ConfigurationNoExec;
 
-    /// The target label whose attributes are being configured.
-    /// Used for diagnostics (select_first_match_differs soft error message).
-    // TODO(nero): clean this when we migrate to the first select match
-    fn target_label(&self) -> Option<&TargetLabel> {
+    fn base_exec_cfg(&self) -> buck2_error::Result<ConfigurationNoExec>;
+
+    /// The execution platform resolution of the target whose attributes are being configured,
+    /// when there is one.
+    fn execution_platform_resolution(&self) -> Option<&ExecutionPlatformResolution> {
         None
     }
-
-    fn base_exec_cfg(&self) -> buck2_error::Result<ConfigurationNoExec>;
 
     /// Must be equal to `(cfg, Some(exec_cfg))`.
     fn toolchain_cfg(&self) -> ConfigurationWithExec;
@@ -85,6 +86,24 @@ pub trait AttrConfigurationContext {
         // but its exec_deps are considered when picking an execution platform, and MUST
         // use the execution dependency of its parent.
         label.configure_pair(self.toolchain_cfg().cfg_pair().dupe())
+    }
+
+    /// Configure an exec dep that belongs to a named execution group.
+    fn configure_exec_target_in_group(
+        &self,
+        label: &ProvidersLabel,
+        _group: &NamedExecutionGroup,
+    ) -> buck2_error::Result<ConfiguredProvidersLabel> {
+        self.configure_exec_target(label)
+    }
+
+    /// Configure a toolchain dep that belongs to a named execution group.
+    fn configure_toolchain_target_in_group(
+        &self,
+        label: &ProvidersLabel,
+        _group: &NamedExecutionGroup,
+    ) -> buck2_error::Result<ConfiguredProvidersLabel> {
+        Ok(self.configure_toolchain_target(label))
     }
 
     /// Configure a transition target.
@@ -127,7 +146,6 @@ pub struct AttrConfigurationContextImpl<'b> {
     /// The execution platform resolution, which contains per-exec_dep configurations
     /// when in the Resolved state.
     execution_platform_resolution: &'b ExecutionPlatformResolution,
-    label: Option<TargetLabel>,
 }
 
 impl<'b> AttrConfigurationContextImpl<'b> {
@@ -137,7 +155,6 @@ impl<'b> AttrConfigurationContextImpl<'b> {
         execution_platform_resolution: &'b ExecutionPlatformResolution,
         resolved_transitions: &'b BuckFixedSortedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
         platform_cfgs: &'b BuckFixedSortedMap<TargetLabel, ConfigurationData>,
-        label: Option<TargetLabel>,
     ) -> AttrConfigurationContextImpl<'b> {
         let exec_cfg = execution_platform_resolution.base_cfg();
         AttrConfigurationContextImpl {
@@ -147,7 +164,6 @@ impl<'b> AttrConfigurationContextImpl<'b> {
             resolved_transitions,
             platform_cfgs,
             execution_platform_resolution,
-            label,
         }
     }
 }
@@ -159,10 +175,6 @@ impl AttrConfigurationContext for AttrConfigurationContextImpl<'_> {
 
     fn cfg(&self) -> ConfigurationNoExec {
         self.resolved_cfg.cfg().dupe()
-    }
-
-    fn target_label(&self) -> Option<&TargetLabel> {
-        self.label.as_ref()
     }
 
     fn incompatible_platform_reason(
@@ -179,6 +191,10 @@ impl AttrConfigurationContext for AttrConfigurationContextImpl<'_> {
         Ok(self.execution_platform_resolution.base_cfg())
     }
 
+    fn execution_platform_resolution(&self) -> Option<&ExecutionPlatformResolution> {
+        Some(self.execution_platform_resolution)
+    }
+
     fn configure_exec_target(
         &self,
         label: &ProvidersLabel,
@@ -187,6 +203,34 @@ impl AttrConfigurationContext for AttrConfigurationContextImpl<'_> {
             .execution_platform_resolution
             .cfg_for_exec_dep(label.target())?;
         Ok(label.configure(cfg))
+    }
+
+    fn configure_exec_target_in_group(
+        &self,
+        label: &ProvidersLabel,
+        group: &NamedExecutionGroup,
+    ) -> buck2_error::Result<ConfiguredProvidersLabel> {
+        let cfg = self
+            .execution_platform_resolution
+            .cfg_for_exec_dep_in_group(&ExecutionGroup::Named(group.dupe()), label.target())?;
+        Ok(label.configure(cfg))
+    }
+
+    fn configure_toolchain_target_in_group(
+        &self,
+        label: &ProvidersLabel,
+        group: &NamedExecutionGroup,
+    ) -> buck2_error::Result<ConfiguredProvidersLabel> {
+        let exec_cfg = self
+            .execution_platform_resolution
+            .base_cfg_for_group(&ExecutionGroup::Named(group.dupe()))?;
+        Ok(label.configure_pair(
+            self.resolved_cfg
+                .cfg()
+                .make_toolchain(&exec_cfg)
+                .cfg_pair()
+                .dupe(),
+        ))
     }
 
     fn toolchain_cfg(&self) -> ConfigurationWithExec {

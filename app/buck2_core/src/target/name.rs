@@ -20,7 +20,6 @@ use serde::Serialize;
 use strong_hash::StrongHash;
 
 use crate::ascii_char_set::AsciiCharSet;
-use crate::soft_error;
 
 pub const EQ_SIGN_SUBST: &str = "_eqsb_";
 
@@ -64,8 +63,6 @@ enum TargetNameError {
         _0
     )]
     FoundProvidersLabel(String),
-    #[error("Target name `{0}` has special character `{1}`, which is discouraged")]
-    LabelHasSpecialCharacter(String, char),
     #[error("Target name must not be equal to `...`")]
     DotDotDot,
     #[error("Target name `{0}` should not contain pattern: `{1}`")]
@@ -118,24 +115,7 @@ impl TargetName {
         if name == "..." {
             return Err(TargetNameError::DotDotDot.into());
         }
-        if name.contains(',') {
-            soft_error!(
-                "label_has_comma",
-                TargetNameError::LabelHasSpecialCharacter(name.to_owned(), ',').into(),
-                deprecation: true,
-                quiet: true,
-                error_on_oss: true
-            )?;
-        }
-        if name.contains('$') {
-            soft_error!(
-                "label_has_dollar_sign",
-                TargetNameError::LabelHasSpecialCharacter(name.to_owned(), '$').into(),
-                deprecation: true,
-                quiet: true,
-                error_on_oss: true
-            )?;
-        }
+        // FIXME(JakobDegen): `,` and `$` should not be allowed in target names.
 
         Ok(())
     }
@@ -267,7 +247,7 @@ mod tests {
         assert_eq!(
             // Copied allowed symbols from above.
             // `.`, `-`, `/`, `~`, `@`, `!`, `+` and `_`
-            // `,`, `$`, and `=` are currently soft errors and should eventually be removed.
+            // `,` and `$` are allowed but should not be, see the FIXME in `verify`.
             TargetName::new("foo.-/~@!+_1").unwrap(),
             TargetName(ThinArcStr::from("foo.-/~@!+_1"))
         );

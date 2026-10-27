@@ -20,6 +20,7 @@ use buck2_build_signals::env::NodeDuration;
 use buck2_build_signals::env::WaitingData;
 use buck2_common::events::HasEvents;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
+use buck2_core::execution_types::execution_group::ExecutionGroup;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_data::ActionErrorDiagnostics;
 use buck2_data::ActionSubErrors;
@@ -484,6 +485,10 @@ async fn build_action_inner(
             prepare_command_us: None,
             finish_action_us: None,
             graph_producers: None,
+            exec_group: match action.execution_group() {
+                Some(ExecutionGroup::Named(group)) => group.name().to_owned(),
+                Some(ExecutionGroup::Default) | None => String::new(),
+            },
         }),
     )
 }

@@ -23,6 +23,7 @@ use buck2_artifact::artifact::output_type::OutputType;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
+use buck2_core::execution_types::execution_group::ExecutionGroup;
 use buck2_core::fs::buck_out_path::BuckOutPathKind;
 use buck2_error::BuckErrorOptionContext;
 use buck2_error::internal_error;
@@ -63,6 +64,7 @@ use starlark::values::ValueTyped;
 use starlark::values::any_complex::StarlarkAnyComplex;
 use starlark::values::typing::StarlarkCallable;
 
+use crate::actions::ActionName;
 use crate::actions::RegisteredAction;
 use crate::actions::UnregisteredAction;
 use crate::actions::registry::ActionsRegistry;
@@ -265,6 +267,29 @@ impl<'v> AnalysisRegistry<'v> {
         let id = self
             .actions
             .register(&self.analysis_value_storage.self_key, outputs, action)?;
+        self.analysis_value_storage
+            .set_action_data(id, (associated_value, error_handler))?;
+        Ok(())
+    }
+
+    /// Like `register_action`, running the action on the execution platform of
+    /// `execution_group`. `action_name` names the action in registration errors.
+    pub fn register_action_in_group<A: UnregisteredAction + 'static>(
+        &mut self,
+        outputs: BuckMutInsertionSet<OutputArtifact>,
+        action: A,
+        associated_value: Option<Value<'v>>,
+        error_handler: Option<StarlarkCallable<'v>>,
+        execution_group: ExecutionGroup,
+        action_name: impl FnOnce() -> ActionName,
+    ) -> buck2_error::Result<()> {
+        let id = self.actions.register_in_group(
+            &self.analysis_value_storage.self_key,
+            outputs,
+            action,
+            execution_group,
+            action_name,
+        )?;
         self.analysis_value_storage
             .set_action_data(id, (associated_value, error_handler))?;
         Ok(())

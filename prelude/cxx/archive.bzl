@@ -156,4 +156,5 @@ def make_archive(
         artifact = archive,
         archive_contents_type = ArchiveContentsType(archive_contents),
         external_objects = objects,
+        hidden = hidden,
     )

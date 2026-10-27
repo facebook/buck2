@@ -360,7 +360,6 @@ impl InterpreterForDir {
         build_file: &BuildFilePath,
         package_listing: &PackageListing,
         super_package: SuperPackage,
-        package_boundary_exception: bool,
         loaded_modules: &LoadedModules,
     ) -> buck2_error::Result<(BuckStarlarkModule<'v>, ModuleInternals)> {
         let internals = self.global_state.configuror.new_extra_context(
@@ -368,7 +367,6 @@ impl InterpreterForDir {
             build_file.clone(),
             package_listing.dupe(),
             super_package,
-            package_boundary_exception,
             loaded_modules,
             self.package_import(build_file),
             self.current_dir_with_allowed_relative_dirs
@@ -687,7 +685,6 @@ impl InterpreterForDir {
         buckconfigs: &mut dyn BuckConfigsViewForStarlark,
         listing: PackageListing,
         super_package: SuperPackage,
-        package_boundary_exception: bool,
         ast: AstModule,
         loaded_modules: LoadedModules,
         eval_provider: StarlarkEvaluatorProvider,
@@ -698,14 +695,8 @@ impl InterpreterForDir {
         EvaluationResultWithStats,
     )> {
         BuckStarlarkModule::with_profiling(|env| {
-            let (env, internals) = self.create_build_env(
-                env,
-                build_file,
-                &listing,
-                super_package,
-                package_boundary_exception,
-                &loaded_modules,
-            )?;
+            let (env, internals) =
+                self.create_build_env(env, build_file, &listing, super_package, &loaded_modules)?;
             let buckconfig_key = BuckconfigKeyRef {
                 section: "buck2",
                 property: "check_starlark_peak_memory",

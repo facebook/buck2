@@ -21,6 +21,7 @@ load(
     "NodejsTreeInfo",
     "check_relative_path",
     "collect_packages",
+    "get_nodejs_data_deps",
     "get_nodejs_dep_infos",
     "get_nodejs_library_info",
     "get_nodejs_tree_info",
@@ -150,7 +151,8 @@ def stage_nodejs_entries(
             if existing != None and existing != main:
                 fail("{}: {} entries '{}' and '{}' both have the short path '{}'".format(ctx.label, mains_attr, existing, main, main.short_path))
             mains_by_path[main.short_path] = main
-    dep_infos = ([lib_info] if lib_info != None else []) + get_nodejs_dep_infos(ctx.attrs.deps, consumer_label = ctx.label)
+    dep_infos = ([lib_info] if lib_info != None else []) + get_nodejs_dep_infos(ctx.attrs.deps, consumer_label = ctx.label, allow_data = True)
+    data_deps = get_nodejs_data_deps(ctx.attrs.deps, consumer_label = ctx.label)
     tree_infos = nodejs_tree_infos(ctx, dep_infos)
     staged = {}
     if lib_info == None:
@@ -166,6 +168,11 @@ def stage_nodejs_entries(
         if existing != None and existing != resource:
             fail("{}: `resources` entry '{}' and {} entry '{}' both stage to '{}' in `[dir]`".format(ctx.label, resource, staged_attrs, existing, path))
         staged[path] = resource
+    for data_path, data in data_deps.items():
+        for path, existing in staged.items():
+            if path == data_path or path.startswith(data_path + "/") or data_path.startswith(path + "/"):
+                fail("{}: data dep '{}' at '{}' and {}/`resources` entry '{}' at '{}' overlap".format(ctx.label, data, data_path, staged_attrs, existing, path))
+    staged.update(data_deps)
     name = "app"
     if bundled_node:
         node_name, node_dist = bundled_node
@@ -190,7 +197,7 @@ def stage_nodejs_entries(
         root_files = staged,
         root_file_desc = "{}: {}/`resources` entry '{{artifact}}' at '{{path}}'".format(ctx.label, staged_attrs),
     )
-    runtime = staged_dir if dep_infos or tree_infos or bundled_node or stage or isinstance(ctx.attrs.resources, dict) else None
+    runtime = staged_dir if dep_infos or data_deps or tree_infos or bundled_node or stage or isinstance(ctx.attrs.resources, dict) else None
 
     hidden = []
     if lib_info != None:
@@ -312,6 +319,14 @@ nodejs_binary = prelude_rule(
     `[runtime]`), because Node's type stripping refuses declarations under
     `node_modules`. Transitive deps' package directories must be unique,
     as for `nodejs_library`.
+    A `deps` entry that is not a `nodejs_library` is a data dep: it must
+    have exactly one default output, which is staged at the dep's package
+    path in `[dir]`. A directory output, such as a `filegroup`'s, keeps its
+    files at their repository-relative paths (for a test that reads another
+    package's files); a single file becomes the file at that path. A data
+    dep cannot be a `nodejs_node_modules` tree, a runnable target or in the
+    root package, and its path must not be, contain or sit inside another
+    data dep's or a staged `main`, `srcs` or `resources` entry's path.
     `node_modules`, when unset, takes the third-party trees of `library`
     and `deps` (see `nodejs_library`'s `node_modules`); a list of
     `nodejs_node_modules` targets replaces them, and `[]` means none.

@@ -2494,6 +2494,10 @@ message ActionExecutionEnd {
   // before those were built. Inputs that arrive through a transitive set are
   // referenced by the set's id instead of being expanded.
   ActionGraphProducers graph_producers = 50;
+
+  // The name of the execution group the action ran in; empty for the default
+  // execution group.
+  string exec_group = 51;
 }
 
 enum IncrementalKind {

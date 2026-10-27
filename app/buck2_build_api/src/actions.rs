@@ -41,6 +41,7 @@ use buck2_core::category::Category;
 use buck2_core::category::CategoryRef;
 use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
+use buck2_core::execution_types::execution_group::ExecutionGroup;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
@@ -409,6 +410,21 @@ pub enum ActionErrors {
         "Analysis produced multiple actions with category `{0}` and at least one of them had no identifier. Add an identifier to these actions to disambiguate them"
     )]
     ActionCategoryDuplicateSingleton(Category),
+    #[error(
+        "Action with category `{category}`{identifier} runs in execution group `{group}`, which has no compatible execution platform. Run `buck2 audit execution-platform-resolution` on the target to see why each platform was skipped"
+    )]
+    NoExecutionPlatformForGroup {
+        category: String,
+        identifier: String,
+        group: String,
+    },
+}
+
+/// The category and identifier of an action, which name it in errors raised when it is
+/// registered.
+pub struct ActionName {
+    pub category: String,
+    pub identifier: Option<String>,
 }
 
 #[derive(Derivative, Debug, Display, Allocative, Pagable)]
@@ -422,7 +438,15 @@ pub struct RegisteredAction {
     action: Box<dyn Action>,
     #[derivative(Hash = "ignore", PartialEq = "ignore")]
     executor_config: Arc<CommandExecutorConfig>,
+    /// For actions of rules that declare named execution groups, the execution group whose
+    /// platform `executor_config` comes from; `None` for rules without named groups. Boxed so the
+    /// field is one word: only actions of rules with named groups allocate.
+    #[derivative(Hash = "ignore", PartialEq = "ignore")]
+    execution_group: Option<Box<ExecutionGroup>>,
 }
+
+// One word for the group keeps the `Arc` allocation in the same allocator size class.
+buck2_util::size_assert::words_of_type!(RegisteredAction, 8);
 
 impl RegisteredAction {
     pub fn new(
@@ -430,10 +454,20 @@ impl RegisteredAction {
         action: Box<dyn Action>,
         executor_config: Arc<CommandExecutorConfig>,
     ) -> Self {
+        Self::new_in_group(key, action, executor_config, None)
+    }
+
+    pub fn new_in_group(
+        key: ActionKey,
+        action: Box<dyn Action>,
+        executor_config: Arc<CommandExecutorConfig>,
+        execution_group: Option<ExecutionGroup>,
+    ) -> Self {
         Self {
             key,
             action,
             executor_config,
+            execution_group: execution_group.map(Box::new),
         }
     }
 
@@ -469,6 +503,10 @@ impl RegisteredAction {
         &self.executor_config
     }
 
+    pub fn execution_group(&self) -> Option<&ExecutionGroup> {
+        self.execution_group.as_deref()
+    }
+
     pub fn category(&self) -> CategoryRef<'_> {
         self.action.category()
     }
@@ -497,6 +535,7 @@ struct ActionToBeRegistered {
     key: ActionKey,
     outputs: BuckMutInsertionSet<BuildArtifact>,
     action: Box<dyn UnregisteredAction>,
+    execution_group: ExecutionGroup,
 }
 
 impl ActionToBeRegistered {
@@ -504,11 +543,13 @@ impl ActionToBeRegistered {
         key: ActionKey,
         outputs: BuckMutInsertionSet<BuildArtifact>,
         a: A,
+        execution_group: ExecutionGroup,
     ) -> Self {
         Self {
             key,
             outputs,
             action: Box::new(a),
+            execution_group,
         }
     }
 

@@ -95,9 +95,8 @@ pub(crate) trait UqueryDelegate: Send + Sync {
 
     async fn eval_file_literal(&self, literal: &str) -> buck2_error::Result<FileSet>;
 
-    // Get all enclosing packages needed to compute owner function.
-    // This always includes the immediate enclosing package of the path but can also include
-    // all parent packages if the package matches `project.package_boundary_exceptions` buckconfig.
+    // Every package enclosing the path, not only the nearest one, since a target may name
+    // sources from a directory that is itself a package.
     async fn get_enclosing_packages(
         &self,
         path: &CellPath,

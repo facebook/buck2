@@ -329,7 +329,6 @@ impl Tester {
             &mut buckconfigs,
             package_listing,
             SuperPackage::empty::<SuperPackageValuesImpl>()?,
-            false,
             ast,
             loaded_modules,
             provider,

@@ -69,6 +69,7 @@ use crate::configuration::resolved::ConfigurationSettingKey;
 use crate::configuration::resolved::MatchedConfigurationSettingKeys;
 use crate::configuration::resolved::MatchedConfigurationSettingKeysWithCfg;
 use crate::nodes::attributes::DEPS;
+use crate::nodes::attributes::EXECUTION_GROUP_PLATFORMS;
 use crate::nodes::attributes::EXECUTION_PLATFORM;
 use crate::nodes::attributes::ONCALL;
 use crate::nodes::attributes::PACKAGE;
@@ -688,7 +689,6 @@ impl<'a> ConfiguredTargetNodeRef<'a> {
             &self.0.get().execution_platform_resolution,
             &self.0.get().resolved_transition_configurations,
             &self.0.get().platform_cfgs,
-            Some(self.0.get().label.key().unconfigured().dupe()),
         )
     }
 
@@ -728,9 +728,31 @@ impl<'a> ConfiguredTargetNodeRef<'a> {
                     .platform()
                     .map_or_else(|_| ArcStr::from("<NONE>"), |v| ArcStr::from(v.id())),
             ))),
+            EXECUTION_GROUP_PLATFORMS => self.execution_group_platforms_as_attr(),
             PLUGINS => Some(self.plugins_as_attr()),
             _ => None,
         }
+    }
+
+    fn execution_group_platforms_as_attr(self) -> Option<ConfiguredAttr> {
+        let resolution = &self.0.execution_platform_resolution;
+        if !resolution.has_execution_groups() {
+            return None;
+        }
+        Some(ConfiguredAttr::Dict(
+            resolution
+                .execution_group_platforms()
+                .map(|(group, platform, _)| {
+                    (
+                        ConfiguredAttr::String(StringLiteral(ArcStr::from(group.name()))),
+                        ConfiguredAttr::String(StringLiteral(
+                            platform
+                                .map_or_else(|| ArcStr::from("<NONE>"), |p| ArcStr::from(p.id())),
+                        )),
+                    )
+                })
+                .collect(),
+        ))
     }
 
     pub fn special_attrs(self) -> impl Iterator<Item = (&'a str, ConfiguredAttr)> {
@@ -751,6 +773,10 @@ impl<'a> ConfiguredTargetNodeRef<'a> {
                 self.special_attr_or_none(key).unwrap(),
             )
         })
+        .chain(
+            self.execution_group_platforms_as_attr()
+                .map(|v| (EXECUTION_GROUP_PLATFORMS, v)),
+        )
     }
 
     /// Not implemented via [`Self::filter_attrs`]: the trivial filter would

@@ -1725,6 +1725,7 @@ impl RemoteExecutionClientImpl {
                             ..Default::default()
                         },
                         host_resource_requirements: THostResourceRequirements {
+                            input_files_bytes: identity.paths.input_files_bytes() as i64,
                             resource_units: gang.resource_units.map(i64::from).unwrap_or_default(),
                             ..Default::default()
                         },
@@ -1781,6 +1782,10 @@ impl RemoteExecutionClientImpl {
                         host_runtime_requirements: THostRuntimeRequirements {
                             platform: remote_execution::TPlatform {
                                 properties,
+                                ..Default::default()
+                            },
+                            host_resource_requirements: THostResourceRequirements {
+                                input_files_bytes: identity.paths.input_files_bytes() as i64,
                                 ..Default::default()
                             },
                             ..Default::default()

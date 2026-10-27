@@ -24,11 +24,11 @@ path = "top/main.rs"
 test = false
 
 [dependencies]
-annotate-snippets = "0.12.16"
+annotate-snippets = "0.12.17"
 anstyle-parse = "1.0.0"
 anyhow = "1.0.104"
 anymap3 = "1.1.0"
-arc-swap = { version = "1.9.2", features = ["weak"] }
+arc-swap = { version = "1.9.3", features = ["weak"] }
 argfile = "1.0.0"
 assert_matches = "1.5"
 async-compression = { version = "0.4.50", features = ["brotli", "bzip2", "deflate", "futures-io", "gzip", "tokio", "zlib", "zstd", "zstdmt"] }
@@ -75,7 +75,7 @@ digest = "0.11.3"
 digest-010 = { package = "digest", version = "0.10", features = ["rand_core"] }
 dirs = "7.0"
 dunce = "1.0.5"
-either = "1.18.0"
+either = "1.19.0"
 elf = "0.8"
 enum-iterator = "2.3.0"
 enum-map = "3.1.0"
@@ -94,7 +94,7 @@ futures-intrusive = "0.5.0"
 fxhash = "0.2.1"
 glob = "0.3.4"
 globset = { version = "0.4.20", features = ["serde1"] }
-h2 = "0.4.19"
+h2 = "0.4.20"
 hashbrown = "0.17.1"
 hex = { version = "0.4.3", features = ["alloc"] }
 hostname = "0.4.2"
@@ -237,8 +237,8 @@ tokio = { version = "1.53.2", features = ["full", "test-util", "tracing"] }
 tokio-retry = "0.3.2"
 tokio-rustls = { version = "0.26.6", features = ["logging", "ring", "tls12"], default-features = false }
 tokio-stream = { version = "0.1.19", features = ["fs", "io-util", "net", "signal", "sync", "time"] }
-tokio-util = { version = "0.7.19", features = ["full"] }
-toml = { version = "1.1.6", features = ["preserve_order"] }
+tokio-util = { version = "0.7.20", features = ["full"] }
+toml = { version = "1.1.8", features = ["preserve_order"] }
 tonic = { version = "0.14.6", features = ["codegen", "gzip", "tls-native-roots", "tls-ring", "tls-webpki-roots", "transport"] }
 tonic-build = "0.14.6"
 tonic-prost = "0.14.6"
@@ -266,7 +266,7 @@ winapi = { version = "0.3", features = ["everything", "std"] }
 x509-parser = "0.18.1"
 xattr = "1.6.1"
 zip = { version = "8.6.0", features = ["aes-crypto", "bzip2", "deflate", "time"], default-features = false }
-zstd = { version = "0.14.0", features = ["experimental", "zstdmt"] }
+zstd = { version = "0.14.3", features = ["experimental", "zstdmt"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_Globalization", "Win32_NetworkManagement_IpHelper", "Win32_NetworkManagement_Ndis", "Win32_NetworkManagement_WindowsFilteringPlatform", "Win32_Security", "Win32_Security_Authorization", "Win32_Security_Credentials", "Win32_Storage_FileSystem", "Win32_System_Console", "Win32_System_Environment", "Win32_System_IO", "Win32_System_JobObjects", "Win32_System_LibraryLoader", "Win32_System_Memory", "Win32_System_Power", "Win32_System_ProcessStatus", "Win32_System_Rpc", "Win32_System_SystemServices", "Win32_System_Threading", "Win32_UI_Shell"] }

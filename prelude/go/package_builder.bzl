@@ -77,9 +77,7 @@ def declare_package_build(
 
     package_root = sources.package_root if sources.package_root != None else infer_package_root(srcs)
 
-    go_list_out, go_list_value = go_list(
-        actions, go_toolchain, pkg_import_path, srcs, package_root, config.build_tags, config.cgo_enabled, with_tests = config.with_tests
-    )
+    go_list_value = go_list(actions, go_toolchain, pkg_import_path, srcs, package_root, config.build_tags, config.cgo_enabled, with_tests = config.with_tests)
 
     test_go_files_argsfile = actions.declare_output(paths.basename(pkg_import_path) + "_test_go_files.go_package_argsfile", has_content_based_path = True)
 
@@ -121,7 +119,6 @@ def declare_package_build(
             build_out = out_x,
             cgo_gen_dir = cgo_gen_dir,
             pkg_import_path = pkg_import_path,
-            go_list_out = go_list_out,
             go_list_value = go_list_value,
             srcs = srcs,
         ),

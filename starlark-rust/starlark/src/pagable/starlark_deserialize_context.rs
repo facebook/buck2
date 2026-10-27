@@ -1072,7 +1072,7 @@ impl StarlarkHeapBindings {
     fn maybe_prune_expired(&self) {
         // Native heaps have no deserialization state to unregister them on drop.
         // Zero reserves the sweep for one caller while other registrations proceed.
-        if self.registrations_until_prune.fetch_update(
+        if self.registrations_until_prune.try_update(
             Ordering::Relaxed,
             Ordering::Relaxed,
             |remaining| remaining.checked_sub(1),

@@ -17,7 +17,6 @@ use buck2_common::file_ops::dice::DiceFileComputations;
 use buck2_common::file_ops::error::FileReadErrorContext;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::dice::OpaqueLegacyBuckConfigOnDice;
-use buck2_common::package_boundary::HasPackageBoundaryExceptions;
 use buck2_common::package_listing::dice::DicePackageListingResolver;
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::build_file_path::BuildFilePath;
@@ -685,10 +684,6 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                 .eval_package_file_for_build_file(package.dupe(), &listing)
                 .await?;
 
-            let package_boundary_exception = self
-                .ctx
-                .has_package_boundary_exception(package.as_cell_path())
-                .await?;
             let buckconfig = self.get_legacy_buck_config_for_starlark().await?;
             let root_buckconfig = self.ctx.get_legacy_root_config_on_dice().await?;
             let module_id = build_file_path.to_string();
@@ -713,7 +708,6 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                         &mut buckconfigs,
                         listing,
                         super_package,
-                        package_boundary_exception,
                         ast,
                         deps.get_loaded_modules(),
                         provider,

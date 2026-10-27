@@ -5,6 +5,7 @@
 ## ExternalRunnerTestInfo.contacts
 ## ExternalRunnerTestInfo.default\_executor
 ## ExternalRunnerTestInfo.env
+## ExternalRunnerTestInfo.exec\_group
 ## ExternalRunnerTestInfo.executor\_overrides
 ## ExternalRunnerTestInfo.labels
 ## ExternalRunnerTestInfo.local\_resources

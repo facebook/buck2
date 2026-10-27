@@ -176,14 +176,13 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
         Ok(this.via_dice(eval, |dice| {
             dice.via(|ctx| {
                 async move {
-                    let target_expr =
-                        TargetListExpr::<'v, ConfiguredTargetNode>::unpack_allow_unconfigured(
-                            labels,
-                            &global_cfg_options,
-                            this,
-                            ctx,
-                        )
-                        .await?;
+                    let target_expr = TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
+                        labels,
+                        &global_cfg_options,
+                        this,
+                        ctx,
+                    )
+                    .await?;
 
                     if let Some(one) = target_expr.get_one(ctx).await? {
                         let result = filter_incompatible(iter::once(one), this)?;
@@ -306,7 +305,6 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
                         &global_cfg_options,
                         &this,
                         ctx,
-                        true, // allow_unconfigured
                         keep_going,
                     )
                     .await?;

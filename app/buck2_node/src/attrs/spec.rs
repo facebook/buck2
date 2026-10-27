@@ -177,11 +177,11 @@ impl AttributeSpec {
         self.attributes.get_index(id.0 as usize).unwrap().1
     }
 
-    fn attribute_name_by_id(&self, id: AttributeId) -> &str {
+    pub fn attribute_name_by_id(&self, id: AttributeId) -> &str {
         self.attributes.get_index(id.0 as usize).unwrap().0
     }
 
-    pub(crate) fn attribute_id_by_name(&self, name: &str) -> Option<AttributeId> {
+    pub fn attribute_id_by_name(&self, name: &str) -> Option<AttributeId> {
         self.attributes
             .get_index_of(name)
             .map(|index_in_attribute_spec| AttributeId(index_in_attribute_spec as u16))

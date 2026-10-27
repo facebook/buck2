@@ -20,6 +20,7 @@ use buck2_artifact::artifact::output_type::OutputType;
 use buck2_core::category::Category;
 use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
+use buck2_core::execution_types::execution_group::ExecutionGroup;
 use buck2_core::fs::buck_out_path::BuckOutPathKind;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_directory::directory;
@@ -48,6 +49,7 @@ use starlark::values::Heap;
 use starlark::values::Trace;
 
 use crate::actions::ActionErrors;
+use crate::actions::ActionName;
 use crate::actions::ActionToBeRegistered;
 use crate::actions::RegisteredAction;
 use crate::actions::UnregisteredAction;
@@ -214,6 +216,53 @@ impl<'v> ActionsRegistry<'v> {
         outputs: BuckMutInsertionSet<OutputArtifact>,
         action: A,
     ) -> buck2_error::Result<ActionKey> {
+        self.push_pending(self_key, outputs, action, ExecutionGroup::Default)
+    }
+
+    /// Registers the supplied action to run on the execution platform of `execution_group`.
+    /// Fails for a named group the rule does not declare, or for which resolution found no
+    /// compatible platform; `action_name` names the action in the latter error.
+    pub fn register_in_group<A: UnregisteredAction + 'static>(
+        &mut self,
+        self_key: &DeferredHolderKey,
+        outputs: BuckMutInsertionSet<OutputArtifact>,
+        action: A,
+        execution_group: ExecutionGroup,
+        action_name: impl FnOnce() -> ActionName,
+    ) -> buck2_error::Result<ActionKey> {
+        self.execution_platform
+            .base_cfg_for_group(&execution_group)?;
+        if let ExecutionGroup::Named(group) = &execution_group {
+            if !self.execution_platform.is_unspecified()
+                && self
+                    .execution_platform
+                    .platform_for_group(&execution_group)?
+                    .is_none()
+            {
+                let ActionName {
+                    category,
+                    identifier,
+                } = action_name();
+                return Err(ActionErrors::NoExecutionPlatformForGroup {
+                    category,
+                    identifier: identifier
+                        .map(|identifier| format!(" and identifier `{identifier}`"))
+                        .unwrap_or_default(),
+                    group: group.to_string(),
+                }
+                .into());
+            }
+        }
+        self.push_pending(self_key, outputs, action, execution_group)
+    }
+
+    fn push_pending<A: UnregisteredAction + 'static>(
+        &mut self,
+        self_key: &DeferredHolderKey,
+        outputs: BuckMutInsertionSet<OutputArtifact>,
+        action: A,
+        execution_group: ExecutionGroup,
+    ) -> buck2_error::Result<ActionKey> {
         let key = ActionKey::new(
             self_key.dupe(),
             // If there are declared_dynamic_outputs, then the analysis that created this one has
@@ -228,8 +277,12 @@ impl<'v> ActionsRegistry<'v> {
             let bound = output.bind(key.dupe())?.as_base_artifact().dupe();
             bound_outputs.insert(bound);
         }
-        self.pending
-            .push(ActionToBeRegistered::new(key.dupe(), bound_outputs, action));
+        self.pending.push(ActionToBeRegistered::new(
+            key.dupe(),
+            bound_outputs,
+            action,
+            execution_group,
+        ));
 
         Ok(key)
     }
@@ -259,6 +312,14 @@ impl<'v> ActionsRegistry<'v> {
                 BuckMutMap::default();
             for a in self.pending.into_iter() {
                 let key = a.key().dupe();
+                let executor_config = (*self
+                    .execution_platform
+                    .executor_config_for_group(&a.execution_group)?)
+                .dupe();
+                let execution_group = self
+                    .execution_platform
+                    .has_execution_groups()
+                    .then(|| a.execution_group.dupe());
                 let (starlark_data, error_handler) =
                     analysis_value_fetcher.get_action_data(&key)?;
                 let action = a.register(starlark_data, error_handler)?;
@@ -290,10 +351,11 @@ impl<'v> ActionsRegistry<'v> {
 
                 actions.insert(
                     key.dupe(),
-                    Arc::new(RegisteredAction::new(
+                    Arc::new(RegisteredAction::new_in_group(
                         key,
                         action,
-                        (*self.execution_platform.executor_config()?).dupe(),
+                        executor_config,
+                        execution_group,
                     )),
                 );
             }

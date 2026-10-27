@@ -216,10 +216,10 @@ repository = "https://github.com/facebook/buck2"
 [workspace.dependencies]
 allocative = { version = "0.3.6", path = "allocative/allocative", features = ["anyhow", "bumpalo", "compact_str", "dashmap", "either", "futures", "hashbrown", "indexmap", "jiff", "num-bigint", "once_cell", "parking_lot", "prost-types", "serde_json", "slab", "smallvec", "sorted_vector_map", "tokio", "triomphe"] }
 allocative_derive = { version = "0.3.6", path = "allocative/allocative_derive" }
-annotate-snippets = "0.12.16"
+annotate-snippets = "0.12.17"
 anyhow = "1.0.104"
 anymap3 = "1.1.0"
-arc-swap = { version = "1.9.2", features = ["weak"] }
+arc-swap = { version = "1.9.3", features = ["weak"] }
 argfile = "1.0.0"
 assert_matches = "1.5"
 async-compression = { version = "0.4.50", features = ["brotli", "bzip2", "deflate", "futures-io", "gzip", "tokio", "zlib", "zstd", "zstdmt"] }
@@ -364,7 +364,7 @@ dupe = { version = "0.9.1", path = "gazebo/dupe" }
 dupe_derive = { version = "0.9.1", path = "gazebo/dupe_derive" }
 egui = "0.36.2"
 egui_kittest = { version = "0.36.2", features = ["snapshot", "wgpu"] }
-either = "1.18.0"
+either = "1.19.0"
 elf = "0.8"
 enum-iterator = "2.3.0"
 enum-map = "3.1.0"
@@ -382,7 +382,7 @@ fxhash = "0.2.1"
 games = { path = "games" }
 glob = "0.3.4"
 globset = { version = "0.4.20", features = ["serde1"] }
-h2 = "0.4.19"
+h2 = "0.4.20"
 hashbrown = "0.17.1"
 hex = { version = "0.4.3", features = ["alloc"] }
 hmap = { version = "0.1.0", path = "gazebo/hmap" }
@@ -532,8 +532,8 @@ tokio = { version = "1.53.2", features = ["full", "test-util", "tracing"] }
 tokio-retry = "0.3.2"
 tokio-rustls = { version = "0.26.6", features = ["logging", "ring", "tls12"], default-features = false }
 tokio-stream = { version = "0.1.19", features = ["fs", "io-util", "net", "signal", "sync", "time"] }
-tokio-util = { version = "0.7.19", features = ["full"] }
-toml = { version = "1.1.6", features = ["preserve_order"] }
+tokio-util = { version = "0.7.20", features = ["full"] }
+toml = { version = "1.1.8", features = ["preserve_order"] }
 tonic = { version = "0.14.6", features = ["codegen", "gzip", "tls-native-roots", "tls-ring", "tls-webpki-roots", "transport"] }
 tonic-prost = "0.14.6"
 tonic-prost-build = "0.14.6"
@@ -556,7 +556,7 @@ windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_Globa
 winver = "1"
 x509-parser = "0.18.1"
 xattr = "1.6.1"
-zstd = { version = "0.14.0", features = ["experimental", "zstdmt"] }
+zstd = { version = "0.14.3", features = ["experimental", "zstdmt"] }
 
 [workspace.lints.clippy]
 all = { level = "warn", priority = -1 }

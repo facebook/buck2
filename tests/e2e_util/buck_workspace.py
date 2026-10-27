@@ -1015,11 +1015,9 @@ def is_deployed_buck2() -> bool:
     This may break deployed buck2, so please make sure this only affects tests for rules
     that buck2 users are not using.
 
-    Example of skipping test case with deployed buck2:
-        @unittest.skipIf(
-            is_deployed_buck2(),
-            "Skip if testing with deployed buck2",
-        )
+    Example of a test case that passes without running with deployed buck2:
+        if is_deployed_buck2():
+            return
     """
     return os.environ.get("TEST_EXECUTABLE") == "buck2"
 

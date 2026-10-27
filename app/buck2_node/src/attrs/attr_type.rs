@@ -14,6 +14,8 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::configuration::transition::id::TransitionId;
+use buck2_core::execution_types::execution_group::ExecutionGroup;
+use buck2_core::execution_types::execution_group::NamedExecutionGroup;
 use buck2_core::plugins::PluginKind;
 use buck2_core::plugins::PluginKindSet;
 use buck2_util::strong_hasher::Blake3StrongHasher;
@@ -250,9 +252,22 @@ impl AttrType {
     /// can be passed into anon targets. There is a slight memory hit when using
     /// this flag.
     pub fn arg(anon_target_compatible: bool) -> Self {
+        Self::arg_in_group(anon_target_compatible, None, true)
+    }
+
+    /// An arg attribute whose `$(exe)`, `$(location_exec)` and `$(location_toolchain)` macros
+    /// refer to dependencies in the given named execution group, or in the default group
+    /// without one. `ungrouped` is whether the `attrs.arg()` names no execution group.
+    pub fn arg_in_group(
+        anon_target_compatible: bool,
+        execution_group: Option<NamedExecutionGroup>,
+        ungrouped: bool,
+    ) -> Self {
         Self::of(
             AttrTypeInner::Arg(ArgAttrType {
                 anon_target_compatible,
+                execution_group,
+                ungrouped,
             }),
             true,
         )
@@ -308,6 +323,101 @@ impl AttrType {
             )),
             false,
         )
+    }
+
+    /// An execution dependency attribute in the given execution group.
+    pub fn exec_dep_in_group(required_providers: ProviderIdSet, group: ExecutionGroup) -> Self {
+        let transition = match group {
+            ExecutionGroup::Default => DepAttrTransition::Exec,
+            ExecutionGroup::Named(group) => DepAttrTransition::ExecInGroup(group),
+        };
+        Self::of(
+            AttrTypeInner::Dep(DepAttrType::new(required_providers, transition)),
+            false,
+        )
+    }
+
+    /// A toolchain dependency attribute whose toolchain uses the execution platform of the
+    /// given execution group.
+    pub fn toolchain_dep_in_group(
+        required_providers: ProviderIdSet,
+        group: ExecutionGroup,
+    ) -> Self {
+        let transition = match group {
+            ExecutionGroup::Default => DepAttrTransition::Toolchain,
+            ExecutionGroup::Named(group) => DepAttrTransition::ToolchainInGroup(group),
+        };
+        Self::of(
+            AttrTypeInner::Dep(DepAttrType::new(required_providers, transition)),
+            false,
+        )
+    }
+
+    /// Calls `f` for every named execution group a dep within this attribute belongs to.
+    pub fn for_each_named_execution_group(&self, f: &mut dyn FnMut(&NamedExecutionGroup)) {
+        match &self.0.inner {
+            AttrTypeInner::Dep(DepAttrType {
+                transition:
+                    DepAttrTransition::ExecInGroup(group) | DepAttrTransition::ToolchainInGroup(group),
+                ..
+            }) => f(group),
+            AttrTypeInner::Arg(ArgAttrType {
+                execution_group: Some(group),
+                ..
+            }) => f(group),
+            AttrTypeInner::List(x) => x.inner.for_each_named_execution_group(f),
+            AttrTypeInner::Option(x) => x.inner.for_each_named_execution_group(f),
+            AttrTypeInner::Dict(x) => {
+                x.key.for_each_named_execution_group(f);
+                x.value.for_each_named_execution_group(f);
+            }
+            AttrTypeInner::Tuple(x) => {
+                x.xs.iter()
+                    .for_each(|x| x.for_each_named_execution_group(f))
+            }
+            AttrTypeInner::OneOf(x) => {
+                x.xs.iter()
+                    .for_each(|x| x.for_each_named_execution_group(f))
+            }
+            _ => {}
+        }
+    }
+
+    /// Whether a dep within this attribute belongs to the default execution group: an exec dep
+    /// or toolchain dep without a named execution group.
+    pub fn uses_default_execution_group(&self) -> bool {
+        match &self.0.inner {
+            AttrTypeInner::Dep(DepAttrType {
+                transition: DepAttrTransition::Exec | DepAttrTransition::Toolchain,
+                ..
+            }) => true,
+            AttrTypeInner::List(x) => x.inner.uses_default_execution_group(),
+            AttrTypeInner::Option(x) => x.inner.uses_default_execution_group(),
+            AttrTypeInner::Dict(x) => {
+                x.key.uses_default_execution_group() || x.value.uses_default_execution_group()
+            }
+            AttrTypeInner::Tuple(x) => x.xs.iter().any(|x| x.uses_default_execution_group()),
+            AttrTypeInner::OneOf(x) => x.xs.iter().any(|x| x.uses_default_execution_group()),
+            AttrTypeInner::Dep(_)
+            | AttrTypeInner::Any(_)
+            | AttrTypeInner::Arg(_)
+            | AttrTypeInner::ConfigurationDep(_)
+            | AttrTypeInner::ConfiguredDep(_)
+            | AttrTypeInner::Bool(_)
+            | AttrTypeInner::Int(_)
+            | AttrTypeInner::PluginDep(_)
+            | AttrTypeInner::Query(_)
+            | AttrTypeInner::Source(_)
+            | AttrTypeInner::SplitTransitionDep(_)
+            | AttrTypeInner::TransitionDep(_)
+            | AttrTypeInner::String(_)
+            | AttrTypeInner::Enum(_)
+            | AttrTypeInner::Label(_)
+            | AttrTypeInner::Visibility(_)
+            | AttrTypeInner::WithinView(_)
+            | AttrTypeInner::Metadata(_)
+            | AttrTypeInner::TargetModifiers(_) => false,
+        }
     }
 
     /// A toolchain dependency attribute optionally with a specific provider/providers

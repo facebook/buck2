@@ -61,6 +61,7 @@ use crate::nodes::attributes::PACKAGE_CFG_MODIFIERS;
 use crate::nodes::attributes::TYPE;
 use crate::package::Package;
 use crate::rule::Rule;
+use crate::rule::RuleExecutionGroup;
 use crate::rule_type::RuleType;
 use crate::visibility::VisibilityError;
 use crate::visibility::VisibilityIntersection;
@@ -319,6 +320,14 @@ impl TargetNode {
 
     pub fn uses_plugins(&self) -> &[PluginKind] {
         self.as_ref().uses_plugins()
+    }
+
+    pub fn execution_groups(&self) -> &[RuleExecutionGroup] {
+        self.as_ref().execution_groups()
+    }
+
+    pub fn default_execution_group(&self) -> bool {
+        self.as_ref().default_execution_group()
     }
 
     pub fn get_default_target_platform(&self) -> buck2_error::Result<Option<&TargetLabel>> {
@@ -827,6 +836,19 @@ impl<'a> TargetNodeRef<'a> {
         &self.0.get().rule.uses_plugins
     }
 
+    pub fn execution_groups(self) -> &'a [RuleExecutionGroup] {
+        &self.0.get().rule.execution_groups
+    }
+
+    /// The attribute whose constraints only the default execution group's platform must satisfy.
+    pub fn default_exec_compatible_with_attr(self) -> Option<AttributeId> {
+        self.0.get().rule.default_exec_compatible_with_attr
+    }
+
+    pub fn default_execution_group(self) -> bool {
+        self.0.get().rule.default_execution_group
+    }
+
     pub fn inputs(self) -> impl Iterator<Item = CellPath> + 'a {
         struct InputsCollector {
             inputs: Vec<CellPath>,
@@ -917,6 +939,9 @@ pub mod testing {
                     rule_kind: RuleKind::Normal,
                     cfg: RuleIncomingTransition::None,
                     uses_plugins: Vec::new(),
+                    execution_groups: Vec::new(),
+                    default_execution_group: true,
+                    default_exec_compatible_with_attr: None,
                 }),
                 Arc::new(Package {
                     buildfile_path,

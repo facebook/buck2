@@ -142,7 +142,6 @@ fn attr_coercer_coerces() -> buck2_error::Result<()> {
             cell_resolver,
             cell_alias_resolver,
             enclosing_package,
-            false,
             CellPathWithAllowedRelativeDir::backwards_relative_not_supported(
                 package.as_cell_path().to_owned(),
             ),
@@ -376,7 +375,6 @@ fn coercing_src_to_path_works() -> buck2_error::Result<()> {
             package.dupe(),
             PackageListing::testing_files(&["baz/quz.cpp"]),
         ),
-        false,
         CellPathWithAllowedRelativeDir::backwards_relative_not_supported(
             package.as_cell_path().to_owned(),
         ),

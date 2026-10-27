@@ -24,7 +24,6 @@ GoPackageInfo = provider(
     fields = {
         "build_out": provider_field(Artifact),
         "cgo_gen_dir": provider_field(Artifact),
-        "go_list_out": provider_field(Artifact),
         "go_list_value": provider_field(DynamicValue),  # GoListDynamicValue inside
         "pkg_import_path": provider_field(str),
         # Full list of package source files

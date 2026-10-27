@@ -62,7 +62,6 @@ rust_library(
         "fbsource//third-party/rust:parking_lot",
         "fbsource//third-party/rust:prost-types",
         "fbsource//third-party/rust:rand",
-        "fbsource//third-party/rust:ref-cast",
         "fbsource//third-party/rust:regex",
         "fbsource//third-party/rust:rusqlite",
         "fbsource//third-party/rust:serde",

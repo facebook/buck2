@@ -28,6 +28,7 @@ use starlark::environment::GlobalsBuilder;
 use starlark::environment::LibraryExtension;
 
 use crate::attrs::attrs_global::register_attrs;
+use crate::execution_group::register_execution_group;
 use crate::interpreter::functions::dedupe::register_dedupe;
 use crate::interpreter::functions::host_info::register_host_info;
 use crate::interpreter::functions::internals::register_internals;
@@ -75,6 +76,7 @@ pub fn register_load_natives(builder: &mut GlobalsBuilder) {
     register_rule_function(builder);
     register_attrs(builder);
     register_plugins(builder);
+    register_execution_group(builder);
     register_providers_label(builder);
     register_cell_path(builder);
     register_cell_root(builder);

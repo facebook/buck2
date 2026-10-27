@@ -319,9 +319,9 @@ impl Semantics for kinds::Selector {
 
     fn configure(
         (entries, default): View<'_, Self>,
-        Configure { v, t, ctx, name }: Configure<'_, '_>,
+        Configure { t, ctx, name, .. }: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
-        match CoercedAttrRef::select_view(ctx, v, entries, default, name)? {
+        match CoercedAttrRef::select_view(ctx, entries, default)? {
             Some(selected) => selected.configure(t, ctx, name),
             None => CoercedAttrRef::select_no_match_error(ctx, entries).into(),
         }
@@ -330,15 +330,15 @@ impl Semantics for kinds::Selector {
     fn traverse_configured(
         (entries, default): View<'_, Self>,
         TraverseConfigured {
-            v,
             t,
             pkg,
             ctx,
             tr,
             name,
+            ..
         }: TraverseConfigured<'_, '_>,
     ) -> ResultMaybeCompatible<()> {
-        match CoercedAttrRef::select_view(ctx, v, entries, default, name) {
+        match CoercedAttrRef::select_view(ctx, entries, default) {
             Ok(Some(selected)) => selected.traverse_configured(t, pkg, ctx, tr, name),
             Ok(None) => CoercedAttrRef::select_no_match_error(ctx, entries).into(),
             Err(e) => e.into(),
@@ -347,9 +347,9 @@ impl Semantics for kinds::Selector {
 
     fn concat_leaves<'a>(
         (entries, default): View<'a, Self>,
-        ConcatLeaves { v, ctx, out }: ConcatLeaves<'_, 'a>,
+        ConcatLeaves { ctx, out, .. }: ConcatLeaves<'_, 'a>,
     ) -> ResultMaybeCompatible<()> {
-        match CoercedAttrRef::select_view(ctx, v, entries, default, None) {
+        match CoercedAttrRef::select_view(ctx, entries, default) {
             Ok(Some(selected)) => selected.concat_leaves(ctx, out),
             Ok(None) => CoercedAttrRef::select_no_match_error(ctx, entries).into(),
             Err(e) => e.into(),
@@ -837,6 +837,20 @@ impl Kind for kinds::SelectorKeys {
     type Fields = Keys;
 }
 
+impl<'a> CoercedAttrRef<'a> {
+    /// Whether evaluating this value can ever yield `None`, directly or
+    /// through a `select()` branch.
+    pub fn may_return_none(&self) -> bool {
+        self.downcast::<kinds::None>().is_some()
+            || self
+                .downcast::<kinds::Selector>()
+                .is_some_and(|(entries, default)| {
+                    entries.iter().any(|(_, v)| v.may_return_none())
+                        || default.is_some_and(|d| d.may_return_none())
+                })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use dupe::Dupe;
@@ -868,19 +882,5 @@ mod tests {
         assert!(check_select_keys_unique(&long).is_ok());
         long[10].0 = long[0].0.dupe();
         assert!(check_select_keys_unique(&long).is_err());
-    }
-}
-
-impl<'a> CoercedAttrRef<'a> {
-    /// Whether evaluating this value can ever yield `None`, directly or
-    /// through a `select()` branch.
-    pub fn may_return_none(&self) -> bool {
-        self.downcast::<kinds::None>().is_some()
-            || self
-                .downcast::<kinds::Selector>()
-                .is_some_and(|(entries, default)| {
-                    entries.iter().any(|(_, v)| v.may_return_none())
-                        || default.is_some_and(|d| d.may_return_none())
-                })
     }
 }

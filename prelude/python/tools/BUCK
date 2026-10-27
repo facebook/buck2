@@ -242,3 +242,12 @@ prelude.python_test(
     base_module = "",
     resources = ["create_link_tree.py"],
 )
+
+prelude.python_test(
+    name = "make_py_package_manifest_module_test",
+    srcs = [
+        "make_py_package_manifest_module.py",
+        "tests/make_py_package_manifest_module_test.py",
+    ],
+    base_module = "",
+)

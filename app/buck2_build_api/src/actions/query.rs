@@ -276,6 +276,9 @@ impl ActionData {
             "buck.executor_configuration".to_owned(),
             self.action.execution_config().executor.to_string(),
         );
+        if let Some(group) = self.action.execution_group() {
+            attrs.insert("buck.exec_group".to_owned(), group.to_string());
+        }
         attrs.insert(
             "buck.all_outputs_are_content_based".to_owned(),
             self.action

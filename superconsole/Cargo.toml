@@ -24,7 +24,7 @@ take_mut = "0.2"
 thiserror = "2.0.21"
 tokio = { version = "1.53.2", features = ["io-util", "rt", "sync"] }
 tokio-stream = "0.1.19"
-tokio-util = { version = "0.7.19", features = ["io"] }
+tokio-util = { version = "0.7.20", features = ["io"] }
 tracing = "0.1.41"
 unicode-segmentation = "1.13.3"
 unicode-width = "0.2.2"

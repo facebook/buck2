@@ -64,7 +64,6 @@ fn to_literal<'v>(
         soft_error!(
             "coerce_to_any",
             AnyError::CannotCoerce(value.get_type(), value.to_repr()).into(),
-            error_on_oss: true
         )?;
         ctx.attr_arena().encode_string(&value.to_str())
     }

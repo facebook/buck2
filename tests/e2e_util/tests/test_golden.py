@@ -41,3 +41,38 @@ class GoldenCiLabelTest(unittest.TestCase):
     def test_a_lost_dependency_in_a_ci_package_fails(self) -> None:
         with self.assertRaises(AssertionError):
             _check("deps:\n  root//a:a\n  root//ci:lint\n", "deps:\n  root//a:a\n")
+
+
+class SanitizeRemoteActionOriginTest(unittest.TestCase):
+    def test_re_served_and_deduplicated_read_as_executed(self) -> None:
+        executed = (
+            "Remote action, reproduce with: `frecli cas download-action <DIGEST>`"
+        )
+        for origin in [
+            "served from the remote execution cache",
+            "deduplicated by remote execution",
+        ]:
+            self.assertEqual(
+                golden.sanitize_remote_action_origin(
+                    f"Remote action {origin}, reproduce with: `frecli cas download-action <DIGEST>`"
+                ),
+                executed,
+            )
+        self.assertEqual(golden.sanitize_remote_action_origin(executed), executed)
+
+    def test_buck2_cache_hit_is_kept(self) -> None:
+        s = "Remote action cache hit, reproduce with: `frecli cas download-action <DIGEST>`"
+        self.assertEqual(golden.sanitize_remote_action_origin(s), s)
+
+    def test_build_report_strings_are_sanitized(self) -> None:
+        report = {
+            "trace_id": "",
+            "project_root": "",
+            "failures": {
+                "root//:a": "Remote action deduplicated by remote execution, reproduce with: x"
+            },
+        }
+        golden.sanitize_build_report(report)
+        self.assertEqual(
+            report["failures"], {"root//:a": "Remote action, reproduce with: x"}
+        )

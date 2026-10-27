@@ -34,6 +34,9 @@ NodejsToolchainInfo = provider(
         "tsc": provider_field([RunInfo, None], default = None),
         # The Node.js version of `node` and `node_exec`, for example "24.18.1".
         "version": provider_field([str, None], default = None),
+        # `node_modules` tree holding `vitest`, for tests with `framework = "vitest"`
+        # and no `test_runner`, which fail when this is `None`.
+        "vitest": provider_field([Artifact, None], default = None),
         # Compresses (`-o <output> <input>`) or decompresses (`-d -o <output> <input>`) zstd. Compressed output does not depend on how the input is chunked.
         "zstd": provider_field([RunInfo, None], default = None),
     },
@@ -62,6 +65,7 @@ def _nodejs_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
         DefaultInfo(),
         NodejsToolchainInfo(
             jest = ctx.attrs.jest[NodejsTreeInfo].node_modules if ctx.attrs.jest != None else None,
+            vitest = ctx.attrs.vitest[NodejsTreeInfo].node_modules if ctx.attrs.vitest != None else None,
             node = ctx.attrs.node[RunInfo],
             node_exec = _run_info(ctx.attrs.node_exec),
             version = ctx.attrs.version,
@@ -88,6 +92,7 @@ nodejs_toolchain = rule(
         "sea_injector": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "tsc": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "version": attrs.option(attrs.string(), default = None),
+        "vitest": attrs.option(attrs.dep(providers = [NodejsTreeInfo]), default = None),
         "zstd": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
     },
     is_toolchain_rule = True,

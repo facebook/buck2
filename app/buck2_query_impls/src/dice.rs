@@ -38,8 +38,6 @@ use buck2_core::pattern::pattern::TargetParsingRel;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::query_file_literal::parse_query_file_literal;
-use buck2_core::provider::label::ProvidersName;
-use buck2_core::soft_error;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -65,13 +63,6 @@ use crate::uquery::environment::UqueryDelegate;
 
 pub(crate) mod aquery;
 
-#[derive(Debug, buck2_error::Error)]
-#[buck2(tag = Input)]
-enum LiteralParserError {
-    #[error("Expected a target pattern without providers, got: `{0}`")]
-    ExpectingTargetPatternWithoutProviders(String),
-}
-
 pub(crate) struct LiteralParser {
     // file and target literals are resolved relative to the working dir.
     working_dir: CellPath,
@@ -85,24 +76,12 @@ pub(crate) struct LiteralParser {
 impl LiteralParser {
     fn convert_parsed_pattern(
         &self,
-        value: &str,
         providers_pattern: ParsedPattern<ProvidersPatternExtra>,
     ) -> buck2_error::Result<ParsedPattern<TargetPatternExtra>> {
         let target_pattern = match providers_pattern {
-            ParsedPattern::Target(package, target_name, ProvidersPatternExtra { providers }) => {
-                if providers != ProvidersName::Default {
-                    // After converting this to hard error, replace this function body
-                    // with direct call to `ParsedPattern::parse_relative`,
-                    // as `parse_providers_pattern` does.
-                    soft_error!(
-                        "expecting_target_pattern_without_providers",
-                        LiteralParserError::ExpectingTargetPatternWithoutProviders(
-                            value.to_owned()
-                        )
-                        .into(),
-                        error_on_oss: true
-                    )?;
-                }
+            // FIXME(JakobDegen): Providers in a query target literal should be an error, at which
+            // point this becomes a plain `ParsedPattern::parse_relative`; today they are dropped.
+            ParsedPattern::Target(package, target_name, ProvidersPatternExtra { .. }) => {
                 ParsedPattern::Target(package, target_name, TargetPatternExtra)
             }
             ParsedPattern::Package(package) => ParsedPattern::Package(package),
@@ -117,7 +96,7 @@ impl LiteralParser {
         value: &str,
     ) -> buck2_error::Result<ParsedPattern<TargetPatternExtra>> {
         let providers_pattern = self.parse_providers_pattern(value)?;
-        self.convert_parsed_pattern(value, providers_pattern)
+        self.convert_parsed_pattern(providers_pattern)
     }
 
     fn parse_target_pattern_with_modifiers(
@@ -129,7 +108,7 @@ impl LiteralParser {
             modifiers,
         } = self.parse_providers_pattern_with_modifiers(value)?;
 
-        let target_pattern = self.convert_parsed_pattern(value, parsed_pattern)?;
+        let target_pattern = self.convert_parsed_pattern(parsed_pattern)?;
 
         Ok(ParsedPatternWithModifiers {
             parsed_pattern: target_pattern,

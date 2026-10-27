@@ -11,6 +11,7 @@
 use std::cell::OnceCell;
 
 use allocative::Allocative;
+use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_error::BuckErrorOptionContext;
 use buck2_error::conversion::from_any_with_tag;
 use starlark::StarlarkPagable;
@@ -40,6 +41,10 @@ use crate::analysis::registry::FrozenAnalysisValueStorage;
 pub struct AnalysisExtraValue<'v> {
     pub analysis_value_storage:
         OnceCell<ValueTyped<'v, StarlarkAnyComplex<AnalysisValueStorage<'v>>>>,
+    /// The execution platform resolution of the target whose rule is being analyzed. Unset for
+    /// anon targets and outside rule analysis.
+    #[trace(static)]
+    pub execution_platform_resolution: OnceCell<ExecutionPlatformResolution>,
 }
 
 #[derive(Debug, ProvidesStaticType, Allocative, StarlarkPagable)]
@@ -56,6 +61,7 @@ impl<'v> Freeze<'v> for AnalysisExtraValue<'v> {
     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         let AnalysisExtraValue {
             analysis_value_storage,
+            execution_platform_resolution: _,
         } = self;
         Ok(FrozenAnalysisExtraValue {
             analysis_value_storage: Freeze::freeze(analysis_value_storage, freezer)?,
@@ -73,6 +79,19 @@ impl<'v> AnalysisExtraValue<'v> {
                 .downcast_ref_err::<StarlarkAnyComplex<AnalysisExtraValue>>()?
                 .value,
         ))
+    }
+
+    /// The execution platform resolution of the rule analysis that `module` belongs to. `None`
+    /// outside rule analysis, including modules whose extra value is not an analysis one.
+    pub fn execution_platform_resolution(
+        module: &Module<'v>,
+    ) -> Option<&'v ExecutionPlatformResolution> {
+        module
+            .extra_value()?
+            .downcast_ref::<StarlarkAnyComplex<AnalysisExtraValue>>()?
+            .value
+            .execution_platform_resolution
+            .get()
     }
 
     pub fn get_or_init(module: &Module<'v>) -> buck2_error::Result<&'v AnalysisExtraValue<'v>> {

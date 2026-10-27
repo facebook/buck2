@@ -18,3 +18,20 @@ enable = [
     ".tests.lint_rules.no_inplace_true_in_build_isolated",
 ]
 path = "tests/e2e/build/"
+
+# A test that skips on every run of a platform looks broken in TestX. Use
+# `@buck_test(skip_for_os=[...])` or `skip_for_materializer=[...]` instead,
+# which passes the test where it does not apply.
+[[tool.fixit.overrides]]
+enable = [
+    ".tests.lint_rules.no_unittest_skip",
+]
+path = "tests/"
+
+# `buck_workspace.py` implements `buck_test` and `parametrize`, including their
+# own skips.
+[[tool.fixit.overrides]]
+disable = [
+    ".tests.lint_rules.no_unittest_skip",
+]
+path = "tests/e2e_util/"

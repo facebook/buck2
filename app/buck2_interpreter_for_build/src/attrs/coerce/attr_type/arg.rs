@@ -395,7 +395,7 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(vec!["root//some:target".to_owned()], deps);
 
-        let configured = location.configure(&configuration_ctx())?;
+        let configured = location.configure(&configuration_ctx(), None)?;
 
         if let MacroBase::Location {
             label: target,
@@ -432,7 +432,7 @@ mod tests {
         assert_eq!("location_exec root//some:target", &location.to_string());
 
         let config_ctx = configuration_ctx();
-        let configured = location.configure(&config_ctx)?;
+        let configured = location.configure(&config_ctx, None)?;
 
         if let MacroBase::Location { label, .. } = &configured {
             let mut info = ConfiguredAttrInfoForTests::new();
@@ -470,7 +470,7 @@ mod tests {
         );
 
         let config_ctx = configuration_ctx();
-        let configured = location.configure(&config_ctx)?;
+        let configured = location.configure(&config_ctx, None)?;
 
         if let MacroBase::Location { label, .. } = &configured {
             let mut info = ConfiguredAttrInfoForTests::new();
@@ -502,7 +502,7 @@ mod tests {
         assert_eq!("exe root//some:target", &exe.to_string());
 
         let config_ctx = configuration_ctx();
-        let configured = exe.configure(&config_ctx)?;
+        let configured = exe.configure(&config_ctx, None)?;
 
         if let MacroBase::Exe { label, .. } = &configured {
             let mut info = ConfiguredAttrInfoForTests::new();
@@ -530,7 +530,7 @@ mod tests {
         assert_eq!("exe_target root//some:target", &exe.to_string());
 
         let config_ctx = configuration_ctx();
-        let configured = exe.configure(&config_ctx)?;
+        let configured = exe.configure(&config_ctx, None)?;
 
         if let MacroBase::Exe { label, .. } = &configured {
             let mut info = ConfiguredAttrInfoForTests::new();

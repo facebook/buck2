@@ -924,19 +924,27 @@ async fn test_targets(
     if executor_output.signal.is_some() {
         // The executor was killed by a signal: a crash (e.g. SIGSEGV) or an OOM kill,
         // as opposed to an orderly non-zero exit.
-        return Err(buck2_error::buck2_error!(
+        let mut error = buck2_error::buck2_error!(
             ErrorTag::TestExecutorSignaled,
             "{}",
             executor_output.termination_message()
-        ));
+        );
+        for tag in executor_output.telemetry_string_tags() {
+            error = error.string_tag(&tag);
+        }
+        return Err(error);
     }
 
     if executor_output.exit_code != Some(0) {
-        return Err(buck2_error::buck2_error!(
+        let mut error = buck2_error::buck2_error!(
             ErrorTag::TestExecutorNonZeroExit,
             "{}",
             executor_output.termination_message()
-        ));
+        );
+        for tag in executor_output.telemetry_string_tags() {
+            error = error.string_tag(&tag);
+        }
+        return Err(error);
     }
 
     // Now that the executor has exited, we notify our results channel. Two things can happen:

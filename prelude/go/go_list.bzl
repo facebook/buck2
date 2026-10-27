@@ -52,7 +52,7 @@ def go_list(
     build_tags: list[str],
     cgo_enabled: bool,
     with_tests: bool,
-) -> (Artifact, DynamicValue):
+) -> DynamicValue:
     env = get_toolchain_env_vars(go_toolchain)
 
     go_list_out = actions.declare_output(paths.basename(pkg_import_path) + "_go_list.json", has_content_based_path = True)
@@ -80,14 +80,13 @@ def go_list(
     identifier = paths.basename(pkg_import_path)
     actions.run(go_list_args, env = env, category = "go_list", identifier = identifier, allow_cache_upload = go_toolchain.allow_cache_upload)
 
-    go_list_value = actions.dynamic_output_new(
+    return actions.dynamic_output_new(
         _parse_go_list(
             srcs = srcs,
             package_root = package_root,
             go_list_out = go_list_out,
         )
     )
-    return go_list_out, go_list_value
 
 # buildifier: disable=unused-variable
 def _parse_go_list_impl(actions: AnalysisActions, srcs: list[Artifact], package_root: str, go_list_out: ArtifactValue) -> list[Provider]:

@@ -66,6 +66,7 @@ use buck2_common::local_resource_state::LocalResourceState;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
+use buck2_core::execution_types::execution_group::ExecutionGroup;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::execution_types::executor_config::CommandGenerationOptions;
 use buck2_core::execution_types::executor_config::Executor;
@@ -315,6 +316,13 @@ impl OwnedTestInfo {
         match self {
             Self::External(info) => info.as_ref().value().as_ref().default_executor(),
             Self::Internal(info) => info.as_ref().value().as_ref().default_executor(),
+        }
+    }
+
+    fn execution_group(&self) -> buck2_error::Result<Option<ExecutionGroup>> {
+        match self {
+            Self::External(info) => info.as_ref().value().as_ref().execution_group(),
+            Self::Internal(info) => info.as_ref().value().as_ref().execution_group(),
         }
     }
 
@@ -1739,9 +1747,39 @@ impl BuckTestOrchestrator<'_> {
             },
         };
 
+        let execution_group_executor_config = match (
+            &resolved_executor_override,
+            test_info.execution_group()?,
+        ) {
+            (None, None | Some(ExecutionGroup::Default))
+                if !node
+                    .execution_platform_resolution()
+                    .default_execution_group_declared() =>
+            {
+                return Err(buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::Input,
+                    "The test uses the default execution group, which the rule of `{test_target}` does not declare (the test info may come from another rule that created it). Set `exec_group` or `default_executor` where the test info is created, or add `DefaultExecGroup` to `exec_groups` of the rule of `{test_target}`"
+                ));
+            }
+            (None, Some(group)) => Some(
+                node.execution_platform_resolution()
+                    .executor_config_for_group(&group)
+                    .with_buck_error_context(|| {
+                        format!(
+                            "The test info of `{test_target}` names execution group `{group}`, but no executor was recorded for it when the test info was created, so it is resolved against `{test_target}`"
+                        )
+                    })?
+                    .dupe(),
+            ),
+            _ => None,
+        };
+
         let executor_config = Self::executor_config_with_remote_cache_override(
             node,
-            resolved_executor_override.as_ref().map(|a| &***a),
+            resolved_executor_override
+                .as_ref()
+                .map(|a| &***a)
+                .or(execution_group_executor_config.as_deref()),
             stage,
             supports_test_execution_caching,
         )?;

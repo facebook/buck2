@@ -1,6 +1,7 @@
 # This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
 
 # Build APIs
+## DefaultExecGroup
 ## ExecutionPlatformInfo
 ## ExecutionPlatformRegistrationInfo
 ## InstallInfo
@@ -10,6 +11,7 @@
 ## dynamic\_actions
 ## enforce\_visibility\_intersection
 ## enforce\_within\_view\_intersection
+## exec\_group
 ## get\_base\_path
 ## get\_cell\_name
 ## get\_parent\_modifiers
