@@ -3377,6 +3377,7 @@ enum CallerKind {
   CALLER_KIND_AGENT = 1;
   CALLER_KIND_COMMAND_SHELL = 2;
   CALLER_KIND_OTHER = 3;
+  CALLER_KIND_WRAPPER = 4;
 }
 
 enum AgentDetectionStopReason {

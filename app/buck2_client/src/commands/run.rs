@@ -41,6 +41,7 @@ use buck2_common::argv::SanitizedArgv;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_hash::BuckMutSet;
+use buck2_wrapper_common::BUCK_WRAPPER_PID_ENV_VAR;
 use buck2_wrapper_common::BUCK_WRAPPER_START_TIME_ENV_VAR;
 use buck2_wrapper_common::BUCK_WRAPPER_UUID_ENV_VAR;
 use buck2_wrapper_common::BUCK2_WRAPPER_ENV_VAR;
@@ -51,8 +52,9 @@ use crate::commands::build::print_build_failed;
 use crate::commands::build::print_build_result;
 use crate::commands::build::print_build_succeeded;
 
-const WRAPPER_ENV_VARS: [&str; 3] = [
+const WRAPPER_ENV_VARS: [&str; 4] = [
     BUCK2_WRAPPER_ENV_VAR,
+    BUCK_WRAPPER_PID_ENV_VAR,
     BUCK_WRAPPER_UUID_ENV_VAR,
     BUCK_WRAPPER_START_TIME_ENV_VAR,
 ];
