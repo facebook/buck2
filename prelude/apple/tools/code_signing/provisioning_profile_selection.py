@@ -287,7 +287,9 @@ def select_best_provisioning_profile_core(
             )
             continue
 
-        if datetime.datetime.now() > profile.expiration_date:
+        # `ExpirationDate` is read as a naive UTC time, so compare it with UTC, not local time.
+        now_utc = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+        if now_utc > profile.expiration_date:
             log_mismatched_profile(
                 ProfileExpired(
                     profile=profile, bundle_id_match_length=current_match_length

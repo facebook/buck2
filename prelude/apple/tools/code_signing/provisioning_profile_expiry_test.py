@@ -71,15 +71,11 @@ class _LocalTimeZone:
 
 
 class TestProfileExpiryTimeZone(unittest.TestCase):
-    def test_expiry_is_compared_with_local_time(self) -> None:
-        # Eight hours west of UTC the local clock is behind, so a profile that expired three
-        # hours ago is still selected.
+    def test_expiry_is_compared_with_utc(self) -> None:
         with _LocalTimeZone("PST8"):
-            self.assertIsNotNone(_select_profile_expiring_in(-3))
-        # Five and a half hours east of UTC the local clock is ahead, so a profile valid for
-        # three more hours is rejected.
+            self.assertIsNone(_select_profile_expiring_in(-3))
         with _LocalTimeZone("IST-5:30"):
-            self.assertIsNone(_select_profile_expiring_in(3))
+            self.assertIsNotNone(_select_profile_expiring_in(3))
 
 
 class _NoIdentities(IListCodesignIdentities):
@@ -128,12 +124,11 @@ def _select_from_profiles_dir(expires_in_hours: int):
 
 
 class TestProfileExpiryFromFiles(unittest.TestCase):
-    def test_expired_profile_file_is_selected_west_of_utc(self) -> None:
-        # Eight hours west of UTC the local clock is behind the profile's UTC expiry.
+    def test_expired_profile_file_is_rejected_west_of_utc(self) -> None:
         with _LocalTimeZone("PST8"):
-            self.assertIsNotNone(_select_from_profiles_dir(-3))
-
-    def test_valid_profile_file_is_rejected_east_of_utc(self) -> None:
-        with _LocalTimeZone("IST-5:30"):
             with self.assertRaises(CodeSignProvisioningError):
-                _select_from_profiles_dir(3)
+                _select_from_profiles_dir(-3)
+
+    def test_valid_profile_file_is_selected_east_of_utc(self) -> None:
+        with _LocalTimeZone("IST-5:30"):
+            self.assertIsNotNone(_select_from_profiles_dir(3))
