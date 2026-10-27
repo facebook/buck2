@@ -29,15 +29,7 @@ async def _lines(buck: Buck, target: str) -> list[str]:
 class PreludeToolsTest(BuckTestCase):
     # prelude/python/tools/make_py_package_manifest_module.py
     @buck_test(inplace=False)
-    async def test_manifest_module_keeps_abi_tags_and_invents_resource_packages(
-        self, buck: Buck
-    ) -> None:
-        # The extension is listed under a name no `import` produces, and the
-        # resource-only `pkg/data` directory gets an `__init__` entry.
+    async def test_manifest_module_lists_import_names(self, buck: Buck) -> None:
         namespace: dict[str, object] = {}
         exec((await _output(buck, "root//:manifest_module")).read_text(), namespace)
-        assert namespace["modules"] == [
-            "pkg.__init__",
-            "pkg._speedups.cpython-312-x86_64-linux-gnu",
-            "pkg.data.__init__",
-        ]
+        assert namespace["modules"] == ["pkg.__init__", "pkg._speedups"]
