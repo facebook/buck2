@@ -46,6 +46,8 @@ pub use process::async_background_command;
 pub use process::background_command;
 
 pub const BUCK2_WRAPPER_ENV_VAR: &str = "BUCK2_WRAPPER";
+/// Identifies the launching wrapper only when it matches the client's direct parent.
+pub const BUCK_WRAPPER_PID_ENV_VAR: &str = "BUCK_WRAPPER_PID";
 pub const BUCK_WRAPPER_UUID_ENV_VAR: &str = "BUCK_WRAPPER_UUID";
 pub const BUCK_WRAPPER_START_TIME_ENV_VAR: &str = "BUCK_WRAPPER_START_TIME";
 pub const BUCKD_LIFECYCLE: &str = "buckd.lifecycle";
