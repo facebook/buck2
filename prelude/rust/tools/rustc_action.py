@@ -55,6 +55,7 @@ INHERITED_ENV = [
     "SESSION_ID",
     "ACTION_DIGEST",
     "RE_PLATFORM",
+    "BUDGET_ENTITY",
     "CAS_DAEMON_PORT",
     "CAS_DAEMON_ADDR",
     # Required by Dotslash, which is how the Rust toolchain is shipped on Mac.
