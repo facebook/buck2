@@ -14,6 +14,7 @@ import re
 from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
+from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 from buck2.tests.e2e_util.helper.golden import golden
 
@@ -47,16 +48,12 @@ class DynamicTest(BuckTestCase):
             rel_path="happy_path_dynamic_ctx.golden.json",
         )
 
-    # Very simple test that the exec_deps/toolchains get propagatd to the dynamic bxl_ctx correctly
-    @buck_test(allow_soft_errors=True)
-    async def test_bxl_dynamic_execution_resolution(self, buck: Buck) -> None:
-        result = await buck.bxl(
-            "//:dynamic.bxl:dynamic_test_execution_resolution",
+    @buck_test()
+    async def test_bxl_dynamic_cannot_access_exec_deps(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.bxl("//:dynamic.bxl:dynamic_test_execution_resolution"),
+            stderr_regex="Anon targets and dynamic actions cannot access `bxl.Actions.exec_deps`",
         )
-
-        outputs = json.loads(result.stdout)
-
-        assert Path(outputs["dynamic"]).read_text() == Path(outputs["root"]).read_text()
 
     @buck_test()
     async def test_bxl_dynamic_incompatible_targets(self, buck: Buck) -> None:
