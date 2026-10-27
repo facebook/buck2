@@ -7,6 +7,7 @@
 # above-listed licenses.
 
 import json
+import re
 from typing import Any
 
 from buck2.tests.e2e_util.api.buck import Buck
@@ -177,6 +178,56 @@ class ExecutionGroupsTest(BuckTestCase):
         assert "buck.execution_platform" in node
         assert "buck.exec_group_platforms" not in node
 
+    # Runs `python3` tool scripts locally and on a Linux RE platform.
+    @buck_test(skip_for_os=["windows"])
+    async def test_actions_run_on_group_platform(self, buck: Buck) -> None:
+        await buck.build(
+            "root//groups:bundle", "root//groups:binary", "--no-remote-cache"
+        )
+        result = await buck.log("what-ran", "--format", "json")
+        entries = [json.loads(line) for line in result.stdout.splitlines()]
+        expected = {
+            "compile_resources": "Local",
+            "package": "Re",
+            "compile": "Re",
+            "explicit_default": "Re",
+            "link": "Local",
+            "unused_group": "Local",
+        }
+        # Build action identities have the form `<target> (<category> ...)`.
+        executor_by_category = {
+            category: [
+                e["reproducer"]["executor"]
+                for e in entries
+                if re.search(rf"\({category}[ )]", e["identity"])
+            ]
+            for category in expected
+        }
+        assert executor_by_category == {
+            category: [executor] for category, executor in expected.items()
+        }, entries
+
+    # Runs `python3` tool scripts locally and on a Linux RE platform.
+    @buck_test(skip_for_os=["windows"])
+    async def test_dynamic_output_actions_run_on_group_platform(
+        self, buck: Buck
+    ) -> None:
+        await buck.build("root//groups:dynamic_binary", "--no-remote-cache")
+        result = await buck.log("what-ran", "--format", "json")
+        entries = [json.loads(line) for line in result.stdout.splitlines()]
+        executor_by_category = {
+            category: [
+                e["reproducer"]["executor"]
+                for e in entries
+                if re.search(rf"\({category}[ )]", e["identity"])
+            ]
+            for category in ("dynamic_compile", "dynamic_link")
+        }
+        assert executor_by_category == {
+            "dynamic_compile": ["Re"],
+            "dynamic_link": ["Local"],
+        }, entries
+
     @buck_test()
     async def test_unbound_node_keeps_group_deps(self, buck: Buck) -> None:
         # The `select()` key `:constraint` is configured unbound, which resolves no execution
@@ -270,4 +321,25 @@ class ExecutionGroupsTest(BuckTestCase):
         await expect_failure(
             buck.uquery("root//errors/unbound:t"),
             stderr_regex="Execution group has not yet been assigned to a global",
+        )
+
+    @buck_test()
+    async def test_run_in_undeclared_group(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.build("root//errors/run_undeclared:t"),
+            stderr_regex="Execution group `Other` is not declared by this rule. Declared groups: \\[`Declared`\\]",
+        )
+
+    @buck_test()
+    async def test_write_in_undeclared_group(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.build("root//errors/write_undeclared:t"),
+            stderr_regex="Execution group `Other` is not declared by this rule. Declared groups: \\[`Declared`\\]",
+        )
+
+    @buck_test()
+    async def test_run_with_non_group_value(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.build("root//errors/run_wrong_type:t"),
+            stderr_regex="parameter `exec_group`.*ExecGroup",
         )

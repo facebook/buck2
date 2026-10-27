@@ -537,6 +537,28 @@ impl ExecutionPlatformResolution {
         })
     }
 
+    /// The executor config actions in `group` run with.
+    pub fn executor_config_for_group(
+        &self,
+        group: &ExecutionGroup,
+    ) -> buck2_error::Result<&Arc<CommandExecutorConfig>> {
+        match self.group_parts(group)? {
+            Some((base, _)) => base.executor_config(),
+            None => Err(ExecutionPlatformError::ResolutionNotPerformed.into()),
+        }
+    }
+
+    /// The execution platform of `group`: `None` if resolution found no compatible platform.
+    pub fn platform_for_group(
+        &self,
+        group: &ExecutionGroup,
+    ) -> buck2_error::Result<Option<&ExecutionPlatform>> {
+        match self.group_parts(group)? {
+            Some((base, _)) => Ok(base.platform.as_ref()),
+            None => Err(ExecutionPlatformError::ResolutionNotPerformed.into()),
+        }
+    }
+
     /// The named execution groups the rule declares, in declaration order, with the platform
     /// resolved for each (`None` if resolution found no compatible platform) and the platforms
     /// skipped for it.
@@ -653,6 +675,36 @@ mod tests {
             .map(|(g, p, skipped)| (g.dupe(), p.map(|p| p.cfg().dupe()), skipped.len()))
             .collect();
         assert_eq!(platforms, vec![(link(), Some(cfg("link")), 0)]);
+    }
+
+    #[test]
+    fn test_platform_for_group() {
+        let resolution = partial("default").finalize_with_execution_groups(
+            BuckFixedSortedMap::new(),
+            vec![ExecutionGroupResolutionPartial {
+                group: link(),
+                partial: ExecutionPlatformResolutionPartial::new(None, Vec::new()),
+                exec_dep_cfgs: BuckFixedSortedMap::new(),
+            }],
+        );
+        assert_eq!(
+            resolution
+                .platform_for_group(&ExecutionGroup::Default)
+                .unwrap()
+                .map(|p| p.cfg().dupe()),
+            Some(cfg("default"))
+        );
+        assert!(
+            resolution
+                .platform_for_group(&ExecutionGroup::Named(link()))
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            ExecutionPlatformResolution::unspecified()
+                .platform_for_group(&ExecutionGroup::Named(link()))
+                .is_err()
+        );
     }
 
     #[test]

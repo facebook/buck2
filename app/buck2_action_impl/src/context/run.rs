@@ -14,6 +14,7 @@ use std::time::Duration;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::ArtifactErrors;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
+use buck2_build_api::actions::ActionName;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
@@ -40,6 +41,7 @@ use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_hash::BuckMutInsertionMap;
 use buck2_hash::BuckMutInsertionSet;
 use buck2_hash::BuckMutMap;
+use buck2_interpreter::execution_group::ExecutionGroupArg;
 use dupe::Dupe;
 use either::Either;
 use host_sharing::WeightClass;
@@ -68,6 +70,7 @@ use crate::actions::impls::run::StarlarkRunActionValues;
 use crate::actions::impls::run::UnregisteredRunAction;
 use crate::actions::impls::run::dep_files::RunActionDepFiles;
 use crate::actions::impls::run::new_executor_preference;
+use crate::context::execution_group::action_execution_group;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]
@@ -311,7 +314,9 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         #[starlark(require = named, default = NoneOr::None)] expect_eligible_for_dedupe: NoneOr<
             bool,
         >,
+        #[starlark(require = named, default = NoneOr::None)] exec_group: NoneOr<ExecutionGroupArg>,
     ) -> starlark::Result<NoneType> {
+        let exec_group = action_execution_group(exec_group);
         if incremental_remote_outputs && !no_outputs_cleanup {
             // Precaution to make sure content-based paths are not involved.
             return Err(buck2_error::Error::from(
@@ -684,11 +689,16 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             }
         }
 
-        this.state()?.register_action(
+        this.state()?.register_action_in_group(
             artifacts.declared_outputs,
             action,
             Some(starlark_values),
             error_handler.into_option(),
+            exec_group,
+            || ActionName {
+                category: category.as_str().to_owned(),
+                identifier: identifier.into_option().map(|i| i.as_str().to_owned()),
+            },
         )?;
         Ok(NoneType)
     }

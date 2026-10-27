@@ -52,8 +52,9 @@ enum InnerStarlarkExecutionGroup {
 /// An execution group, created via `exec_group()`.
 ///
 /// A rule declares the execution groups it uses with `rule(exec_groups = [...])`. Exec deps
-/// and toolchain deps declared with `exec_group = ...` use the execution platform resolved
-/// for that group instead of the target's execution platform.
+/// and toolchain deps declared with `exec_group = ...`, and actions run with
+/// `ctx.actions.run(..., exec_group = ...)`, use the execution platform resolved for that
+/// group instead of the target's execution platform.
 #[derive(
     derive_more::Display,
     Debug,

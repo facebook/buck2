@@ -38,10 +38,24 @@ toolchain = rule(
 def _noop_impl(_ctx):
     return [DefaultInfo()]
 
+def _run(ctx, name, tool, exec_group = None, extra_inputs = []):
+    out = ctx.actions.declare_output(name + ".txt")
+    ctx.actions.run(
+        cmd_args(tool[RunInfo], out.as_output(), hidden = extra_inputs),
+        category = name,
+        exec_group = exec_group,
+    )
+    return out
+
 # Resources and packaging use toolchains that need different platforms; neither constrains
 # the default execution group.
+def _bundle_impl(ctx):
+    resources = _run(ctx, "compile_resources", ctx.attrs._resource_toolchain, Resources)
+    bundle = _run(ctx, "package", ctx.attrs._package_toolchain, Package, [resources])
+    return [DefaultInfo(default_output = bundle)]
+
 bundle = rule(
-    impl = _noop_impl,
+    impl = _bundle_impl,
     attrs = {
         "_package_toolchain": attrs.toolchain_dep(
             default = "//groups:package_toolchain",
@@ -56,8 +70,16 @@ bundle = rule(
 )
 
 # Compiles remotely and links locally; `Unused` has no deps and still resolves.
+def _binary_impl(ctx):
+    objects = _run(ctx, "compile", ctx.attrs._compiler)
+    explicit_default = _run(ctx, "explicit_default", ctx.attrs._any_tool, DefaultExecGroup)
+    link_args = ctx.actions.write("link_args.txt", [objects], exec_group = Link)
+    linked = _run(ctx, "link", ctx.attrs._linker, Link, [objects, link_args])
+    unused = _run(ctx, "unused_group", ctx.attrs._any_tool_link, Unused)
+    return [DefaultInfo(default_outputs = [linked, explicit_default, unused])]
+
 binary = rule(
-    impl = _noop_impl,
+    impl = _binary_impl,
     attrs = {
         "_any_tool": attrs.exec_dep(default = "//groups:any_tool"),
         "_any_tool_link": attrs.exec_dep(default = "//groups:any_tool", exec_group = Link),
@@ -66,6 +88,40 @@ binary = rule(
         "_local_marker": attrs.exec_dep(default = "//groups:local_tool", exec_group = Link),
     },
     exec_groups = [Link, Unused],
+)
+
+# Runs `dynamic_compile` in the default group and `dynamic_link` in `Link` from a dynamic output.
+def _dynamic_binary_impl(ctx):
+    dynamic_input = ctx.actions.write("dynamic_input.txt", "")
+    compiled = ctx.actions.declare_output("dynamic_compile.txt")
+    linked = ctx.actions.declare_output("dynamic_link.txt")
+    compiler = ctx.attrs._compiler[RunInfo]
+    linker = ctx.attrs._linker[RunInfo]
+
+    def f(ctx, _artifacts, outputs):
+        ctx.actions.run(cmd_args(compiler, outputs[compiled].as_output()), category = "dynamic_compile")
+        ctx.actions.run(
+            cmd_args(linker, outputs[linked].as_output()),
+            category = "dynamic_link",
+            exec_group = Link,
+        )
+
+    ctx.actions.dynamic_output(
+        dynamic = [dynamic_input],
+        inputs = [],
+        outputs = [compiled.as_output(), linked.as_output()],
+        f = f,
+    )
+    return [DefaultInfo(default_outputs = [compiled, linked])]
+
+dynamic_binary = rule(
+    impl = _dynamic_binary_impl,
+    attrs = {
+        "_compiler": attrs.exec_dep(default = "//groups:remote_tool"),
+        "_linker": attrs.exec_dep(default = "//groups:any_tool", exec_group = Link),
+        "_local_marker": attrs.exec_dep(default = "//groups:local_tool", exec_group = Link),
+    },
+    exec_groups = [Link],
 )
 
 # The same tool in the default group and in `Link`, both resolving to the same platform.

@@ -36,6 +36,9 @@ fn register_execution_group_globals(r: &mut GlobalsBuilder) {
     ///     },
     ///     exec_groups = [Link],
     /// )
+    ///
+    /// def _impl(ctx):
+    ///     ctx.actions.run(cmd, category = "link", exec_group = Link)
     /// ```
     ///
     /// Each execution group a rule declares gets its own execution platform, resolved from the

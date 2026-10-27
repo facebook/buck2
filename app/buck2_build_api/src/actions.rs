@@ -41,6 +41,7 @@ use buck2_core::category::Category;
 use buck2_core::category::CategoryRef;
 use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
+use buck2_core::execution_types::execution_group::ExecutionGroup;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
@@ -409,6 +410,21 @@ pub enum ActionErrors {
         "Analysis produced multiple actions with category `{0}` and at least one of them had no identifier. Add an identifier to these actions to disambiguate them"
     )]
     ActionCategoryDuplicateSingleton(Category),
+    #[error(
+        "Action with category `{category}`{identifier} runs in execution group `{group}`, which has no compatible execution platform. Run `buck2 audit execution-platform-resolution` on the target to see why each platform was skipped"
+    )]
+    NoExecutionPlatformForGroup {
+        category: String,
+        identifier: String,
+        group: String,
+    },
+}
+
+/// The category and identifier of an action, which name it in errors raised when it is
+/// registered.
+pub struct ActionName {
+    pub category: String,
+    pub identifier: Option<String>,
 }
 
 #[derive(Derivative, Debug, Display, Allocative, Pagable)]
@@ -497,6 +513,7 @@ struct ActionToBeRegistered {
     key: ActionKey,
     outputs: BuckMutInsertionSet<BuildArtifact>,
     action: Box<dyn UnregisteredAction>,
+    execution_group: ExecutionGroup,
 }
 
 impl ActionToBeRegistered {
@@ -504,11 +521,13 @@ impl ActionToBeRegistered {
         key: ActionKey,
         outputs: BuckMutInsertionSet<BuildArtifact>,
         a: A,
+        execution_group: ExecutionGroup,
     ) -> Self {
         Self {
             key,
             outputs,
             action: Box::new(a),
+            execution_group,
         }
     }
 
