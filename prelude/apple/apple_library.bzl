@@ -524,6 +524,10 @@ def apple_library_rule_constructor_params_and_swift_providers(
     subtargets.update(xcassets_usage_subtargets)
     if swift_compile and swift_compile.compiled_underlying_pcm_artifact:
         subtargets["underlying-pcm"] = [DefaultInfo(default_output = swift_compile.compiled_underlying_pcm_artifact)]
+    if exported_modulemap_pre and exported_modulemap_pre.modulemap_artifact:
+        subtargets["underlying-modulemap"] = [DefaultInfo(default_output = exported_modulemap_pre.modulemap_artifact)]
+    if exported_pre and exported_pre.modulemap_artifact:
+        subtargets["exported-modulemap"] = [DefaultInfo(default_output = exported_pre.modulemap_artifact)]
 
     if swift_compile:
         subtargets["swift-compilation-database"] = [
