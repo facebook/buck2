@@ -235,7 +235,6 @@ fn read_config_and_report_deprecated<'d>(
             format!("deprecated_config_{section}_{prop}").as_str(),
             DeprecatedConfigError(property, msg).into(),
             quiet: true,
-            error_on_oss: true
         )?;
     }
     Ok(result)

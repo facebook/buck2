@@ -1279,6 +1279,7 @@ mod tests {
     use crate::configuration::bound_label::BoundConfigurationLabel;
     use crate::configuration::builtin::BuiltinPlatform;
     use crate::configuration::hash::ConfigurationHash;
+    use crate::is_open_source;
     use crate::package::PackageLabel;
     use crate::pattern::pattern::InferTargetNames;
     use crate::pattern::pattern::Modifiers;
@@ -1905,14 +1906,23 @@ mod tests {
                 &alias_resolver(),
             )?
         );
+        Ok(())
+    }
 
-        let (target_label, providers) = ParsedPattern::parse_precise(
+    #[test]
+    fn parse_providers_pattern_flavor() -> buck2_error::Result<()> {
+        let parsed = ParsedPattern::parse_precise(
             "//package/path:target#flavor",
             CellName::testing_new("root"),
             &resolver(),
             &alias_resolver(),
-        )?
-        .as_literal("")?;
+        );
+        if is_open_source() {
+            let err = parsed.expect_err("a buck1 flavor is an error in open source");
+            assert!(format!("{err:?}").contains("is not supported"), "{err:?}");
+            return Ok(());
+        }
+        let (target_label, providers) = parsed?.as_literal("")?;
         assert_eq!(
             "root//package/path:target#flavor",
             ProvidersPatternExtra::into_providers_label(

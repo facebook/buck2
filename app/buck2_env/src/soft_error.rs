@@ -191,10 +191,6 @@ pub struct StructuredErrorOptions {
     /// Create a task for this error.
     pub task: bool,
     pub deprecation: bool,
-    /// When true, this soft error will be promoted to a hard error in open source builds.
-    /// Use this for deprecation/migration errors that OSS users should see.
-    /// Monitoring/logging errors should leave this as false (the default).
-    pub error_on_oss: bool,
     pub daemon_in_memory_state_is_corrupted: bool,
     pub daemon_materializer_state_is_corrupted: bool,
     pub action_cache_is_corrupted: bool,
@@ -212,7 +208,6 @@ impl Default for StructuredErrorOptions {
             quiet: true,
             task: true,
             deprecation: false,
-            error_on_oss: false,
             daemon_in_memory_state_is_corrupted: false,
             daemon_materializer_state_is_corrupted: false,
             action_cache_is_corrupted: false,
@@ -238,8 +233,6 @@ pub fn handle_soft_error(
         options.quiet = false;
     }
 
-    let error_on_oss = options.error_on_oss;
-
     // We want to limit each error to appearing at most 10 times in a build (no point spamming people)
     if context.should_emit(loc) {
         if let Some(handler) = HANDLER.get() {
@@ -255,15 +248,6 @@ pub fn handle_soft_error(
     }
     if context.hard_error_config.should_hard_error(category) {
         return Err(err.context("Upgraded warning to failure via $BUCK2_HARD_ERROR"));
-    }
-
-    // @oss-disable: let is_open_source = false;
-    let is_open_source = true; // @oss-enable
-    if is_open_source && error_on_oss {
-        // In open source builds, only deprecation/migration soft errors (those with
-        // error_on_oss: true) are promoted to hard errors. Monitoring/logging soft errors
-        // are no-ops, matching internal behavior.
-        return Err(err);
     }
 
     Ok(err)

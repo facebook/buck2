@@ -1806,12 +1806,8 @@ impl ConcurrencyHandler {
         {
             soft_error!(
                 "nested_invocation_same_dice_state",
-                ConcurrencyHandlerError::NestedInvocationWithSameStates(
-                    running,
-                    display_command
-                )
-                .into(),
-                error_on_oss: true
+                ConcurrencyHandlerError::NestedInvocationWithSameStates(running, display_command)
+                    .into(),
             )?;
         }
 
