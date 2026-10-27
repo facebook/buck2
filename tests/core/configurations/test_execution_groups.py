@@ -14,6 +14,7 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 from buck2.tests.e2e_util.helper.golden import golden_replace_cfg_hash
+from buck2.tests.e2e_util.helper.utils import filter_events
 
 
 async def _cquery_node(buck: Buck, target: str, *args: str) -> dict[str, Any]:
@@ -206,6 +207,79 @@ class ExecutionGroupsTest(BuckTestCase):
         assert executor_by_category == {
             category: [executor] for category, executor in expected.items()
         }, entries
+
+    @buck_test()
+    async def test_aquery_shows_execution_group(self, buck: Buck) -> None:
+        result = await buck.aquery(
+            "kind(run, deps(root//groups:binary))",
+            "--output-attribute=category",
+            "--output-attribute=buck.exec_group",
+        )
+        group_by_category = {
+            a["category"]: a["buck.exec_group"]
+            for a in json.loads(result.stdout).values()
+        }
+        assert group_by_category == {
+            "compile": "DefaultExecGroup",
+            "explicit_default": "DefaultExecGroup",
+            "link": "Link",
+            "unused_group": "Unused",
+        }
+
+    @buck_test()
+    async def test_aquery_shows_execution_group_of_write(self, buck: Buck) -> None:
+        result = await buck.aquery(
+            "kind(write, deps(root//groups:binary))",
+            "--output-attribute=identifier",
+            "--output-attribute=buck.exec_group",
+        )
+        group_by_identifier = {
+            a["identifier"]: a.get("buck.exec_group")
+            for a in json.loads(result.stdout).values()
+        }
+        # The tools' rule declares no execution groups, so their scripts name none.
+        assert group_by_identifier == {
+            "link_args.txt": "Link",
+            "tool.py": None,
+        }, group_by_identifier
+
+    @buck_test()
+    async def test_aquery_execution_group_golden(self, buck: Buck) -> None:
+        # Every action of `binary`, whose rule declares execution groups, names its group,
+        # `DefaultExecGroup` included; the actions of the groupless `tool` rule name none.
+        result = await buck.aquery(
+            "kind('run|write', deps(root//groups:binary))",
+            "--output-attribute=category",
+            "--output-attribute=identifier",
+            "--output-attribute=buck.exec_group",
+        )
+        actions = json.loads(result.stdout)
+        golden_replace_cfg_hash(
+            output=json.dumps(dict(sorted(actions.items())), indent=2),
+            rel_path="aquery_exec_group.golden.json",
+        )
+
+    @buck_test(skip_for_os=["windows"])
+    async def test_action_execution_event_records_execution_group(
+        self, buck: Buck
+    ) -> None:
+        await buck.build("root//groups:binary", "--no-remote-cache")
+        ends = await filter_events(
+            buck, "Event", "data", "SpanEnd", "data", "ActionExecution"
+        )
+        group_by_category = {
+            end["name"]["category"]: end.get("exec_group", "")
+            for end in ends
+            if end["name"]["category"]
+            in ("compile", "explicit_default", "link", "unused_group")
+        }
+        # The default group is recorded as the empty string, which the event omits.
+        assert group_by_category == {
+            "compile": "",
+            "explicit_default": "",
+            "link": "Link",
+            "unused_group": "Unused",
+        }
 
     # Runs `python3` tool scripts locally and on a Linux RE platform.
     @buck_test(skip_for_os=["windows"])

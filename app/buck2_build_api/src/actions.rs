@@ -438,7 +438,15 @@ pub struct RegisteredAction {
     action: Box<dyn Action>,
     #[derivative(Hash = "ignore", PartialEq = "ignore")]
     executor_config: Arc<CommandExecutorConfig>,
+    /// For actions of rules that declare named execution groups, the execution group whose
+    /// platform `executor_config` comes from; `None` for rules without named groups. Boxed so the
+    /// field is one word: only actions of rules with named groups allocate.
+    #[derivative(Hash = "ignore", PartialEq = "ignore")]
+    execution_group: Option<Box<ExecutionGroup>>,
 }
+
+// One word for the group keeps the `Arc` allocation in the same allocator size class.
+buck2_util::size_assert::words_of_type!(RegisteredAction, 8);
 
 impl RegisteredAction {
     pub fn new(
@@ -446,10 +454,20 @@ impl RegisteredAction {
         action: Box<dyn Action>,
         executor_config: Arc<CommandExecutorConfig>,
     ) -> Self {
+        Self::new_in_group(key, action, executor_config, None)
+    }
+
+    pub fn new_in_group(
+        key: ActionKey,
+        action: Box<dyn Action>,
+        executor_config: Arc<CommandExecutorConfig>,
+        execution_group: Option<ExecutionGroup>,
+    ) -> Self {
         Self {
             key,
             action,
             executor_config,
+            execution_group: execution_group.map(Box::new),
         }
     }
 
@@ -483,6 +501,10 @@ impl RegisteredAction {
 
     pub(crate) fn execution_config(&self) -> &CommandExecutorConfig {
         &self.executor_config
+    }
+
+    pub fn execution_group(&self) -> Option<&ExecutionGroup> {
+        self.execution_group.as_deref()
     }
 
     pub fn category(&self) -> CategoryRef<'_> {

@@ -316,6 +316,10 @@ impl<'v> ActionsRegistry<'v> {
                     .execution_platform
                     .executor_config_for_group(&a.execution_group)?)
                 .dupe();
+                let execution_group = self
+                    .execution_platform
+                    .has_execution_groups()
+                    .then(|| a.execution_group.dupe());
                 let (starlark_data, error_handler) =
                     analysis_value_fetcher.get_action_data(&key)?;
                 let action = a.register(starlark_data, error_handler)?;
@@ -347,7 +351,12 @@ impl<'v> ActionsRegistry<'v> {
 
                 actions.insert(
                     key.dupe(),
-                    Arc::new(RegisteredAction::new(key, action, executor_config)),
+                    Arc::new(RegisteredAction::new_in_group(
+                        key,
+                        action,
+                        executor_config,
+                        execution_group,
+                    )),
                 );
             }
 
