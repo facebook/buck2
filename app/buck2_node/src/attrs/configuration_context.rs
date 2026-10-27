@@ -47,6 +47,12 @@ pub trait AttrConfigurationContext {
 
     fn base_exec_cfg(&self) -> buck2_error::Result<ConfigurationNoExec>;
 
+    /// The execution platform resolution of the target whose attributes are being configured,
+    /// when there is one.
+    fn execution_platform_resolution(&self) -> Option<&ExecutionPlatformResolution> {
+        None
+    }
+
     /// Must be equal to `(cfg, Some(exec_cfg))`.
     fn toolchain_cfg(&self) -> ConfigurationWithExec;
 
@@ -183,6 +189,10 @@ impl AttrConfigurationContext for AttrConfigurationContextImpl<'_> {
 
     fn base_exec_cfg(&self) -> buck2_error::Result<ConfigurationNoExec> {
         Ok(self.execution_platform_resolution.base_cfg())
+    }
+
+    fn execution_platform_resolution(&self) -> Option<&ExecutionPlatformResolution> {
+        Some(self.execution_platform_resolution)
     }
 
     fn configure_exec_target(

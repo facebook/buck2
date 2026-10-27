@@ -753,6 +753,10 @@ impl<'v> FrozenStarlarkRuleCallable<'v> {
         &self.rule.attributes
     }
 
+    pub fn declares_execution_groups(&self) -> bool {
+        !self.rule.execution_groups.is_empty()
+    }
+
     pub fn artifact_promise_mappings(&self) -> &Option<FrozenArtifactPromiseMappings<'v>> {
         &self.artifact_promise_mappings
     }

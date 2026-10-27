@@ -1,5 +1,9 @@
 load(
     ":rules.bzl",
+    "anon_arg",
+    "anon_in_group",
+    "anon_toolchain_arg",
+    "arg_toolchain",
     "arg_tools",
     "binary",
     "bundle",
@@ -124,4 +128,47 @@ constrained_link(
 copying_test(
     name = "copied_group_test",
     test = ":group_test",
+)
+
+anon_in_group(name = "anon_in_group")
+
+anon_in_group(
+    name = "anon_targets_in_group",
+    plural = True,
+)
+
+anon_in_group(
+    name = "anon_without_group",
+    in_group = False,
+)
+
+# The default group runs on `linux_remote` (`remote_tool`), `Link` on `linux_local` (`local_tool`).
+[
+    anon_arg(
+        name = name,
+        default_cmd = "$(exe :remote_tool)",
+        in_link = in_link,
+        link_cmd = "$(exe :local_tool)",
+        use_link_cmd = use_link_cmd,
+    )
+    for name, use_link_cmd, in_link in [
+        ("anon_default_arg_in_link", False, True),
+        ("anon_link_arg_in_link", True, True),
+        ("anon_link_arg_in_default", True, False),
+    ]
+]
+
+arg_toolchain(
+    name = "local_arg_toolchain",
+    cmd = "$(exe :local_tool)",
+)
+
+anon_toolchain_arg(
+    name = "anon_toolchain_arg_in_link",
+    in_link = True,
+)
+
+anon_toolchain_arg(
+    name = "anon_toolchain_arg_in_default",
+    in_link = False,
 )

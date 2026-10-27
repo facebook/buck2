@@ -96,7 +96,7 @@ impl ConfiguredStringWithMacrosExt for ConfiguredStringWithMacros {
             }
         };
 
-        let configured_macros = if self.anon_target_compatible {
+        let configured_macros = if self.anon_target_compatible() {
             Some(self)
         } else {
             None

@@ -15,9 +15,12 @@ use std::collections::BTreeMap;
 use std::fmt::Display;
 use std::hash::Hash;
 use std::hash::Hasher;
+use std::sync::Arc;
+use std::sync::LazyLock;
 
 use allocative::Allocative;
 use buck2_core::configuration::compatibility::ResultMaybeCompatible;
+use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::execution_types::execution_group::NamedExecutionGroup;
 use buck2_core::package::PackageLabel;
 use buck2_core::package::source_path::SourcePathRef;
@@ -126,6 +129,16 @@ pub enum StringWithMacros<P: ProvidersLabelMaybeConfigured> {
 size_assert::words_of_type!(StringWithMacros<ProvidersLabel>, 3);
 
 impl StringWithMacros<ConfiguredProvidersLabel> {
+    /// Whether any macro refers to a tool (see [`MacroBase::is_tool`]).
+    pub fn has_tools(&self) -> bool {
+        match self {
+            Self::StringPart(_) => false,
+            Self::ManyParts(parts) => parts
+                .iter()
+                .any(|part| matches!(part, StringWithMacrosPart::Macro(_, m) if m.is_tool())),
+        }
+    }
+
     pub fn concat(
         self,
         items: impl Iterator<Item = buck2_error::Result<Self>>,
@@ -461,35 +474,100 @@ pub type ConfiguredStringWithMacrosPart = StringWithMacrosPart<ConfiguredProvide
 
 pub type UnconfiguredStringWithMacros = StringWithMacros<ProvidersLabel>;
 
-#[derive(
-    Debug, Eq, PartialEq, Hash, Clone, Allocative, Display, StrongHash, Pagable
-)]
+#[derive(Debug, Clone, Allocative, Display, Pagable)]
 #[display("{}", string_with_macros)]
 pub struct ConfiguredStringWithMacros {
     pub string_with_macros: StringWithMacros<ConfiguredProvidersLabel>,
-    pub anon_target_compatible: bool,
+    /// `None` for an arg that cannot be passed to anon targets. For one that can, the execution
+    /// platform resolution its tools (see [`MacroBase::is_tool`]) were configured for, which is
+    /// that of the target that configured it; `Some(None)`, shared through [`NO_TOOLS`] rather
+    /// than allocated, when it refers to no tools. One pointer, so `ConfiguredAttr` keeps its size.
+    anon_target: Option<Arc<Option<ExecutionPlatformResolution>>>,
 }
 
+static NO_TOOLS: LazyLock<Arc<Option<ExecutionPlatformResolution>>> =
+    LazyLock::new(|| Arc::new(None));
+
 impl ConfiguredStringWithMacros {
-    /// Whether any macro refers to a dependency in a named execution group.
-    pub fn has_macros_in_execution_group(&self) -> bool {
-        match &self.string_with_macros {
-            StringWithMacros::StringPart(_) => false,
-            StringWithMacros::ManyParts(parts) => parts
-                .iter()
-                .any(|part| matches!(part, StringWithMacrosPart::Macro(_, MacroBase::InGroup(..)))),
+    /// `configured_by` is the execution platform resolution of the target that configured the
+    /// arg, if any; it is kept only for an anon-target-compatible arg that refers to tools.
+    pub fn new(
+        string_with_macros: StringWithMacros<ConfiguredProvidersLabel>,
+        anon_target_compatible: bool,
+        configured_by: Option<&ExecutionPlatformResolution>,
+    ) -> Self {
+        let anon_target = if !anon_target_compatible {
+            None
+        } else if string_with_macros.has_tools() {
+            Some(Arc::new(Some(configured_by.map_or_else(
+                ExecutionPlatformResolution::unspecified,
+                Dupe::dupe,
+            ))))
+        } else {
+            Some(NO_TOOLS.dupe())
+        };
+        Self {
+            string_with_macros,
+            anon_target,
         }
+    }
+
+    pub fn anon_target_compatible(&self) -> bool {
+        self.anon_target.is_some()
+    }
+
+    /// The execution platform resolution the tools of an anon-target-compatible arg were
+    /// configured for; `None` if it refers to no tools.
+    pub fn anon_target_tool_resolution(&self) -> Option<&ExecutionPlatformResolution> {
+        self.anon_target.as_deref()?.as_ref()
+    }
+}
+
+/// The resolution in `anon_target` is left out of equality and of every hash, so
+/// anon targets created by targets with different resolutions from the same arg are one target.
+impl PartialEq for ConfiguredStringWithMacros {
+    fn eq(&self, other: &Self) -> bool {
+        self.string_with_macros == other.string_with_macros
+            && self.anon_target_compatible() == other.anon_target_compatible()
+    }
+}
+
+impl Eq for ConfiguredStringWithMacros {}
+
+impl Hash for ConfiguredStringWithMacros {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.string_with_macros.hash(state);
+        self.anon_target_compatible().hash(state);
+    }
+}
+
+impl StrongHash for ConfiguredStringWithMacros {
+    fn strong_hash<H: Hasher>(&self, state: &mut H) {
+        self.string_with_macros.strong_hash(state);
+        self.anon_target_compatible().strong_hash(state);
     }
 }
 
 impl StrongHashWithoutConfig for ConfiguredStringWithMacros {
     fn strong_hash_without_config<H: Hasher>(&self, state: &mut H) {
-        let Self {
-            string_with_macros,
-            anon_target_compatible,
-        } = self;
-        string_with_macros.strong_hash_without_config(state);
-        anon_target_compatible.strong_hash(state);
+        self.string_with_macros.strong_hash_without_config(state);
+        self.anon_target_compatible().strong_hash(state);
+    }
+}
+
+impl<P: ProvidersLabelMaybeConfigured> MacroBase<P> {
+    /// A tool is the dependency of `$(exe)` on an exec dep, `$(location_exec)`,
+    /// `$(location_toolchain)`, or any macro of an arg in an execution group.
+    pub fn is_tool(&self) -> bool {
+        matches!(
+            self,
+            Self::InGroup(..)
+                | Self::Exe { exec_dep: true, .. }
+                | Self::Location {
+                    dep_kind: MacroDepKind::Exec | MacroDepKind::Toolchain,
+                    ..
+                }
+        )
     }
 }
 
@@ -698,15 +776,16 @@ impl Semantics for kinds::ArgSimple {
 
     fn configure(
         s: View<'_, Self>,
-        Configure { v, t, .. }: Configure<'_, '_>,
+        Configure { v, t, ctx, .. }: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
         match &t.non_optional().0.inner {
-            AttrTypeInner::Arg(ty) => {
-                ResultMaybeCompatible::Compatible(ConfiguredAttr::Arg(ConfiguredStringWithMacros {
-                    string_with_macros: StringWithMacros::StringPart(ArcStr::from(s)),
-                    anon_target_compatible: ty.anon_target_compatible,
-                }))
-            }
+            AttrTypeInner::Arg(ty) => ResultMaybeCompatible::Compatible(ConfiguredAttr::Arg(
+                ConfiguredStringWithMacros::new(
+                    StringWithMacros::StringPart(ArcStr::from(s)),
+                    ty.anon_target_compatible,
+                    ctx.execution_platform_resolution(),
+                ),
+            )),
             _ => mismatch(v, t).into(),
         }
     }
@@ -823,10 +902,13 @@ impl Semantics for kinds::Arg {
                     .iter()
                     .map(|p| p.configure(ctx, ty.execution_group.as_ref()))
                     .collect::<buck2_error::Result<Box<[_]>>>()?;
-                ResultMaybeCompatible::Compatible(ConfiguredAttr::Arg(ConfiguredStringWithMacros {
-                    string_with_macros: StringWithMacros::ManyParts(configured),
-                    anon_target_compatible: ty.anon_target_compatible,
-                }))
+                ResultMaybeCompatible::Compatible(ConfiguredAttr::Arg(
+                    ConfiguredStringWithMacros::new(
+                        StringWithMacros::ManyParts(configured),
+                        ty.anon_target_compatible,
+                        ctx.execution_platform_resolution(),
+                    ),
+                ))
             }
             _ => mismatch(v, t).into(),
         }
@@ -1436,5 +1518,113 @@ impl CoercedAttrArenaBuilder {
             }
         };
         encode_kind::<kinds::ArgMacro>(self, (write_to_file, parts))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use buck2_core::configuration::data::ConfigurationData;
+    use buck2_core::execution_types::execution::ExecutionPlatformResolution;
+    use buck2_core::provider::label::ConfiguredProvidersLabel;
+    use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+    use buck2_util::arc_str::ArcStr;
+
+    use super::*;
+
+    fn tool_label() -> ConfiguredProvidersLabel {
+        ConfiguredProvidersLabel::default_for(ConfiguredTargetLabel::testing_parse(
+            "root//:tool",
+            ConfigurationData::testing_new(),
+        ))
+    }
+
+    fn with_macro(
+        macro_: MacroBase<ConfiguredProvidersLabel>,
+    ) -> StringWithMacros<ConfiguredProvidersLabel> {
+        StringWithMacros::ManyParts(Box::new([
+            StringWithMacrosPart::String(ArcStr::from("--tool=")),
+            StringWithMacrosPart::Macro(false, macro_),
+        ]))
+    }
+
+    fn resolution() -> ExecutionPlatformResolution {
+        ExecutionPlatformResolution::new_for_testing(None, Vec::new())
+    }
+
+    #[test]
+    fn test_anon_target_resolution_kept_only_for_tools() {
+        let resolution = resolution();
+        let flag = ConfiguredStringWithMacros::new(
+            StringWithMacros::StringPart(ArcStr::from("--flag")),
+            true,
+            Some(&resolution),
+        );
+        assert!(flag.anon_target_compatible());
+        assert!(flag.anon_target_tool_resolution().is_none());
+        assert!(Arc::ptr_eq(flag.anon_target.as_ref().unwrap(), &NO_TOOLS));
+
+        let target_dep = ConfiguredStringWithMacros::new(
+            with_macro(MacroBase::Exe {
+                label: tool_label(),
+                exec_dep: false,
+            }),
+            true,
+            Some(&resolution),
+        );
+        assert!(target_dep.anon_target_compatible());
+        assert!(target_dep.anon_target_tool_resolution().is_none());
+
+        for tool in [
+            MacroBase::Exe {
+                label: tool_label(),
+                exec_dep: true,
+            },
+            MacroBase::Location {
+                label: tool_label(),
+                dep_kind: MacroDepKind::Exec,
+            },
+            MacroBase::Location {
+                label: tool_label(),
+                dep_kind: MacroDepKind::Toolchain,
+            },
+        ] {
+            let arg = ConfiguredStringWithMacros::new(with_macro(tool), true, Some(&resolution));
+            assert!(arg.anon_target_compatible());
+            assert!(arg.anon_target_tool_resolution().is_some(), "{arg}");
+        }
+    }
+
+    #[test]
+    fn test_not_anon_target_compatible_keeps_no_resolution() {
+        let resolution = resolution();
+        let arg = ConfiguredStringWithMacros::new(
+            with_macro(MacroBase::Exe {
+                label: tool_label(),
+                exec_dep: true,
+            }),
+            false,
+            Some(&resolution),
+        );
+        assert!(!arg.anon_target_compatible());
+        assert!(arg.anon_target_tool_resolution().is_none());
+    }
+
+    #[test]
+    fn test_anon_target_resolution_not_in_equality() {
+        let tool = || {
+            with_macro(MacroBase::Exe {
+                label: tool_label(),
+                exec_dep: true,
+            })
+        };
+        let resolution = resolution();
+        assert_eq!(
+            ConfiguredStringWithMacros::new(tool(), true, Some(&resolution)),
+            ConfiguredStringWithMacros::new(tool(), true, None),
+        );
+        assert_ne!(
+            ConfiguredStringWithMacros::new(tool(), true, None),
+            ConfiguredStringWithMacros::new(tool(), false, None),
+        );
     }
 }

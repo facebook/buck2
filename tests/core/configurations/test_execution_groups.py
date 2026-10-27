@@ -387,13 +387,12 @@ class ExecutionGroupsTest(BuckTestCase):
 
     @buck_test()
     async def test_arg_in_group_passed_to_anon_target(self, buck: Buck) -> None:
-        await expect_failure(
-            buck.aquery("root//errors/arg_in_anon:t"),
-            stderr_regex="Args whose macros refer to dependencies in an execution group cannot be passed to anon targets",
-        )
+        # `G` and the default group resolve to the same platform, so `G`'s tool can run there.
+        await buck.aquery("root//errors/arg_in_anon:t")
+        # A rule with execution groups cannot be an anon target at all.
         await expect_failure(
             buck.aquery("root//errors/arg_in_anon:grouped_anon"),
-            stderr_regex="Args whose macros refer to dependencies in an execution group cannot be passed to anon targets",
+            stderr_regex="Rule `grouped_anon` declares execution groups, which anon targets do not have",
         )
 
     # Runs a `python3` test locally; the default group would run it on a Linux RE platform.
@@ -473,6 +472,105 @@ class ExecutionGroupsTest(BuckTestCase):
                 group: _platform(platform)
                 for group, platform in node["buck.exec_group_platforms"].items()
             } == {"Link": link_platform}, target_platform
+
+    # Runs a `python3` tool locally in an anon target; the default group is a Linux RE platform.
+    @buck_test(skip_for_os=["windows"])
+    async def test_anon_target_runs_on_its_group_platform(self, buck: Buck) -> None:
+        await buck.build(
+            "root//groups:anon_in_group",
+            "root//groups:anon_targets_in_group",
+            "--no-remote-cache",
+        )
+        result = await buck.log("what-ran", "--format", "json")
+        entries = [json.loads(line) for line in result.stdout.splitlines()]
+        anon_links = [
+            e["reproducer"]["executor"]
+            for e in entries
+            if re.search(r"\(anon_link[ )]", e["identity"])
+        ]
+        # Both targets create the same anon target, so it runs once.
+        assert anon_links == ["Local"], entries
+
+    @buck_test()
+    async def test_anon_target_shared_by_creators_with_different_resolutions(
+        self, buck: Buck
+    ) -> None:
+        targets = ["root//anon_args:shared_a", "root//anon_args:shared_b"]
+        result = await buck.build(*targets)
+        report = result.get_build_report()
+        outputs = {report.output_for_target(t) for t in targets}
+        assert len(outputs) == 1, outputs
+
+    @buck_test()
+    async def test_groupless_creator_passes_arg_tool_of_other_platform(
+        self, buck: Buck
+    ) -> None:
+        # Without execution groups the anon target does not check the platforms of arg tools.
+        await buck.build("root//anon_args:remote_arg_on_local")
+
+    @buck_test()
+    async def test_anon_target_of_rule_with_groups(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.aquery("root//errors/anon_rule_with_groups:t"),
+            stderr_regex="Rule `_grouped` declares execution groups, which anon targets do not have",
+        )
+
+    @buck_test()
+    async def test_anon_target_rejects_arg_tool_of_other_platform(
+        self, buck: Buck
+    ) -> None:
+        await expect_failure(
+            buck.aquery("root//groups:anon_default_arg_in_link"),
+            stderr_regex=r"`\$\(exe root//groups:remote_tool\)` refers to a tool built for execution platform `root//config:linux_remote`, but the anon target runs on `root//config:linux_local`",
+        )
+        await expect_failure(
+            buck.aquery("root//groups:anon_link_arg_in_default"),
+            stderr_regex=r"`\$\(exe root//groups:local_tool\)` refers to a tool built for execution platform `root//config:linux_local`, but the anon target runs on `root//config:linux_remote`",
+        )
+
+    # Runs a `python3` tool script locally.
+    @buck_test(skip_for_os=["windows"])
+    async def test_anon_target_runs_arg_tool_of_its_group(self, buck: Buck) -> None:
+        target = "root//groups:anon_link_arg_in_link"
+        result = await buck.build(target, "--no-remote-cache")
+        output = result.get_build_report().output_for_target(target)
+        assert output.read_text() == "local_tool"
+        result = await buck.log("what-ran", "--format", "json")
+        entries = [json.loads(line) for line in result.stdout.splitlines()]
+        executors = [
+            e["reproducer"]["executor"]
+            for e in entries
+            if re.search(r"\(anon_arg[ )]", e["identity"])
+        ]
+        assert executors == ["Local"], entries
+
+    # Runs a `python3` tool script locally.
+    @buck_test(skip_for_os=["windows"])
+    async def test_anon_target_runs_toolchain_arg_tool_of_its_group(
+        self, buck: Buck
+    ) -> None:
+        target = "root//groups:anon_toolchain_arg_in_link"
+        result = await buck.build(target, "--no-remote-cache")
+        output = result.get_build_report().output_for_target(target)
+        assert output.read_text() == "local_tool"
+
+    @buck_test()
+    async def test_anon_target_rejects_toolchain_arg_tool_of_other_platform(
+        self, buck: Buck
+    ) -> None:
+        await expect_failure(
+            buck.aquery("root//groups:anon_toolchain_arg_in_default"),
+            stderr_regex=r"`\$\(exe root//groups:local_tool\)` refers to a tool built for execution platform `root//config:linux_local`, but the anon target runs on `root//config:linux_remote`",
+        )
+
+    @buck_test()
+    async def test_anon_target_without_group_rejects_group_tool(
+        self, buck: Buck
+    ) -> None:
+        await expect_failure(
+            buck.aquery("root//groups:anon_without_group"),
+            stderr_regex="Exec deps and the current anon target must have the same execution platform resolution",
+        )
 
     @buck_test()
     async def test_unbound_node_keeps_group_deps(self, buck: Buck) -> None:
@@ -589,3 +687,27 @@ class ExecutionGroupsTest(BuckTestCase):
             buck.build("root//errors/run_wrong_type:t"),
             stderr_regex="parameter `exec_group`.*ExecGroup",
         )
+
+    @buck_test()
+    async def test_anon_target_in_group_of_unbound_node(self, buck: Buck) -> None:
+        # An unbound node resolves no group: an anon target in a group fails at creation with the
+        # error an action in a group fails with.
+        for target in ["run", "anon"]:
+            await expect_failure(
+                buck.build(
+                    f"root//errors/anon_unbound:{target}",
+                    "--target-platforms=root//config:linux_local",
+                ),
+                stderr_regex="Execution platform resolution was not performed",
+            )
+
+    @buck_test()
+    async def test_anon_target_in_group_without_platform(self, buck: Buck) -> None:
+        for target in ["t", "plural"]:
+            await expect_failure(
+                buck.build(
+                    f"root//errors/anon_no_group_platform:{target}",
+                    "--target-platforms=root//config:linux_local",
+                ),
+                stderr_regex="Anon target of rule `_anon` is created in execution group `G`, which has no compatible execution platform",
+            )

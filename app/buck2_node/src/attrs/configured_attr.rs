@@ -461,14 +461,22 @@ impl ConfiguredAttr {
                     }
                 }
                 ConfiguredAttr::Arg(left) => {
+                    let anon_target_compatible = left.anon_target_compatible();
+                    let mut configured_by = left.anon_target_tool_resolution().cloned();
                     let res = left.string_with_macros.concat(items.map(|x| match x? {
-                        ConfiguredAttr::Arg(x) => Ok(x.string_with_macros),
+                        ConfiguredAttr::Arg(x) => {
+                            if configured_by.is_none() {
+                                configured_by = x.anon_target_tool_resolution().cloned();
+                            }
+                            Ok(x.string_with_macros)
+                        }
                         attr => Err(attr.concat_not_supported("arg")),
                     }))?;
-                    Ok(ConfiguredAttr::Arg(ConfiguredStringWithMacros {
-                        string_with_macros: res,
-                        anon_target_compatible: left.anon_target_compatible,
-                    }))
+                    Ok(ConfiguredAttr::Arg(ConfiguredStringWithMacros::new(
+                        res,
+                        anon_target_compatible,
+                        configured_by.as_ref(),
+                    )))
                 }
                 val => Err(buck2_error!(
                     buck2_error::ErrorTag::Input,

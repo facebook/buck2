@@ -17,12 +17,19 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::V
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_promise_artifact::StarlarkPromiseArtifact;
 use buck2_build_api::interpreter::rule_defs::provider::dependency::Dependency;
 use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedStringWithMacros;
+use buck2_core::execution_types::execution_group::ExecutionGroup;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::soft_error;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::attr_type::AttrTypeInner;
+use buck2_node::attrs::attr_type::arg::ConfiguredStringWithMacros;
+use buck2_node::attrs::attr_type::arg::MacroBase;
+use buck2_node::attrs::attr_type::arg::MacroDepKind;
+use buck2_node::attrs::attr_type::arg::StringWithMacros;
+use buck2_node::attrs::attr_type::arg::StringWithMacrosPart;
 use buck2_node::attrs::attr_type::bool::BoolLiteral;
 use buck2_node::attrs::attr_type::dep::DepAttr;
 use buck2_node::attrs::attr_type::dep::DepAttrTransition;
@@ -147,18 +154,11 @@ impl AnonTargetAttrTypeCoerce for AttrType {
                     Err(AnonTargetCoercionError::type_error("artifact", value).into())
                 }
             }
-            AttrTypeInner::Arg(arg_type) => {
-                if arg_type.execution_group.is_some() {
-                    return Err(AnonTargetCoercionError::ArgInExecutionGroup.into());
-                }
+            AttrTypeInner::Arg(_) => {
                 if let Some(resolved_macro) = ResolvedStringWithMacros::from_value(value) {
                     match resolved_macro.configured_macros() {
-                        Some(configured_macros)
-                            if configured_macros.has_macros_in_execution_group() =>
-                        {
-                            Err(AnonTargetCoercionError::ArgInExecutionGroup.into())
-                        }
                         Some(configured_macros) => {
+                            check_tool_macro_platforms(ctx, configured_macros)?;
                             Ok(AnonTargetAttr::Arg(Box::new(configured_macros.clone())))
                         }
                         None => Err(AnonTargetCoercionError::ArgNotAnonTargetCompatible.into()),
@@ -190,6 +190,64 @@ impl AnonTargetAttrTypeCoerce for AttrType {
     }
 }
 
+/// Tools that args refer to (`$(exe)`, `$(location_exec)`, `$(location_toolchain)`) were
+/// configured by the target that configured the arg, for the platform of their execution group in
+/// that target's resolution; the anon target runs them on its own execution platform, so the two
+/// must match. Only tools in execution groups are checked: those of grouped macros, and every tool
+/// when the creator declares named groups or creates the anon target with `exec_group`.
+fn check_tool_macro_platforms(
+    ctx: &AnonAttrCtx,
+    macros: &ConfiguredStringWithMacros,
+) -> buck2_error::Result<()> {
+    let (StringWithMacros::ManyParts(parts), Some(configured_by)) = (
+        &macros.string_with_macros,
+        macros.anon_target_tool_resolution(),
+    ) else {
+        return Ok(());
+    };
+    for part in parts.iter() {
+        let StringWithMacrosPart::Macro(_, macro_) = part else {
+            continue;
+        };
+        let tool_resolution = match macro_ {
+            MacroBase::InGroup(box (_, group)) => {
+                configured_by.resolution_for_group(&ExecutionGroup::Named(group.dupe()))?
+            }
+            MacroBase::Exe { exec_dep: true, .. }
+            | MacroBase::Location {
+                dep_kind: MacroDepKind::Exec | MacroDepKind::Toolchain,
+                ..
+            } if ctx.uses_execution_groups => configured_by.dupe(),
+            _ => continue,
+        };
+        let tool_platform = tool_resolution.platform()?;
+        let anon_platform = ctx.execution_platform_resolution.platform()?;
+        if tool_platform != anon_platform {
+            return Err(AnonTargetCoercionError::ArgToolPlatformMismatch(
+                tool_macro_display(macro_),
+                tool_platform.id(),
+                anon_platform.id(),
+            )
+            .into());
+        }
+    }
+    Ok(())
+}
+
+/// `$(exe //pkg:tool)` and the like, without the tool's configuration.
+fn tool_macro_display(macro_: &MacroBase<ConfiguredProvidersLabel>) -> String {
+    match macro_ {
+        MacroBase::InGroup(box (inner, _)) => tool_macro_display(inner),
+        MacroBase::Exe { label, .. } => format!("$(exe {})", label.unconfigured()),
+        MacroBase::Location {
+            label,
+            dep_kind: MacroDepKind::Toolchain,
+        } => format!("$(location_toolchain {})", label.unconfigured()),
+        MacroBase::Location { label, .. } => format!("$(location_exec {})", label.unconfigured()),
+        other => format!("$({other})"),
+    }
+}
+
 #[derive(Debug, buck2_error::Error)]
 pub(crate) enum AnonTargetCoercionError {
     #[error("Expected value of type `{0}`, got value with type `{1}` (value was `{2}`)")]
@@ -214,10 +272,10 @@ pub(crate) enum AnonTargetCoercionError {
     #[buck2(tag = Input)]
     ArgNotAnonTargetCompatible,
     #[error(
-        "Args whose macros refer to dependencies in an execution group cannot be passed to anon targets"
+        "`{0}` refers to a tool built for execution platform `{1}`, but the anon target runs on `{2}`. Create the anon target with the `exec_group` of the attribute the tool comes from"
     )]
     #[buck2(tag = Input)]
-    ArgInExecutionGroup,
+    ArgToolPlatformMismatch(String, String, String),
     #[error("Internal error: exec dep is missing the execution platform resolution")]
     #[buck2(tag = Tier0)]
     ExecDepMissingExecPlatformResolution,

@@ -251,5 +251,97 @@ copying_test = rule(
     },
 )
 
+def _anon_runner_impl(ctx):
+    out = ctx.actions.declare_output("anon_link.txt", has_content_based_path = False)
+    ctx.actions.run(cmd_args(ctx.attrs.tool[RunInfo], out.as_output()), category = "anon_link")
+    return [DefaultInfo(default_output = out)]
+
+_anon_runner = anon_rule(
+    impl = _anon_runner_impl,
+    attrs = {"tool": attrs.exec_dep()},
+    artifact_promise_mappings = {"out": lambda p: p[DefaultInfo].default_outputs[0]},
+)
+
+# Passes the `Link` tool to an anon target created in `Link`; the default group is remote-only.
+def _anon_in_group_impl(ctx):
+    attrs = {"tool": ctx.attrs._linker}
+    group = Link if ctx.attrs.in_group else None
+    if ctx.attrs.plural:
+        anon = ctx.actions.anon_targets([(_anon_runner, attrs)], exec_group = group).anon_targets[0]
+    else:
+        anon = ctx.actions.anon_target(_anon_runner, attrs, exec_group = group)
+    return [DefaultInfo(default_output = anon.artifact("out"))]
+
+anon_in_group = rule(
+    impl = _anon_in_group_impl,
+    attrs = {
+        "in_group": attrs.bool(default = True),
+        "plural": attrs.bool(default = False),
+        "_compiler": attrs.exec_dep(default = "//groups:remote_tool"),
+        "_linker": attrs.exec_dep(default = "//groups:local_tool", exec_group = Link),
+    },
+    exec_groups = [Link],
+)
+
+def _anon_arg_runner_impl(ctx):
+    out = ctx.actions.declare_output("anon_arg.txt", has_content_based_path = False)
+    # `$(exe)` expands to one string, `python3 <script>`, so a shell splits it.
+    script = cmd_args(ctx.attrs.cmd, '"$0"', delimiter = " ")
+    ctx.actions.run(cmd_args("sh", "-c", script, out.as_output()), category = "anon_arg")
+    return [DefaultInfo(default_output = out)]
+
+_anon_arg_runner = anon_rule(
+    impl = _anon_arg_runner_impl,
+    attrs = {"cmd": attrs.arg(anon_target_compatible = True)},
+    artifact_promise_mappings = {"out": lambda p: p[DefaultInfo].default_outputs[0]},
+)
+
+# Passes the tool of `default_cmd` or `link_cmd` to an anon target created in the default group or `Link`.
+def _anon_arg_impl(ctx):
+    cmd = ctx.attrs.link_cmd if ctx.attrs.use_link_cmd else ctx.attrs.default_cmd
+    group = Link if ctx.attrs.in_link else None
+    anon = ctx.actions.anon_target(_anon_arg_runner, {"cmd": cmd}, exec_group = group)
+    return [DefaultInfo(default_output = anon.artifact("out"))]
+
+anon_arg = rule(
+    impl = _anon_arg_impl,
+    attrs = {
+        "default_cmd": attrs.arg(anon_target_compatible = True),
+        "in_link": attrs.bool(),
+        "link_cmd": attrs.arg(anon_target_compatible = True, exec_group = Link),
+        "use_link_cmd": attrs.bool(),
+    },
+    exec_groups = [DefaultExecGroup, Link],
+)
+
 # `exec_group = None` is the default group, so wrappers can pass an optional group through.
 plain = rule(impl = _noop_impl, attrs = {"_tool": attrs.exec_dep(default = "//groups:any_tool", exec_group = None)})
+
+ArgToolchainInfo = provider(fields = ["cmd"])
+
+def _arg_toolchain_impl(ctx):
+    return [DefaultInfo(), ArgToolchainInfo(cmd = ctx.attrs.cmd)]
+
+# A toolchain whose arg refers to a tool, configured for the platform of the group that uses it.
+arg_toolchain = rule(
+    impl = _arg_toolchain_impl,
+    attrs = {"cmd": attrs.arg(anon_target_compatible = True)},
+    is_toolchain_rule = True,
+)
+
+# Passes the arg of a `Link` toolchain to an anon target created in `Link` or the default group.
+def _anon_toolchain_arg_impl(ctx):
+    cmd = ctx.attrs._toolchain[ArgToolchainInfo].cmd
+    group = Link if ctx.attrs.in_link else None
+    anon = ctx.actions.anon_target(_anon_arg_runner, {"cmd": cmd}, exec_group = group)
+    return [DefaultInfo(default_output = anon.artifact("out"))]
+
+anon_toolchain_arg = rule(
+    impl = _anon_toolchain_arg_impl,
+    attrs = {
+        "in_link": attrs.bool(),
+        "_compiler": attrs.exec_dep(default = "//groups:remote_tool"),
+        "_toolchain": attrs.toolchain_dep(default = "//groups:local_arg_toolchain", exec_group = Link),
+    },
+    exec_groups = [Link],
+)
