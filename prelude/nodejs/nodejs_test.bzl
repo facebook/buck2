@@ -76,7 +76,7 @@ def _staged_srcs(ctx: AnalysisContext) -> (dict[str, Artifact], dict[str, str]):
         src for src in ctx.attrs.srcs if _emitted_path(src.short_path) != None or (src.short_path.endswith(".json") and src.short_path != "package.json")
     ]
     package_json = [src for src in ctx.attrs.srcs if src.short_path == "package.json"]
-    dep_infos = get_nodejs_dep_infos(ctx.attrs.deps, consumer_label = ctx.label)
+    dep_infos = get_nodejs_dep_infos(ctx.attrs.deps, consumer_label = ctx.label, allow_data = True)
     emit = compile_typescript(
         actions = ctx.actions,
         label = ctx.label,
@@ -295,9 +295,10 @@ nodejs_test = prelude_rule(
 
     `tsconfig`, with `"node"`, `"jest"` or `"vitest"`, compiles the `.ts`, `.tsx`, `.mts`
     and `.cts` `srcs` (not declarations) together with the toolchain's
-    `tsc`, as `nodejs_library` compiles its `srcs`, against `deps`, the
-    third-party trees and the `.json` `srcs` they import, then stages each
-    TypeScript source as the file `tsc` emits for it:
+    `tsc`, as `nodejs_library` compiles its `srcs`, against the
+    `nodejs_library` `deps`, the third-party trees and the `.json` `srcs`
+    they import, then stages each TypeScript source as the file `tsc`
+    emits for it:
     its short path with the extension `.js`, `.mjs` or `.cjs` (`.js` for
     `.tsx`, so `jsx` must not be `preserve`). A `package.json` in `srcs`
     decides the emitted module format. Test files are then selected among
@@ -355,7 +356,9 @@ nodejs_test = prelude_rule(
     that sets `env` on Unix and Windows. `library`, `entry_point` (and its
     default) and `node_modules` (unset inherits the trees of `library` and
     `deps`; a list replaces them; `[]` means none) follow the same rules as
-    `nodejs_binary`, as do package staging and `.d.ts` stripping.
+    `nodejs_binary`, as do package staging, `.d.ts` stripping and `deps`
+    that are not `nodejs_library` targets, which are data deps staged in
+    `[dir]`.
     `resources`, and with `"none"` a directory `main` with `entry_point`,
     also follow `nodejs_binary`. `resources` that are not staged are hidden
     inputs of the test command.""",

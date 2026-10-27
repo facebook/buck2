@@ -81,10 +81,13 @@ def is_relative_slash_path(path: str) -> bool:
     segments = path.split("/")
     return not (path.startswith("/") or "\\" in path or "" in segments or "." in segments or ".." in segments)
 
-def get_nodejs_dep_infos(deps: list, consumer_label, non_code_attr: str | None = None) -> list[NodejsLibraryInfo]:
+def get_nodejs_dep_infos(deps: list, consumer_label, non_code_attr: str | None = None, allow_data: bool = False) -> list[NodejsLibraryInfo]:
+    """The `NodejsLibraryInfo` of each of `deps`; with `allow_data`, deps without one are skipped (see `get_nodejs_data_deps`)."""
     infos = []
     for dep in deps:
         if NodejsLibraryInfo not in dep:
+            if allow_data:
+                continue
             hint = " (use `{}` for non-code artifacts)".format(non_code_attr) if non_code_attr else ""
             fail(
                 "target {} has `deps` entry `{}` which does not provide `NodejsLibraryInfo`; `deps` must be `nodejs_library` targets{}".format(
@@ -93,6 +96,50 @@ def get_nodejs_dep_infos(deps: list, consumer_label, non_code_attr: str | None =
             )
         infos.append(dep[NodejsLibraryInfo])
     return infos
+
+def get_nodejs_data_deps(deps: list, consumer_label) -> dict[str, Artifact]:
+    """The data deps among `deps`, those without `NodejsLibraryInfo`, by their package path."""
+    staged = {}
+    for dep in deps:
+        if NodejsLibraryInfo in dep:
+            continue
+        if NodejsTreeInfo in dep:
+            fail(
+                "target {} has `deps` entry `{}`, a `nodejs_node_modules` tree, which does not provide `NodejsLibraryInfo`; list it in `node_modules` instead".format(
+                    consumer_label, dep.label.raw_target()
+                )
+            )
+        if RunInfo in dep:
+            fail(
+                "target {} has `deps` entry `{}`, a runnable target, which does not provide `NodejsLibraryInfo`; `deps` must be `nodejs_library` targets or data targets such as a `filegroup`".format(
+                    consumer_label, dep.label.raw_target()
+                )
+            )
+        outputs = dep[DefaultInfo].default_outputs
+        if len(outputs) != 1:
+            fail(
+                "target {} has `deps` entry `{}`, which is neither a `nodejs_library` nor a target with exactly one default output (such as a `filegroup`) to stage at its package path; it has {}".format(
+                    consumer_label,
+                    dep.label.raw_target(),
+                    len(outputs),
+                )
+            )
+        path = dep.label.package
+        if not path:
+            fail(
+                "target {} has `deps` entry `{}`, a data dep in the root package, which has no package path to stage at".format(
+                    consumer_label, dep.label.raw_target()
+                )
+            )
+        for other, (other_label, _artifact) in staged.items():
+            if other == path or other.startswith(path + "/") or path.startswith(other + "/"):
+                fail(
+                    "target {} has data deps `{}` and `{}`, which would stage at '{}' and '{}', one at or inside the other; combine them into one target".format(
+                        consumer_label, other_label, dep.label.raw_target(), other, path
+                    )
+                )
+        staged[path] = (dep.label.raw_target(), outputs[0])
+    return {path: artifact for path, (_label, artifact) in staged.items()}
 
 def get_nodejs_library_info(library, consumer_label):
     if NodejsLibraryInfo not in library:
