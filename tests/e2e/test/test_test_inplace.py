@@ -781,6 +781,8 @@ class TestInplaceTest(BuckTestCase):
         await buck.build(
             "fbcode//buck2/tests/targets/rules/python/test:timeout_re",
             get_mode_from_platform(),
+            "-c",
+            "build.execution_platform_rustup_rustc=true",
             "--build-test-info",
         )
 
@@ -788,6 +790,8 @@ class TestInplaceTest(BuckTestCase):
             buck.test(
                 "fbcode//buck2/tests/targets/rules/python/test:timeout_re",
                 get_mode_from_platform(),
+                "-c",
+                "build.execution_platform_rustup_rustc=true",
                 "--unstable-allow-all-tests-on-re",
                 "--remote-only",
                 "--no-remote-cache",
