@@ -11,6 +11,9 @@
 use std::borrow::Cow;
 use std::io;
 use std::path::Path;
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
 
 use buck2_cli_proto::BuildTarget;
 use buck2_cli_proto::build_target::BuildOutput;
@@ -29,13 +32,38 @@ use buck2_fs::paths::abs_path::AbsPath;
 use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::working_dir::AbsWorkingDir;
+use futures::StreamExt;
 use futures::TryStreamExt;
+use tokio::sync::mpsc;
+use tokio::sync::oneshot;
+
+const COPY_DIRECTORY_CONCURRENCY: usize = 4;
 
 #[derive(Clone)]
 struct CopyContext {
     // Any symlink pointing outside of this path would be copied/recreated as an absolute symlink to original target.
     // Should be canonicalized.
     relative_symlink_boundary: AbsNormPathBuf,
+}
+
+enum CopyWork {
+    Directory {
+        destination: AbsPathBuf,
+        ready: oneshot::Sender<()>,
+    },
+    File {
+        source: AbsPathBuf,
+        destination: AbsPathBuf,
+    },
+    Symlink {
+        source: AbsPathBuf,
+        destination: AbsPathBuf,
+    },
+}
+
+enum CopyQueueItem {
+    Work(CopyWork),
+    Error(buck2_error::Error),
 }
 
 /// Given a list of targets built by this command, extracts a reasonable default output from the list and writes it
@@ -209,47 +237,168 @@ fn copy_symlink<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(
     Ok(())
 }
 
-/// Recursively copies a directory to the output path, rooted at `dst`.
-#[async_recursion::async_recursion]
+/// Copies a directory to the output path, rooted at `dst`.
 async fn copy_directory<P, Q>(src: P, dst: Q, context: &CopyContext) -> buck2_error::Result<()>
 where
-    P: AsRef<AbsPath> + std::marker::Send,
-    Q: AsRef<AbsPath> + std::marker::Send + std::marker::Copy + std::marker::Sync,
+    P: AsRef<AbsPath>,
+    Q: AsRef<AbsPath>,
 {
-    tokio::fs::create_dir_all(dst.as_ref()).await?;
+    let (sender, receiver) = mpsc::channel(COPY_DIRECTORY_CONCURRENCY);
+    let stopped = Arc::new(AtomicBool::new(false));
+    let producer_stopped = stopped.clone();
+    let source = src.as_ref().to_owned();
+    let destination = dst.as_ref().to_owned();
+
+    let producer = async move {
+        let result = enqueue_directory(source, destination, &sender, &producer_stopped).await;
+        if let Err(error) = result
+            && !producer_stopped.load(Ordering::Acquire)
+        {
+            let _ignored = sender.send(CopyQueueItem::Error(error)).await;
+        }
+    };
+    let consumer = run_copy_work_queue(receiver, context, stopped);
+    let ((), result) = tokio::join!(producer, consumer);
+    result
+}
+
+#[async_recursion::async_recursion]
+async fn enqueue_directory(
+    source: AbsPathBuf,
+    destination: AbsPathBuf,
+    sender: &mpsc::Sender<CopyQueueItem>,
+    stopped: &AtomicBool,
+) -> buck2_error::Result<()> {
+    if stopped.load(Ordering::Acquire) {
+        return Ok(());
+    }
+
+    let (ready, wait_until_ready) = oneshot::channel();
+    if sender
+        .send(CopyQueueItem::Work(CopyWork::Directory {
+            destination: destination.clone(),
+            ready,
+        }))
+        .await
+        .is_err()
+        || wait_until_ready.await.is_err()
+    {
+        return Ok(());
+    }
+
     let stream = tokio_stream::wrappers::ReadDirStream::new(
-        tokio::fs::read_dir(src.as_ref())
+        tokio::fs::read_dir(&source)
             .await
-            .buck_error_context(format!("reading directory {:?}", src.as_ref()))?,
+            .buck_error_context(format!("reading directory {source:?}"))?,
     )
     .err_into::<buck2_error::Error>();
+    futures::pin_mut!(stream);
 
-    stream
-        .try_for_each(|entry| async move {
-            let entry_source_path = AbsPathBuf::new(entry.path())?;
-            let entry_destination_path = dst.as_ref().join(entry.file_name());
-            let file_type = entry.file_type().await?;
-            if file_type.is_dir() {
-                copy_directory(&entry_source_path, &entry_destination_path, context)
-                    .await
-                    .buck_error_context(format!("Copying subdirectory {:?}", entry.path()))
-            } else if file_type.is_symlink() {
-                let copy_context = context.clone();
-                tokio::task::spawn_blocking(move || {
-                    copy_symlink(&entry_source_path, &entry_destination_path, &copy_context)
-                })
+    while let Some(entry) = stream.try_next().await? {
+        if stopped.load(Ordering::Acquire) {
+            return Ok(());
+        }
+
+        let entry_source = AbsPathBuf::new(entry.path())?;
+        let entry_destination = destination.join(entry.file_name());
+        let file_type = entry
+            .file_type()
+            .await
+            .buck_error_context(format!("Inspecting output {entry_source:?}"))?;
+        if file_type.is_dir() {
+            enqueue_directory(entry_source, entry_destination, sender, stopped)
                 .await
-                .buck_error_context(format!("Copying symlink {:?}", entry.path()))?
+                .buck_error_context(format!("Copying subdirectory {:?}", entry.path()))?;
+        } else {
+            let work = if file_type.is_symlink() {
+                CopyWork::Symlink {
+                    source: entry_source,
+                    destination: entry_destination,
+                }
             } else {
-                tokio::fs::copy(&entry.path(), &entry_destination_path)
-                    .await
-                    .buck_error_context(format!("Copying file {:?}", entry.path()))?;
-                make_writable(&entry_destination_path)
+                CopyWork::File {
+                    source: entry_source,
+                    destination: entry_destination,
+                }
+            };
+            if sender.send(CopyQueueItem::Work(work)).await.is_err() {
+                return Ok(());
             }
-        })
-        .await?;
+        }
+    }
 
     Ok(())
+}
+
+async fn run_copy_work_queue(
+    receiver: mpsc::Receiver<CopyQueueItem>,
+    context: &CopyContext,
+    stopped: Arc<AtomicBool>,
+) -> buck2_error::Result<()> {
+    // Do not short-circuit this stream. A dropped `spawn_blocking` handle does not cancel its
+    // task, so every admitted filesystem mutation must finish before this function returns.
+    let first_error = tokio_stream::wrappers::ReceiverStream::new(receiver)
+        .map(|item| run_copy_queue_item(item, context, &stopped))
+        .buffer_unordered(COPY_DIRECTORY_CONCURRENCY)
+        .fold(None, |first_error, result| async {
+            match (first_error, result) {
+                (None, Err(error)) => {
+                    stopped.store(true, Ordering::Release);
+                    Some(error)
+                }
+                (first_error, _) => first_error,
+            }
+        })
+        .await;
+
+    first_error.map_or(Ok(()), Err)
+}
+
+async fn run_copy_queue_item(
+    item: CopyQueueItem,
+    context: &CopyContext,
+    stopped: &AtomicBool,
+) -> buck2_error::Result<()> {
+    if stopped.load(Ordering::Acquire) {
+        return Ok(());
+    }
+
+    match item {
+        CopyQueueItem::Work(work) => run_copy_work(work, context).await,
+        CopyQueueItem::Error(error) => Err(error),
+    }
+}
+
+async fn run_copy_work(work: CopyWork, context: &CopyContext) -> buck2_error::Result<()> {
+    match work {
+        CopyWork::Directory { destination, ready } => {
+            tokio::fs::create_dir_all(&destination)
+                .await
+                .buck_error_context(format!("Creating output directory {destination:?}"))?;
+            let _ignored = ready.send(());
+            Ok(())
+        }
+        CopyWork::File {
+            source,
+            destination,
+        } => {
+            tokio::fs::copy(&source, &destination)
+                .await
+                .buck_error_context(format!("Copying file {source:?}"))?;
+            make_writable(&destination)
+        }
+        CopyWork::Symlink {
+            source,
+            destination,
+        } => {
+            let source_for_error = source.clone();
+            let copy_context = context.clone();
+            tokio::task::spawn_blocking(move || copy_symlink(&source, &destination, &copy_context))
+                .await
+                .buck_error_context(format!("Copying symlink {source_for_error:?}"))??;
+            Ok(())
+        }
+    }
 }
 
 async fn copy_file(src: &Path, dst: &Path) -> buck2_error::Result<()> {
@@ -456,6 +605,46 @@ mod tests {
             .await
             .buck_error_context("copy second time")?;
 
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_copy_directory_propagates_traversal_error() -> buck2_error::Result<()> {
+        let src_dir = tempfile::tempdir()?;
+        let src_path = AbsPath::new(src_dir.path())?;
+        let missing_src = src_path.join("missing");
+        let dst_dir = tempfile::tempdir()?;
+        let dst_path = AbsPath::new(dst_dir.path())?;
+        let copy_context = CopyContext {
+            relative_symlink_boundary: fs_util::canonicalize(src_path)?,
+        };
+
+        let error = copy_directory(&missing_src, dst_path, &copy_context)
+            .await
+            .expect_err("copying a missing source directory should fail");
+
+        assert!(error.to_string().contains("reading directory"));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_copy_directory_propagates_copy_error() -> buck2_error::Result<()> {
+        let src_dir = tempfile::tempdir()?;
+        std::fs::write(src_dir.path().join("foo"), "some content")?;
+        let src_path = AbsPath::new(src_dir.path())?;
+
+        let dst_dir = tempfile::tempdir()?;
+        std::fs::create_dir(dst_dir.path().join("foo"))?;
+        let dst_path = AbsPath::new(dst_dir.path())?;
+        let copy_context = CopyContext {
+            relative_symlink_boundary: fs_util::canonicalize(src_path)?,
+        };
+
+        let error = copy_directory(src_path, dst_path, &copy_context)
+            .await
+            .expect_err("copying a file over a directory should fail");
+
+        assert!(error.to_string().contains("Copying file"));
         Ok(())
     }
 
