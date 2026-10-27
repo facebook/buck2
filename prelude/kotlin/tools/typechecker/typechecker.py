@@ -60,6 +60,12 @@ def _parse_args():
         help="NAME:LEVEL, forwarded as -Xwarning-level (repeatable)",
     )
     p.add_argument(
+        "--kotlinc-arg",
+        action="append",
+        default=[],
+        help="kotlinc argument, forwarded to the checker in the given order (repeatable)",
+    )
+    p.add_argument(
         "--plugins", action="store_true", help="target uses compiler plugins"
     )
     p.add_argument(
@@ -219,9 +225,9 @@ def _run(args, t0):  # noqa: C901
         if args.jdk_base:
             arg_paths.append(args.jdk_base)
         arg_paths += args.kotlin_plugin + args.friend_path
-        for p in arg_paths + sources:
+        for p in arg_paths + sources + args.kotlinc_arg:
             if any(c in " \t\n\r\x0b\x0c" for c in p):
-                raise ValueError(f"argfile path contains whitespace: {p!r}")
+                raise ValueError(f"argfile argument contains whitespace: {p!r}")
         argfile = tmp + "/args.txt"
         with open(argfile, "w") as f:
             f.write("--dump-diagnostics\n")
@@ -241,6 +247,8 @@ def _run(args, t0):  # noqa: C901
                 f.write("-nowarn\n")
             if args.language_version:
                 f.write("-language-version\n" + args.language_version + "\n")
+            for kotlinc_arg in args.kotlinc_arg:
+                f.write(kotlinc_arg + "\n")
             f.write("\n".join(sources))
         try:
             proc = subprocess.run(
