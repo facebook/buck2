@@ -18,6 +18,7 @@ use std::hash::Hasher;
 
 use allocative::Allocative;
 use buck2_core::configuration::compatibility::ResultMaybeCompatible;
+use buck2_core::execution_types::execution_group::NamedExecutionGroup;
 use buck2_core::package::PackageLabel;
 use buck2_core::package::source_path::SourcePathRef;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
@@ -97,10 +98,11 @@ pub enum MacroDepKind {
 }
 
 #[derive(
-    Debug, Eq, PartialEq, Hash, Clone, Copy, Dupe, Allocative, Pagable, StrongHash
+    Debug, Eq, PartialEq, Hash, Clone, Dupe, Allocative, Pagable, StrongHash
 )]
 pub struct ArgAttrType {
     pub anon_target_compatible: bool,
+    pub execution_group: Option<NamedExecutionGroup>,
 }
 
 /// [StringWithMacros] is the core representation for an attrs.arg() (in all of it's coerced, configured, and resolved
@@ -228,6 +230,10 @@ pub enum MacroBase<P: ProvidersLabelMaybeConfigured> {
 
     Query(Box<QueryMacroBase<P>>),
     Source(CoercedPath),
+
+    /// A `$(exe)`, `$(location_exec)` or `$(location_toolchain)` macro from an arg attribute in a
+    /// named execution group: its dependency is configured for, and constrains, that group.
+    InGroup(Box<(MacroBase<P>, NamedExecutionGroup)>),
 }
 
 impl StrongHashWithoutConfig for MacroBase<ConfiguredProvidersLabel> {
@@ -261,6 +267,11 @@ impl StrongHashWithoutConfig for MacroBase<ConfiguredProvidersLabel> {
             Self::Source(path) => {
                 "Source".strong_hash(state);
                 path.strong_hash(state);
+            }
+            Self::InGroup(box (inner, group)) => {
+                "InGroup".strong_hash(state);
+                inner.strong_hash_without_config(state);
+                group.strong_hash(state);
             }
         }
     }
@@ -303,6 +314,21 @@ impl MacroBase<ConfiguredProvidersLabel> {
             }
             MacroBase::Query(query_macro) => query_macro.traverse(traversal),
             MacroBase::UserUnkeyedPlaceholder(_) => Ok(()),
+            MacroBase::InGroup(box (inner, group)) => match inner {
+                MacroBase::Location {
+                    label,
+                    dep_kind: MacroDepKind::Exec,
+                }
+                | MacroBase::Exe {
+                    label,
+                    exec_dep: true,
+                } => traversal.exec_dep_in_group(label, group),
+                MacroBase::Location {
+                    label,
+                    dep_kind: MacroDepKind::Toolchain,
+                } => traversal.toolchain_dep_in_group(label, group),
+                _ => inner.traverse(traversal, pkg),
+            },
         }
     }
 }
@@ -311,7 +337,40 @@ impl MacroBase<ProvidersLabel> {
     pub fn configure(
         &self,
         ctx: &dyn AttrConfigurationContext,
+        execution_group: Option<&NamedExecutionGroup>,
     ) -> buck2_error::Result<ConfiguredMacro> {
+        if let Some(group) = execution_group {
+            let in_group = match self {
+                UnconfiguredMacro::Location {
+                    label,
+                    dep_kind: MacroDepKind::Exec,
+                } => Some(ConfiguredMacro::Location {
+                    label: ctx.configure_exec_target_in_group(label, group)?,
+                    dep_kind: MacroDepKind::Exec,
+                }),
+                UnconfiguredMacro::Location {
+                    label,
+                    dep_kind: MacroDepKind::Toolchain,
+                } => Some(ConfiguredMacro::Location {
+                    label: ctx.configure_toolchain_target_in_group(label, group)?,
+                    dep_kind: MacroDepKind::Toolchain,
+                }),
+                UnconfiguredMacro::Exe {
+                    label,
+                    exec_dep: true,
+                } => Some(ConfiguredMacro::Exe {
+                    label: ctx.configure_exec_target_in_group(label, group)?,
+                    exec_dep: true,
+                }),
+                _ => None,
+            };
+            if let Some(configured) = in_group {
+                return Ok(ConfiguredMacro::InGroup(Box::new((
+                    configured,
+                    group.dupe(),
+                ))));
+            }
+        }
         Ok(match self {
             UnconfiguredMacro::Location { label, dep_kind } => ConfiguredMacro::Location {
                 label: match dep_kind {
@@ -343,6 +402,9 @@ impl MacroBase<ProvidersLabel> {
                 ConfiguredMacro::Query(Box::new(query.configure(ctx)?))
             }
             UnconfiguredMacro::Source(path) => ConfiguredMacro::Source(path.clone()),
+            UnconfiguredMacro::InGroup(box (inner, group)) => {
+                return inner.configure(ctx, Some(group));
+            }
         })
     }
 
@@ -384,6 +446,7 @@ impl MacroBase<ProvidersLabel> {
                 Ok(())
             }
             MacroBase::UserUnkeyedPlaceholder(_) => Ok(()),
+            MacroBase::InGroup(box (inner, _)) => inner.traverse(traversal, pkg),
         }
     }
 }
@@ -405,6 +468,18 @@ pub type UnconfiguredStringWithMacros = StringWithMacros<ProvidersLabel>;
 pub struct ConfiguredStringWithMacros {
     pub string_with_macros: StringWithMacros<ConfiguredProvidersLabel>,
     pub anon_target_compatible: bool,
+}
+
+impl ConfiguredStringWithMacros {
+    /// Whether any macro refers to a dependency in a named execution group.
+    pub fn has_macros_in_execution_group(&self) -> bool {
+        match &self.string_with_macros {
+            StringWithMacros::StringPart(_) => false,
+            StringWithMacros::ManyParts(parts) => parts
+                .iter()
+                .any(|part| matches!(part, StringWithMacrosPart::Macro(_, MacroBase::InGroup(..)))),
+        }
+    }
 }
 
 impl StrongHashWithoutConfig for ConfiguredStringWithMacros {
@@ -446,6 +521,7 @@ impl<P: ProvidersLabelMaybeConfigured> Display for MacroBase<P> {
             }
             MacroBase::Query(query) => Display::fmt(query, f),
             MacroBase::Source(path) => write!(f, "src {}", path.path()),
+            MacroBase::InGroup(box (inner, _)) => Display::fmt(inner, f),
             MacroBase::UserUnkeyedPlaceholder(var) => write!(f, "{var}"),
             MacroBase::UserKeyedPlaceholder(box (macro_type, target, arg)) => write!(
                 f,
@@ -519,40 +595,84 @@ impl<'a> ArgPartView<'a> {
     pub(crate) fn configure(
         &self,
         ctx: &dyn AttrConfigurationContext,
+        execution_group: Option<&NamedExecutionGroup>,
     ) -> buck2_error::Result<ConfiguredStringWithMacrosPart> {
         Ok(match self {
             ArgPartView::String(s) => StringWithMacrosPart::String(ArcStr::from(*s)),
             ArgPartView::Macro { write_to_file, mac } => StringWithMacrosPart::Macro(
                 *write_to_file,
-                match mac {
-                    ArgMacroView::Location { label, dep_kind } => ConfiguredMacro::Location {
-                        label: match dep_kind {
-                            MacroDepKind::Exec => ctx.configure_exec_target(label)?,
-                            MacroDepKind::Toolchain => ctx.configure_toolchain_target(label),
-                            MacroDepKind::Regular => ctx.configure_target(label),
+                match (mac, execution_group) {
+                    (
+                        ArgMacroView::Location {
+                            label,
+                            dep_kind: MacroDepKind::Exec,
                         },
-                        dep_kind: *dep_kind,
-                    },
-                    ArgMacroView::Exe { label, exec_dep } => ConfiguredMacro::Exe {
-                        label: if *exec_dep {
-                            ctx.configure_exec_target(label)?
-                        } else {
-                            ctx.configure_target(label)
+                        Some(group),
+                    ) => ConfiguredMacro::InGroup(Box::new((
+                        ConfiguredMacro::Location {
+                            label: ctx.configure_exec_target_in_group(label, group)?,
+                            dep_kind: MacroDepKind::Exec,
                         },
-                        exec_dep: *exec_dep,
+                        group.dupe(),
+                    ))),
+                    (
+                        ArgMacroView::Location {
+                            label,
+                            dep_kind: MacroDepKind::Toolchain,
+                        },
+                        Some(group),
+                    ) => ConfiguredMacro::InGroup(Box::new((
+                        ConfiguredMacro::Location {
+                            label: ctx.configure_toolchain_target_in_group(label, group)?,
+                            dep_kind: MacroDepKind::Toolchain,
+                        },
+                        group.dupe(),
+                    ))),
+                    (
+                        ArgMacroView::Exe {
+                            label,
+                            exec_dep: true,
+                        },
+                        Some(group),
+                    ) => ConfiguredMacro::InGroup(Box::new((
+                        ConfiguredMacro::Exe {
+                            label: ctx.configure_exec_target_in_group(label, group)?,
+                            exec_dep: true,
+                        },
+                        group.dupe(),
+                    ))),
+                    (mac, _) => match mac {
+                        ArgMacroView::Location { label, dep_kind } => ConfiguredMacro::Location {
+                            label: match dep_kind {
+                                MacroDepKind::Exec => ctx.configure_exec_target(label)?,
+                                MacroDepKind::Toolchain => ctx.configure_toolchain_target(label),
+                                MacroDepKind::Regular => ctx.configure_target(label),
+                            },
+                            dep_kind: *dep_kind,
+                        },
+                        ArgMacroView::Exe { label, exec_dep } => ConfiguredMacro::Exe {
+                            label: if *exec_dep {
+                                ctx.configure_exec_target(label)?
+                            } else {
+                                ctx.configure_target(label)
+                            },
+                            exec_dep: *exec_dep,
+                        },
+                        ArgMacroView::UserUnkeyedPlaceholder(name) => {
+                            ConfiguredMacro::UserUnkeyedPlaceholder(Box::from(*name))
+                        }
+                        ArgMacroView::UserKeyedPlaceholder { var, label, arg } => {
+                            ConfiguredMacro::UserKeyedPlaceholder(Box::new((
+                                Box::from(*var),
+                                ctx.configure_target(label),
+                                arg.map(Box::from),
+                            )))
+                        }
+                        ArgMacroView::Source(path) => ConfiguredMacro::Source((*path).clone()),
+                        ArgMacroView::Query(q) => {
+                            ConfiguredMacro::Query(Box::new(q.configure(ctx)))
+                        }
                     },
-                    ArgMacroView::UserUnkeyedPlaceholder(name) => {
-                        ConfiguredMacro::UserUnkeyedPlaceholder(Box::from(*name))
-                    }
-                    ArgMacroView::UserKeyedPlaceholder { var, label, arg } => {
-                        ConfiguredMacro::UserKeyedPlaceholder(Box::new((
-                            Box::from(*var),
-                            ctx.configure_target(label),
-                            arg.map(Box::from),
-                        )))
-                    }
-                    ArgMacroView::Source(path) => ConfiguredMacro::Source((*path).clone()),
-                    ArgMacroView::Query(q) => ConfiguredMacro::Query(Box::new(q.configure(ctx))),
                 },
             ),
         })
@@ -701,7 +821,7 @@ impl Semantics for kinds::Arg {
             AttrTypeInner::Arg(ty) => {
                 let configured = parts
                     .iter()
-                    .map(|p| p.configure(ctx))
+                    .map(|p| p.configure(ctx, ty.execution_group.as_ref()))
                     .collect::<buck2_error::Result<Box<[_]>>>()?;
                 ResultMaybeCompatible::Compatible(ConfiguredAttr::Arg(ConfiguredStringWithMacros {
                     string_with_macros: StringWithMacros::ManyParts(configured),
@@ -1292,6 +1412,11 @@ impl CoercedAttrArenaBuilder {
                 }
             }
             MacroBase::Source(path) => MacroParts::Source(path),
+            MacroBase::InGroup(..) => {
+                return Err(internal_error!(
+                    "coerced arg macros are never in an execution group"
+                ));
+            }
             MacroBase::Query(q) => {
                 let parsed = buck2_query_parser::parse_expr(&q.query.query)?;
                 let expr =

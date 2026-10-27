@@ -147,9 +147,17 @@ impl AnonTargetAttrTypeCoerce for AttrType {
                     Err(AnonTargetCoercionError::type_error("artifact", value).into())
                 }
             }
-            AttrTypeInner::Arg(_) => {
+            AttrTypeInner::Arg(arg_type) => {
+                if arg_type.execution_group.is_some() {
+                    return Err(AnonTargetCoercionError::ArgInExecutionGroup.into());
+                }
                 if let Some(resolved_macro) = ResolvedStringWithMacros::from_value(value) {
                     match resolved_macro.configured_macros() {
+                        Some(configured_macros)
+                            if configured_macros.has_macros_in_execution_group() =>
+                        {
+                            Err(AnonTargetCoercionError::ArgInExecutionGroup.into())
+                        }
                         Some(configured_macros) => {
                             Ok(AnonTargetAttr::Arg(Box::new(configured_macros.clone())))
                         }
@@ -205,6 +213,11 @@ pub(crate) enum AnonTargetCoercionError {
     #[error("Arg attribute must have `anon_target_compatible` set to `True`")]
     #[buck2(tag = Input)]
     ArgNotAnonTargetCompatible,
+    #[error(
+        "Args whose macros refer to dependencies in an execution group cannot be passed to anon targets"
+    )]
+    #[buck2(tag = Input)]
+    ArgInExecutionGroup,
     #[error("Internal error: exec dep is missing the execution platform resolution")]
     #[buck2(tag = Tier0)]
     ExecDepMissingExecPlatformResolution,

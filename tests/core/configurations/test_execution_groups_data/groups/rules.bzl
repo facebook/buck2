@@ -183,5 +183,20 @@ default_constrained_no_groups = rule(
     },
 )
 
+# Tools named by the macros of an arg in `Link` join `Link`, not the default group.
+def _arg_tools_impl(ctx):
+    out = ctx.actions.declare_output("arg_tool.txt")
+    ctx.actions.run(cmd_args(ctx.attrs.cmd, out.as_output()), category = "arg_tool", exec_group = Link)
+    return [DefaultInfo(default_output = out)]
+
+arg_tools = rule(
+    impl = _arg_tools_impl,
+    attrs = {
+        "cmd": attrs.arg(exec_group = Link),
+        "_compiler": attrs.exec_dep(default = "//groups:remote_tool"),
+    },
+    exec_groups = [Link],
+)
+
 # `exec_group = None` is the default group, so wrappers can pass an optional group through.
 plain = rule(impl = _noop_impl, attrs = {"_tool": attrs.exec_dep(default = "//groups:any_tool", exec_group = None)})

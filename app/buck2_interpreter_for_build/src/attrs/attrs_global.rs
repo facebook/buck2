@@ -11,6 +11,7 @@
 use std::sync::Arc;
 
 use buck2_core::configuration::transition::id::TransitionId;
+use buck2_core::execution_types::execution_group::ExecutionGroup;
 use buck2_core::plugins::PluginKindSet;
 use buck2_error::BuckErrorContext;
 use buck2_interpreter::coerce::COERCE_PROVIDERS_LABEL_FOR_BZL;
@@ -487,19 +488,34 @@ fn attr_module(registry: &mut GlobalsBuilder) {
     /// will be replaced with references to those values in the rule. Takes in an optional `anon_target_compatible`
     /// flag, which indicates whether the args can be passed into anon targets. Note that there is a slight memory
     /// hit when using this flag.
+    ///
+    /// With `exec_group`, the dependencies of `$(exe)`, `$(location_exec)` and
+    /// `$(location_toolchain)` macros are configured for the execution platform of that group
+    /// instead, and constrain only that group's execution platform resolution. The rule must
+    /// declare the group in `rule(exec_groups = ...)`.
     fn arg<'v>(
         #[starlark(require = named, default = false)] json: bool,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         #[starlark(require = named, default = false)] anon_target_compatible: bool,
+        #[starlark(require = named, default = NoneOr::None)] exec_group: NoneOr<ExecutionGroupArg>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkAttribute> {
         let _unused = json;
+        let exec_group = match exec_group.into_option() {
+            Some(ExecutionGroupArg {
+                group: ExecutionGroup::Named(group),
+            }) => Some(group),
+            Some(ExecutionGroupArg {
+                group: ExecutionGroup::Default,
+            })
+            | None => None,
+        };
         Ok(Attribute::attr(
             eval,
             default,
             doc,
-            AttrType::arg(anon_target_compatible),
+            AttrType::arg_in_group(anon_target_compatible, exec_group),
         )?)
     }
 

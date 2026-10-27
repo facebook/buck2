@@ -1,5 +1,6 @@
 load(
     ":rules.bzl",
+    "arg_tools",
     "binary",
     "bundle",
     "constrained_link",
@@ -90,4 +91,14 @@ constrained_link(
         "//config:linux": ["//config:macos"],
         "DEFAULT": [],
     }),
+)
+
+arg_tools(
+    name = "arg_exe",
+    cmd = "$(exe //groups:local_tool)",
+)
+
+arg_tools(
+    name = "arg_location",
+    cmd = "$(location_exec //groups:macos_tool) $(location_toolchain //groups:resource_toolchain)",
 )

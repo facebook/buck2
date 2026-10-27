@@ -252,9 +252,19 @@ impl AttrType {
     /// can be passed into anon targets. There is a slight memory hit when using
     /// this flag.
     pub fn arg(anon_target_compatible: bool) -> Self {
+        Self::arg_in_group(anon_target_compatible, None)
+    }
+
+    /// An arg attribute whose `$(exe)`, `$(location_exec)` and `$(location_toolchain)` macros
+    /// refer to dependencies in the given named execution group.
+    pub fn arg_in_group(
+        anon_target_compatible: bool,
+        execution_group: Option<NamedExecutionGroup>,
+    ) -> Self {
         Self::of(
             AttrTypeInner::Arg(ArgAttrType {
                 anon_target_compatible,
+                execution_group,
             }),
             true,
         )
@@ -346,6 +356,10 @@ impl AttrType {
             AttrTypeInner::Dep(DepAttrType {
                 transition:
                     DepAttrTransition::ExecInGroup(group) | DepAttrTransition::ToolchainInGroup(group),
+                ..
+            }) => f(group),
+            AttrTypeInner::Arg(ArgAttrType {
+                execution_group: Some(group),
                 ..
             }) => f(group),
             AttrTypeInner::List(x) => x.inner.for_each_named_execution_group(f),

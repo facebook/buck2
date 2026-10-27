@@ -335,6 +335,68 @@ class ExecutionGroupsTest(BuckTestCase):
         )
 
     @buck_test()
+    async def test_arg_tools_select_only_their_group_platform(self, buck: Buck) -> None:
+        exe = await _cquery_node(buck, "root//groups:arg_exe")
+        # The remote-only compiler is in the default group and the local-only tool in `Link`; with
+        # the tool in the default group, no platform would satisfy both.
+        assert _platform(exe["buck.execution_platform"]) == "root//config:linux_remote"
+        assert {
+            group: _platform(platform)
+            for group, platform in exe["buck.exec_group_platforms"].items()
+        } == {"Link": "root//config:linux_local"}
+
+        location = await _cquery_node(buck, "root//groups:arg_location")
+        assert {
+            group: _platform(platform)
+            for group, platform in location["buck.exec_group_platforms"].items()
+        } == {"Link": "root//config:macos_local"}
+
+    @buck_test()
+    async def test_arg_tool_is_configured_for_its_group(self, buck: Buck) -> None:
+        result = await buck.cquery("deps(root//groups:arg_exe, 1)")
+        local_tool = [
+            _platform(dep.split(" ")[1].strip("()"))
+            for dep in result.stdout.splitlines()
+            if dep.startswith("root//groups:local_tool ")
+        ]
+        assert local_tool == ["root//config:linux_local"]
+
+    @buck_test()
+    async def test_arg_tool_resolves_in_group_action(self, buck: Buck) -> None:
+        result = await buck.aquery(
+            "kind(run, deps(root//groups:arg_exe))", "--output-attribute=category"
+        )
+        assert [a["category"] for a in json.loads(result.stdout).values()] == [
+            "arg_tool"
+        ]
+
+    @buck_test()
+    async def test_strip_cfg_of_arg_in_group(self, buck: Buck) -> None:
+        result = await buck.bxl("root//groups/strip_cfg.bxl:strip_cfg")
+        assert result.stdout.splitlines() == [
+            '"$(exe root//groups:local_tool)"',
+            '"$(location_exec root//groups:macos_tool) $(location_toolchain root//groups:resource_toolchain)"',
+        ]
+
+    @buck_test()
+    async def test_arg_with_undeclared_group(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.uquery("root//errors/arg_undeclared:t"),
+            stderr_regex="Attribute `cmd` uses execution group `G`, which the rule does not declare",
+        )
+
+    @buck_test()
+    async def test_arg_in_group_passed_to_anon_target(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.aquery("root//errors/arg_in_anon:t"),
+            stderr_regex="Args whose macros refer to dependencies in an execution group cannot be passed to anon targets",
+        )
+        await expect_failure(
+            buck.aquery("root//errors/arg_in_anon:grouped_anon"),
+            stderr_regex="Args whose macros refer to dependencies in an execution group cannot be passed to anon targets",
+        )
+
+    @buck_test()
     async def test_unbound_node_keeps_group_deps(self, buck: Buck) -> None:
         # The `select()` key `:constraint` is configured unbound, which resolves no execution
         # platforms. Its analysis reads its grouped exec dep and toolchain dep, so they must still
