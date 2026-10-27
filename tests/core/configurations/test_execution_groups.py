@@ -619,6 +619,146 @@ class ExecutionGroupsTest(BuckTestCase):
         )
 
     @buck_test()
+    async def test_default_group_undeclared_dep(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.uquery("root//errors/default_undeclared_dep:t"),
+            stderr_regex="Attribute `_tool` uses the default execution group, which the rule does not declare",
+        )
+
+    @buck_test()
+    async def test_default_group_undeclared_constraints(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.uquery("root//errors/default_undeclared_constraints:t"),
+            stderr_regex="Attribute `constraints` constrains the default execution group, which the rule does not declare",
+        )
+
+    @buck_test()
+    async def test_default_group_undeclared_with_plugins(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.uquery("root//errors/plugins_default_undeclared:t"),
+            stderr_regex="The rule uses plugins, which are dependencies in the default execution group, but does not declare it",
+        )
+
+    @buck_test()
+    async def test_default_group_undeclared_run(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.aquery("root//errors/default_undeclared_run:t"),
+            stderr_regex="The action runs in the default execution group, which the rule does not declare",
+        )
+
+    @buck_test()
+    async def test_default_group_undeclared_write(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.aquery("root//errors/default_undeclared_write:t"),
+            stderr_regex="The action runs in the default execution group, which the rule does not declare",
+        )
+
+    @buck_test()
+    async def test_default_group_undeclared_arg(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.uquery("root//errors/default_undeclared_arg:t"),
+            stderr_regex="Attribute `cmd` uses the default execution group, which the rule does not declare",
+        )
+
+    @buck_test()
+    async def test_arg_without_exec_group_holds_flags(self, buck: Buck) -> None:
+        await buck.uquery("root//errors/unmarked_arg:t")
+
+    @buck_test()
+    async def test_arg_without_exec_group_rejects_tool(self, buck: Buck) -> None:
+        for package, attr, macro in [
+            ("unmarked_arg_tool", "cmd", "exe"),
+            ("unmarked_arg_select", "flags", "location_exec"),
+        ]:
+            await expect_failure(
+                buck.uquery(f"root//errors/{package}:t"),
+                stderr_regex=f"Target `root//errors/{package}:t`: attribute `{attr}` contains `\\$\\({macro} root//errors/{package}:tool\\)`, a tool, in an `attrs\\.arg\\(\\)` without `exec_group`",
+            )
+
+    @buck_test()
+    async def test_mixed_arg_attrs_check_only_args_without_exec_group(
+        self, buck: Buck
+    ) -> None:
+        # Tools in the args of `G` and of `DefaultExecGroup` are accepted, in values and defaults.
+        await buck.uquery("root//errors/mixed_args:t")
+        for package, attr in [
+            ("mixed_args_tuple", "pair"),
+            ("mixed_args_one_of", "either"),
+            ("mixed_args_dict", "mapping"),
+        ]:
+            await expect_failure(
+                buck.uquery(f"root//errors/{package}:t"),
+                stderr_regex=f"Target `root//errors/{package}:t`: attribute `{attr}` contains `\\$\\(exe root//errors/{package}:tool\\)`, a tool, in an `attrs\\.arg\\(\\)` without `exec_group`",
+            )
+        await expect_failure(
+            buck.uquery("root//errors/mixed_args_default:t"),
+            stderr_regex="The default of attribute `with_default` contains `\\$\\(exe root//errors/mixed_args_default:tool\\)`, a tool, in an `attrs\\.arg\\(\\)` without `exec_group`",
+        )
+
+    @buck_test()
+    async def test_arg_default_without_exec_group_rejects_tool(
+        self, buck: Buck
+    ) -> None:
+        await expect_failure(
+            buck.uquery("root//errors/unmarked_arg_default:t"),
+            stderr_regex="The default of attribute `cmd` contains `\\$\\(exe root//errors/unmarked_arg_default:tool\\)`, a tool, in an `attrs\\.arg\\(\\)` without `exec_group`",
+        )
+
+    @buck_test()
+    async def test_tool_attrs_without_exec_group(self, buck: Buck) -> None:
+        for package, attr, function in [
+            ("unmarked_exec_dep", "_tool", "exec_dep"),
+            ("unmarked_toolchain_dep", "_toolchain", "toolchain_dep"),
+            ("unmarked_nested", "tools", "exec_dep"),
+        ]:
+            await expect_failure(
+                buck.uquery(f"root//errors/{package}:t"),
+                stderr_regex=f"Attribute `{attr}` contains an `attrs\\.{function}\\(\\)` without `exec_group`",
+            )
+
+    @buck_test()
+    async def test_default_group_undeclared_anon_target(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.aquery("root//errors/default_undeclared_anon:t"),
+            stderr_regex="The anon target uses the default execution group, which the rule does not declare",
+        )
+
+    @buck_test()
+    async def test_default_group_undeclared_test(self, buck: Buck) -> None:
+        # The test info fails when it is created, so a rule that returns it fails too.
+        for target in ["t", "alias"]:
+            await expect_failure(
+                buck.test(f"root//errors/default_undeclared_test:{target}"),
+                stderr_regex="The test info uses the default execution group, which the rule does not declare. Set `exec_group` or `default_executor`",
+            )
+
+    @buck_test()
+    async def test_default_group_undeclared_test_with_only_executor_overrides(
+        self, buck: Buck
+    ) -> None:
+        await expect_failure(
+            buck.build("root//errors/default_undeclared_test:overrides_only"),
+            stderr_regex="The test info uses the default execution group, which the rule does not declare. Set `exec_group` or `default_executor`",
+        )
+
+    @buck_test()
+    async def test_default_group_undeclared_test_forwarded(self, buck: Buck) -> None:
+        # The test info's creator has the default group, the tested target's rule does not.
+        await expect_failure(
+            buck.test("root//errors/default_undeclared_test:grouped_alias"),
+            stderr_regex="The test uses the default execution group, which the rule of `root//errors/default_undeclared_test:grouped_alias[^`]*` does not declare \\(the test info may come from another rule that created it\\)\\. Set `exec_group` or `default_executor` where the test info is created, or add `DefaultExecGroup` to `exec_groups` of the rule of `root//errors/default_undeclared_test:grouped_alias",
+        )
+
+    @buck_test()
+    async def test_default_group_undeclared_test_explicit_default(
+        self, buck: Buck
+    ) -> None:
+        await expect_failure(
+            buck.test("root//errors/default_undeclared_test:explicit_default"),
+            stderr_regex="The test info uses the default execution group, which the rule does not declare. Set `exec_group` to a declared group",
+        )
+
+    @buck_test()
     async def test_duplicate_group(self, buck: Buck) -> None:
         await expect_failure(
             buck.uquery("root//errors/duplicate:t"),

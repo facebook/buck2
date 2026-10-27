@@ -125,7 +125,9 @@ pub struct InternalRunnerTestInfo<'v> {
     /// execution platform, when the rule does not declare the group, or outside rule analysis; the
     /// test then resolves the group against the tested target when it runs. A passed
     /// `default_executor` wins and the group is not resolved, so copying a test info field by
-    /// field works in any rule.
+    /// field works in any rule. A rule that declares named groups but not `DefaultExecGroup` must
+    /// set `exec_group` or `default_executor`; `executor_overrides` does not replace them, as the
+    /// tests run in the default group whenever no override is picked.
     exec_group: ValueOfUnchecked<'v, NoneOr<ExecutionGroupArg>>,
 
     /// Executors that can be used to override the default executor.

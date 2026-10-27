@@ -82,13 +82,13 @@ def _binary_impl(ctx):
 binary = rule(
     impl = _binary_impl,
     attrs = {
-        "_any_tool": attrs.exec_dep(default = "//groups:any_tool"),
+        "_any_tool": attrs.exec_dep(default = "//groups:any_tool", exec_group = DefaultExecGroup),
         "_any_tool_link": attrs.exec_dep(default = "//groups:any_tool", exec_group = Link),
-        "_compiler": attrs.exec_dep(default = "//groups:remote_tool"),
+        "_compiler": attrs.exec_dep(default = "//groups:remote_tool", exec_group = DefaultExecGroup),
         "_linker": attrs.exec_dep(default = "//groups:any_tool", exec_group = Link),
         "_local_marker": attrs.exec_dep(default = "//groups:local_tool", exec_group = Link),
     },
-    exec_groups = [Link, Unused],
+    exec_groups = [DefaultExecGroup, Link, Unused],
 )
 
 # Runs `dynamic_compile` in the default group and `dynamic_link` in `Link` from a dynamic output.
@@ -118,31 +118,31 @@ def _dynamic_binary_impl(ctx):
 dynamic_binary = rule(
     impl = _dynamic_binary_impl,
     attrs = {
-        "_compiler": attrs.exec_dep(default = "//groups:remote_tool"),
+        "_compiler": attrs.exec_dep(default = "//groups:remote_tool", exec_group = DefaultExecGroup),
         "_linker": attrs.exec_dep(default = "//groups:any_tool", exec_group = Link),
         "_local_marker": attrs.exec_dep(default = "//groups:local_tool", exec_group = Link),
     },
-    exec_groups = [Link],
+    exec_groups = [DefaultExecGroup, Link],
 )
 
 # The same tool in the default group and in `Link`, both resolving to the same platform.
 same_platform = rule(
     impl = _noop_impl,
     attrs = {
-        "_tool": attrs.exec_dep(default = "//groups:any_tool"),
+        "_tool": attrs.exec_dep(default = "//groups:any_tool", exec_group = DefaultExecGroup),
         "_tool_in_link": attrs.exec_dep(default = "//groups:any_tool", exec_group = Link),
     },
-    exec_groups = [Link],
+    exec_groups = [DefaultExecGroup, Link],
 )
 
 # The same toolchain in the default group and in `Link`, both resolving to the same platform.
 same_platform_toolchain = rule(
     impl = _noop_impl,
     attrs = {
-        "_toolchain": attrs.toolchain_dep(default = "//groups:any_toolchain"),
+        "_toolchain": attrs.toolchain_dep(default = "//groups:any_toolchain", exec_group = DefaultExecGroup),
         "_toolchain_in_link": attrs.toolchain_dep(default = "//groups:any_toolchain", exec_group = Link),
     },
-    exec_groups = [Link],
+    exec_groups = [DefaultExecGroup, Link],
 )
 
 # Gets `local_tool` as an exec dep from a plugin rather than from an attribute value.
@@ -152,7 +152,7 @@ plugin_user = rule(
         "_linker": attrs.exec_dep(default = "//groups:any_tool", exec_group = Link),
         "_plugin": attrs.plugin_dep(kind = ToolPlugin, default = "//groups:local_tool"),
     },
-    exec_groups = [Link],
+    exec_groups = [DefaultExecGroup, Link],
     uses_plugins = [ToolPlugin],
 )
 
@@ -161,9 +161,9 @@ constrained_link = rule(
     impl = _noop_impl,
     attrs = {
         "link_constraints": attrs.exec_compatible_with(exec_group = Link, default = []),
-        "_compiler": attrs.exec_dep(default = "//groups:remote_tool"),
+        "_compiler": attrs.exec_dep(default = "//groups:remote_tool", exec_group = DefaultExecGroup),
     },
-    exec_groups = [Link],
+    exec_groups = [DefaultExecGroup, Link],
 )
 
 # `default_constraints` constrains only the default group; `Link` resolves on its own.
@@ -194,9 +194,9 @@ arg_tools = rule(
     impl = _arg_tools_impl,
     attrs = {
         "cmd": attrs.arg(exec_group = Link),
-        "_compiler": attrs.exec_dep(default = "//groups:remote_tool"),
+        "_compiler": attrs.exec_dep(default = "//groups:remote_tool", exec_group = DefaultExecGroup),
     },
-    exec_groups = [Link],
+    exec_groups = [DefaultExecGroup, Link],
 )
 
 # A remote-only exec dep keeps the default group remote; the test runs in the local `TestRun`.
@@ -213,10 +213,10 @@ def _group_test_impl(_ctx):
 group_test = rule(
     impl = _group_test_impl,
     attrs = {
-        "_compiler": attrs.exec_dep(default = "//groups:remote_tool"),
+        "_compiler": attrs.exec_dep(default = "//groups:remote_tool", exec_group = DefaultExecGroup),
         "_runner": attrs.exec_dep(default = "//groups:local_tool", exec_group = TestRun),
     },
-    exec_groups = [TestRun],
+    exec_groups = [DefaultExecGroup, TestRun],
 )
 
 # Returns the test info of `test` without declaring its group. The remote-only exec dep keeps this
@@ -277,10 +277,10 @@ anon_in_group = rule(
     attrs = {
         "in_group": attrs.bool(default = True),
         "plural": attrs.bool(default = False),
-        "_compiler": attrs.exec_dep(default = "//groups:remote_tool"),
+        "_compiler": attrs.exec_dep(default = "//groups:remote_tool", exec_group = DefaultExecGroup),
         "_linker": attrs.exec_dep(default = "//groups:local_tool", exec_group = Link),
     },
-    exec_groups = [Link],
+    exec_groups = [DefaultExecGroup, Link],
 )
 
 def _anon_arg_runner_impl(ctx):
@@ -306,7 +306,7 @@ def _anon_arg_impl(ctx):
 anon_arg = rule(
     impl = _anon_arg_impl,
     attrs = {
-        "default_cmd": attrs.arg(anon_target_compatible = True),
+        "default_cmd": attrs.arg(anon_target_compatible = True, exec_group = DefaultExecGroup),
         "in_link": attrs.bool(),
         "link_cmd": attrs.arg(anon_target_compatible = True, exec_group = Link),
         "use_link_cmd": attrs.bool(),
@@ -340,8 +340,8 @@ anon_toolchain_arg = rule(
     impl = _anon_toolchain_arg_impl,
     attrs = {
         "in_link": attrs.bool(),
-        "_compiler": attrs.exec_dep(default = "//groups:remote_tool"),
+        "_compiler": attrs.exec_dep(default = "//groups:remote_tool", exec_group = DefaultExecGroup),
         "_toolchain": attrs.toolchain_dep(default = "//groups:local_arg_toolchain", exec_group = Link),
     },
-    exec_groups = [Link],
+    exec_groups = [DefaultExecGroup, Link],
 )

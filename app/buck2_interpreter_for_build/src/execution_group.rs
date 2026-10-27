@@ -44,7 +44,10 @@ fn register_execution_group_globals(r: &mut GlobalsBuilder) {
     /// Each execution group a rule declares gets its own execution platform, resolved from the
     /// target's `exec_compatible_with` and the exec deps and toolchain deps in that group. Exec
     /// deps and toolchain deps without an `exec_group` are in `DefaultExecGroup`, whose
-    /// platform is the target's execution platform.
+    /// platform is the target's execution platform. A rule that declares execution groups can
+    /// use `DefaultExecGroup` only if it lists it in `exec_groups`, and must give each of its exec
+    /// deps and toolchain deps an `exec_group`, `DefaultExecGroup` included. Its args need an
+    /// `exec_group` only to refer to tools.
     fn exec_group<'v>(
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkExecutionGroup> {
@@ -56,7 +59,9 @@ fn register_execution_group_globals(r: &mut GlobalsBuilder) {
     }
 
     /// The execution group of every exec dep, toolchain dep and action that does not specify one.
-    /// Its execution platform is the target's execution platform.
+    /// Its execution platform is the target's execution platform. A rule that declares named
+    /// execution groups must list it in `exec_groups` to use it, and must name it on exec deps,
+    /// toolchain deps and args that refer to tools.
     const DefaultExecGroup: FrozenStarlarkExecutionGroup = FrozenStarlarkExecutionGroup::DEFAULT;
 }
 

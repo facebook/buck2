@@ -25,5 +25,5 @@ def _impl(ctx):
 passes_group_tool = rule(
     impl = _impl,
     attrs = {"_tool_in_link": attrs.exec_dep(default = "//anon_tool:tool", exec_group = Link)},
-    exec_groups = [Link],
+    exec_groups = [DefaultExecGroup, Link],
 )

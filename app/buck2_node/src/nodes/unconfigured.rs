@@ -326,6 +326,10 @@ impl TargetNode {
         self.as_ref().execution_groups()
     }
 
+    pub fn default_execution_group(&self) -> bool {
+        self.as_ref().default_execution_group()
+    }
+
     pub fn get_default_target_platform(&self) -> buck2_error::Result<Option<&TargetLabel>> {
         Ok(self
             .known_attr_or_none(
@@ -839,6 +843,10 @@ impl<'a> TargetNodeRef<'a> {
     /// The attribute whose constraints only the default execution group's platform must satisfy.
     pub fn default_exec_compatible_with_attr(self) -> Option<AttributeId> {
         self.0.get().rule.default_exec_compatible_with_attr
+    }
+
+    pub fn default_execution_group(self) -> bool {
+        self.0.get().rule.default_execution_group
     }
 
     pub fn inputs(self) -> impl Iterator<Item = CellPath> + 'a {

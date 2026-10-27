@@ -252,19 +252,22 @@ impl AttrType {
     /// can be passed into anon targets. There is a slight memory hit when using
     /// this flag.
     pub fn arg(anon_target_compatible: bool) -> Self {
-        Self::arg_in_group(anon_target_compatible, None)
+        Self::arg_in_group(anon_target_compatible, None, true)
     }
 
     /// An arg attribute whose `$(exe)`, `$(location_exec)` and `$(location_toolchain)` macros
-    /// refer to dependencies in the given named execution group.
+    /// refer to dependencies in the given named execution group, or in the default group
+    /// without one. `ungrouped` is whether the `attrs.arg()` names no execution group.
     pub fn arg_in_group(
         anon_target_compatible: bool,
         execution_group: Option<NamedExecutionGroup>,
+        ungrouped: bool,
     ) -> Self {
         Self::of(
             AttrTypeInner::Arg(ArgAttrType {
                 anon_target_compatible,
                 execution_group,
+                ungrouped,
             }),
             true,
         )
@@ -377,6 +380,43 @@ impl AttrType {
                     .for_each(|x| x.for_each_named_execution_group(f))
             }
             _ => {}
+        }
+    }
+
+    /// Whether a dep within this attribute belongs to the default execution group: an exec dep
+    /// or toolchain dep without a named execution group.
+    pub fn uses_default_execution_group(&self) -> bool {
+        match &self.0.inner {
+            AttrTypeInner::Dep(DepAttrType {
+                transition: DepAttrTransition::Exec | DepAttrTransition::Toolchain,
+                ..
+            }) => true,
+            AttrTypeInner::List(x) => x.inner.uses_default_execution_group(),
+            AttrTypeInner::Option(x) => x.inner.uses_default_execution_group(),
+            AttrTypeInner::Dict(x) => {
+                x.key.uses_default_execution_group() || x.value.uses_default_execution_group()
+            }
+            AttrTypeInner::Tuple(x) => x.xs.iter().any(|x| x.uses_default_execution_group()),
+            AttrTypeInner::OneOf(x) => x.xs.iter().any(|x| x.uses_default_execution_group()),
+            AttrTypeInner::Dep(_)
+            | AttrTypeInner::Any(_)
+            | AttrTypeInner::Arg(_)
+            | AttrTypeInner::ConfigurationDep(_)
+            | AttrTypeInner::ConfiguredDep(_)
+            | AttrTypeInner::Bool(_)
+            | AttrTypeInner::Int(_)
+            | AttrTypeInner::PluginDep(_)
+            | AttrTypeInner::Query(_)
+            | AttrTypeInner::Source(_)
+            | AttrTypeInner::SplitTransitionDep(_)
+            | AttrTypeInner::TransitionDep(_)
+            | AttrTypeInner::String(_)
+            | AttrTypeInner::Enum(_)
+            | AttrTypeInner::Label(_)
+            | AttrTypeInner::Visibility(_)
+            | AttrTypeInner::WithinView(_)
+            | AttrTypeInner::Metadata(_)
+            | AttrTypeInner::TargetModifiers(_) => false,
         }
     }
 

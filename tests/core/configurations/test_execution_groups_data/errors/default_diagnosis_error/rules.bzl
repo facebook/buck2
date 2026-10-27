@@ -13,7 +13,7 @@ r = rule(
     impl = lambda ctx: [DefaultInfo()],
     attrs = {
         "_local_tool": attrs.exec_dep(default = "//groups:local_tool", exec_group = G),
-        "_tool": attrs.exec_dep(default = "//errors/default_diagnosis_error:missing"),
+        "_tool": attrs.exec_dep(default = "//errors/default_diagnosis_error:missing", exec_group = DefaultExecGroup),
     },
-    exec_groups = [G],
+    exec_groups = [DefaultExecGroup, G],
 )

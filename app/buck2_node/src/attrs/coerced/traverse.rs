@@ -10,8 +10,12 @@
 
 //! Dependency traversal of coerced values.
 
+use std::fmt::Display;
+
 use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use buck2_core::package::PackageLabel;
+use buck2_core::package::source_path::SourcePathRef;
+use buck2_core::provider::label::ProvidersLabel;
 
 use crate::attrs::arena::CoercedAttrRef;
 use crate::attrs::arena::schema::View;
@@ -44,6 +48,38 @@ impl<'a> CoercedAttrRef<'a> {
                 tr: traversal,
             },
         )
+    }
+
+    /// The first `$(exe)`, `$(location_exec)` or `$(location_toolchain)` macro within the args
+    /// of this value whose `attrs.arg()` has no `exec_group`, every `select()` branch included.
+    /// `t` is the type the value was coerced to.
+    pub fn first_ungrouped_tool_macro(
+        &self,
+        t: &AttrType,
+        pkg: Option<PackageLabel>,
+    ) -> buck2_error::Result<Option<String>> {
+        struct FirstUngroupedToolMacro(Option<String>);
+
+        impl CoercedAttrTraversal<'_> for FirstUngroupedToolMacro {
+            fn dep(&mut self, _dep: &ProvidersLabel) -> buck2_error::Result<()> {
+                Ok(())
+            }
+
+            fn input(&mut self, _input: SourcePathRef) -> buck2_error::Result<()> {
+                Ok(())
+            }
+
+            fn ungrouped_tool_macro(&mut self, m: &dyn Display) -> buck2_error::Result<()> {
+                if self.0.is_none() {
+                    self.0 = Some(m.to_string());
+                }
+                Ok(())
+            }
+        }
+
+        let mut first = FirstUngroupedToolMacro(None);
+        self.traverse(t, pkg, &mut first)?;
+        Ok(first.0)
     }
 }
 

@@ -22,7 +22,7 @@ def _impl(ctx):
 r = rule(
     impl = _impl,
     attrs = {"cmd": attrs.arg(anon_target_compatible = True, exec_group = G)},
-    exec_groups = [G],
+    exec_groups = [DefaultExecGroup, G],
 )
 
 grouped_anon = rule(

@@ -106,6 +106,9 @@ pub enum MacroDepKind {
 pub struct ArgAttrType {
     pub anon_target_compatible: bool,
     pub execution_group: Option<NamedExecutionGroup>,
+    /// Whether the `attrs.arg()` names no execution group. `exec_group = DefaultExecGroup`
+    /// names one, though `execution_group` is `None` for it as for no `exec_group`.
+    pub ungrouped: bool,
 }
 
 /// [StringWithMacros] is the core representation for an attrs.arg() (in all of it's coerced, configured, and resolved
@@ -841,13 +844,25 @@ impl Semantics for kinds::Arg {
         parts: View<'a, Self>,
         Traverse { v, t, pkg, tr }: Traverse<'_, 'a>,
     ) -> buck2_error::Result<()> {
-        if !matches!(&t.non_optional().0.inner, AttrTypeInner::Arg(_)) {
+        let AttrTypeInner::Arg(ty) = &t.non_optional().0.inner else {
             return Err(mismatch(v, t));
-        }
+        };
         for part in parts.iter() {
             let ArgPartView::Macro { mac, .. } = part else {
                 continue;
             };
+            if ty.ungrouped
+                && matches!(
+                    mac,
+                    ArgMacroView::Exe { exec_dep: true, .. }
+                        | ArgMacroView::Location {
+                            dep_kind: MacroDepKind::Exec | MacroDepKind::Toolchain,
+                            ..
+                        }
+                )
+            {
+                tr.ungrouped_tool_macro(&mac)?;
+            }
             match mac {
                 ArgMacroView::UserKeyedPlaceholder { label, .. } => tr.dep(label)?,
                 ArgMacroView::Location {

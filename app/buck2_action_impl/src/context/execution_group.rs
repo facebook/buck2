@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::execution_types::execution_group::ExecutionGroup;
 use buck2_interpreter::execution_group::ExecutionGroupArg;
 use starlark::values::none::NoneOr;
@@ -19,4 +20,27 @@ pub(crate) fn action_execution_group(execution_group: NoneOr<ExecutionGroupArg>)
         None => ExecutionGroup::Default,
         Some(ExecutionGroupArg { group }) => group,
     }
+}
+
+#[derive(Debug, buck2_error::Error)]
+#[buck2(input)]
+enum ActionExecutionGroupError {
+    #[error(
+        "The action runs in the default execution group, which the rule does not declare. Pass `exec_group`, or add `DefaultExecGroup` to `exec_groups`"
+    )]
+    DefaultExecutionGroupNotDeclared,
+}
+
+/// Rejects an action in the default execution group of a rule that declares named execution
+/// groups but not `DefaultExecGroup`.
+pub(crate) fn check_default_execution_group_declared(
+    execution_platform: &ExecutionPlatformResolution,
+    execution_group: &ExecutionGroup,
+) -> buck2_error::Result<()> {
+    if *execution_group == ExecutionGroup::Default
+        && !execution_platform.default_execution_group_declared()
+    {
+        return Err(ActionExecutionGroupError::DefaultExecutionGroupNotDeclared.into());
+    }
+    Ok(())
 }

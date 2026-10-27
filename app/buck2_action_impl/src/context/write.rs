@@ -57,6 +57,7 @@ use crate::actions::impls::write_hmap::visit_hmap_artifacts;
 use crate::actions::impls::write_json::UnregisteredWriteJsonAction;
 use crate::actions::impls::write_macros::UnregisteredWriteMacrosToFileAction;
 use crate::context::execution_group::action_execution_group;
+use crate::context::execution_group::check_default_execution_group_declared;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]
@@ -197,6 +198,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
             .into());
         }
         let mut this = this.state()?;
+        check_default_execution_group_declared(this.execution_platform(), &exec_group)?;
         let (declaration, output_artifact) = this.get_or_declare_output(
             eval,
             output,
@@ -270,6 +272,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
     ) -> starlark::Result<impl AllocValue<'v> + use<'v>> {
         let exec_group = action_execution_group(exec_group);
         let mut this = this.state()?;
+        check_default_execution_group_declared(this.execution_platform(), &exec_group)?;
         let (declaration, output_artifact) = this.get_or_declare_output(
             eval,
             output,
@@ -393,6 +396,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         }
         let exec_group = action_execution_group(exec_group);
         let mut this = this.state()?;
+        check_default_execution_group_declared(this.execution_platform(), &exec_group)?;
         let (declaration, output_artifact) = this.get_or_declare_output(
             eval,
             output,

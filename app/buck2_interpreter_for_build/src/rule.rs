@@ -79,6 +79,7 @@ use starlark::values::typing::StarlarkCallableChecked;
 
 use crate::attrs::coerce::ctx::MemoizedCoercionCtx;
 use crate::attrs::starlark_attribute::StarlarkAttribute;
+use crate::attrs::starlark_attribute::ToolMarks;
 use crate::interpreter::build_context::BuildContext;
 use crate::interpreter::build_context::PerFileTypeContext;
 use crate::interpreter::extra_value::InterpreterExtraValue;
@@ -119,10 +120,13 @@ pub struct StarlarkRuleCallable<'v> {
     uses_plugins: Vec<PluginKind>,
     /// The named execution groups these targets use
     execution_groups: Vec<RuleExecutionGroup>,
-    /// Whether these targets list `DefaultExecGroup` or declare no named execution groups
+    /// Whether these targets may use the default execution group
     default_execution_group: bool,
     /// The attribute constraining the execution platform of the default execution group only
     default_exec_compatible_with_attr: Option<AttributeId>,
+    /// In a rule with named execution groups, the attributes with an `attrs.arg()` without
+    /// `exec_group`; their values must not refer to tools.
+    ungrouped_arg_attrs: Vec<AttributeId>,
     /// This kind of the rule, e.g. whether it can be used in configuration context.
     rule_kind: RuleKind,
     /// The raw docstring for this rule
@@ -175,6 +179,37 @@ enum RuleError {
     CfgAndSupportsIncomingTransition,
     #[error("{0} rules do not support incoming transitions")]
     RuleDoesNotSupportIncomingTransition(&'static str),
+    #[error(
+        "Attribute `{0}` uses the default execution group, which the rule does not declare. Add `DefaultExecGroup` to `exec_groups`, or put the dependency in a named execution group"
+    )]
+    DefaultExecutionGroupNotDeclared(String),
+    #[error(
+        "Attribute `{attr}` contains an `{function}` without `exec_group`. A rule that declares named execution groups must give every exec dep and toolchain dep an execution group: add `exec_group = DefaultExecGroup` (and list `DefaultExecGroup` in `exec_groups`) or a named execution group"
+    )]
+    ToolAttributeWithoutExecutionGroup {
+        attr: String,
+        function: &'static str,
+    },
+    #[error(
+        "Attribute `{0}` constrains the default execution group, which the rule does not declare. Add `DefaultExecGroup` to `exec_groups`, or constrain a named execution group"
+    )]
+    DefaultExecCompatibleWithNotDeclared(String),
+    #[error(
+        "The default of attribute `{attr}` contains `$({macro_})`, a tool, in an `attrs.arg()` without `exec_group`. In a rule that declares named execution groups, an `attrs.arg()` that refers to tools must name its execution group: give it `exec_group = DefaultExecGroup` (and list `DefaultExecGroup` in `exec_groups`) or a named execution group"
+    )]
+    ToolInUngroupedArgDefault { attr: String, macro_: String },
+    #[error(
+        "Target `{target}`: attribute `{attr}` contains `$({macro_})`, a tool, in an `attrs.arg()` without `exec_group`. The rule declares named execution groups, so an `attrs.arg()` that refers to tools must name its execution group; this is fixed in the rule, by giving that `attrs.arg()` an `exec_group`, not in the BUCK file"
+    )]
+    ToolInUngroupedArg {
+        target: String,
+        attr: String,
+        macro_: String,
+    },
+    #[error(
+        "The rule uses plugins, which are dependencies in the default execution group, but does not declare it. Add `DefaultExecGroup` to `exec_groups`"
+    )]
+    PluginsWithoutDefaultExecutionGroup,
     #[error(
         "Execution groups of a rule must have distinct names; `{name}` is listed more than once{defined_in}"
     )]
@@ -244,6 +279,12 @@ impl<'v> StarlarkRuleCallable<'v> {
             ),
         };
 
+        let tool_marks: Vec<(String, ToolMarks)> = attrs
+            .entries
+            .iter()
+            .map(|(name, attr)| ((*name).to_owned(), attr.tool_marks()))
+            .collect();
+
         let exec_compatible_with_attrs: Vec<(String, ExecutionGroup)> = attrs
             .entries
             .iter()
@@ -302,14 +343,20 @@ impl<'v> StarlarkRuleCallable<'v> {
             &cfg,
         )?;
 
-        let (execution_groups, default_execution_group, default_exec_compatible_with_attr) =
-            validate_execution_groups(
-                execution_groups,
-                rule_kind,
-                &attributes,
-                exec_compatible_with_attrs,
-                build_context.cell_resolver(),
-            )?;
+        let (
+            execution_groups,
+            default_execution_group,
+            default_exec_compatible_with_attr,
+            ungrouped_arg_attrs,
+        ) = validate_execution_groups(
+            execution_groups,
+            rule_kind,
+            &attributes,
+            exec_compatible_with_attrs,
+            build_context.cell_resolver(),
+            &tool_marks,
+            !uses_plugins.is_empty(),
+        )?;
         let ty = Ty::ty_function(attributes.ty_function());
 
         Ok(StarlarkRuleCallable {
@@ -324,6 +371,7 @@ impl<'v> StarlarkRuleCallable<'v> {
             execution_groups,
             default_execution_group,
             default_exec_compatible_with_attr,
+            ungrouped_arg_attrs,
             docs: Some(doc.to_owned()),
             ignore_attrs_for_profiling: build_context.ignore_attrs_for_profiling,
             artifact_promise_mappings,
@@ -429,15 +477,25 @@ impl<'v> StarlarkRuleCallable<'v> {
 }
 
 /// Checks the `exec_groups` a rule declares, and that every execution group its attributes
-/// use is among them. Returns the named groups, whether the rule lists `DefaultExecGroup` or
-/// declares no named groups, and the `attrs.exec_compatible_with()` attribute of the default group.
+/// use is among them. Returns the named groups, whether the rule may use the default execution
+/// group (implicitly when it declares no named groups, otherwise only when listed), and the
+/// `attrs.exec_compatible_with()` attribute of the default group. In a rule with named groups,
+/// every exec dep and toolchain dep must name its execution group, `DefaultExecGroup`
+/// included; args without one are recorded so their values can be checked for tools.
 fn validate_execution_groups(
     execution_groups: Vec<ExecutionGroup>,
     rule_kind: RuleKind,
     attributes: &AttributeSpec,
     exec_compatible_with_attrs: Vec<(String, ExecutionGroup)>,
     cell_resolver: &CellResolver,
-) -> buck2_error::Result<(Vec<RuleExecutionGroup>, bool, Option<AttributeId>)> {
+    tool_marks: &[(String, ToolMarks)],
+    uses_plugins: bool,
+) -> buck2_error::Result<(
+    Vec<RuleExecutionGroup>,
+    bool,
+    Option<AttributeId>,
+    Vec<AttributeId>,
+)> {
     // The project-relative path of the file that defines `group`, or its cell path when that
     // does not resolve, so the error that names the file always surfaces.
     let defining_file = |group: &NamedExecutionGroup| {
@@ -568,11 +626,79 @@ fn validate_execution_groups(
         );
     }
 
+    if !declared.is_empty() {
+        if let Some((attr, function)) = tool_marks
+            .iter()
+            .find_map(|(attr, marks)| Some((attr, marks.first_unmarked_dep()?)))
+        {
+            return Err(RuleError::ToolAttributeWithoutExecutionGroup {
+                attr: attr.clone(),
+                function,
+            }
+            .into());
+        }
+    }
+
+    // In a rule with named groups, only args without tools may omit `exec_group`; target values
+    // are checked when targets are created, defaults here.
+    let mut ungrouped_arg_attrs = Vec::new();
+    if !declared.is_empty() {
+        for (attr, marks) in tool_marks {
+            if !marks.contains(ToolMarks::UNMARKED_ARG) {
+                continue;
+            }
+            let tool = match attributes.attribute(attr) {
+                Some(a) => match a.default_as_ref() {
+                    Some(default) => default.first_ungrouped_tool_macro(a.coercer(), None)?,
+                    None => None,
+                },
+                None => None,
+            };
+            if let Some(tool) = tool {
+                return Err(RuleError::ToolInUngroupedArgDefault {
+                    attr: attr.clone(),
+                    macro_: tool,
+                }
+                .into());
+            }
+            ungrouped_arg_attrs.push(
+                attributes
+                    .attribute_id_by_name(attr)
+                    .expect("every attribute of the rule is in its spec"),
+            );
+        }
+    }
+
     let default_execution_group = declared.is_empty() || default_listed;
+    if !default_execution_group {
+        if let Some(attr) = attributes
+            .attr_specs()
+            .find(|(_, _, attr)| attr.coercer().uses_default_execution_group())
+            .map(|(attr, _, _)| attr)
+            .or_else(|| {
+                tool_marks
+                    .iter()
+                    .find(|(_, marks)| marks.contains(ToolMarks::DEFAULT_GROUP_ARG))
+                    .map(|(attr, _)| attr.as_str())
+            })
+        {
+            return Err(RuleError::DefaultExecutionGroupNotDeclared(attr.to_owned()).into());
+        }
+        if let Some(attr) = default_exec_compatible_with_attr {
+            return Err(RuleError::DefaultExecCompatibleWithNotDeclared(
+                attributes.attribute_name_by_id(attr).to_owned(),
+            )
+            .into());
+        }
+        if uses_plugins {
+            return Err(RuleError::PluginsWithoutDefaultExecutionGroup.into());
+        }
+    }
     Ok((
         declared,
         default_execution_group,
         default_exec_compatible_with_attr,
+        ungrouped_arg_attrs,
     ))
 }
 
@@ -685,6 +811,7 @@ impl<'v> Freeze<'v> for StarlarkRuleCallable<'v> {
             ty: self.ty,
             ignore_attrs_for_profiling: self.ignore_attrs_for_profiling,
             artifact_promise_mappings,
+            ungrouped_arg_attrs: self.ungrouped_arg_attrs,
         })
     }
 }
@@ -713,6 +840,9 @@ pub struct FrozenStarlarkRuleCallable<'v> {
     ty: Ty,
     ignore_attrs_for_profiling: bool,
     artifact_promise_mappings: Option<FrozenArtifactPromiseMappings<'v>>,
+    /// See `StarlarkRuleCallable::ungrouped_arg_attrs`.
+    #[starlark_pagable(pagable)]
+    ungrouped_arg_attrs: Vec<AttributeId>,
 }
 
 fn downcast_frozen_rule<'v>(
@@ -757,6 +887,46 @@ impl<'v> FrozenStarlarkRuleCallable<'v> {
         !self.rule.execution_groups.is_empty()
     }
 
+    /// Rejects tools in the values of `attrs.arg()` attributes without `exec_group` in a rule
+    /// that declares named execution groups.
+    fn check_ungrouped_args(
+        &self,
+        target_node: &UnsealedTargetNode,
+        internals: &ModuleInternals,
+    ) -> buck2_error::Result<()> {
+        if self.ungrouped_arg_attrs.is_empty() {
+            return Ok(());
+        }
+        let pkg = target_node.label.pkg();
+        internals
+            .attr_coercion_context()
+            .with_attr_arena_ref(|arena| {
+                for &id in &self.ungrouped_arg_attrs {
+                    let Some(value) = target_node.attributes.get(id) else {
+                        continue;
+                    };
+                    let name = target_node.rule.attributes.attribute_name_by_id(id);
+                    let attr = target_node
+                        .rule
+                        .attributes
+                        .attribute(name)
+                        .internal_error("attribute id is in the rule's spec")?;
+                    if let Some(tool) = arena
+                        .view(value)
+                        .first_ungrouped_tool_macro(attr.coercer(), Some(pkg.dupe()))?
+                    {
+                        return Err(RuleError::ToolInUngroupedArg {
+                            target: target_node.label.to_string(),
+                            attr: name.to_owned(),
+                            macro_: tool,
+                        }
+                        .into());
+                    }
+                }
+                Ok(())
+            })
+    }
+
     pub fn artifact_promise_mappings(&self) -> &Option<FrozenArtifactPromiseMappings<'v>> {
         &self.artifact_promise_mappings
     }
@@ -799,6 +969,7 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkRuleCallable<'v> {
                 self.ignore_attrs_for_profiling,
                 call_stack,
             )?;
+            self.check_ungrouped_args(&target_node, internals)?;
             internals.record(target_node)?;
             Ok(Value::new_none())
         })

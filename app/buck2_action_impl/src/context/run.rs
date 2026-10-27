@@ -71,6 +71,7 @@ use crate::actions::impls::run::UnregisteredRunAction;
 use crate::actions::impls::run::dep_files::RunActionDepFiles;
 use crate::actions::impls::run::new_executor_preference;
 use crate::context::execution_group::action_execution_group;
+use crate::context::execution_group::check_default_execution_group_declared;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]
@@ -688,6 +689,8 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
                 }
             }
         }
+
+        check_default_execution_group_declared(this.state()?.execution_platform(), &exec_group)?;
 
         this.state()?.register_action_in_group(
             artifacts.declared_outputs,

@@ -1747,20 +1747,32 @@ impl BuckTestOrchestrator<'_> {
             },
         };
 
-        let execution_group_executor_config =
-            match (&resolved_executor_override, test_info.execution_group()?) {
-                (None, Some(group)) => Some(
-                    node.execution_platform_resolution()
-                        .executor_config_for_group(&group)
-                        .with_buck_error_context(|| {
-                            format!(
-                                "The test info of `{test_target}` names execution group `{group}`, but no executor was recorded for it when the test info was created, so it is resolved against `{test_target}`"
-                            )
-                        })?
-                        .dupe(),
-                ),
-                _ => None,
-            };
+        let execution_group_executor_config = match (
+            &resolved_executor_override,
+            test_info.execution_group()?,
+        ) {
+            (None, None | Some(ExecutionGroup::Default))
+                if !node
+                    .execution_platform_resolution()
+                    .default_execution_group_declared() =>
+            {
+                return Err(buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::Input,
+                    "The test uses the default execution group, which the rule of `{test_target}` does not declare (the test info may come from another rule that created it). Set `exec_group` or `default_executor` where the test info is created, or add `DefaultExecGroup` to `exec_groups` of the rule of `{test_target}`"
+                ));
+            }
+            (None, Some(group)) => Some(
+                node.execution_platform_resolution()
+                    .executor_config_for_group(&group)
+                    .with_buck_error_context(|| {
+                        format!(
+                            "The test info of `{test_target}` names execution group `{group}`, but no executor was recorded for it when the test info was created, so it is resolved against `{test_target}`"
+                        )
+                    })?
+                    .dupe(),
+            ),
+            _ => None,
+        };
 
         let executor_config = Self::executor_config_with_remote_cache_override(
             node,

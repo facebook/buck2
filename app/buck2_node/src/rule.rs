@@ -48,7 +48,8 @@ pub struct Rule {
     pub uses_plugins: Vec<PluginKind>,
     /// The named execution groups the rule declares, in declaration order.
     pub execution_groups: Vec<RuleExecutionGroup>,
-    /// Whether the rule lists `DefaultExecGroup` or declares no named execution groups.
+    /// Whether the rule may use the default execution group: true unless it declares named
+    /// execution groups without `DefaultExecGroup`.
     pub default_execution_group: bool,
     /// The attribute created by `attrs.exec_compatible_with(exec_group =
     /// DefaultExecGroup)`, whose constraints only the default group's execution platform must

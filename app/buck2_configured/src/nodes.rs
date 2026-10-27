@@ -1338,9 +1338,11 @@ async fn compute_configured_target_node_no_transition(
 
     // Finalize the execution platform resolution with exec_dep_cfgs
     let execution_platform_resolution = match execution_platform_partial {
-        Some(partial) => {
-            partial.finalize_with_execution_groups(exec_dep_cfgs, execution_group_resolutions)
-        }
+        Some(partial) => partial.finalize_with_execution_groups(
+            exec_dep_cfgs,
+            execution_group_resolutions,
+            target_node.default_execution_group(),
+        ),
         None => ExecutionPlatformResolution::unspecified(),
     };
 

@@ -108,7 +108,9 @@ pub struct ExternalRunnerTestInfo<'v> {
     /// execution platform, when the rule does not declare the group, or outside rule analysis; the
     /// test then resolves the group against the tested target when it runs. A passed
     /// `default_executor` wins and the group is not resolved, so copying a test info field by
-    /// field works in any rule.
+    /// field works in any rule. A rule that declares named groups but not `DefaultExecGroup` must
+    /// set `exec_group` or `default_executor`; `executor_overrides` does not replace them, as the
+    /// tests run in the default group whenever no override is picked.
     exec_group: ValueOfUnchecked<'v, NoneOr<ExecutionGroupArg>>,
 
     /// Executors that Tpx can use to override the default executor.
@@ -383,15 +385,28 @@ pub(super) fn iter_opt_str_list<'v>(
 /// execution platform, when the rule does not declare the group, or outside rule analysis; the
 /// test then resolves the group against the tested target when it runs. Any other resolution
 /// error fails the creation of the test info.
+///
+/// In rule analysis, a test info with neither `default_executor` nor `exec_group` runs in the
+/// default execution group whenever no executor override is picked, so its creation fails when the
+/// rule does not declare that group, whether or not it has `executor_overrides`.
 pub(super) fn default_executor_with_execution_group<'v>(
     exec_group: Option<&ExecutionGroup>,
     default_executor: Option<ValueTyped<'v, StarlarkCommandExecutorConfig>>,
     eval: &mut Evaluator<'v, '_, '_>,
 ) -> buck2_error::Result<Option<ValueTyped<'v, StarlarkCommandExecutorConfig>>> {
-    let (None, Some(group)) = (default_executor, exec_group) else {
+    if default_executor.is_some() {
         return Ok(default_executor);
-    };
+    }
     let Some(resolution) = AnalysisExtraValue::execution_platform_resolution(eval.module()) else {
+        return Ok(None);
+    };
+    let Some(group) = exec_group else {
+        if !resolution.default_execution_group_declared() {
+            return Err(buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "The test info uses the default execution group, which the rule does not declare. Set `exec_group` or `default_executor`, or add `DefaultExecGroup` to `exec_groups`"
+            ));
+        }
         return Ok(None);
     };
     if let ExecutionGroup::Named(named) = group {
@@ -402,6 +417,12 @@ pub(super) fn default_executor_with_execution_group<'v>(
         {
             return Ok(None);
         }
+    }
+    if *group == ExecutionGroup::Default && !resolution.default_execution_group_declared() {
+        return Err(buck2_error!(
+            buck2_error::ErrorTag::Input,
+            "The test info uses the default execution group, which the rule does not declare. Set `exec_group` to a declared group, or add `DefaultExecGroup` to `exec_groups`"
+        ));
     }
     // Fails when resolution was not performed.
     Ok(resolution.platform_for_group(group)?.map(|platform| {

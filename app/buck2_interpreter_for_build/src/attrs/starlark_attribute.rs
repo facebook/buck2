@@ -51,6 +51,43 @@ pub struct StarlarkAttribute {
     /// created by `attrs.exec_compatible_with()`.
     #[starlark_pagable(pagable)]
     exec_compatible_with_group: Option<ExecutionGroup>,
+    /// The `ToolMarks` bits of the exec deps, toolchain deps and args within the attribute.
+    #[starlark_pagable(pagable)]
+    tool_marks: u8,
+}
+
+/// How the exec deps, toolchain deps and args within an attribute name their execution group.
+/// Attribute types cannot tell an explicit `DefaultExecGroup` from no `exec_group`, so the
+/// attribute functions record it here for the checks of rules that declare named execution groups.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct ToolMarks(u8);
+
+impl ToolMarks {
+    /// An attribute without exec deps, toolchain deps or args.
+    pub(crate) const NONE: ToolMarks = ToolMarks(0);
+    pub(crate) const UNMARKED_EXEC_DEP: ToolMarks = ToolMarks(1);
+    pub(crate) const UNMARKED_TOOLCHAIN_DEP: ToolMarks = ToolMarks(2);
+    pub(crate) const UNMARKED_ARG: ToolMarks = ToolMarks(4);
+    /// An `attrs.arg()` with `exec_group = DefaultExecGroup`.
+    pub(crate) const DEFAULT_GROUP_ARG: ToolMarks = ToolMarks(8);
+
+    pub(crate) fn union(self, other: ToolMarks) -> ToolMarks {
+        ToolMarks(self.0 | other.0)
+    }
+
+    pub(crate) fn contains(self, other: ToolMarks) -> bool {
+        self.0 & other.0 == other.0
+    }
+
+    /// The attribute function of the first exec dep or toolchain dep without `exec_group`.
+    pub(crate) fn first_unmarked_dep(self) -> Option<&'static str> {
+        [
+            (Self::UNMARKED_EXEC_DEP, "attrs.exec_dep()"),
+            (Self::UNMARKED_TOOLCHAIN_DEP, "attrs.toolchain_dep()"),
+        ]
+        .into_iter()
+        .find_map(|(mark, function)| self.contains(mark).then_some(function))
+    }
 }
 
 starlark_simple_value!(StarlarkAttribute);
@@ -70,10 +107,11 @@ impl<'v> StarlarkValue<'v> for StarlarkAttribute {
 }
 
 impl StarlarkAttribute {
-    pub fn new(attr: Attribute) -> Self {
+    pub(crate) fn new(attr: Attribute, tool_marks: ToolMarks) -> Self {
         Self {
             attribute: attr,
             exec_compatible_with_group: None,
+            tool_marks: tool_marks.0,
         }
     }
 
@@ -81,11 +119,16 @@ impl StarlarkAttribute {
         Self {
             attribute: attr,
             exec_compatible_with_group: Some(group),
+            tool_marks: ToolMarks::NONE.0,
         }
     }
 
     pub fn attribute(&self) -> &Attribute {
         &self.attribute
+    }
+
+    pub(crate) fn tool_marks(&self) -> ToolMarks {
+        ToolMarks(self.tool_marks)
     }
 
     pub fn clone_attribute(&self) -> Attribute {

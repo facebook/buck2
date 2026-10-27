@@ -43,6 +43,7 @@ use starlark::values::tuple::UnpackTuple;
 use crate::attrs::coerce::attr_type::AttrTypeExt;
 use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
 use crate::attrs::starlark_attribute::StarlarkAttribute;
+use crate::attrs::starlark_attribute::ToolMarks;
 use crate::attrs::starlark_attribute::register_attr_type;
 use crate::interpreter::build_context::BuildContext;
 use crate::interpreter::selector::StarlarkSelector;
@@ -70,6 +71,7 @@ pub(crate) trait AttributeExt {
         default: Option<Value<'v>>,
         doc: &str,
         coercer: AttrType,
+        tool_marks: ToolMarks,
     ) -> buck2_error::Result<StarlarkAttribute>;
 }
 
@@ -80,6 +82,7 @@ impl AttributeExt for Attribute {
         default: Option<Value<'v>>,
         doc: &str,
         coercer: AttrType,
+        tool_marks: ToolMarks,
     ) -> buck2_error::Result<StarlarkAttribute> {
         let default = match default {
             None => None,
@@ -91,9 +94,10 @@ impl AttributeExt for Attribute {
                 Some((ctx.take_attr_arena_builder(), coerced))
             }
         };
-        Ok(StarlarkAttribute::new(Attribute::new_from_builder(
-            default, doc, coercer,
-        )?))
+        Ok(StarlarkAttribute::new(
+            Attribute::new_from_builder(default, doc, coercer)?,
+            tool_marks,
+        ))
     }
 }
 
@@ -166,7 +170,13 @@ fn attr_module(registry: &mut GlobalsBuilder) {
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkAttribute> {
         let _unused = validate;
-        Ok(Attribute::attr(eval, default, doc, AttrType::string())?)
+        Ok(Attribute::attr(
+            eval,
+            default,
+            doc,
+            AttrType::string(),
+            ToolMarks::NONE,
+        )?)
     }
 
     /// Takes a list from the user, supplies a list to the rule.
@@ -177,7 +187,13 @@ fn attr_module(registry: &mut GlobalsBuilder) {
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkAttribute> {
         let coercer = AttrType::list(inner.coercer_for_inner()?);
-        Ok(Attribute::attr(eval, default, doc, coercer)?)
+        Ok(Attribute::attr(
+            eval,
+            default,
+            doc,
+            coercer,
+            inner.tool_marks(),
+        )?)
     }
 
     /// Takes a target from the user, as a string, and supplies a dependency to the rule.
@@ -186,7 +202,8 @@ fn attr_module(registry: &mut GlobalsBuilder) {
     ///
     /// With `exec_group`, the dependency is configured for the execution platform of that
     /// group instead, and constrains only that group's execution platform resolution. The rule
-    /// must declare the group in `rule(exec_groups = ...)`.
+    /// must declare the group in `rule(exec_groups = ...)`. A rule that declares named execution
+    /// groups must pass `exec_group`, with `DefaultExecGroup` for the default group.
     fn exec_dep<'v>(
         #[starlark(require = named, default = UnpackListOrTuple::default())]
         providers: UnpackListOrTuple<Value<'v>>,
@@ -196,13 +213,17 @@ fn attr_module(registry: &mut GlobalsBuilder) {
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkAttribute> {
         let required_providers = dep_like_attr_handle_providers_arg(providers.items)?;
-        let coercer = match exec_group.into_option() {
-            None => AttrType::exec_dep(required_providers),
-            Some(ExecutionGroupArg { group }) => {
-                AttrType::exec_dep_in_group(required_providers, group)
-            }
+        let (coercer, marks) = match exec_group.into_option() {
+            None => (
+                AttrType::exec_dep(required_providers),
+                ToolMarks::UNMARKED_EXEC_DEP,
+            ),
+            Some(ExecutionGroupArg { group }) => (
+                AttrType::exec_dep_in_group(required_providers, group),
+                ToolMarks::NONE,
+            ),
         };
-        Ok(Attribute::attr(eval, default, doc, coercer)?)
+        Ok(Attribute::attr(eval, default, doc, coercer, marks)?)
     }
 
     /// Takes a list of constraints from the user that the execution platform of `exec_group`
@@ -220,7 +241,7 @@ fn attr_module(registry: &mut GlobalsBuilder) {
         let coercer = AttrType::list(AttrType::configuration_dep(
             ConfigurationDepKind::CompatibilityAttribute,
         ));
-        let attr = Attribute::attr(eval, default, doc, coercer)?;
+        let attr = Attribute::attr(eval, default, doc, coercer, ToolMarks::NONE)?;
         Ok(StarlarkAttribute::new_exec_compatible_with(
             attr.clone_attribute(),
             exec_group.group,
@@ -234,7 +255,8 @@ fn attr_module(registry: &mut GlobalsBuilder) {
     /// With `exec_group`, the toolchain's execution platform dependencies select the
     /// execution platform of that group instead, and the toolchain is configured with that
     /// group's execution platform. The rule must declare the group in
-    /// `rule(exec_groups = ...)`.
+    /// `rule(exec_groups = ...)`. A rule that declares named execution groups must pass
+    /// `exec_group`, with `DefaultExecGroup` for the default group.
     fn toolchain_dep<'v>(
         #[starlark(require = named, default = UnpackListOrTuple::default())]
         providers: UnpackListOrTuple<Value<'v>>,
@@ -244,13 +266,17 @@ fn attr_module(registry: &mut GlobalsBuilder) {
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkAttribute> {
         let required_providers = dep_like_attr_handle_providers_arg(providers.items)?;
-        let coercer = match exec_group.into_option() {
-            None => AttrType::toolchain_dep(required_providers),
-            Some(ExecutionGroupArg { group }) => {
-                AttrType::toolchain_dep_in_group(required_providers, group)
-            }
+        let (coercer, marks) = match exec_group.into_option() {
+            None => (
+                AttrType::toolchain_dep(required_providers),
+                ToolMarks::UNMARKED_TOOLCHAIN_DEP,
+            ),
+            Some(ExecutionGroupArg { group }) => (
+                AttrType::toolchain_dep_in_group(required_providers, group),
+                ToolMarks::NONE,
+            ),
         };
-        Ok(Attribute::attr(eval, default, doc, coercer)?)
+        Ok(Attribute::attr(eval, default, doc, coercer, marks)?)
     }
 
     fn transition_dep<'v>(
@@ -286,11 +312,10 @@ fn attr_module(registry: &mut GlobalsBuilder) {
             }
         };
 
-        Ok(StarlarkAttribute::new(Attribute::new_from_builder(
-            coerced_default,
-            doc,
-            coercer,
-        )?))
+        Ok(StarlarkAttribute::new(
+            Attribute::new_from_builder(coerced_default, doc, coercer)?,
+            ToolMarks::NONE,
+        ))
     }
 
     fn configured_dep<'v>(
@@ -302,7 +327,13 @@ fn attr_module(registry: &mut GlobalsBuilder) {
     ) -> starlark::Result<StarlarkAttribute> {
         let required_providers = dep_like_attr_handle_providers_arg(providers.items)?;
         let coercer = AttrType::configured_dep(required_providers);
-        Ok(Attribute::attr(eval, default, doc, coercer)?)
+        Ok(Attribute::attr(
+            eval,
+            default,
+            doc,
+            coercer,
+            ToolMarks::NONE,
+        )?)
     }
 
     fn split_transition_dep<'v>(
@@ -326,11 +357,10 @@ fn attr_module(registry: &mut GlobalsBuilder) {
             }
         };
 
-        Ok(StarlarkAttribute::new(Attribute::new_from_builder(
-            coerced_default,
-            doc,
-            coercer,
-        )?))
+        Ok(StarlarkAttribute::new(
+            Attribute::new_from_builder(coerced_default, doc, coercer)?,
+            ToolMarks::NONE,
+        ))
     }
 
     /// Takes a target label from the user and registers it as a plugin dependency.
@@ -351,6 +381,7 @@ fn attr_module(registry: &mut GlobalsBuilder) {
             default,
             doc,
             AttrType::plugin_dep(kind.plugin_kind),
+            ToolMarks::NONE,
         )?)
     }
 
@@ -393,7 +424,13 @@ fn attr_module(registry: &mut GlobalsBuilder) {
         };
 
         let coercer = AttrType::dep(required_providers, plugin_kinds);
-        Ok(Attribute::attr(eval, default, doc, coercer)?)
+        Ok(Attribute::attr(
+            eval,
+            default,
+            doc,
+            coercer,
+            ToolMarks::NONE,
+        )?)
     }
 
     /// Takes most builtin literals and passes them to the rule as a string.
@@ -403,7 +440,13 @@ fn attr_module(registry: &mut GlobalsBuilder) {
         #[starlark(require = named)] default: Option<Value<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkAttribute> {
-        Ok(Attribute::attr(eval, default, doc, AttrType::any())?)
+        Ok(Attribute::attr(
+            eval,
+            default,
+            doc,
+            AttrType::any(),
+            ToolMarks::NONE,
+        )?)
     }
 
     /// Takes a boolean and passes it to the rule as a boolean.
@@ -412,7 +455,13 @@ fn attr_module(registry: &mut GlobalsBuilder) {
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkAttribute> {
-        Ok(Attribute::attr(eval, default, doc, AttrType::bool())?)
+        Ok(Attribute::attr(
+            eval,
+            default,
+            doc,
+            AttrType::bool(),
+            ToolMarks::NONE,
+        )?)
     }
 
     /// Takes a value that may be `None` or some inner type, and passes either `None` or the
@@ -428,7 +477,7 @@ fn attr_module(registry: &mut GlobalsBuilder) {
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkAttribute> {
         let coercer = AttrType::option(inner.coercer_for_inner()?);
-        let attr = Attribute::attr(eval, default, doc, coercer)?;
+        let attr = Attribute::attr(eval, default, doc, coercer, inner.tool_marks())?;
 
         match attr.attribute().default_as_ref() {
             Some(default) if !default.may_return_none() => Err(buck2_error::Error::from(
@@ -452,11 +501,10 @@ fn attr_module(registry: &mut GlobalsBuilder) {
         let Some(default) = inner.attribute().default_as_owned().duped() else {
             return Err(buck2_error::Error::from(AttrError::DefaultOnlyMustHaveDefault).into());
         };
-        Ok(StarlarkAttribute::new(Attribute::new_default_only(
-            default,
-            doc,
-            inner.coercer_for_default_only()?,
-        )))
+        Ok(StarlarkAttribute::new(
+            Attribute::new_default_only(default, doc, inner.coercer_for_default_only()?),
+            inner.tool_marks(),
+        ))
     }
 
     /// Takes a target (as per `deps`) and passes a `label` to the rule.
@@ -466,7 +514,13 @@ fn attr_module(registry: &mut GlobalsBuilder) {
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkAttribute> {
-        Ok(Attribute::attr(eval, default, doc, AttrType::label())?)
+        Ok(Attribute::attr(
+            eval,
+            default,
+            doc,
+            AttrType::label(),
+            ToolMarks::NONE,
+        )?)
     }
 
     /// Takes a dict from the user, supplies a dict to the rule.
@@ -480,7 +534,13 @@ fn attr_module(registry: &mut GlobalsBuilder) {
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkAttribute> {
         let coercer = AttrType::dict(key.coercer_for_inner()?, value.coercer_for_inner()?, sorted);
-        Ok(Attribute::attr(eval, default, doc, coercer)?)
+        Ok(Attribute::attr(
+            eval,
+            default,
+            doc,
+            coercer,
+            key.tool_marks().union(value.tool_marks()),
+        )?)
     }
 
     /// Takes a command line argument from the user and supplies a `cmd_args` compatible value to the rule.
@@ -492,7 +552,10 @@ fn attr_module(registry: &mut GlobalsBuilder) {
     /// With `exec_group`, the dependencies of `$(exe)`, `$(location_exec)` and
     /// `$(location_toolchain)` macros are configured for the execution platform of that group
     /// instead, and constrain only that group's execution platform resolution. The rule must
-    /// declare the group in `rule(exec_groups = ...)`.
+    /// declare the group in `rule(exec_groups = ...)`. In a rule that declares named execution
+    /// groups, an arg without `exec_group` may hold flags but not tools: a target whose value
+    /// refers to a tool through these macros is an error. Pass `exec_group`, with
+    /// `DefaultExecGroup` for the default group, for args that refer to tools.
     fn arg<'v>(
         #[starlark(require = named, default = false)] json: bool,
         #[starlark(require = named)] default: Option<Value<'v>>,
@@ -502,20 +565,25 @@ fn attr_module(registry: &mut GlobalsBuilder) {
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkAttribute> {
         let _unused = json;
-        let exec_group = match exec_group.into_option() {
+        let (exec_group, marks) = match exec_group.into_option() {
             Some(ExecutionGroupArg {
                 group: ExecutionGroup::Named(group),
-            }) => Some(group),
+            }) => (Some(group), ToolMarks::NONE),
             Some(ExecutionGroupArg {
                 group: ExecutionGroup::Default,
-            })
-            | None => None,
+            }) => (None, ToolMarks::DEFAULT_GROUP_ARG),
+            None => (None, ToolMarks::UNMARKED_ARG),
         };
         Ok(Attribute::attr(
             eval,
             default,
             doc,
-            AttrType::arg_in_group(anon_target_compatible, exec_group),
+            AttrType::arg_in_group(
+                anon_target_compatible,
+                exec_group,
+                marks == ToolMarks::UNMARKED_ARG,
+            ),
+            marks,
         )?)
     }
 
@@ -537,6 +605,7 @@ fn attr_module(registry: &mut GlobalsBuilder) {
             default.map(|v| v.value),
             doc,
             AttrType::enumeration(variants.items)?,
+            ToolMarks::NONE,
         )?)
     }
 
@@ -551,6 +620,7 @@ fn attr_module(registry: &mut GlobalsBuilder) {
             None,
             doc,
             AttrType::dep(ProviderIdSet::EMPTY, PluginKindSet::EMPTY),
+            ToolMarks::NONE,
         )?)
     }
 
@@ -560,7 +630,13 @@ fn attr_module(registry: &mut GlobalsBuilder) {
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkAttribute> {
-        Ok(Attribute::attr(eval, default, doc, AttrType::string())?)
+        Ok(Attribute::attr(
+            eval,
+            default,
+            doc,
+            AttrType::string(),
+            ToolMarks::NONE,
+        )?)
     }
 
     fn set<'v>(
@@ -572,7 +648,13 @@ fn attr_module(registry: &mut GlobalsBuilder) {
     ) -> starlark::Result<StarlarkAttribute> {
         let _unused = sorted;
         let coercer = AttrType::list(value_type.coercer_for_inner()?);
-        Ok(Attribute::attr(eval, default, doc, coercer)?)
+        Ok(Attribute::attr(
+            eval,
+            default,
+            doc,
+            coercer,
+            value_type.tool_marks(),
+        )?)
     }
 
     fn named_set<'v>(
@@ -587,7 +669,13 @@ fn attr_module(registry: &mut GlobalsBuilder) {
             AttrType::dict(AttrType::string(), value_coercer.dupe(), sorted),
             AttrType::list(value_coercer),
         ]);
-        Ok(Attribute::attr(eval, default, doc, coercer)?)
+        Ok(Attribute::attr(
+            eval,
+            default,
+            doc,
+            coercer,
+            value_type.tool_marks(),
+        )?)
     }
 
     /// Given a list of alternative attributes, selects the first that matches and gives that to the rule.
@@ -597,13 +685,17 @@ fn attr_module(registry: &mut GlobalsBuilder) {
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkAttribute> {
+        let marks = args
+            .items
+            .iter()
+            .fold(ToolMarks::NONE, |marks, arg| marks.union(arg.tool_marks()));
         let coercer = AttrType::one_of(
             args.items
                 .into_iter()
                 .map(|arg| arg.coercer_for_inner())
                 .collect::<Result<Vec<_>, _>>()?,
         );
-        Ok(Attribute::attr(eval, default, doc, coercer)?)
+        Ok(Attribute::attr(eval, default, doc, coercer, marks)?)
     }
 
     /// Takes a tuple of values and gives a tuple to the rule.
@@ -613,13 +705,17 @@ fn attr_module(registry: &mut GlobalsBuilder) {
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkAttribute> {
+        let marks = args
+            .items
+            .iter()
+            .fold(ToolMarks::NONE, |marks, arg| marks.union(arg.tool_marks()));
         let coercer = AttrType::tuple(
             args.items
                 .into_iter()
                 .map(|arg| arg.coercer_for_inner())
                 .collect::<Result<Vec<_>, _>>()?,
         );
-        Ok(Attribute::attr(eval, default, doc, coercer)?)
+        Ok(Attribute::attr(eval, default, doc, coercer, marks)?)
     }
 
     /// Takes an int from the user, supplies an int to the rule.
@@ -628,14 +724,26 @@ fn attr_module(registry: &mut GlobalsBuilder) {
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkAttribute> {
-        Ok(Attribute::attr(eval, default, doc, AttrType::int())?)
+        Ok(Attribute::attr(
+            eval,
+            default,
+            doc,
+            AttrType::int(),
+            ToolMarks::NONE,
+        )?)
     }
 
     fn query<'v>(
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkAttribute> {
-        Ok(Attribute::attr(eval, None, doc, AttrType::query())?)
+        Ok(Attribute::attr(
+            eval,
+            None,
+            doc,
+            AttrType::query(),
+            ToolMarks::NONE,
+        )?)
     }
 
     fn versioned<'v>(
@@ -650,11 +758,10 @@ fn attr_module(registry: &mut GlobalsBuilder) {
         ]);
         let coercer = AttrType::list(element_type.dupe());
 
-        Ok(StarlarkAttribute::new(Attribute::new(
-            Some(|b| b.encode_list(&[])),
-            doc,
-            coercer,
-        )?))
+        Ok(StarlarkAttribute::new(
+            Attribute::new(Some(|b| b.encode_list(&[])), doc, coercer)?,
+            value_type.tool_marks(),
+        ))
     }
 
     /// Takes a source file from the user, supplies an artifact to the rule.
@@ -672,6 +779,7 @@ fn attr_module(registry: &mut GlobalsBuilder) {
             default,
             doc,
             AttrType::source(allow_directory),
+            ToolMarks::NONE,
         )?)
     }
 }

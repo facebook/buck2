@@ -154,6 +154,10 @@ pub enum AnonTargetsError {
         "Anon target of rule `{rule}` is created in execution group `{group}`, which has no compatible execution platform. Run `buck2 audit execution-platform-resolution` on the target to see why each platform was skipped"
     )]
     NoExecutionPlatformForGroup { rule: String, group: String },
+    #[error(
+        "The anon target uses the default execution group, which the rule does not declare. Pass `exec_group`, or add `DefaultExecGroup` to `exec_groups`"
+    )]
+    DefaultExecutionGroupNotDeclared,
     #[error("Query macros are not supported")]
     QueryMacroNotSupported,
 }
@@ -735,6 +739,11 @@ impl<'v> AnonTargetsRegistry<'v> {
         owner_key: &BaseDeferredKey,
         execution_group: Option<&ExecutionGroup>,
     ) -> buck2_error::Result<AnonTargetKey> {
+        if matches!(execution_group, None | Some(ExecutionGroup::Default))
+            && !self.execution_platform.default_execution_group_declared()
+        {
+            return Err(AnonTargetsError::DefaultExecutionGroupNotDeclared.into());
+        }
         match execution_group {
             None => AnonTargetKey::new(
                 &self.execution_platform,

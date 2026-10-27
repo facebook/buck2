@@ -188,6 +188,9 @@ pub(crate) struct ExecutionPlatformResolutionBase {
     /// groups. A node with groups stores its own list; only each group's inner resolution is
     /// shared through the resolution cache.
     execution_groups: Option<Arc<Vec<ExecutionGroupResolution>>>,
+    /// Whether the rule may use the default execution group: false only for rules that declare
+    /// named execution groups but not `DefaultExecGroup`.
+    default_execution_group_declared: bool,
 }
 
 impl ExecutionPlatformResolutionBase {
@@ -199,6 +202,7 @@ impl ExecutionPlatformResolutionBase {
             platform,
             skipped_platforms: Arc::new(skipped),
             execution_groups: None,
+            default_execution_group_declared: true,
         })
     }
 
@@ -304,17 +308,19 @@ impl ExecutionPlatformResolutionPartial {
         self,
         exec_dep_cfgs: BuckFixedSortedMap<TargetLabel, ConfigurationData>,
     ) -> ExecutionPlatformResolution {
-        self.finalize_with_execution_groups(exec_dep_cfgs, Vec::new())
+        self.finalize_with_execution_groups(exec_dep_cfgs, Vec::new(), true)
     }
 
     /// Like `finalize`, additionally recording the resolution of each named execution group the
-    /// rule declares together with the cfgs of that group's exec deps.
+    /// rule declares together with the cfgs of that group's exec deps, and whether the rule
+    /// declares the default execution group.
     pub fn finalize_with_execution_groups(
         self,
         exec_dep_cfgs: BuckFixedSortedMap<TargetLabel, ConfigurationData>,
         execution_groups: Vec<ExecutionGroupResolutionPartial>,
+        default_execution_group: bool,
     ) -> ExecutionPlatformResolution {
-        let base = if execution_groups.is_empty() {
+        let base = if execution_groups.is_empty() && default_execution_group {
             self.0
         } else {
             Arc::new(ExecutionPlatformResolutionBase {
@@ -330,6 +336,7 @@ impl ExecutionPlatformResolutionPartial {
                         })
                         .collect(),
                 )),
+                default_execution_group_declared: default_execution_group,
             })
         };
         ExecutionPlatformResolution::Resolved {
@@ -577,6 +584,14 @@ impl ExecutionPlatformResolution {
             .map(|g| (&g.group, g.base.platform.as_ref(), g.base.skipped()))
     }
 
+    /// Whether exec deps, actions, anon targets and tests may use the default execution group
+    /// implicitly: false only for rules that declare named execution groups but not
+    /// `DefaultExecGroup`.
+    pub fn default_execution_group_declared(&self) -> bool {
+        self.base()
+            .is_none_or(|base| base.default_execution_group_declared)
+    }
+
     /// Whether the rule declares any named execution groups.
     pub fn has_execution_groups(&self) -> bool {
         self.base()
@@ -652,6 +667,7 @@ mod tests {
                 partial: partial("link"),
                 exec_dep_cfgs: BuckFixedSortedMap::from_iter([(tool(), cfg("link_tool"))]),
             }],
+            true,
         );
         assert!(resolution.has_execution_groups());
         assert_eq!(
@@ -686,6 +702,7 @@ mod tests {
                 partial: ExecutionPlatformResolutionPartial::new(None, Vec::new()),
                 exec_dep_cfgs: BuckFixedSortedMap::new(),
             }],
+            true,
         );
         assert_eq!(
             resolution
@@ -716,6 +733,7 @@ mod tests {
                 partial: partial("link"),
                 exec_dep_cfgs: BuckFixedSortedMap::from_iter([(tool(), cfg("link_tool"))]),
             }],
+            true,
         );
         let for_link = resolution
             .resolution_for_group(&ExecutionGroup::Named(link()))
@@ -752,6 +770,22 @@ mod tests {
     }
 
     #[test]
+    fn test_default_execution_group_declared_without_named_groups() {
+        let undeclared = partial("default").finalize_with_execution_groups(
+            BuckFixedSortedMap::new(),
+            Vec::new(),
+            false,
+        );
+        assert!(!undeclared.default_execution_group_declared());
+        let declared = partial("default").finalize_with_execution_groups(
+            BuckFixedSortedMap::new(),
+            Vec::new(),
+            true,
+        );
+        assert!(declared.default_execution_group_declared());
+    }
+
+    #[test]
     fn test_undeclared_execution_group() {
         let resolution = partial("default").finalize_with_execution_groups(
             BuckFixedSortedMap::new(),
@@ -760,6 +794,7 @@ mod tests {
                 partial: partial("link"),
                 exec_dep_cfgs: BuckFixedSortedMap::new(),
             }],
+            true,
         );
         let other = NamedExecutionGroup::new(
             "Resources".to_owned(),
@@ -784,6 +819,7 @@ mod tests {
                 partial: partial("link"),
                 exec_dep_cfgs: BuckFixedSortedMap::new(),
             }],
+            true,
         );
         let other_link =
             NamedExecutionGroup::new("Link".to_owned(), CellPath::testing_new("root//other.bzl"));
