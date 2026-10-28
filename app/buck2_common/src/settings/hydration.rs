@@ -39,11 +39,8 @@ const DEFER_FIELD_READS: SettingKey<bool> = SettingKey {
         name: "defer_field_reads",
         overridable_in: &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
     },
-    // Rolled out only through the section's versioned stanza, which binaries at
-    // an earlier version never select, so the key never reaches one that would
-    // reject it.
-    internal_default: Some(false),
-    oss_default: Some(false),
+    internal_default: Some(true),
+    oss_default: Some(true),
 };
 
 const PAGE_OUT_ON_IDLE: SettingKey<bool> = SettingKey {
@@ -203,7 +200,7 @@ mod tests {
     fn test_default_hydration_settings() {
         let hydration = BuckSettings::empty().daemon.hydration;
         assert_eq!(hydration.enable_paging(), None);
-        assert!(!hydration.defer_field_reads());
+        assert!(hydration.defer_field_reads());
         assert_eq!(hydration.page_out_on_idle(), None);
         assert_eq!(hydration.page_out_policy(), PageOutPolicy::OncePerValue);
         assert_eq!(
