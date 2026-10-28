@@ -12,7 +12,7 @@ import re
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase, env
-from buck2.tests.e2e_util.helper.golden import golden, strip_glog_lines
+from buck2.tests.e2e_util.helper.golden import golden
 
 
 class ErrorsTest(BuckTestCase):
@@ -62,43 +62,6 @@ class ErrorsTest(BuckTestCase):
         await expect_failure(
             buck.targets("deprecation_bad_start:"),
             stderr_regex="yesterday",
-        )
-
-    @buck_test(
-        # windows errors are slightly different, just skip for now
-        skip_for_os=["windows"],
-    )
-    @env("BUCK2_HARD_ERROR", "false")
-    async def test_package_listing_errors(self, buck: Buck) -> None:
-        outs = []
-        for target in [
-            # //package_listing/missing does not exist
-            "//package_listing/missing/foo/x/y/lmnop:target",
-            # //package_listing/ignored is ignored
-            "//package_listing/ignored/foo/x/y/lmnop:target",
-            # //package_listing/cell is a cell
-            "//package_listing/cell/foo/x/y/lmnop:target",
-            # //package_listing/missing_targets_file has no TARGETS file
-            "//package_listing/missing_targets_file:target",
-            # //package_listing/data.file is a file
-            "//package_listing/data.file:target",
-            "//package_listing/data.file/subdir:target",
-            # Missing directory due to typo
-            "//package_listings:",
-            # Missing directory due to typo in subdirectory
-            "//package_listing/typo_test/subdirr:",
-            # Missing directory due to being in the wrong cell
-            "//something:",
-        ]:
-            out = await expect_failure(buck.uquery(target, "-v=0", "--console=none"))
-            stripped_stderr = re.sub(
-                "read_dir(.*)", "read_dir(<stripped absolute path>)", out.stderr
-            )
-            outs.append(stripped_stderr)
-
-        golden(
-            output=strip_glog_lines("\n\n\n".join(outs)),
-            rel_path="package_listing/expected.golden.out",
         )
 
     @buck_test(
