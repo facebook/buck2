@@ -113,6 +113,8 @@ pub enum GatherPackageListingError {
         path: CellPath,
         node_type: String,
     },
+    #[buck2(input)]
+    Symlink { package: CellPath, at: CellPath },
     Error {
         package: CellPath,
         #[source]
@@ -154,6 +156,10 @@ impl GatherPackageListingError {
                     node_type,
                 }
             }
+            ReadDirError::Symlink { at, .. } => GatherPackageListingError::Symlink {
+                package: package_path,
+                at,
+            },
             ReadDirError::Error(e) => GatherPackageListingError::Error {
                 package: package_path,
                 error: e,
@@ -299,6 +305,17 @@ impl std::fmt::Display for GatherPackageListingError {
                         underlined(&path_as_str),
                         path_as_str,
                         node_type
+                    ),
+                )
+            }
+            GatherPackageListingError::Symlink { package, at } => {
+                let path_as_str = at.to_string();
+                (
+                    package,
+                    format!(
+                        "{}\n    path `{}` is a symlink, which buck2 does not follow",
+                        underlined(&path_as_str),
+                        path_as_str,
                     ),
                 )
             }

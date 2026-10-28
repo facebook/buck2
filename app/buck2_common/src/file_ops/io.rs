@@ -38,7 +38,6 @@ use crate::file_ops::baseline::HasFileSystemBaseline;
 use crate::file_ops::metadata::FileType;
 use crate::file_ops::metadata::RawPathMetadata;
 use crate::file_ops::path_check::PathCheck;
-use crate::file_ops::path_check::PathCheckError;
 use crate::file_ops::path_check::PathCheckKey;
 use crate::file_ops::path_check::ReadKind;
 use crate::file_ops::path_check::check_path;
@@ -87,13 +86,21 @@ impl Key for IoReadFileKey {
     }
 }
 
+/// What listing a directory produced.
+#[derive(Clone, Dupe, Debug, PartialEq, Eq, Allocative, Pagable)]
+pub(super) enum DirListing {
+    Entries(PackedStringSlice<FileName, FileType>),
+    /// The check found something other than a present directory.
+    Refused(PathCheck),
+}
+
 #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
 #[pagable_typetag(dice::DiceKeyDyn)]
 struct IoReadDirKey(IProjectRelativePath);
 
 #[async_trait]
 impl Key for IoReadDirKey {
-    type Value = buck2_error::Result<PackedStringSlice<FileName, FileType>>;
+    type Value = buck2_error::Result<DirListing>;
 
     async fn compute(
         &self,
@@ -108,16 +115,14 @@ impl Key for IoReadDirKey {
             check @ (PathCheck::Present(FileType::Symlink) | PathCheck::ParentSymlink { .. }) => {
                 read_through_symlink(ctx, self.0, check, ReadKind::Directory)?
             }
-            check => {
-                return Err(PathCheckError::new(ctx, self.0, check, ReadKind::Directory).into());
-            }
+            check => return Ok(DirListing::Refused(check)),
         }
         let entries = read_dir_cached(ctx, self.0).await?;
-        Ok(without_ignored(
+        Ok(DirListing::Entries(without_ignored(
             self.0,
             entries,
             &ctx.global_data().get_ignore_set(),
-        ))
+        )))
     }
 
     fn equality_behavior() -> EqualityBehavior<Self::Value> {
@@ -293,13 +298,12 @@ impl Key for IoPathMetadataKey {
     }
 }
 
-/// The contents of the file at the path, or `None` if there is none: nothing there, or something
-/// ignored. A directory is an error. A symlink at the path or above it is read through, under a
-/// soft error, until `read_through_symlink` is retired.
-pub(super) async fn read_file_if_exists(
+/// The contents of the file at the path, or the check that found no file there. A symlink at the
+/// path or above it is read through, under a soft error, until `read_through_symlink` is retired.
+pub(super) async fn read_file(
     ctx: &mut DiceComputations<'_>,
     path: IProjectRelativePath,
-) -> buck2_error::Result<Option<String>> {
+) -> buck2_error::Result<Result<String, PathCheck>> {
     let check = *ctx
         .compute(&IoReadFileKey(path))
         .await?
@@ -307,29 +311,36 @@ pub(super) async fn read_file_if_exists(
         .duped_err()?;
     match check {
         PathCheck::Present(FileType::File | FileType::Unknown) => {
-            ctx.global_data()
-                .get_io_provider()
-                .read_file_if_exists(path)
-                .await
+            read_present_file(ctx, path).await
         }
-        PathCheck::Missing { .. }
-        | PathCheck::Ignored { .. }
-        | PathCheck::ParentNotDirectory { .. } => Ok(None),
         check @ (PathCheck::Present(FileType::Symlink) | PathCheck::ParentSymlink { .. }) => {
             read_through_symlink(ctx, path, check, ReadKind::File)?;
-            ctx.global_data()
-                .get_io_provider()
-                .read_file_if_exists(path)
-                .await
+            read_present_file(ctx, path).await
         }
-        PathCheck::Present(_) => Err(PathCheckError::new(ctx, path, check, ReadKind::File).into()),
+        check => Ok(Err(check)),
     }
+}
+
+async fn read_present_file(
+    ctx: &mut DiceComputations<'_>,
+    path: IProjectRelativePath,
+) -> buck2_error::Result<Result<String, PathCheck>> {
+    let contents = ctx
+        .global_data()
+        .get_io_provider()
+        .read_file_if_exists(path)
+        .await?;
+    Ok(match contents {
+        Some(contents) => Ok(contents),
+        // Gone between the check and the read.
+        None => Err(PathCheck::Missing { at: path }),
+    })
 }
 
 pub(super) async fn read_dir(
     ctx: &mut DiceComputations<'_>,
     path: IProjectRelativePath,
-) -> buck2_error::Result<PackedStringSlice<FileName, FileType>> {
+) -> buck2_error::Result<DirListing> {
     ctx.compute(&IoReadDirKey(path)).await?.dupe()
 }
 

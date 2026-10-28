@@ -15,6 +15,7 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::nested::NestedCells;
 use buck2_core::cells::paths::CellRelativePath;
+use buck2_core::fs::i_project_rel_path::IProjectRelativePath;
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::file_name::FileNameBuf;
 use buck2_util::arc_str::PackedStringSlice;
@@ -26,11 +27,15 @@ use crate::buildfiles::HasBuildfiles;
 use crate::dice::cells::HasCellResolver;
 use crate::file_ops::delegate::external_cell_delegate;
 use crate::file_ops::error::FileReadError;
-use crate::file_ops::error::extended_ignore_error;
+use crate::file_ops::error::read_dir_error;
 use crate::file_ops::io;
+use crate::file_ops::io::DirListing;
 use crate::file_ops::metadata::FileType;
 use crate::file_ops::metadata::RawPathMetadata;
 use crate::file_ops::metadata::ReadDirOutput;
+use crate::file_ops::path_check::PathCheck;
+use crate::file_ops::path_check::PathCheckError;
+use crate::file_ops::path_check::ReadKind;
 use crate::ignores::file_ignores::CellFileIgnores;
 use crate::ignores::file_ignores::FileIgnoreReason;
 use crate::ignores::file_ignores::FileIgnoreResult;
@@ -48,23 +53,10 @@ impl DiceFileComputations {
         ctx: &mut DiceComputations<'_>,
         path: CellPath,
     ) -> buck2_error::Result<ReadDirOutput> {
-        let cells = ctx.get_cell_resolver().await?;
-        let nested_cells = cells.get(path.cell())?.nested_cells();
-        if let Some((_, cell_name, _)) = nested_cells.matches(path.path()) {
-            return Err(FileIgnoreReason::IgnoredByCell {
-                path: path.path().as_str().to_owned(),
-                cell_name,
-            }
-            .into_read_error());
+        match read_dir_impl(ctx, path).await? {
+            Ok(listing) => Ok(listing),
+            Err(refusal) => Err(refusal.into_error(ctx, path)),
         }
-
-        let entries = match external_cell_delegate(ctx, cells, path.cell()).await? {
-            Some(delegate) => delegate.read_dir(ctx, path.ipath()).await?,
-            None => io::read_dir(ctx, cells.resolve_ipath(path)?).await?,
-        };
-        Ok(ReadDirOutput {
-            included: without_nested_cells(path, entries, nested_cells),
-        })
     }
 
     /// Whether a file, directory or symlink exists at the path, spelled exactly like that in
@@ -89,12 +81,16 @@ impl DiceFileComputations {
         }
     }
 
-    /// Like read_dir, but with extended error information. This may add additional dice dependencies.
+    /// `read_dir` with an error that says what is wrong and suggests corrections. The
+    /// suggestions cost extra reads, which add dependencies to the caller.
     pub async fn read_dir_ext(
         ctx: &mut DiceComputations<'_>,
         path: CellPath,
     ) -> Result<ReadDirOutput, ReadDirError> {
-        read_dir_ext(ctx, path).await
+        match read_dir_impl(ctx, path).await? {
+            Ok(listing) => Ok(listing),
+            Err(refusal) => Err(read_dir_error(ctx, path, refusal).await),
+        }
     }
 
     /// The contents of the file, or `None` if there is no file there: nothing at all, or
@@ -103,20 +99,40 @@ impl DiceFileComputations {
         ctx: &mut DiceComputations<'_>,
         path: CellPath,
     ) -> buck2_error::Result<Option<String>> {
-        let cells = ctx.get_cell_resolver().await?;
-        match external_cell_delegate(ctx, cells, path.cell()).await? {
-            Some(delegate) => delegate.read_file_if_exists(ctx, path.ipath()).await,
-            None => io::read_file_if_exists(ctx, cells.resolve_ipath(path)?).await,
+        match read_file_impl(ctx, path).await? {
+            FileRead::Contents(contents) => Ok(Some(contents)),
+            FileRead::Absent => Ok(None),
+            FileRead::Refused {
+                check:
+                    PathCheck::Missing { .. }
+                    | PathCheck::Ignored { .. }
+                    | PathCheck::ParentNotDirectory { .. },
+                ..
+            } => Ok(None),
+            FileRead::Refused {
+                project_path,
+                check,
+            } => Err(PathCheckError::new(ctx, project_path, check, ReadKind::File).into()),
         }
     }
 
-    /// Like `read_file_if_exists`, with a missing file as an error.
+    /// Like `read_file_if_exists`, with no file to read as an error that says why.
     pub async fn read_file(
         ctx: &mut DiceComputations<'_>,
         path: CellPath,
     ) -> Result<String, FileReadError> {
-        match Self::read_file_if_exists(ctx, path).await {
-            Ok(result) => result.ok_or_else(|| FileReadError::NotFound(path.to_string())),
+        match read_file_impl(ctx, path).await {
+            Ok(FileRead::Contents(contents)) => Ok(contents),
+            Ok(FileRead::Absent) => Err(FileReadError::NotFound(path.to_string())),
+            Ok(FileRead::Refused {
+                project_path,
+                check,
+            }) => Err(FileReadError::Check(PathCheckError::new(
+                ctx,
+                project_path,
+                check,
+                ReadKind::File,
+            ))),
             Err(e) => Err(FileReadError::Buck(e)),
         }
     }
@@ -229,16 +245,100 @@ fn without_nested_cells(
     }
 }
 
-/// out-of-line impl for DiceComputations::read_dir_ext so it doesn't add noise to the api
-async fn read_dir_ext(
+/// Why a directory could not be listed as asked.
+pub(super) enum ReadDirRefusal {
+    /// What the check found at the directory's project path instead of a present directory.
+    Check {
+        project_path: IProjectRelativePath,
+        check: PathCheck,
+    },
+    /// The directory is inside a cell nested in the one it was addressed through; `at` is that
+    /// cell's root.
+    NestedCell { at: CellPath, cell: CellName },
+}
+
+impl ReadDirRefusal {
+    fn into_error(self, ctx: &DiceComputations<'_>, path: CellPath) -> buck2_error::Error {
+        match self {
+            ReadDirRefusal::Check {
+                project_path,
+                check,
+            } => PathCheckError::new(ctx, project_path, check, ReadKind::Directory).into(),
+            ReadDirRefusal::NestedCell { cell, .. } => FileIgnoreReason::IgnoredByCell {
+                path: path.path().as_str().to_owned(),
+                cell_name: cell,
+            }
+            .into_read_error(),
+        }
+    }
+}
+
+async fn read_dir_impl(
     ctx: &mut DiceComputations<'_>,
     path: CellPath,
-) -> Result<ReadDirOutput, ReadDirError> {
-    match DiceFileComputations::read_dir(ctx, path).await {
-        Ok(v) => Ok(v),
-        Err(e) => match extended_ignore_error(ctx, path).await {
-            Some(e) => Err(e),
-            None => Err(e.into()),
-        },
+) -> buck2_error::Result<Result<ReadDirOutput, ReadDirRefusal>> {
+    let cells = ctx.get_cell_resolver().await?;
+    let nested_cells = cells.get(path.cell())?.nested_cells();
+    if let Some((root, cell, _)) = nested_cells.matches(path.path()) {
+        return Ok(Err(ReadDirRefusal::NestedCell {
+            at: CellPath::new(path.cell(), root),
+            cell,
+        }));
+    }
+
+    let entries = match external_cell_delegate(ctx, cells, path.cell()).await? {
+        Some(delegate) => delegate.read_dir(ctx, path.ipath()).await?,
+        None => {
+            let project_path = cells.resolve_ipath(path)?;
+            match io::read_dir(ctx, project_path).await? {
+                DirListing::Entries(entries) => entries,
+                DirListing::Refused(check) => {
+                    return Ok(Err(ReadDirRefusal::Check {
+                        project_path,
+                        check,
+                    }));
+                }
+            }
+        }
+    };
+    Ok(Ok(ReadDirOutput {
+        included: without_nested_cells(path, entries, nested_cells),
+    }))
+}
+
+/// What looking for a file found.
+enum FileRead {
+    Contents(String),
+    /// Nothing there, according to the cell's delegate.
+    Absent,
+    /// What the check found at the file's project path instead of a present file.
+    Refused {
+        project_path: IProjectRelativePath,
+        check: PathCheck,
+    },
+}
+
+async fn read_file_impl(
+    ctx: &mut DiceComputations<'_>,
+    path: CellPath,
+) -> buck2_error::Result<FileRead> {
+    let cells = ctx.get_cell_resolver().await?;
+    match external_cell_delegate(ctx, cells, path.cell()).await? {
+        Some(delegate) => Ok(
+            match delegate.read_file_if_exists(ctx, path.ipath()).await? {
+                Some(contents) => FileRead::Contents(contents),
+                None => FileRead::Absent,
+            },
+        ),
+        None => {
+            let project_path = cells.resolve_ipath(path)?;
+            Ok(match io::read_file(ctx, project_path).await? {
+                Ok(contents) => FileRead::Contents(contents),
+                Err(check) => FileRead::Refused {
+                    project_path,
+                    check,
+                },
+            })
+        }
     }
 }

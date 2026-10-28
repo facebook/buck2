@@ -278,8 +278,11 @@ mod tests {
     use crate::file_ops::io::initialize_read_dir_cache;
     use crate::file_ops::metadata::RawPathMetadata;
     use crate::file_ops::metadata::RawSymlink;
+    use crate::ignores::file_ignores::FileIgnoreReason;
     use crate::ignores::ignore_set::IgnoreSet;
     use crate::ignores::ignore_set::SetIgnoreSet;
+    use crate::io::DirectoryDoesNotExistSuggestion;
+    use crate::io::ReadDirError;
 
     fn p(s: &str) -> IProjectRelativePath {
         IProjectRelativePath::intern_directly(ProjectRelativePath::new(s).unwrap())
@@ -822,6 +825,104 @@ mod tests {
         assert_eq!(read("root//l/f").await, Ok(Some("contents".to_owned())));
         assert_eq!(read("root//a/lf").await, Ok(Some("contents".to_owned())));
         fails(read("root//a").await, "`a` is a directory, not a file");
+        Ok(())
+    }
+
+    async fn read_dir_error(ctx: &DiceTransaction, path: &str) -> ReadDirError {
+        match DiceFileComputations::read_dir_ext(&mut ctx.ctx(), cp(path)).await {
+            Err(e) => e,
+            Ok(listing) => panic!("expected `{path}` to be refused, got {listing:?}"),
+        }
+    }
+
+    /// `read_dir_ext` says which component is wrong and what might have been meant.
+    #[tokio::test]
+    async fn read_dir_errors_with_suggestions() -> buck2_error::Result<()> {
+        let f = Fixture::with_cells("ign", &[("root", ""), ("sub", "sub")]).await?;
+        f.fs.write_file("a/b/f", "");
+        f.fs.write_file("ign/f", "");
+        f.fs.write_file("sub/shared/f", "");
+        f.fs.write_file("x", "");
+        f.symlink("l", "a");
+        let ctx = f.transaction(FileChangeTracker::new()).await?;
+
+        assert_matches!(
+            read_dir_error(&ctx, "root//a/B/c").await,
+            ReadDirError::DirectoryDoesNotExist { path, suggestion: DirectoryDoesNotExistSuggestion::Typo(s) } => {
+                assert_eq!(path, cp("root//a/B"));
+                assert_eq!(s, "b");
+            }
+        );
+        assert_matches!(
+            read_dir_error(&ctx, "root//shared").await,
+            ReadDirError::DirectoryDoesNotExist { path, suggestion: DirectoryDoesNotExistSuggestion::Cell(cells) } => {
+                assert_eq!(path, cp("root//shared"));
+                assert_eq!(cells, vec!["sub//shared".to_owned()]);
+            }
+        );
+        assert_matches!(
+            read_dir_error(&ctx, "root//nothing/like/it").await,
+            ReadDirError::DirectoryDoesNotExist { path, suggestion: DirectoryDoesNotExistSuggestion::NoSuggestion } => {
+                assert_eq!(path, cp("root//nothing"));
+            }
+        );
+        assert_matches!(
+            read_dir_error(&ctx, "root//ign/f").await,
+            ReadDirError::DirectoryIsIgnored(path, FileIgnoreReason::IgnoredByPattern { pattern, .. }) => {
+                assert_eq!(path, cp("root//ign"));
+                assert_eq!(pattern, "ign");
+            }
+        );
+        assert_matches!(
+            read_dir_error(&ctx, "root//sub/shared").await,
+            ReadDirError::DirectoryIsIgnored(path, FileIgnoreReason::IgnoredByCell { cell_name, .. }) => {
+                assert_eq!(path, cp("root//sub"));
+                assert_eq!(cell_name, CellName::testing_new("sub"));
+            }
+        );
+        assert_matches!(
+            read_dir_error(&ctx, "root//x/y").await,
+            ReadDirError::NotADirectory(path, kind) => {
+                assert_eq!(path, cp("root//x"));
+                assert_eq!(kind, "file");
+            }
+        );
+        Ok(())
+    }
+
+    /// `read_file` explains what it found instead of a file.
+    #[tokio::test]
+    async fn read_file_errors() -> buck2_error::Result<()> {
+        let f = Fixture::new("ign").await?;
+        f.fs.write_file("a/f", "");
+        f.fs.write_file("ign/f", "");
+        let ctx = f.transaction(FileChangeTracker::new()).await?;
+
+        let read = async |path: &str| {
+            DiceFileComputations::read_file(&mut ctx.ctx(), cp(path))
+                .await
+                .map_err(|e| format!("{:#}", e.without_package_context_information()))
+        };
+        assert_eq!(read("root//a/f").await, Ok(String::new()));
+        assert_eq!(
+            read("root//a/g").await,
+            Err("File `a/g` does not exist".to_owned())
+        );
+        assert_eq!(
+            read("root//b/g").await,
+            Err("File `b/g` does not exist (`b` does not exist)".to_owned())
+        );
+        assert_eq!(
+            read("root//ign/f").await,
+            Err(
+                "File `ign/f` is ignored (`ign` is ignored, `project.ignore` contains `ign`)"
+                    .to_owned()
+            )
+        );
+        assert_eq!(
+            read("root//a").await,
+            Err("`a` is a directory, not a file".to_owned())
+        );
         Ok(())
     }
 }

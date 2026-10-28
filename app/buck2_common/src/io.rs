@@ -63,8 +63,19 @@ pub enum ReadDirError {
     DirectoryIsIgnored(CellPath, FileIgnoreReason),
     #[error("Path `{0}` is `{1}`, not a directory")]
     NotADirectory(CellPath, String),
+    /// `at` is the symlink: the path itself, or a prefix of it.
+    #[error("{}", symlink_message(path, at))]
+    Symlink { path: CellPath, at: CellPath },
     #[error(transparent)]
     Error(buck2_error::Error),
+}
+
+fn symlink_message(path: &CellPath, at: &CellPath) -> String {
+    if path == at {
+        format!("`{path}` is a symlink, which buck2 does not follow")
+    } else {
+        format!("`{path}` is behind the symlink `{at}`, which buck2 does not follow")
+    }
 }
 
 #[derive(Debug, Allocative)]
