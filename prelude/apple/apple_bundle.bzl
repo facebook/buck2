@@ -229,7 +229,7 @@ def _maybe_scrub_binary(ctx, binary_dep: Dependency) -> AppleBundleBinaryOutput:
         # For debug symbols we take the unstripped unscrubbed binary
         debug_binaries = [unstripped_binary] if unstripped_binary else [binary]
         binary = _scrub_binary(ctx, binary, binary_dep.get(LinkExecutionPreferenceInfo), filtered_debug_info.swift_modules_labels)
-        dsym_artifact = _get_scrubbed_binary_dsym(ctx, binary, debug_info_tset)
+        dsym_artifact = _get_binary_dsym(ctx, binary, debug_info_tset, dsym_allowlist = None)
 
         filtered_map = {}
         for selected_target_info in filtered_debug_info.selected_target_infos:
@@ -252,7 +252,7 @@ def _maybe_scrub_binary(ctx, binary_dep: Dependency) -> AppleBundleBinaryOutput:
         binary = _scrub_binary(ctx, binary, binary_dep.get(LinkExecutionPreferenceInfo))
         return AppleBundleBinaryOutput(binary = binary, unstripped_binary = unstripped_binary)
 
-def _get_scrubbed_binary_dsym(ctx, binary: Artifact, debug_info_tset: ArtifactTSet) -> Artifact:
+def _get_binary_dsym(ctx, binary: Artifact, debug_info_tset: ArtifactTSet, dsym_allowlist: [Artifact, None]) -> Artifact:
     debug_info = project_artifacts(
         actions = ctx.actions,
         tsets = debug_info_tset,
@@ -262,6 +262,10 @@ def _get_scrubbed_binary_dsym(ctx, binary: Artifact, debug_info_tset: ArtifactTS
         executable = binary,
         debug_info = debug_info,
         action_identifier = binary.short_path,
+        # The binary is an output of another target when it's not scrubbed, so
+        # its short path could conflict with outputs of this bundle.
+        output_path_override = "selective_debugging/{}.dSYM".format(binary.short_path) if dsym_allowlist != None else None,
+        dsym_allowlist = dsym_allowlist,
     )
     return dsym_artifact
 
@@ -289,10 +293,10 @@ def _get_binary_bundle_parts(
     )
 
 def _get_dsym_input_binary_arg(ctx: AnalysisContext, binary_output: AppleBundleBinaryOutput, primary_binary_path_arg: cmd_args) -> cmd_args:
-    # We've already scrubbed the default binary, we only want to scrub the unstripped one if present.
+    # The default binary has already been scrubbed if needed, only the unstripped one is left.
     unstripped_binary = binary_output.unstripped_binary
     if unstripped_binary:
-        if ctx.attrs.selective_debugging != None:
+        if ctx.attrs.selective_debugging != None and binary_output.dsym_allowlist == None:
             unstripped_binary = _scrub_binary(
                 ctx, unstripped_binary, get_default_binary_dep(ctx.attrs.binary).get(LinkExecutionPreferenceInfo), identifier = "unstripped"
             )
@@ -325,6 +329,7 @@ def _get_bundle_binary_dsym_artifacts(ctx: AnalysisContext, binary_output: Apple
             ),
             action_identifier = get_bundle_dir_name(ctx),
             output_path = _get_bundle_dsym_name(ctx),
+            dsym_allowlist = binary_output.dsym_allowlist,
         )
         return [bundle_binary_dsym_artifact]
     else:
