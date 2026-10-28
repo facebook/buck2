@@ -878,7 +878,6 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
         let Granted {
             mut held,
             exclusions,
-            ..
         } = self
             .acquire_one(dest.clone(), Want::Content(entry.dupe()))
             .await?;
