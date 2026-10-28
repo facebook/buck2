@@ -40,12 +40,9 @@ use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
-use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::rollout_percentage::RolloutFraction;
-use buck2_core::soft_error;
 use buck2_core::soft_error_or_panic;
 use buck2_error::BuckErrorContext;
-use buck2_error::BuckErrorOptionContext;
 use buck2_error::buck2_error;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest::CasDigestFromReExt;
@@ -57,7 +54,6 @@ use buck2_execute::execute::write_action_cache::WriteActionCache;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::WriteRequest;
-use buck2_execute::materialize::write::write_to_disk;
 use buck2_execute::re::ttl::re_expiration_from_ttl;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_hash::BuckMutMap;
@@ -68,6 +64,8 @@ use remote_execution as RE;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use strong_hash::StrongHash;
+
+use crate::actions::impls::produce;
 
 /// Bump when anything about how a `WriteCacheKey` is computed changes: an entry recorded under
 /// one scheme must not be found under another.
@@ -251,30 +249,6 @@ impl<'a> WriteCache<'a> {
         })
     }
 
-    /// Uploads `request`'s content to the CAS and returns it with the download info to declare
-    /// it under.
-    pub(crate) async fn upload(
-        self,
-        ctx: &dyn ActionExecutionCtx,
-        request: &WriteRequest,
-    ) -> buck2_error::Result<(ArtifactValue, Arc<CasDownloadInfo>)> {
-        let digest_config = ctx.digest_config();
-        let digest =
-            TrackedFileDigest::from_content(&request.content, digest_config.cas_digest_config());
-        self.cache
-            .upload(&request.content, &digest, digest_config)
-            .await?;
-        WriteActionCacheStats::bump(&WRITE_ACTION_CACHE_STATS.uploaded);
-        let value = ArtifactValue::file(FileMetadata {
-            digest,
-            is_executable: request.is_executable,
-        });
-        Ok((
-            value,
-            Arc::new(CasDownloadInfo::new_uploaded(self.cache.use_case())),
-        ))
-    }
-
     /// Records `request`'s content as what `key` identifies, uploading it to the CAS, and returns
     /// it with the download info to declare it under.
     pub(crate) async fn populate(
@@ -361,87 +335,18 @@ pub(crate) async fn declare(
         .await
 }
 
-/// The weight of one write behind the gate: a small, short piece of local work.
-const LOCAL_WRITE_WEIGHT: usize = 1;
-
-/// Declares `request`, a write the cache missed, as `output`, the way a run action's output
-/// comes to be: produced here when the machine has room for local work, and uploaded and
-/// declared as CAS content when it does not, by the gate the hybrid executor runs local
-/// commands behind. A burst of writes in a cold build is thousands of files nothing on this
-/// machine may ever read; one write in a small build is quicker made than sent. Returns the
-/// value with `Simple` for a write made here and `Deferred` for one declared from the CAS.
+/// Declares `request`, a write the cache missed, as the write's output: made here or uploaded,
+/// as `produce::produce_write` says. Returns the value with `Simple` for a write made here and
+/// `Deferred` for one declared from the CAS or found on disk.
 pub(crate) async fn declare_miss(
     ctx: &dyn ActionExecutionCtx,
-    cache: WriteCache<'_>,
-    output: &BuildArtifact,
     request: WriteRequest,
 ) -> buck2_error::Result<(ArtifactValue, ActionExecutionKind)> {
-    // Held while the write is made, so that a burst of writes counts as the load it is.
-    let permit = ctx.low_pass_filter().try_access(LOCAL_WRITE_WEIGHT);
-    if permit.is_none() {
-        match cache.upload(ctx, &request).await {
-            Ok((value, info)) => {
-                declare(ctx, output, value.dupe(), info).await?;
-                return Ok((value, ActionExecutionKind::Deferred));
-            }
-            Err(e) => {
-                // Writing locally is the right fallback, but a CAS that refuses uploads would
-                // silently turn every busy write into a local one, which should be visible.
-                soft_error!(
-                    "write_action_cache_upload_failed",
-                    e.context("Uploading a write's content failed; writing it locally instead")
-                );
-            }
-        }
+    let (value, kind) = produce::produce_write(ctx, request).await?;
+    if matches!(kind, ActionExecutionKind::Simple) {
+        WriteActionCacheStats::bump(&WRITE_ACTION_CACHE_STATS.written);
     }
-    let value = write_locally(ctx, request).await?;
-    WriteActionCacheStats::bump(&WRITE_ACTION_CACHE_STATS.written);
-    Ok((value, ActionExecutionKind::Simple))
-}
-
-/// Writes `request` to its path and reports it, as a local run's output is reported: under a
-/// write lease over the path, with nothing of the write's held in memory afterwards.
-async fn write_locally(
-    ctx: &dyn ActionExecutionCtx,
-    request: WriteRequest,
-) -> buck2_error::Result<ArtifactValue> {
-    let path: ProjectRelativePathBuf = request.path.clone();
-    let lease = ctx
-        .materializer()
-        .prepare_outputs(vec![path.clone()])
-        .await?;
-    let written = write_to_disk(
-        ctx.fs().fs(),
-        ctx.blocking_executor(),
-        ctx.digest_config(),
-        Box::new(move || Ok(vec![request])),
-        // The report seals the file, as it does every output.
-        false,
-    )
-    .await;
-    let values = match written {
-        Ok(values) => values,
-        Err(e) => {
-            lease.abandon();
-            return Err(e);
-        }
-    };
-    let value = values
-        .into_iter()
-        .next()
-        .internal_error("Write did not execute")?;
-    let reported = ctx
-        .materializer()
-        .declare_existing(
-            &lease,
-            vec![DeclareArtifactPayload {
-                path,
-                artifact: value.dupe(),
-            }],
-        )
-        .await;
-    lease.abandon_on_err(reported)?;
-    Ok(value)
+    Ok((value, kind))
 }
 
 /// The key for the content `WriteCommandLineOptions::render` would produce from `contents` and

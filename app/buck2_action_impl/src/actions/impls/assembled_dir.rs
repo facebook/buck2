@@ -31,6 +31,7 @@ use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use buck2_execute::artifact_utils::ArtifactValueBuilder;
+use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::CopiedArtifact;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
@@ -47,7 +48,10 @@ use starlark::values::ValueError;
 use starlark::values::dict::UnpackDictEntries;
 
 use crate::actions::impls::cas_probe;
+use crate::actions::impls::cas_probe::SourceFile;
 use crate::actions::impls::copy::CopyMode;
+use crate::actions::impls::produce;
+use crate::actions::impls::produce::SourceCopy;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]
@@ -295,7 +299,7 @@ impl Action for AssembledDirAction {
         )?;
         let mut builder = ArtifactValueBuilder::new(fs, ctx.digest_config());
         let mut srcs = Vec::new();
-        let mut source_digests = Vec::new();
+        let mut source_files = Vec::new();
 
         for (group, relative_dest, copy) in &self.args {
             let (src_artifact, value) =
@@ -328,7 +332,14 @@ impl Action for AssembledDirAction {
                         *executable_bit_override,
                     )?;
                     if src_artifact.is_source() {
-                        source_digests.extend(cas_probe::file_digests_of(&dest_entry));
+                        for (path, metadata) in cas_probe::walk_files(&dest_entry) {
+                            source_files.push((
+                                src.join(&path),
+                                relative_dest.join(&path),
+                                metadata,
+                                *executable_bit_override,
+                            ));
+                        }
                     }
                     srcs.push((
                         src,
@@ -358,35 +369,78 @@ impl Action for AssembledDirAction {
         // Copied source files are not known to be in the CAS, and the probe a `copy` makes asks
         // about them a file at a time: the files are action inputs the CAS usually has, while the
         // directory assembled here is in the CAS only if some action uploaded it in this exact
-        // shape. A file the CAS holds is stamped and the store leaves it out when the copy's
-        // sources are offered to it; the rest is copied as before. Copies of build artifacts are
-        // the materializer's already, and symlinks copy nothing.
-        let all_in_cas = cas_probe::stamp_if_in_cas(ctx, source_digests).await;
-        let srcs = srcs
-            .into_iter()
-            .map(
-                |(src, relative_dest, dest_entry, executable_bit_override)| {
-                    CopiedArtifact::new(
-                        src,
-                        actual_output.join(relative_dest),
-                        dest_entry,
-                        executable_bit_override,
-                    )
-                },
-            )
-            .collect_vec();
-        ctx.materializer()
-            .declare_copy(actual_output, value.dupe(), srcs)
-            .await?;
+        // shape. Copies of build artifacts are the materializer's already, and symlinks copy
+        // nothing.
+        let files: Vec<SourceFile> = source_files
+            .iter()
+            .map(|(src, _, metadata, _)| (src.clone(), metadata.dupe()))
+            .collect();
+        let probed = if files.is_empty() {
+            None
+        } else {
+            cas_probe::missing(ctx, &files).await
+        };
+        let materializer = ctx.materializer();
+        let execution_kind = if materializer.is_disk_state() {
+            // The output's structure is in its value, and copies of buck-out content are nothing
+            // to the core. The source files the CAS lacks are made under their own paths, or
+            // uploaded, as a write's misses are; the rest is CAS content.
+            let (uploadable, to_make): (bool, Vec<usize>) = match &probed {
+                Some((_, missing)) => (true, missing.clone()),
+                None => (false, (0..source_files.len()).collect()),
+            };
+            let copies: Vec<SourceCopy> = to_make
+                .into_iter()
+                .map(|i| {
+                    let (src, path, metadata, executable_bit_override) = &source_files[i];
+                    SourceCopy {
+                        src: src.clone(),
+                        dest: actual_output.join(path),
+                        value: ArtifactValue::file(metadata.dupe()),
+                        executable_bit_override: *executable_bit_override,
+                    }
+                })
+                .collect();
+            if copies.is_empty() {
+                if probed.is_some() {
+                    ActionExecutionKind::Deferred
+                } else {
+                    ActionExecutionKind::Simple
+                }
+            } else {
+                produce::produce_copies(ctx, copies, uploadable).await?
+            }
+        } else {
+            // The deferred core is declared the copy either way; the probe decides only what the
+            // action reports.
+            let all_in_cas = matches!(&probed, Some((_, missing)) if missing.is_empty());
+            let srcs = srcs
+                .into_iter()
+                .map(
+                    |(src, relative_dest, dest_entry, executable_bit_override)| {
+                        CopiedArtifact::new(
+                            src,
+                            actual_output.join(relative_dest),
+                            dest_entry,
+                            executable_bit_override,
+                        )
+                    },
+                )
+                .collect_vec();
+            materializer
+                .declare_copy(actual_output, value.dupe(), srcs)
+                .await?;
+            if all_in_cas {
+                ActionExecutionKind::Deferred
+            } else {
+                ActionExecutionKind::Simple
+            }
+        };
         Ok((
             ActionOutputs::from_single(self.output().get_path().dupe(), value),
             ActionExecutionMetadata {
                 dep_file_db_writes_queued: 0,
-                execution_kind: if all_in_cas {
-                    ActionExecutionKind::Deferred
-                } else {
-                    ActionExecutionKind::Simple
-                },
+                execution_kind,
                 timing: ActionExecutionTimingData::default(),
                 input_files_bytes: None,
                 waiting_data,

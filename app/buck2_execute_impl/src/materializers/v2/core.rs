@@ -65,7 +65,6 @@ use buck2_directory::directory::directory_iterator::DirectoryIteratorPathStack;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_directory::directory::walk::unordered_entry_walk;
 use buck2_error::BuckErrorContext;
-use buck2_error::BuckErrorOptionContext;
 use buck2_error::internal_error;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::dispatch::current_span;
@@ -80,6 +79,7 @@ use buck2_execute::blob_store::Origin;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::ActionDirectoryEntry;
 use buck2_execute::directory::ActionDirectoryMember;
+use buck2_execute::directory::ActionImmutableDirectory;
 use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::directory::INTERNER;
 use buck2_execute::execute::blocking::BlockingExecutor;
@@ -92,6 +92,7 @@ use buck2_execute::materialize::materializer::CleanStaleArtifactsArgs;
 use buck2_execute::materialize::materializer::CopiedArtifact;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::DeclareMatchOutcome;
+use buck2_execute::materialize::materializer::HeldContent;
 use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::MaterializationPurpose;
 use buck2_execute::materialize::materializer::MaterializeRequest;
@@ -103,7 +104,6 @@ use buck2_execute::materialize::materializer::MaterializerIterItem;
 use buck2_execute::materialize::materializer::ReadLease;
 use buck2_execute::materialize::materializer::WriteLease;
 use buck2_execute::materialize::materializer::WriteRequest;
-use buck2_execute::materialize::write::write_to_disk;
 use buck2_execute::re::manager::ReConnectionManager;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
@@ -119,7 +119,6 @@ use futures::FutureExt;
 use futures::StreamExt;
 use futures::future::BoxFuture;
 use futures::stream::BoxStream;
-use itertools::Itertools;
 use jiff::Timestamp;
 use parking_lot::Mutex;
 use tokio::sync::mpsc;
@@ -508,14 +507,23 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
         }
     }
 
-    /// Waits for a root granted for writing and for whatever was still running under it to end.
-    async fn take_for_writing(
-        &self,
-        granted: oneshot::Receiver<Granted>,
-    ) -> buck2_error::Result<RootGuard> {
+    /// Waits for a root to be granted, in whichever mode, and for whatever was still running
+    /// under it to end.
+    async fn take(&self, granted: oneshot::Receiver<Granted>) -> buck2_error::Result<RootGuard> {
         let Granted { mut held, .. } = granted.await.map_err(|_| stopped())?;
         held.settle_except(None).await;
         Ok(held.into_guard())
+    }
+
+    /// Waits for every root of one request, in the order of its wants.
+    async fn take_all(
+        &self,
+        answers: Vec<oneshot::Receiver<Granted>>,
+    ) -> buck2_error::Result<Vec<RootGuard>> {
+        join_all(answers.into_iter().map(|answer| self.take(answer)))
+            .await
+            .into_iter()
+            .collect()
     }
 
     /// Takes every path for writing, as one request.
@@ -525,14 +533,7 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
     ) -> buck2_error::Result<Roots> {
         let (answers, withdraw) =
             self.acquire(paths.into_iter().map(|path| (path, Want::Write)).collect())?;
-        let guards = join_all(
-            answers
-                .into_iter()
-                .map(|answer| self.take_for_writing(answer)),
-        )
-        .await
-        .into_iter()
-        .collect::<buck2_error::Result<Vec<_>>>()?;
+        let guards = self.take_all(answers).await?;
         withdraw.disarm();
         Ok(Roots(guards))
     }
@@ -549,10 +550,10 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
             .await
     }
 
-    /// Puts a reported root's files into the store: content this daemon produced, not known to
-    /// be in the CAS, entering the store as it comes into existence. The root is write-held, so
-    /// nothing reads or replaces it meanwhile. A failure costs only the store's copy, which is
-    /// why it is reported rather than failing the report.
+    /// Puts a root's files into the store: content not known to be in the CAS, entering the
+    /// store as this daemon produces it or finds it on disk. The root is held, so nothing
+    /// replaces it meanwhile. A failure costs only the store's copy, which is why it is reported
+    /// rather than failing the caller.
     async fn stash(&self, root: &Root) {
         let files = files_to_insert(self.io.fs(), &root.path, &root.entry, Origin::BuckOut);
         if let Err(e) = self.store.insert_files(files).await {
@@ -697,15 +698,9 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
         let inputs = join_all(plan.roots.iter().zip(answers).map(|(root, answer)| {
             self.materialize_root(answer, root, classification, &info, &dispatcher)
         }));
-        let outputs = join_all(
-            outputs
-                .into_iter()
-                .map(|answer| self.take_for_writing(answer)),
-        );
+        let outputs = self.take_all(outputs);
         let (inputs, outputs) = futures::join!(inputs, outputs);
-        let outputs = outputs
-            .into_iter()
-            .collect::<buck2_error::Result<Vec<_>>>()?;
+        let outputs = outputs?;
         withdraw.disarm();
 
         let mut lease = Vec::with_capacity(plan.roots.len());
@@ -739,9 +734,9 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
 
     /// A copy of buck-out content is nothing to this core: the destination's value names the
     /// same digests as the source's, and whoever needs the destination on disk materializes it
-    /// from them, out of the store or the CAS. A source outside buck-out, a source file, is not
-    /// known to be in the CAS, so its content enters the store, checked against the digest the
-    /// value claims, and the destination is materialized from there when asked.
+    /// from them, out of the store or the CAS. Nor is a symlink to a source, which copies
+    /// nothing. A copy of a source file is the action's to make under `hold_or_take`
+    /// (`materialize::produce`), as a local run makes its outputs; it does not come here.
     async fn declare_copy_impl(
         &self,
         _path: ProjectRelativePathBuf,
@@ -749,21 +744,14 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
         srcs: Vec<CopiedArtifact>,
     ) -> buck2_error::Result<()> {
         let buck_out = self.io.buck_out_path();
-        let from_outside: Vec<CopiedArtifact> = srcs
-            .into_iter()
-            .filter(|src| !src.src.starts_with(buck_out))
-            .collect();
-        if from_outside.is_empty() {
-            return Ok(());
+        let copies_a_source_file =
+            |src: &&CopiedArtifact| !src.src.starts_with(buck_out) && has_files(&src.dest_entry);
+        if let Some(src) = srcs.iter().find(copies_a_source_file) {
+            return Err(internal_error!(
+                "A copy of `{}`, outside buck-out, was declared to the disk-state materializer, which makes no copies: the action produces it under `hold_or_take`",
+                src.src
+            ));
         }
-        let files = from_outside
-            .into_iter()
-            .flat_map(|src| {
-                let entry = src.dest_entry.map_dir(|dir| dir.shared(&*INTERNER));
-                files_to_insert(self.io.fs(), &src.src, &entry, Origin::Source)
-            })
-            .collect();
-        self.store.insert_files(files).await?;
         Ok(())
     }
 
@@ -777,41 +765,39 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
         Ok(())
     }
 
-    /// Onto disk and tracked, as a local action's output is when it is reported: a write whose
-    /// content the CAS already holds does not get here under the probe this core asks for
-    /// (`materializer_probes_writes`), and the rest is disk state like any other.
+    /// Not this core's: a write is the action's to make under `hold_or_take`
+    /// (`materialize::produce`), as a local run makes its outputs.
     async fn declare_write<'a>(
         &self,
-        generate: Box<dyn FnOnce() -> buck2_error::Result<Vec<WriteRequest>> + Send + 'a>,
+        _generate: Box<dyn FnOnce() -> buck2_error::Result<Vec<WriteRequest>> + Send + 'a>,
     ) -> buck2_error::Result<Vec<ArtifactValue>> {
-        let requests = generate()?;
-        let paths: Vec<ProjectRelativePathBuf> = requests
-            .iter()
-            .map(|request| request.path.clone())
-            .collect();
-        let roots = self.take_all_for_writing(paths.clone()).await?;
-        let values = write_to_disk(
-            self.io.fs(),
-            self.blocking_executor.as_ref(),
-            self.io.digest_config(),
-            Box::new(move || Ok(requests)),
-            // The report seals them, as it does every root.
-            false,
-        )
-        .await?;
-        for (path, value) in paths.into_iter().zip_eq(&values) {
-            let guard = roots
-                .at(&path)
-                .internal_error("a written path is one of its lease's roots")?;
-            let root = Root {
-                path,
-                entry: value.entry().dupe(),
-            };
-            self.stash(&root).await;
-            self.report(guard, root.entry, ArtifactClassification::IntermediateOnly)
-                .await?;
+        Err(internal_error!(
+            "A write was declared to the disk-state materializer, which makes no writes: the action produces it under `hold_or_take`"
+        ))
+    }
+
+    fn is_disk_state(&self) -> bool {
+        true
+    }
+
+    /// Found content is backed from its path before it is handed out: a previous daemon's write
+    /// or copy, whose store went with it.
+    async fn hold_or_take_impl(
+        &self,
+        path: ProjectRelativePathBuf,
+        value: ArtifactValue,
+    ) -> buck2_error::Result<HeldContent> {
+        let entry = value.entry().dupe();
+        let (answers, withdraw) =
+            self.acquire(vec![(path.clone(), Want::Produce(entry.dupe()))])?;
+        let mut guards = self.take_all(answers).await?;
+        withdraw.disarm();
+        let guard = guards.pop().expect("one want, one grant");
+        if guard.holds_for_writing() {
+            return Ok(HeldContent::Missing(WriteLease::new(Roots(vec![guard]))));
         }
-        Ok(values)
+        self.stash(&Root { path, entry }).await;
+        Ok(HeldContent::Found(ReadLease::new(Roots(vec![guard]))))
     }
 
     /// A match is a use of the matched roots, as a read is: what a dep-file hit goes on relying
@@ -1456,6 +1442,17 @@ fn copy_from_disk(
         let _ignored = fs_util::remove_all(&dest);
     }
     copied
+}
+
+/// Whether `entry` has a file anywhere in it.
+fn has_files(entry: &ActionDirectoryEntry<ActionImmutableDirectory>) -> bool {
+    let mut walk = unordered_entry_walk(entry.as_ref().map_dir(Directory::as_ref));
+    while let Some((_, entry)) = walk.next() {
+        if let DirectoryEntry::Leaf(ActionDirectoryMember::File(_)) = entry {
+            return true;
+        }
+    }
+    false
 }
 
 /// The files of `entry`, on disk under `root`, as the store wants them for insertion.

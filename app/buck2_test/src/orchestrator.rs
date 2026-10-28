@@ -132,6 +132,7 @@ use buck2_execute::materialize::materializer::MaterializationPurpose;
 use buck2_execute::materialize::materializer::MaterializeRequest;
 use buck2_execute::materialize::materializer::ReadLease;
 use buck2_execute::materialize::materializer::WriteRequest;
+use buck2_execute::materialize::produce::write_locally;
 use buck2_execute_impl::executors::local::EnvironmentBuilder;
 use buck2_execute_impl::executors::local::apply_local_execution_environment;
 use buck2_execute_impl::executors::local::create_output_dirs;
@@ -1842,19 +1843,29 @@ impl BuckTestOrchestrator<'_> {
                 .buck_out_path_resolver()
                 .resolve_gen(&path, Some(&content_hash))?;
 
-            let write_path = project_rel_path.clone();
-            let path_kind = path.path_resolution_method();
-            materializer
-                .declare_write(Box::new(move || {
-                    Ok(vec![WriteRequest {
-                        path: write_path,
-                        content: contents,
-                        is_executable: false,
-                        path_kind,
-                    }])
-                }))
+            let request = WriteRequest {
+                path: project_rel_path.clone(),
+                content: contents,
+                is_executable: false,
+                path_kind: path.path_resolution_method(),
+            };
+            let written = if materializer.is_disk_state() {
+                write_locally(
+                    &*materializer,
+                    dice.get_blocking_executor(),
+                    fs.fs(),
+                    digest_config,
+                    request,
+                )
                 .await
-                .buck_error_context("Failed to write test argsfile")?;
+                .map(|_| ())
+            } else {
+                materializer
+                    .declare_write(Box::new(move || Ok(vec![request])))
+                    .await
+                    .map(|_| ())
+            };
+            written.buck_error_context("Failed to write test argsfile")?;
 
             expanded.push(ExpandableArg::Argsfile(project_rel_path));
             inputs.push(CommandExecutionInput::ActionMetadata(ActionMetadataBlob {

@@ -45,6 +45,9 @@ use buck2_execute::materialize::materializer::MaterializeResponse;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::materialize::materializer::WriteLease;
 use buck2_execute::materialize::materializer::WriteRequest;
+use buck2_execute::materialize::produce::Produced;
+use buck2_execute::materialize::produce::produce_locally;
+use buck2_execute::materialize::produce::write_locally;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_hash::BuckMutMap;
@@ -282,6 +285,13 @@ async fn in_store(
             dest: dest.to_owned(),
         }])
         .await?[0])
+}
+
+/// The inode of the file at `path`: the same before and after only if nothing replaced it.
+#[cfg(unix)]
+fn inode_of(path: &AbsNormPath) -> buck2_error::Result<u64> {
+    use std::os::unix::fs::MetadataExt;
+    Ok(std::fs::metadata(path)?.ino())
 }
 
 /// Clean-stale arguments under which everything this daemon has not used is stale.
@@ -1349,75 +1359,24 @@ async fn test_a_copy_of_buck_out_content_is_nothing_to_the_core() -> buck2_error
     .await
 }
 
-/// A source file is not in buck-out and not known to be in the CAS, so its content enters the
-/// store, checked against the value's digest; the destination is left to whoever materializes it.
+/// A copy of a source file is the action's to make under `hold_or_take`: declared to this core,
+/// it is refused.
 #[tokio::test]
-async fn test_a_copy_from_outside_buck_out_enters_the_store() -> buck2_error::Result<()> {
+async fn test_a_copy_from_outside_buck_out_is_refused() -> buck2_error::Result<()> {
     ignore_stack_overflow_checks_for_future(async {
         let temp = ProjectRootTemp::new()?;
         let (dm, io) = make(temp.path(), None, None);
-        let src = path("src/b.txt");
-        let on_disk = temp.path().resolve(&src);
-        std::fs::create_dir_all(on_disk.parent().unwrap())?;
-        std::fs::write(&on_disk, b"copied from a source")?;
-        let dest = path("buck-out/v2/gen/copy");
-        let (a, b) = (
-            dest.join(ForwardRelativePath::unchecked_new("a")),
-            dest.join(ForwardRelativePath::unchecked_new("b")),
-        );
-        // Held as the copy's value would be held; a walk takes what nothing holds.
-        let _held = TrackedFileDigest::from_content(
-            b"copied from a source",
-            CasDigestConfig::testing_default(),
-        );
-        dm.declare_copy_impl(
-            dest.clone(),
-            dir(&[("a", "A"), ("b", "copied from a source")]),
-            vec![
-                CopiedArtifact::new(
-                    path("buck-out/v2/gen/built"),
-                    a.clone(),
-                    leaf(&file("A")),
-                    None,
-                ),
-                CopiedArtifact::new(
-                    src.clone(),
-                    b.clone(),
-                    leaf(&file("copied from a source")),
-                    None,
-                ),
-            ],
-        )
-        .await?;
-        assert_eq!(io.take_log(), vec![]);
-        assert!(!dm.has_artifact_at(b).await?);
-        assert!(!dm.has_artifact_at(dest.clone()).await?);
-        let out = temp.path().resolve(path("buck-out/v2/gen/out"));
-        assert!(in_store(&dm, b"copied from a source", &out).await?);
-
-        // A source without the content the value claims is refused, unless the store has that
-        // content already, in which case the file no longer matters.
-        std::fs::write(&on_disk, b"changed")?;
-        dm.declare_copy_impl(
-            dest.clone(),
-            file("copied from a source"),
-            vec![CopiedArtifact::new(
-                src.clone(),
-                dest.clone(),
-                leaf(&file("copied from a source")),
-                None,
-            )],
-        )
-        .await?;
+        let (src, dest) = (path("src/b.txt"), path("buck-out/v2/gen/copy"));
         assert!(
             dm.declare_copy_impl(
                 dest.clone(),
-                file("claimed"),
-                vec![CopiedArtifact::new(src, dest, leaf(&file("claimed")), None)],
+                file("B"),
+                vec![CopiedArtifact::new(src, dest, leaf(&file("B")), None)],
             )
             .await
             .is_err()
         );
+        assert_eq!(io.take_log(), vec![]);
         abort(dm);
         Ok(())
     })
@@ -1439,15 +1398,19 @@ async fn test_tracked_files_are_read_only_under_the_knob() -> buck2_error::Resul
         };
 
         let w = path("buck-out/v2/gen/written");
-        let request_path = w.clone();
-        dm.declare_write(Box::new(move || {
-            Ok(vec![WriteRequest {
-                path: request_path,
+        let blocking = DummyBlockingExecutor { fs: fs.dupe() };
+        write_locally(
+            dm.as_dyn(),
+            &blocking,
+            &fs,
+            DigestConfig::testing_default(),
+            WriteRequest {
+                path: w.clone(),
                 content: b"written".to_vec(),
                 is_executable: false,
                 path_kind: BuckOutPathKind::Configuration,
-            }])
-        }))
+            },
+        )
         .await?;
         assert!(readonly(&w)?, "a write's output");
 
@@ -1481,30 +1444,40 @@ async fn test_tracked_files_are_read_only_under_the_knob() -> buck2_error::Resul
     .await
 }
 
-/// A write goes to disk and is tracked, as a local action's output is, and the store holds its
-/// content as it holds theirs.
+/// Content an action makes goes to disk under `hold_or_take` and a report, as a local action's
+/// output does, and the store holds it as it holds theirs; asked for again, the path is found
+/// holding it and nothing is made.
 #[tokio::test]
-async fn test_a_write_goes_to_disk_and_is_tracked() -> buck2_error::Result<()> {
+async fn test_produced_content_is_tracked_and_enters_the_store() -> buck2_error::Result<()> {
     ignore_stack_overflow_checks_for_future(async {
         let temp = ProjectRootTemp::new()?;
         let (dm, io) = make(temp.path(), None, None);
+        let blocking = DummyBlockingExecutor {
+            fs: temp.path().dupe(),
+        };
         let p = path("buck-out/v2/gen/written");
-        let request_path = p.clone();
-        let values = dm
-            .declare_write(Box::new(move || {
-                Ok(vec![WriteRequest {
-                    path: request_path,
-                    content: b"written".to_vec(),
-                    is_executable: true,
-                    path_kind: BuckOutPathKind::Configuration,
-                }])
-            }))
-            .await?;
-        assert_eq!(values, vec![file_exec("written")]);
+        let request = || WriteRequest {
+            path: p.clone(),
+            content: b"written".to_vec(),
+            is_executable: true,
+            path_kind: BuckOutPathKind::Configuration,
+        };
+        let (value, produced) = write_locally(
+            dm.as_dyn(),
+            &blocking,
+            temp.path(),
+            DigestConfig::testing_default(),
+            request(),
+        )
+        .await?;
+        assert_eq!(
+            (value.dupe(), produced),
+            (file_exec("written"), Produced::Made)
+        );
         assert_eq!(io.take_log(), vec![]);
         assert_eq!(std::fs::read_to_string(temp.path().resolve(&p))?, "written");
         assert!(dm.has_artifact_at(p.clone()).await?);
-        let DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) = values[0].entry() else {
+        let DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) = value.entry() else {
             panic!("a write's value is a file");
         };
         assert!(
@@ -1512,10 +1485,67 @@ async fn test_a_write_goes_to_disk_and_is_tracked() -> buck2_error::Result<()> {
             "the store holds what the CAS is not known to"
         );
 
-        // Asked for again, the path is found tracked as wanted: nothing is written or fetched.
+        // Made again, the path is found holding it: nothing is written.
+        #[cfg(unix)]
+        let inode = inode_of(&temp.path().resolve(&p))?;
+        let (_, produced) = write_locally(
+            dm.as_dyn(),
+            &blocking,
+            temp.path(),
+            DigestConfig::testing_default(),
+            request(),
+        )
+        .await?;
+        assert_eq!(produced, Produced::Found);
+        #[cfg(unix)]
+        assert_eq!(
+            inode_of(&temp.path().resolve(&p))?,
+            inode,
+            "the file was not replaced"
+        );
+        // Asked for as a reader, it is found tracked as wanted.
         materialize_ok(&dm, vec![(p.clone(), file_exec("written"))]).await?;
         assert_eq!(io.take_log(), vec![]);
-        assert_eq!(std::fs::read_to_string(temp.path().resolve(&p))?, "written");
+        abort(dm);
+        Ok(())
+    })
+    .await
+}
+
+/// Content a previous daemon left on disk, in the rows and not in this daemon's store, is found
+/// under `hold_or_take` and enters the store from its path; nothing is made.
+#[tokio::test]
+async fn test_content_a_previous_daemon_left_is_found_and_enters_the_store()
+-> buck2_error::Result<()> {
+    ignore_stack_overflow_checks_for_future(async {
+        let temp = ProjectRootTemp::new()?;
+        let p = path("buck-out/v2/gen/written");
+        let (dm, io) = restarted_with(temp.path(), vec![(p.clone(), file("written"))]).await?;
+        temp.path().write_file(&p, "written", false)?;
+        let blocking = DummyBlockingExecutor {
+            fs: temp.path().dupe(),
+        };
+        #[cfg(unix)]
+        let inode = inode_of(&temp.path().resolve(&p))?;
+        // Held as a value would hold it; the store keeps content only while something does.
+        let value = file("written");
+        let produced = produce_locally(dm.as_dyn(), &blocking, p.clone(), value.dupe(), || {
+            unreachable!("the path holds the content")
+        })
+        .await?;
+        assert_eq!(produced, Produced::Found);
+        assert_eq!(io.take_log(), vec![]);
+        #[cfg(unix)]
+        assert_eq!(
+            inode_of(&temp.path().resolve(&p))?,
+            inode,
+            "the file was not replaced"
+        );
+        let out = temp.path().resolve(path("buck-out/v2/gen/out"));
+        assert!(
+            in_store(&dm, b"written", &out).await?,
+            "the store took the content from the path"
+        );
         abort(dm);
         Ok(())
     })

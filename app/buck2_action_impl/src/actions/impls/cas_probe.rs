@@ -8,27 +8,33 @@
  * above-listed licenses.
  */
 
-//! Content an action produces in the daemon, a write or a copy from a source file, that the CAS
-//! already holds is declared as CAS content instead of being produced: the probe behind the
-//! `write_cas_probe` knob.
+//! Content an action can make, a write or a copy of a source file, that the CAS already holds is
+//! declared as CAS content instead of being made: the probe behind the `write_cas_probe` knob.
+//! What the CAS lacks comes to be as `produce` says.
 
 use std::sync::Arc;
 
 use buck2_build_api::actions::ActionExecutionCtx;
+use buck2_common::file_ops::metadata::FileMetadata;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_directory::directory::directory::Directory;
 use buck2_directory::directory::directory_iterator::DirectoryIterator;
+use buck2_directory::directory::directory_iterator::DirectoryIteratorPathStack;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_directory::directory::walk::unordered_entry_walk;
-use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::directory::ActionDirectoryEntry;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
-use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::re::presence::NegativeCache;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use dupe::Dupe;
+
+/// A source file as the probe and the upload see it: where it is on disk, and what its copy says
+/// it holds.
+pub(crate) type SourceFile = (ProjectRelativePathBuf, FileMetadata);
 
 /// Whether the CAS is asked before content is produced: the knob's decision, and never when the
 /// invocation asks the CAS nothing (`ActionExecutionCtx::may_probe_cas`).
@@ -70,72 +76,50 @@ pub(crate) async fn probe(
     Some((info, in_cas))
 }
 
-/// Declares `value` at `path` as CAS content if the CAS holds every file in it, and says whether
-/// it did; when it did not, the content is the caller's to produce.
-pub(crate) async fn declare_if_in_cas(
+/// The probe over `files`: the info to declare the hits under, and the positions of the files
+/// the CAS lacks. `None` when the CAS was not asked (`enabled`) or could not answer, in which
+/// case every file is the caller's to make.
+pub(crate) async fn missing(
     ctx: &dyn ActionExecutionCtx,
-    path: ProjectRelativePathBuf,
-    value: &ArtifactValue,
-) -> buck2_error::Result<bool> {
+    files: &[SourceFile],
+) -> Option<(Arc<CasDownloadInfo>, Vec<usize>)> {
     if !enabled(ctx) {
-        return Ok(false);
+        return None;
     }
-    let digests = file_digests(value);
-    if digests.is_empty() {
-        // All structure, which is the caller's to make either way.
-        return Ok(false);
-    }
-    let Some((info, in_cas)) = probe(ctx, digests).await else {
-        return Ok(false);
-    };
-    if !in_cas.iter().all(|&in_cas| in_cas) {
-        return Ok(false);
-    }
-    ctx.materializer()
-        .declare_cas_many(
-            info,
-            vec![DeclareArtifactPayload {
-                path,
-                artifact: value.dupe(),
-            }],
-        )
-        .await?;
-    Ok(true)
+    let digests = files
+        .iter()
+        .map(|(_, metadata)| metadata.digest.dupe())
+        .collect();
+    let (info, in_cas) = probe(ctx, digests).await?;
+    let missing = in_cas
+        .into_iter()
+        .enumerate()
+        .filter_map(|(i, in_cas)| (!in_cas).then_some(i))
+        .collect();
+    Some((info, missing))
 }
 
-/// Asks the CAS about `digests` so that the ones it holds carry an expiration, and says whether it
-/// held every one of them. Nothing is declared: the caller declares as it would have, and content
-/// whose digest carries an expiration is left out of the stash when the declaration offers it, so
-/// a probe here is what keeps the CAS's share of a copied directory from being copied into the
-/// store. Asks nothing when the probe is disabled or there is nothing to ask, and answers `false`
-/// then, as for a CAS that could not answer.
-pub(crate) async fn stamp_if_in_cas(
-    ctx: &dyn ActionExecutionCtx,
-    digests: Vec<TrackedFileDigest>,
-) -> bool {
-    if digests.is_empty() || !enabled(ctx) {
-        return false;
-    }
-    match probe(ctx, digests).await {
-        Some((_, in_cas)) => in_cas.iter().all(|&in_cas| in_cas),
-        None => false,
-    }
-}
-
-fn file_digests(value: &ArtifactValue) -> Vec<TrackedFileDigest> {
-    file_digests_of(value.entry())
-}
-
-/// The digests of the files in `entry`, in walk order.
-pub(crate) fn file_digests_of(
+/// The files of `entry`, at their paths within it, in walk order.
+pub(crate) fn walk_files(
     entry: &ActionDirectoryEntry<ActionSharedDirectory>,
-) -> Vec<TrackedFileDigest> {
-    let mut digests = Vec::new();
+) -> Vec<(ForwardRelativePathBuf, FileMetadata)> {
+    let mut files = Vec::new();
     let mut walk = unordered_entry_walk(entry.as_ref().map_dir(Directory::as_ref));
-    while let Some((_, entry)) = walk.next() {
+    while let Some((path, entry)) = walk.next() {
         if let DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) = entry {
-            digests.push(file.digest.dupe());
+            files.push((path.get(), file.dupe()));
         }
     }
-    digests
+    files
+}
+
+/// The files of `entry`, at their paths under `root`, in walk order.
+pub(crate) fn files_of(
+    entry: &ActionDirectoryEntry<ActionSharedDirectory>,
+    root: &ProjectRelativePath,
+) -> Vec<SourceFile> {
+    walk_files(entry)
+        .into_iter()
+        .map(|(path, metadata)| (root.join(&path), metadata))
+        .collect()
 }

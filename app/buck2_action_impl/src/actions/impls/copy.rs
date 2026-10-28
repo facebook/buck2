@@ -30,6 +30,7 @@ use buck2_error::BuckErrorOptionContext;
 use buck2_execute::artifact_utils::ArtifactValueBuilder;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::CopiedArtifact;
+use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_hash::BuckMutInsertionSet;
 use buck2_hash::buck_mut_insertion_set;
 use dupe::Dupe;
@@ -40,6 +41,8 @@ use starlark::values::OwnedFrozen;
 use starlark::values::Value;
 
 use crate::actions::impls::cas_probe;
+use crate::actions::impls::produce;
+use crate::actions::impls::produce::SourceCopy;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]
@@ -214,18 +217,52 @@ impl Action for CopyAction {
             tmp_dest
         };
 
-        // A source file's content is not known to be in the CAS, and the probe a write makes
-        // spares copying it when the CAS has it. A build artifact's content is the materializer's
-        // already, and a symlink copies nothing.
-        let in_cas = match self.copy {
-            CopyMode::Copy { .. } if input.is_source() => {
-                cas_probe::declare_if_in_cas(ctx, dest.clone(), &value).await?
-            }
-            _ => false,
+        // A source file's content is not known to be in the CAS: the probe a write makes spares
+        // copying it when the CAS has it, and the rest comes to be as a write's miss does
+        // (`produce`). A build artifact's content is the materializer's already, and a symlink
+        // copies nothing; both are declared, which is nothing to the disk-state core.
+        let source_copy = match self.copy {
+            CopyMode::Copy {
+                executable_bit_override,
+            } if input.is_source() => Some(executable_bit_override),
+            _ => None,
         };
-        let execution_kind = if in_cas {
-            ActionExecutionKind::Deferred
-        } else {
+        let (execution_kind, declare) = match source_copy {
+            Some(executable_bit_override) => {
+                let files = cas_probe::files_of(value.entry(), &src);
+                match cas_probe::missing(ctx, &files).await {
+                    Some((info, missing)) if missing.is_empty() => {
+                        ctx.materializer()
+                            .declare_cas_many(
+                                info,
+                                vec![DeclareArtifactPayload {
+                                    path: dest.clone(),
+                                    artifact: value.dupe(),
+                                }],
+                            )
+                            .await?;
+                        (ActionExecutionKind::Deferred, false)
+                    }
+                    probed if ctx.materializer().is_disk_state() => {
+                        let kind = produce::produce_copies(
+                            ctx,
+                            vec![SourceCopy {
+                                src: src.clone(),
+                                dest: dest.clone(),
+                                value: value.dupe(),
+                                executable_bit_override,
+                            }],
+                            probed.is_some(),
+                        )
+                        .await?;
+                        (kind, false)
+                    }
+                    _ => (ActionExecutionKind::Simple, true),
+                }
+            }
+            None => (ActionExecutionKind::Simple, true),
+        };
+        if declare {
             ctx.materializer()
                 .declare_copy(
                     dest.clone(),
@@ -247,8 +284,7 @@ impl Action for CopyAction {
                     )],
                 )
                 .await?;
-            ActionExecutionKind::Simple
-        };
+        }
 
         Ok((
             ActionOutputs::from_single(self.output().get_path().dupe(), value),

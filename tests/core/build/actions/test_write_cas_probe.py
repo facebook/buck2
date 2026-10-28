@@ -11,9 +11,10 @@
 """
 With `buck2.write_cas_probe` on, a write action asks the CAS for its content before writing it.
 When the CAS has the content with enough TTL left, the output is declared as a CAS download and
-nothing is written until something needs the file; otherwise the write proceeds as before. A copy
-of a source file, alone or into a `copied_dir`, asks the same way before copying. None of them
-asks under `--local-only` or `--no-remote-cache`.
+nothing is written until something needs the file; otherwise the write is made here while the
+machine has room for local work and uploaded when it has not. A copy of a source file, alone or
+into a `copied_dir`, asks the same way before copying, and a miss is made or uploaded the same
+way. None of them asks under `--local-only` or `--no-remote-cache`.
 """
 
 from buck2.tests.e2e_util.api.buck import Buck
@@ -39,6 +40,11 @@ def presence_check_answers(res: BuckResult) -> int:
     return int(snapshot.get("re_presence_check_digests_queried", 0)) + int(
         snapshot.get("re_presence_check_instance_answers", 0)
     )
+
+
+def upload_bytes(res: BuckResult) -> int:
+    """How many bytes the daemon had uploaded to the CAS by the end of the command."""
+    return int(res.invocation_record()["last_snapshot"].get("re_upload_bytes", 0))
 
 
 async def _written_without_a_probe(buck: Buck, *flags: str) -> None:
@@ -99,6 +105,31 @@ class WriteCasProbeTest(BuckTestCase):
         assert output.read_text() == content
 
     @buck_test(write_invocation_record=True)
+    async def test_write_whose_content_the_cas_lacks_is_uploaded_when_there_is_no_room(
+        self, buck: Buck
+    ) -> None:
+        content = random_string()
+        configs = ["-c", f"test.content={content}"]
+        # The gate the hybrid executor runs local commands behind, with no room at all.
+        env = {"BUCK2_TEST_LOW_PASS_FILTER_CAPACITY": "0"}
+
+        # The miss is uploaded and declared as CAS content; neither memory nor disk holds the
+        # bytes...
+        res = await buck.build("//:write", "--materializations=none", *configs, env=env)
+        output = res.get_build_report().output_for_target("//:write")
+        assert presence_check_rpcs(res) >= 1, "the probe asked the CAS"
+        assert upload_bytes(res) >= len(content), "the content was uploaded"
+        assert (
+            await get_last_execution_kind(buck, category="write")
+            == ACTION_EXECUTION_KIND_DEFERRED
+        )
+        assert not output.exists()
+
+        # ...until something needs the file, which then comes out of the CAS.
+        await buck.build("//:write", *configs, env=env)
+        assert output.read_text() == content
+
+    @buck_test(write_invocation_record=True)
     async def test_copy_of_a_source_file_the_cas_has_is_not_made(
         self, buck: Buck
     ) -> None:
@@ -133,6 +164,32 @@ class WriteCasProbeTest(BuckTestCase):
 
         # ...until something needs the file, which then comes out of the CAS.
         await buck.build(target, *configs)
+        assert output.read_text() == content
+
+    @buck_test(write_invocation_record=True, skip_for_materializer=["deferred"])
+    async def test_copy_of_a_source_file_the_cas_lacks_is_uploaded_when_there_is_no_room(
+        self, buck: Buck
+    ) -> None:
+        content = random_string()
+        (buck.cwd / "src.txt").write_text(content)
+        configs = ["-c", f"test.content={random_string()}"]
+        env = {"BUCK2_TEST_LOW_PASS_FILTER_CAPACITY": "0"}
+
+        # The miss is uploaded, as a write's would be, and the copy is declared as CAS content:
+        # nothing is copied...
+        target = "//:copy_src"
+        res = await buck.build(target, "--materializations=none", *configs, env=env)
+        output = res.get_build_report().output_for_target(target)
+        assert presence_check_rpcs(res) >= 1, "the probe asked the CAS"
+        assert upload_bytes(res) >= len(content), "the source was uploaded"
+        assert (
+            await get_last_execution_kind(buck, category="copy")
+            == ACTION_EXECUTION_KIND_DEFERRED
+        )
+        assert not output.exists()
+
+        # ...until something needs the file, which then comes out of the CAS.
+        await buck.build(target, *configs, env=env)
         assert output.read_text() == content
 
     @buck_test(write_invocation_record=True)
@@ -178,7 +235,7 @@ class WriteCasProbeTest(BuckTestCase):
         # The probe asks about a copied directory's files one at a time: the directory itself is
         # in the CAS only if some action uploaded it in this exact shape, while its files are
         # inputs the CAS usually has. Here one file is uploaded and one is not, so only the second
-        # enters the stash.
+        # is made here, under its own path, and enters the stash.
         content_a = random_string() * 32
         content_b = random_string() * 8
         (buck.cwd / "mixed_a.txt").write_text(content_a)
@@ -202,9 +259,52 @@ class WriteCasProbeTest(BuckTestCase):
             "one file entered the stash"
         )
         assert int(snapshot.get("blob_store_bytes", 0)) == len(content_a)
-        assert not output.exists()
+        assert not (output / "mixed_b.txt").exists(), (
+            "the file the CAS has is not copied"
+        )
 
         await buck.build(target, *configs)
+        assert (output / "mixed_a.txt").read_text() == content_a
+        assert (output / "mixed_b.txt").read_text() == content_b
+
+    @buck_test(write_invocation_record=True, skip_for_materializer=["deferred"])
+    async def test_copied_dir_uploads_the_files_the_cas_lacks_when_there_is_no_room(
+        self, buck: Buck
+    ) -> None:
+        content_a = random_string() * 32
+        content_b = random_string() * 8
+        (buck.cwd / "mixed_a.txt").write_text(content_a)
+        (buck.cwd / "mixed_b.txt").write_text(content_b)
+        configs = ["-c", f"test.content={random_string()}"]
+        env = {"BUCK2_TEST_LOW_PASS_FILTER_CAPACITY": "0"}
+
+        await buck.build(
+            "//:consume_mixed_b",
+            "--remote-only",
+            "--no-remote-cache",
+            *configs,
+            env=env,
+        )
+
+        # With no room for local work the file the CAS lacks is uploaded instead, and nothing
+        # enters the stash or lands on disk.
+        target = "//:copied_dir_mixed"
+        res = await buck.build(target, "--materializations=none", *configs, env=env)
+        output = res.get_build_report().output_for_target(target)
+        assert upload_bytes(res) >= len(content_a), (
+            "the file the CAS lacked was uploaded"
+        )
+        assert (
+            await get_last_execution_kind(buck, category="symlinked_dir")
+            == ACTION_EXECUTION_KIND_DEFERRED
+        )
+        snapshot = res.invocation_record()["last_snapshot"]
+        assert int(snapshot.get("blob_store_entries", 0)) == 0, (
+            "nothing entered the stash"
+        )
+        assert not output.exists()
+
+        await buck.build(target, *configs, env=env)
         assert (output / "mixed_a.txt").read_text() == content_a
         assert (output / "mixed_b.txt").read_text() == content_b
 

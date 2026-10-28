@@ -47,11 +47,13 @@ use buck2_error::conversion::from_any_with_tag;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
+use buck2_execute::execute::blocking::HasBlockingExecutor;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_execute::materialize::materializer::MaterializationPurpose;
 use buck2_execute::materialize::materializer::MaterializeRequest;
 use buck2_execute::materialize::materializer::ReadLease;
 use buck2_execute::materialize::materializer::WriteRequest;
+use buck2_execute::materialize::produce::write_locally;
 use buck2_external_cells_bundled::BundledCell;
 use buck2_external_cells_bundled::BundledFile;
 use buck2_external_cells_bundled::get_bundled_data;
@@ -443,9 +445,27 @@ async fn declare_all_source_artifacts(
 
     let paths: Vec<ProjectRelativePathBuf> = requests.iter().map(|r| r.path.clone()).collect();
     let materializer = ctx.per_transaction_data().get_materializer();
-    let values = materializer
-        .declare_write(Box::new(move || Ok(requests)))
-        .await?;
+    let values = if materializer.is_disk_state() {
+        // On disk now, found where a previous build left them.
+        let blocking_executor = ctx.get_blocking_executor();
+        let mut values = Vec::with_capacity(requests.len());
+        for request in requests {
+            let (value, _) = write_locally(
+                &*materializer,
+                blocking_executor,
+                artifact_fs.fs(),
+                ops.digest_config,
+                request,
+            )
+            .await?;
+            values.push(value);
+        }
+        values
+    } else {
+        materializer
+            .declare_write(Box::new(move || Ok(requests)))
+            .await?
+    };
     // Sources are read off disk by everything that reads sources, so the cell's files go there
     // now rather than when something asks the materializer for them.
     let re_use_case = invocation_re_use_case(ctx);

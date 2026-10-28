@@ -18,27 +18,31 @@ use buck2_error::internal_error;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::WriteRequest;
+use buck2_execute::materialize::produce::Produced;
+use buck2_util::future::join_all;
 use dupe::Dupe;
 use itertools::Itertools;
 
 use crate::actions::impls::cas_probe;
+use crate::actions::impls::produce;
 
 /// Declares the outputs of a write action. Returns their values in the order `generate`
-/// produced them, and `Deferred` when none of them had to be written because the CAS already
-/// held every output's content, `Simple` otherwise.
+/// produced them, and `Deferred` when none of them was made here because the CAS held, or now
+/// holds, every output's content, or the disk did, `Simple` otherwise.
 ///
-/// Whether the CAS is asked at all is `cas_probe`'s decision; when it is not, this is a plain
-/// `declare_write`. When it is, `generate` runs twice if anything is missing from the CAS: the
-/// content is hashed and dropped before the CAS is asked, since thousands of writes wait on that
-/// answer at once in a cold build and their content in hand was most of the daemon's peak
-/// memory (RESULTS.md, 2026-10-13); the misses, few, are generated again to be written.
+/// Whether the CAS is asked at all is `cas_probe`'s decision; when it is not, every output is
+/// made here. When it is, `generate` runs twice if anything is missing from the CAS: the content
+/// is hashed and dropped before the CAS is asked, since thousands of writes wait on that answer
+/// at once in a cold build and their content in hand was most of the daemon's peak memory
+/// (RESULTS.md, 2026-10-13); the misses, few, are generated again and come to be as
+/// `produce::produce_write` says, here while the machine has room for local work and uploaded
+/// otherwise.
 pub(crate) async fn declare_writes(
     ctx: &dyn ActionExecutionCtx,
     mut generate: Box<dyn FnMut() -> buck2_error::Result<Vec<WriteRequest>> + Send + '_>,
 ) -> buck2_error::Result<(Vec<ArtifactValue>, ActionExecutionKind)> {
     if !cas_probe::enabled(ctx) {
-        let values = ctx.materializer().declare_write(generate).await?;
-        return Ok((values, ActionExecutionKind::Simple));
+        return here(ctx, generate()?).await;
     }
 
     let cas_digest_config = ctx.digest_config().cas_digest_config();
@@ -52,8 +56,7 @@ pub(crate) async fn declare_writes(
     let digests: Vec<TrackedFileDigest> =
         outputs.iter().map(|(_, _, digest)| digest.dupe()).collect();
     let Some((info, held)) = cas_probe::probe(ctx, digests).await else {
-        let values = ctx.materializer().declare_write(generate).await?;
-        return Ok((values, ActionExecutionKind::Simple));
+        return here(ctx, generate()?).await;
     };
 
     let mut values: Vec<Option<ArtifactValue>> = vec![None; outputs.len()];
@@ -75,24 +78,20 @@ pub(crate) async fn declare_writes(
             missed.push((i, path, digest));
         }
     }
-
-    let kind = if missed.is_empty() {
-        ActionExecutionKind::Deferred
-    } else {
-        ActionExecutionKind::Simple
-    };
     if !in_cas.is_empty() {
         ctx.materializer().declare_cas_many(info, in_cas).await?;
     }
+
+    let mut made_here = false;
     if !missed.is_empty() {
         let mut requests: Vec<Option<WriteRequest>> = generate()?.into_iter().map(Some).collect();
-        let mut to_write = Vec::with_capacity(missed.len());
-        for (i, path, digest) in &missed {
+        let mut to_produce = Vec::with_capacity(missed.len());
+        for (i, path, digest) in missed {
             let request = requests
-                .get_mut(*i)
+                .get_mut(i)
                 .and_then(Option::take)
                 .internal_error("a write action generated fewer outputs the second time")?;
-            if request.path != *path
+            if request.path != path
                 || TrackedFileDigest::from_content(&request.content, cas_digest_config).data()
                     != digest.data()
             {
@@ -100,13 +99,17 @@ pub(crate) async fn declare_writes(
                     "A write action generated `{path}` differently the second time"
                 ));
             }
-            to_write.push(request);
+            to_produce.push((i, request));
         }
-        let written = ctx
-            .materializer()
-            .declare_write(Box::new(move || Ok(to_write)))
-            .await?;
-        for ((i, _, _), value) in missed.into_iter().zip(written) {
+        let produced = join_all(to_produce.into_iter().map(|(i, request)| async move {
+            produce::produce_write(ctx, request)
+                .await
+                .map(|produced| (i, produced))
+        }))
+        .await;
+        for produced in produced {
+            let (i, (value, kind)) = produced?;
+            made_here |= matches!(kind, ActionExecutionKind::Simple);
             values[i] = Some(value);
         }
     }
@@ -116,6 +119,30 @@ pub(crate) async fn declare_writes(
             .into_iter()
             .map(|value| value.expect("every request was declared one way or the other"))
             .collect(),
-        kind,
+        if made_here {
+            ActionExecutionKind::Simple
+        } else {
+            ActionExecutionKind::Deferred
+        },
+    ))
+}
+
+/// Every output made here, as under `--local-only`: nothing asks the CAS.
+async fn here(
+    ctx: &dyn ActionExecutionCtx,
+    requests: Vec<WriteRequest>,
+) -> buck2_error::Result<(Vec<ArtifactValue>, ActionExecutionKind)> {
+    let mut made = Vec::with_capacity(requests.len());
+    for request in requests {
+        made.push(produce::write_here(ctx, request).await?);
+    }
+    let made_here = made.iter().any(|(_, produced)| *produced == Produced::Made);
+    Ok((
+        made.into_iter().map(|(value, _)| value).collect(),
+        if made_here {
+            ActionExecutionKind::Simple
+        } else {
+            ActionExecutionKind::Deferred
+        },
     ))
 }

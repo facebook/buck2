@@ -34,7 +34,6 @@ use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_core::category::CategoryRef;
 use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
-use buck2_error::BuckErrorOptionContext;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
@@ -55,6 +54,7 @@ use starlark::values::Value;
 use starlark::values::dict::DictRef;
 use starlark::values::dict::DictType;
 
+use crate::actions::impls::produce;
 use crate::actions::impls::write::CommandLineContentBasedInputVisitor;
 
 #[derive(Debug, buck2_error::Error)]
@@ -219,40 +219,33 @@ impl Action for WriteHmapAction {
     ) -> Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError> {
         let fs = ctx.fs();
 
-        let mut execution_start = None;
-        let value = ctx
-            .materializer()
-            .declare_write(Box::new(|| {
-                execution_start = Some(Instant::now());
-                let content =
-                    self.get_contents(&ctx.executor_fs(), &ctx.artifact_path_mapping(None))?;
-                let path = fs.resolve_build(
-                    self.output.get_path(),
-                    if self.output.get_path().is_content_based_path() {
-                        let digest = TrackedFileDigest::from_content(
-                            &content,
-                            ctx.digest_config().cas_digest_config(),
-                        );
-                        Some(ContentBasedPathHash::new(digest.raw_digest().as_bytes())?)
-                    } else {
-                        None
-                    }
-                    .as_ref(),
-                )?;
-                Ok(vec![WriteRequest {
-                    path,
-                    content,
-                    is_executable: false,
-                    path_kind: self.output.get_path().path_resolution_method(),
-                }])
-            }))
-            .await?
-            .into_iter()
-            .next()
-            .internal_error("Write did not execute")?;
+        let execution_start = Instant::now();
+        let content = self.get_contents(&ctx.executor_fs(), &ctx.artifact_path_mapping(None))?;
+        let path = fs.resolve_build(
+            self.output.get_path(),
+            if self.output.get_path().is_content_based_path() {
+                let digest = TrackedFileDigest::from_content(
+                    &content,
+                    ctx.digest_config().cas_digest_config(),
+                );
+                Some(ContentBasedPathHash::new(digest.raw_digest().as_bytes())?)
+            } else {
+                None
+            }
+            .as_ref(),
+        )?;
+        let (value, _) = produce::write_here(
+            ctx,
+            WriteRequest {
+                path,
+                content,
+                is_executable: false,
+                path_kind: self.output.get_path().path_resolution_method(),
+            },
+        )
+        .await?;
 
-        let wall_time = Instant::now()
-            - execution_start.internal_error("Action did not set execution_start")?;
+        let wall_time = Instant::now() - execution_start;
 
         Ok((
             ActionOutputs::new(buck_mut_insertion_map![self.output.get_path().dupe() => value]),

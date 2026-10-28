@@ -25,7 +25,8 @@ pub struct WriteActionCacheStats {
     pub populated: AtomicU64,
     /// Entries that could not be recorded.
     pub populate_failures: AtomicU64,
-    /// Misses uploaded to the CAS and declared from there, without an entry.
+    /// Writes uploaded to the CAS and declared from there, without an entry: a cache miss or a
+    /// probe miss the machine had no room to make.
     pub uploaded: AtomicU64,
     /// Misses written to their output path.
     pub written: AtomicU64,

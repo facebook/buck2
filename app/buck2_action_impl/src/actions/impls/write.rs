@@ -316,7 +316,7 @@ impl WriteAction {
                 }
             }
         }
-        write_cache::declare_miss(ctx, cache, &self.output, request).await
+        write_cache::declare_miss(ctx, request).await
     }
 
     /// Declares the output as it would be declared without the cache, and checks the content

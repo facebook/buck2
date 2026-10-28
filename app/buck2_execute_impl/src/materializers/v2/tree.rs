@@ -152,6 +152,10 @@ pub(crate) enum Want {
     Content(ArtifactMetadata),
     /// The holder produces whatever ends up at the root.
     Write,
+    /// The holder makes this content at the root unless it is tracked there: granted in read
+    /// mode when it is, in write mode over the whole root otherwise, nothing excluded, since the
+    /// holder writes all of it.
+    Produce(ArtifactMetadata),
 }
 
 /// A request's identity, chosen by the requester; what a waiting request is withdrawn by. One
@@ -993,6 +997,13 @@ impl<R> DiskTree<R> {
                     (Mode::Read, Vec::new())
                 } else {
                     (Mode::Write, self.exclusions(path, entry))
+                }
+            }
+            Want::Produce(entry) => {
+                if self.matches(path, entry) {
+                    (Mode::Read, Vec::new())
+                } else {
+                    (Mode::Write, Vec::new())
                 }
             }
         };
@@ -1879,6 +1890,21 @@ mod tests {
     }
 
     #[test]
+    fn test_a_produce_want_takes_the_whole_root_when_the_tree_lacks_it() {
+        let mut h = Harness::with(&[("d/a", "A"), ("d/b", "old")]);
+        let want = dir(&[("a", "A"), ("b", "B")]);
+        let grant = h.granted(0, "d", Want::Produce(want.dupe()));
+        assert_eq!(grant.mode, Mode::Write);
+        assert!(grant.exclusions.is_empty(), "the holder writes all of it");
+        assert_eq!(roots(&h.tree), Vec::<String>::new());
+        h.report(0, want.dupe());
+        assert_eq!(roots(&h.tree), vec!["d"]);
+        // Found from then on.
+        assert_eq!(h.granted(1, "d", Want::Produce(want)).mode, Mode::Read);
+        h.finish();
+    }
+
+    #[test]
     fn test_a_report_that_disagrees_with_what_it_excluded_is_refused() {
         let mut h = Harness::with(&[("d/a", "A"), ("d/b", "B")]);
         h.granted(0, "d", Want::Content(dir(&[("a", "A"), ("b", "B2")])));
@@ -2206,6 +2232,16 @@ mod tests {
                     mode: Mode::Write,
                     exclusions: Vec::new(),
                 },
+                Want::Produce(entry) => {
+                    let matches = self
+                        .entry_at(path)
+                        .is_some_and(|e| artifact_metadata_matches_entry(&e, entry));
+                    Root {
+                        path: path.to_buf(),
+                        mode: if matches { Mode::Read } else { Mode::Write },
+                        exclusions: Vec::new(),
+                    }
+                }
                 Want::Content(entry) => {
                     let matches = self
                         .entry_at(path)

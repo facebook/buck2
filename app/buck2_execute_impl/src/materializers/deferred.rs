@@ -43,6 +43,7 @@ use buck2_directory::directory::directory_iterator::DirectoryIteratorPathStack;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_directory::directory::walk::unordered_entry_walk;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::dispatch::current_span;
 use buck2_events::dispatch::get_dispatcher;
@@ -60,6 +61,7 @@ use buck2_execute::materialize::materializer::CleanStaleArtifactsArgs;
 use buck2_execute::materialize::materializer::CopiedArtifact;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::DeclareMatchOutcome;
+use buck2_execute::materialize::materializer::HeldContent;
 use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::MaterializationPurpose;
 use buck2_execute::materialize::materializer::MaterializeRequest;
@@ -571,6 +573,20 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
             self.command_sender.send(cmd)?;
         }
         Ok(())
+    }
+
+    fn is_disk_state(&self) -> bool {
+        false
+    }
+
+    async fn hold_or_take_impl(
+        &self,
+        path: ProjectRelativePathBuf,
+        _value: ArtifactValue,
+    ) -> buck2_error::Result<HeldContent> {
+        Err(internal_error!(
+            "`{path}` was asked for under `hold_or_take`, which the deferred core does not answer: producers declare to it"
+        ))
     }
 
     async fn declare_write<'a>(

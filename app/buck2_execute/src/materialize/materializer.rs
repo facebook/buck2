@@ -436,8 +436,32 @@ impl Drop for WriteLease {
 ///
 /// 4. Declare may delete any existing paths that conflict with the path that was
 ///    declared.
+/// What `Materializer::hold_or_take` answers.
+#[must_use = "hold the lease while reading the path, or make the content and report it"]
+pub enum HeldContent {
+    /// The path holds the content; the lease holds it for reading.
+    Found(ReadLease),
+    /// The path does not hold the content, and the lease holds it for writing: the caller puts
+    /// the content there, the whole of the path, and reports it with `declare_existing`, or
+    /// abandons the lease.
+    Missing(WriteLease),
+}
+
 #[async_trait]
 pub trait Materializer: Allocative + Send + Sync + 'static {
+    /// Whether this materializer tracks disk state only, so that a producer that can make its
+    /// content puts it on disk itself, under `hold_or_take`, and reports it, as a local run does
+    /// (`materialize::produce`). The deferred core is declared to instead (`declare_write`,
+    /// `declare_copy`).
+    fn is_disk_state(&self) -> bool;
+
+    /// Behind `hold_or_take`, which gives the write lease returned here its root.
+    async fn hold_or_take_impl(
+        &self,
+        path: ProjectRelativePathBuf,
+        value: ArtifactValue,
+    ) -> buck2_error::Result<HeldContent>;
+
     /// Prevent background cleanup until the returned guard is dropped.
     async fn prevent_background_cleanup(&self) -> MaterializerBackgroundCleanupGuard {
         MaterializerBackgroundCleanupGuard::new(())
@@ -470,7 +494,8 @@ pub trait Materializer: Allocative + Send + Sync + 'static {
     ) -> buck2_error::Result<()>;
 
     /// Write contents to paths. The output is ordered in the same order as the input. Implicitly
-    /// cleans up paths that the WriteRequest declares.
+    /// cleans up paths that the WriteRequest declares. The deferred core's: a disk-state
+    /// materializer refuses it, since its producers make their content under `hold_or_take`.
     async fn declare_write<'a>(
         &self,
         generate: Box<dyn FnOnce() -> buck2_error::Result<Vec<WriteRequest>> + Send + 'a>,
@@ -672,6 +697,22 @@ impl dyn Materializer {
     ) -> buck2_error::Result<WriteLease> {
         let lease = self.prepare_outputs_impl(paths.clone()).await?;
         Ok(lease.with_roots(paths))
+    }
+
+    /// Holds `path` for reading when it holds `value`'s content already, else for writing, for
+    /// the caller to put the content there and report it with `declare_existing`: how a producer
+    /// that can make its content asks a disk-state materializer (`is_disk_state`), so that
+    /// content a previous build left on disk is found rather than made again. Found content is
+    /// backed by the materializer's own means before it is handed out.
+    pub async fn hold_or_take(
+        &self,
+        path: ProjectRelativePathBuf,
+        value: ArtifactValue,
+    ) -> buck2_error::Result<HeldContent> {
+        Ok(match self.hold_or_take_impl(path.clone(), value).await? {
+            HeldContent::Found(lease) => HeldContent::Found(lease),
+            HeldContent::Missing(lease) => HeldContent::Missing(lease.with_roots(vec![path])),
+        })
     }
 
     /// Reports content the caller put on disk at the paths of `artifacts`, which it holds
