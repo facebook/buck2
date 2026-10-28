@@ -53,13 +53,17 @@ use crate::io::trace::TracingIoProvider;
 ///
 /// Each of them depends on the [`FileSystemBaseline`](crate::file_ops::baseline::FileSystemBaseline)
 /// so that nothing read under one baseline is reused under another.
+///
+/// The contents of a file are read by the caller, after computing this key, so that they are never
+/// held in the graph. The key is therefore never equal to its previous value: a change to the file
+/// must recompute whoever read it.
 #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
 #[pagable_typetag(dice::DiceKeyDyn)]
 struct IoReadFileKey(IProjectRelativePath);
 
 #[async_trait]
 impl Key for IoReadFileKey {
-    type Value = buck2_error::Result<()>;
+    type Value = buck2_error::Result<PathCheck>;
 
     async fn compute(
         &self,
@@ -67,9 +71,7 @@ impl Key for IoReadFileKey {
         _cancellations: &CancellationContext,
     ) -> Self::Value {
         ctx.get_file_system_baseline().await?;
-        // FIXME(JakobDegen): This returning nothing is basically fine for now, it'd be good to get
-        // that cleaned up a little bit though.
-        Ok(())
+        check_path(ctx, self.0).await
     }
 
     fn equality_behavior() -> EqualityBehavior<Self::Value> {
@@ -291,18 +293,37 @@ impl Key for IoPathMetadataKey {
     }
 }
 
+/// The contents of the file at the path, or `None` if there is none: nothing there, or something
+/// ignored. A directory is an error. A symlink at the path or above it is read through, under a
+/// soft error, until `read_through_symlink` is retired.
 pub(super) async fn read_file_if_exists(
     ctx: &mut DiceComputations<'_>,
     path: IProjectRelativePath,
 ) -> buck2_error::Result<Option<String>> {
-    ctx.compute(&IoReadFileKey(path))
+    let check = *ctx
+        .compute(&IoReadFileKey(path))
         .await?
         .as_ref()
         .duped_err()?;
-    ctx.global_data()
-        .get_io_provider()
-        .read_file_if_exists(path)
-        .await
+    match check {
+        PathCheck::Present(FileType::File | FileType::Unknown) => {
+            ctx.global_data()
+                .get_io_provider()
+                .read_file_if_exists(path)
+                .await
+        }
+        PathCheck::Missing { .. }
+        | PathCheck::Ignored { .. }
+        | PathCheck::ParentNotDirectory { .. } => Ok(None),
+        check @ (PathCheck::Present(FileType::Symlink) | PathCheck::ParentSymlink { .. }) => {
+            read_through_symlink(ctx, path, check, ReadKind::File)?;
+            ctx.global_data()
+                .get_io_provider()
+                .read_file_if_exists(path)
+                .await
+        }
+        PathCheck::Present(_) => Err(PathCheckError::new(ctx, path, check, ReadKind::File).into()),
+    }
 }
 
 pub(super) async fn read_dir(

@@ -97,9 +97,8 @@ impl DiceFileComputations {
         read_dir_ext(ctx, path).await
     }
 
-    /// Does not check if the path is ignored
-    ///
-    /// TODO(cjhopman): error on ignored paths, maybe.
+    /// The contents of the file, or `None` if there is no file there: nothing at all, or
+    /// something ignored. A symlink at the path or above it is an error, as is a directory.
     pub async fn read_file_if_exists(
         ctx: &mut DiceComputations<'_>,
         path: CellPath,
@@ -111,7 +110,7 @@ impl DiceFileComputations {
         }
     }
 
-    /// Does not check if the path is ignored
+    /// Like `read_file_if_exists`, with a missing file as an error.
     pub async fn read_file(
         ctx: &mut DiceComputations<'_>,
         path: CellPath,

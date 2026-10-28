@@ -82,7 +82,7 @@ class PathValidityTest(BuckTestCase):
 
     # Symlinks in a `load()` path are read through.
     @unittest.expectedFailure
-    @buck_test()
+    @buck_test(allow_soft_errors=True)
     async def test_load_symlink(self, buck: Buck) -> None:
         os.symlink("realdir", buck.cwd / "linkdir")
         (buck.cwd / "loader").mkdir()

@@ -792,4 +792,36 @@ mod tests {
         );
         Ok(())
     }
+
+    /// File reads go through the check: absent and ignored files read as `None`, directories are
+    /// errors.
+    #[tokio::test]
+    async fn read_file_through_the_check() -> buck2_error::Result<()> {
+        let f = Fixture::new("ign").await?;
+        f.fs.write_file("a/f", "contents");
+        f.fs.write_file("ign/f", "");
+        f.symlink("l", "a");
+        f.symlink("a/lf", "f");
+        let ctx = f.transaction(FileChangeTracker::new()).await?;
+
+        let read = async |path: &str| {
+            DiceFileComputations::read_file_if_exists(&mut ctx.ctx(), cp(path))
+                .await
+                .map_err(|e| format!("{e:#}"))
+        };
+        assert_eq!(read("root//a/f").await, Ok(Some("contents".to_owned())));
+        assert_eq!(read("root//a/g").await, Ok(None));
+        assert_eq!(read("root//a/F").await, Ok(None));
+        assert_eq!(read("root//ign/f").await, Ok(None));
+        assert_eq!(read("root//a/f/x").await, Ok(None));
+        let fails = |res: Result<Option<String>, String>, needle: &str| match res {
+            Err(msg) => assert!(msg.contains(needle), "`{msg}` does not contain `{needle}`"),
+            Ok(v) => panic!("expected a failure mentioning `{needle}`, got {v:?}"),
+        };
+        // Read through, with a soft error, until `read_through_symlink` is retired.
+        assert_eq!(read("root//l/f").await, Ok(Some("contents".to_owned())));
+        assert_eq!(read("root//a/lf").await, Ok(Some("contents".to_owned())));
+        fails(read("root//a").await, "`a` is a directory, not a file");
+        Ok(())
+    }
 }

@@ -65,7 +65,7 @@ class BuckconfigPathsTest(BuckTestCase):
         res = await buck.audit_config("--cell", "cell", "abc.def")
         assert "[abc]\n    def = 2" in res.stdout
 
-    @buck_test(data_dir="include_through_symlink")
+    @buck_test(data_dir="include_through_symlink", allow_soft_errors=True)
     async def test_external_symlink_source_file(self, buck: Buck) -> None:
         external_dir = buck.cwd.parent / "extra"
         external_dir.mkdir()

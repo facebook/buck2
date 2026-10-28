@@ -426,7 +426,8 @@ impl EdenIoProvider {
                         EdenError::PosixError { code, .. }
                             if code == libc::EINVAL || code == libc::ENOTDIR =>
                         {
-                            // Fallback to regular file I/O if we get EINVAL or ENOTDIR because that means it's a symlink
+                            // A symlink at or above the path, which plain file IO follows. Goes
+                            // with the diff that refuses reads through symlinks.
                             return self.fs.read_file_if_exists_impl(path).await;
                         }
                         _ => Err(eden_error.into()),
