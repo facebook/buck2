@@ -254,7 +254,7 @@ impl ConfigParserFileOps for DiceConfigFileOps<'_, '_> {
             Some(_) | None => return Ok(Vec::new()),
         }
 
-        let out = DiceFileComputations::read_dir_include_ignores(self.ctx, path)
+        let out = DiceFileComputations::read_dir(self.ctx, path)
             .await?
             .included
             .iter_with_tag()

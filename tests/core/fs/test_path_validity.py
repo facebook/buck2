@@ -10,7 +10,6 @@
 
 
 import os
-import sys
 import unittest
 
 from buck2.tests.e2e_util.api.buck import Buck
@@ -25,43 +24,38 @@ class PathValidityTest(BuckTestCase):
     # crossing a cell boundary. Each test sets up a `TARGETS.fixture` reachable via
     # such a path and asks buck to read it; the assertion is that buck rejects.
     #
-    # The tests marked `expectedFailure` describe checks buck does not perform yet;
-    # closing a gap makes the marker fail and it can be dropped.
+    # A test marked `expectedFailure` describes a check buck does not perform yet;
+    # closing the gap makes the marker fail and it can be dropped.
 
     @buck_test()
     async def test_target_pattern_wrong_case(self, buck: Buck) -> None:
-        # `realdir/TARGETS.fixture` exists; querying with `Realdir`. On Linux the
-        # case-sensitive filesystem rejects the read directly and buck adds a
-        # "did you mean" hint. On macOS / Windows buck currently resolves the
-        # mistyped path through the case-insensitive filesystem — a gap. When
-        # that gap is closed this branch will start failing; switch it to
-        # `expect_failure` with its own golden at that point.
-        if sys.platform in ("darwin", "win32"):
-            await buck.targets("//Realdir:")
-        else:
-            res = await expect_failure(buck.targets("//Realdir:", "-v0"))
-            golden(
-                output=sanitize_stderr(res.stderr),
-                rel_path="golden/target_pattern_wrong_case.golden.stderr",
-            )
+        # `realdir/TARGETS.fixture` exists; querying with `Realdir` is rejected on
+        # every platform, whatever the file system makes of the spelling.
+        res = await expect_failure(buck.targets("//Realdir:", "-v0"))
+        golden(
+            output=sanitize_stderr(res.stderr),
+            rel_path="golden/target_pattern_wrong_case.golden.stderr",
+        )
 
     # Symlinks in a target pattern's path are read through.
     @unittest.expectedFailure
-    @buck_test()
+    @buck_test(allow_soft_errors=True)
     async def test_target_pattern_symlink(self, buck: Buck) -> None:
         os.symlink("realdir", buck.cwd / "linkdir")
         await expect_failure(buck.targets("//linkdir:"))
 
-    # An ignored directory can be traversed to reach a package.
-    @unittest.expectedFailure
     @buck_test()
     async def test_target_pattern_ignored(self, buck: Buck) -> None:
         # `ignored*` is listed in `[project] ignore` (matching the dir but not its
         # contents); a `TARGETS.fixture` reachable only by traversing through an
-        # ignored directory should be rejected. NB: a bare `ignore = ignored`
-        # entry is silently rewritten to also cover `ignored/**`, which would
-        # mask this gap — use the glob form to test the path-element check.
-        await expect_failure(buck.targets("//ignored/inside:"))
+        # ignored directory is rejected. NB: a bare `ignore = ignored` entry is
+        # silently rewritten to also cover `ignored/**`, which would not exercise
+        # the path-element check — hence the glob form.
+        res = await expect_failure(buck.targets("//ignored/inside:", "-v0"))
+        golden(
+            output=sanitize_stderr(res.stderr),
+            rel_path="golden/target_pattern_ignored.golden.stderr",
+        )
 
     @buck_test()
     async def test_target_pattern_cell_traverse(self, buck: Buck) -> None:

@@ -11,6 +11,7 @@
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::fs::i_project_rel_path::IProjectRelativePath;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_error::BuckErrorContext;
 use buck2_fs::paths::file_name::FileName;
 use buck2_hash::BuckDashMap;
@@ -36,7 +37,14 @@ use crate::dice::data::HasIoProvider;
 use crate::file_ops::baseline::HasFileSystemBaseline;
 use crate::file_ops::metadata::FileType;
 use crate::file_ops::metadata::RawPathMetadata;
+use crate::file_ops::path_check::PathCheck;
+use crate::file_ops::path_check::PathCheckError;
 use crate::file_ops::path_check::PathCheckKey;
+use crate::file_ops::path_check::ReadKind;
+use crate::file_ops::path_check::check_path;
+use crate::file_ops::path_check::read_through_symlink;
+use crate::ignores::ignore_set::HasIgnoreSet;
+use crate::ignores::ignore_set::IgnoreSet;
 
 /// The `Io*` keys are the DICE nodes at which file system state enters the graph; file watchers
 /// invalidate them through the `FileChangeTracker`.
@@ -88,8 +96,24 @@ impl Key for IoReadDirKey {
         ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
+        // Not redundant with the check's own dependency on the baseline: the check can come out
+        // equal under a new baseline while the listing changed.
         ctx.get_file_system_baseline().await?;
-        read_dir_cached(ctx, self.0).await
+        match check_path(ctx, self.0).await? {
+            PathCheck::Present(FileType::Directory) => {}
+            check @ (PathCheck::Present(FileType::Symlink) | PathCheck::ParentSymlink { .. }) => {
+                read_through_symlink(ctx, self.0, check, ReadKind::Directory)?
+            }
+            check => {
+                return Err(PathCheckError::new(ctx, self.0, check, ReadKind::Directory).into());
+            }
+        }
+        let entries = read_dir_cached(ctx, self.0).await?;
+        Ok(without_ignored(
+            self.0,
+            entries,
+            &ctx.global_data().get_ignore_set(),
+        ))
     }
 
     fn equality_behavior() -> EqualityBehavior<Self::Value> {
@@ -108,7 +132,49 @@ impl Key for IoReadDirKey {
     }
 }
 
-/// Lists a directory, at most once per transaction.
+/// `entries`, listed at `dir`, minus those matching the ignore set.
+fn without_ignored(
+    dir: IProjectRelativePath,
+    entries: PackedStringSlice<FileName, FileType>,
+    ignores: &IgnoreSet,
+) -> PackedStringSlice<FileName, FileType> {
+    let mut buf = String::with_capacity(dir.as_str().len() + 1 + 32);
+    let mut is_ignored = |file_name: &FileName| {
+        buf.clear();
+        if !dir.is_empty() {
+            buf.push_str(dir.as_str());
+            buf.push('/');
+        }
+        buf.push_str(file_name.as_str());
+        ignores.is_match(ProjectRelativePath::unchecked_new(&buf))
+    };
+
+    // Input is sorted; we only remove entries, never reorder, so the output stays sorted. Defer
+    // allocating a builder until we encounter the first ignored entry, so that the common
+    // no-ignored-files case can reuse the existing alloc.
+    let mut builder: Option<PackedStringSliceBuilder<FileName, FileType>> = None;
+    for (idx, (file_name, file_type)) in entries.iter_with_tag().enumerate() {
+        if is_ignored(file_name) {
+            builder.get_or_insert_with(|| {
+                let mut b = PackedStringSliceBuilder::with_capacity(entries.len() - 1);
+                for (fname, ftype) in entries.iter_with_tag().take(idx) {
+                    b.push(fname, ftype);
+                }
+                b
+            });
+            continue;
+        }
+        if let Some(b) = builder.as_mut() {
+            b.push(file_name, file_type);
+        }
+    }
+    match builder {
+        Some(b) => b.build_sorted(),
+        None => entries,
+    }
+}
+
+/// Lists a directory, at most once per transaction. The listing is raw: ignored entries included.
 ///
 /// Reading through this rather than `IoReadDirKey` records no dependency on the listing; callers
 /// that use it must be invalidated by the file watcher themselves.

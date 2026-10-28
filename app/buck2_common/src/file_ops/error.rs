@@ -105,6 +105,11 @@ pub(super) fn extended_ignore_error<'a>(
                             let mut cell_suggestion = vec![];
                             if let Ok(cell_resolver) = ctx.get_cell_resolver().await {
                                 for (cell_name, _) in cell_resolver.cells() {
+                                    // The listing already said the name is not in this cell; a
+                                    // case-insensitive file system would still find it here.
+                                    if cell_name == path.cell() {
+                                        continue;
+                                    }
                                     let cell_path = CellPath::new(cell_name, path.path());
 
                                     if DiceFileComputations::read_path_metadata_if_exists(

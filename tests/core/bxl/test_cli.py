@@ -405,7 +405,7 @@ class CliTest(BuckTestCase):
                 "--targets",
                 "invalid/...",
             ),
-            stderr_regex="Error listing dir `invalid`",
+            stderr_regex="Directory `invalid` does not exist",
         )
 
     @buck_test()

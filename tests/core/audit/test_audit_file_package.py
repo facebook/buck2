@@ -74,7 +74,7 @@ class AuditFilePackageTest(BuckTestCase):
         expected = {
             "TARGETS.fixture": {"package": "root//"},
             "newcell/TARGETS.fixture": {"package": "newcell//"},
-            "nonexistent/file.txt": {"error": "Error listing dir `nonexistent`"},
+            "nonexistent/file.txt": {"error": "Directory `nonexistent` does not exist"},
         }
         assert data == expected, f"Expected {expected}, got {data}"
 

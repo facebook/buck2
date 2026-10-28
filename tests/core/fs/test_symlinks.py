@@ -178,13 +178,13 @@ class SymlinksTest(BuckTestCase):
         # target, is itself a symlink is completely ignored
         assert res.stdout.strip() == "dir"
 
-    @buck_test(setup_eden=True)
+    @buck_test(setup_eden=True, allow_soft_errors=True)
     async def test_eden_io_read_symlink_dir_build_target(self, buck: Buck) -> None:
         setup_symlink(buck.cwd / "testlink", buck.cwd / "symdir" / "dir")
 
         await buck.build("//:symlink_dep")
 
-    @buck_test(setup_eden=True)
+    @buck_test(setup_eden=True, allow_soft_errors=True)
     async def test_eden_io_read_symlink_dir_list_target(self, buck: Buck) -> None:
         setup_symlink(buck.cwd / "testlink", buck.cwd / "symdir")
 

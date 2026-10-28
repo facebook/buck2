@@ -52,6 +52,7 @@ from buck2.tests.core.common.io.file_watcher_tests import (
     verify_results,
 )
 from buck2.tests.e2e_util.api.buck import Buck
+from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 from buck2.tests.e2e_util.helper.utils import filter_events
 
@@ -323,9 +324,11 @@ class EdenfsTest(BuckTestCase):
         await buck.targets("d1:")
 
         (buck.cwd / "d1").rename(buck.cwd / "d2")
-        # FIXME(JakobDegen): Bug: This directory doesn't exist.
-        # Note: Also repros with watchman
-        await buck.targets("d1:")
+        await expect_failure(
+            buck.targets("d1:"),
+            stderr_regex="dir `root//d1` does not exist. Did you mean `root//d2`",
+        )
+        await buck.targets("d2:")
 
     # Dir replace is not supported on Windows
     @buck_test(setup_eden=True, skip_for_os=["windows"])

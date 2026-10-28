@@ -46,6 +46,18 @@ pub enum FileType {
     Unknown,
 }
 
+impl FileType {
+    /// A noun for error messages.
+    pub fn describe(self) -> &'static str {
+        match self {
+            FileType::Directory => "directory",
+            FileType::File => "file",
+            FileType::Symlink => "symlink",
+            FileType::Unknown => "special file",
+        }
+    }
+}
+
 impl From<std::fs::FileType> for FileType {
     fn from(fs_type: std::fs::FileType) -> Self {
         if fs_type.is_file() {

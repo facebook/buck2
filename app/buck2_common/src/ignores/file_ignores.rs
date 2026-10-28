@@ -50,6 +50,23 @@ pub enum FileIgnoreResult {
     Ignored(FileIgnoreReason),
 }
 
+impl FileIgnoreReason {
+    /// The error for having tried to read the ignored path.
+    pub fn into_read_error(self) -> buck2_error::Error {
+        match self {
+            FileIgnoreReason::IgnoredByPattern { path, pattern } => FileOpsError::ReadIgnoredDir(
+                path,
+                format!("file is matched by pattern `{pattern}`"),
+            )
+            .into(),
+            FileIgnoreReason::IgnoredByCell { path, cell_name } => {
+                FileOpsError::ReadIgnoredDir(path, format!("file is part of cell `{cell_name}`"))
+                    .into()
+            }
+        }
+    }
+}
+
 impl FileIgnoreResult {
     /// Converts the FileIgnoreResult to a Result<()> where any ignored case is converted to an Err
     /// with appropriate message. This should be used when it would be an error to interact with an
@@ -57,17 +74,7 @@ impl FileIgnoreResult {
     pub fn into_result(self) -> buck2_error::Result<()> {
         match self {
             FileIgnoreResult::Ok => Ok(()),
-            FileIgnoreResult::Ignored(FileIgnoreReason::IgnoredByPattern { path, pattern }) => {
-                Err(FileOpsError::ReadIgnoredDir(
-                    path,
-                    format!("file is matched by pattern `{pattern}`"),
-                )
-                .into())
-            }
-            FileIgnoreResult::Ignored(FileIgnoreReason::IgnoredByCell { path, cell_name }) => Err(
-                FileOpsError::ReadIgnoredDir(path, format!("file is part of cell `{cell_name}`"))
-                    .into(),
-            ),
+            FileIgnoreResult::Ignored(reason) => Err(reason.into_read_error()),
         }
     }
 

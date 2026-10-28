@@ -13,6 +13,7 @@ use std::sync::Arc;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::name::CellName;
+use buck2_core::cells::nested::NestedCells;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::file_name::FileNameBuf;
@@ -31,6 +32,7 @@ use crate::file_ops::metadata::FileType;
 use crate::file_ops::metadata::RawPathMetadata;
 use crate::file_ops::metadata::ReadDirOutput;
 use crate::ignores::file_ignores::CellFileIgnores;
+use crate::ignores::file_ignores::FileIgnoreReason;
 use crate::ignores::file_ignores::FileIgnoreResult;
 use crate::ignores::ignore_set::HasIgnoreSet;
 use crate::io::ReadDirError;
@@ -39,12 +41,30 @@ pub struct DiceFileComputations;
 
 /// Functions for accessing files with keys on the dice graph.
 impl DiceFileComputations {
-    /// Filters out ignored paths
+    /// Lists a directory of the cell. Entries that are the roots of nested cells are left out,
+    /// and a path inside a nested cell is an error; `project.ignore` applies as it does to every
+    /// read.
     pub async fn read_dir(
         ctx: &mut DiceComputations<'_>,
         path: CellPath,
     ) -> buck2_error::Result<ReadDirOutput> {
-        read_dir_impl(ctx, path, true).await
+        let cells = ctx.get_cell_resolver().await?;
+        let nested_cells = cells.get(path.cell())?.nested_cells();
+        if let Some((_, cell_name, _)) = nested_cells.matches(path.path()) {
+            return Err(FileIgnoreReason::IgnoredByCell {
+                path: path.path().as_str().to_owned(),
+                cell_name,
+            }
+            .into_read_error());
+        }
+
+        let entries = match external_cell_delegate(ctx, cells, path.cell()).await? {
+            Some(delegate) => delegate.read_dir(ctx, path.ipath()).await?,
+            None => io::read_dir(ctx, cells.resolve_ipath(path)?).await?,
+        };
+        Ok(ReadDirOutput {
+            included: without_nested_cells(path, entries, nested_cells),
+        })
     }
 
     /// Returns if a directory or file exists at the given path, but checks for an exact,
@@ -67,13 +87,6 @@ impl DiceFileComputations {
             Some(delegate) => delegate.exists_matching_exact_case(ctx, path.ipath()).await,
             None => io::exists_matching_exact_case(ctx, cells.resolve_ipath(path)?).await,
         }
-    }
-
-    pub async fn read_dir_include_ignores(
-        ctx: &mut DiceComputations<'_>,
-        path: CellPath,
-    ) -> buck2_error::Result<ReadDirOutput> {
-        read_dir_impl(ctx, path, false).await
     }
 
     /// Like read_dir, but with extended error information. This may add additional dice dependencies.
@@ -169,63 +182,35 @@ fn cell_ignores(
     ))
 }
 
-async fn read_dir_impl(
-    ctx: &mut DiceComputations<'_>,
-    path: CellPath,
-    check_ignores: bool,
-) -> buck2_error::Result<ReadDirOutput> {
-    let cells = ctx.get_cell_resolver().await?;
-    let ignores = if check_ignores {
-        let ignores = cell_ignores(ctx, cells, path.cell())?;
-        // TODO(cjhopman): This should also probably verify that the parent chain is not ignored.
-        ignores.check(path.path()).into_result()?;
-        Some(ignores)
-    } else {
-        None
-    };
-
-    let entries = match external_cell_delegate(ctx, cells, path.cell()).await? {
-        Some(delegate) => delegate.read_dir(ctx, path.ipath()).await?,
-        None => io::read_dir(ctx, cells.resolve_ipath(path)?).await?,
-    };
-
-    let included = match ignores {
-        Some(ignores) => without_ignored(path, entries, &ignores),
-        None => entries,
-    };
-    Ok(ReadDirOutput { included })
-}
-
-/// `entries`, listed at `path`, minus those the ignores apply to.
-fn without_ignored(
+/// `entries`, listed at `path`, minus the roots of cells nested in `path`'s cell.
+fn without_nested_cells(
     path: CellPath,
     entries: PackedStringSlice<FileName, FileType>,
-    ignores: &CellFileIgnores,
+    nested_cells: &NestedCells,
 ) -> PackedStringSlice<FileName, FileType> {
+    if nested_cells.is_empty() {
+        return entries;
+    }
     let path = path.path();
-    let is_ignored = |file_name: &str| {
-        let mut cell_relative_path_buf;
-        let cell_relative_path: &str = if path.is_empty() {
-            file_name
-        } else {
-            cell_relative_path_buf =
-                String::with_capacity(path.as_str().len() + 1 + file_name.len());
-            cell_relative_path_buf.push_str(path.as_str());
-            cell_relative_path_buf.push('/');
-            cell_relative_path_buf.push_str(file_name);
-            &cell_relative_path_buf
-        };
-        ignores
-            .check(CellRelativePath::unchecked_new(cell_relative_path))
-            .is_ignored()
+    let mut buf = String::with_capacity(path.as_str().len() + 1 + 32);
+    let mut is_nested_cell = |file_name: &FileName| {
+        buf.clear();
+        if !path.is_empty() {
+            buf.push_str(path.as_str());
+            buf.push('/');
+        }
+        buf.push_str(file_name.as_str());
+        nested_cells
+            .matches(CellRelativePath::unchecked_new(&buf))
+            .is_some()
     };
 
     // Input is sorted; we only remove entries, never reorder, so the output stays sorted. Defer
-    // allocating a builder until we encounter the first ignored entry, so that the common
-    // no-ignored-files case can reuse the existing alloc.
+    // allocating a builder until we encounter the first removed entry, so that the common case
+    // can reuse the existing alloc.
     let mut builder: Option<PackedStringSliceBuilder<FileName, FileType>> = None;
     for (idx, (file_name, file_type)) in entries.iter_with_tag().enumerate() {
-        if is_ignored(file_name.as_str()) {
+        if is_nested_cell(file_name) {
             builder.get_or_insert_with(|| {
                 let mut b = PackedStringSliceBuilder::with_capacity(entries.len() - 1);
                 for (fname, ftype) in entries.iter_with_tag().take(idx) {
