@@ -227,6 +227,7 @@ export const sidebars: SidebarsConfig = {
         'rule_authors/transitive_sets',
         'rule_authors/configurations',
         'rule_authors/configuration_transitions',
+        'rule_authors/execution_groups',
         'rule_authors/custom_macros',
         'rule_authors/dynamic_dependencies',
         'rule_authors/anon_targets',

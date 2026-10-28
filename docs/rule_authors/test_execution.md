@@ -224,6 +224,12 @@ ExternalRunnerTestInfo(
 )
 ```
 
+Instead of `default_executor`, a rule with
+[execution groups](execution_groups.md) can pass `exec_group` to
+`ExternalRunnerTestInfo` or `InternalRunnerTestInfo` to run the test on the
+executor of that group. If both are set, `default_executor` wins. An executor
+override that the test runner picks still takes precedence over either.
+
 ## Working Directory
 
 <OssOnly>
