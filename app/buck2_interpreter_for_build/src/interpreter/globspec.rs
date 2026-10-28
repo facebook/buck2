@@ -224,8 +224,7 @@ impl GlobSpec {
             return Box::new(
                 candidates
                     .into_iter()
-                    .filter(move |v| self.matches(v.as_str()))
-                    .map(|p| &**p),
+                    .filter(move |v| self.matches(v.as_str())),
             );
         }
         Box::new(spec.files().filter(move |v| self.matches(v.as_str())))

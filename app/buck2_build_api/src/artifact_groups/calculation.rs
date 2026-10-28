@@ -293,12 +293,12 @@ async fn dir_artifact_value(
             let files = &DiceFileComputations::read_dir(ctx, self.0).await?.included;
 
             let entry_values = ctx
-                .try_compute_join(files.iter(), async |ctx, x| {
+                .try_compute_join(files.iter(), async |ctx, file_name| {
                     // TODO(scottcao): This current creates a `DirArtifactValueKey` for each subdir of a source directory.
                     // Instead, this should be 1 key for the entire top-level directory since there's almost
                     // no chance of getting cache hit with a sub-directory.
-                    let value = path_artifact_value(ctx, self.0.join(&x.file_name), None).await?;
-                    buck2_error::Ok((x.file_name.clone(), value))
+                    let value = path_artifact_value(ctx, self.0.join(file_name), None).await?;
+                    buck2_error::Ok((file_name, value))
                 })
                 .await?;
 
@@ -312,7 +312,7 @@ async fn dir_artifact_value(
             let mut entries = Vec::with_capacity(entry_values.len());
             let mut deps_merger = DepsMerger::None;
             for (file_name, value) in entry_values {
-                entries.push((file_name, value.entry().dupe()));
+                entries.push((file_name.to_owned(), value.entry().dupe()));
                 if let Some(deps) = value.deps() {
                     deps_merger = match deps_merger {
                         DepsMerger::None => DepsMerger::One(deps.dupe()),

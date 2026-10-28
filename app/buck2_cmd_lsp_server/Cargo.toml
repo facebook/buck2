@@ -21,6 +21,7 @@ buck2_hash.workspace = true
 buck2_interpreter.workspace = true
 buck2_interpreter_for_build.workspace = true
 buck2_server_ctx.workspace = true
+buck2_util.workspace = true
 crossbeam-channel.workspace = true
 dice.workspace = true
 dupe.workspace = true

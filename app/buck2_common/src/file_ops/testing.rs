@@ -17,12 +17,14 @@ use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
+use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::file_name::FileNameBuf;
+use buck2_util::arc_str::PackedStringSlice;
+use buck2_util::arc_str::PackedStringSliceBuilder;
 use cmp_any::PartialEqAny;
 use dice::DiceComputations;
 use dice::testing::DiceBuilder;
 use dupe::Dupe;
-use itertools::Itertools;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 
@@ -35,11 +37,9 @@ use crate::file_ops::delegate::testing::FileOpsValue;
 use crate::file_ops::dice::CheckIgnores;
 use crate::file_ops::metadata::FileMetadata;
 use crate::file_ops::metadata::FileType;
-use crate::file_ops::metadata::RawDirEntry;
 use crate::file_ops::metadata::RawPathMetadata;
 use crate::file_ops::metadata::RawSymlink;
 use crate::file_ops::metadata::ReadDirOutput;
-use crate::file_ops::metadata::SimpleDirEntry;
 use crate::file_ops::metadata::TrackedFileDigest;
 use crate::file_ops::trait_::FileOps;
 use crate::ignores::file_ignores::FileIgnoreResult;
@@ -48,7 +48,7 @@ use crate::ignores::file_ignores::FileIgnoreResult;
 enum TestFileOpsEntry {
     File(String /*data*/, FileMetadata),
     ExternalSymlink(Arc<ExternalSymlink>),
-    Directory(BTreeSet<SimpleDirEntry>),
+    Directory(BTreeSet<(FileNameBuf, FileType)>),
 }
 
 #[derive(Allocative, Clone, Dupe, Pagable)]
@@ -81,10 +81,7 @@ impl TestFileOps {
                     .or_insert_with(|| TestFileOpsEntry::Directory(BTreeSet::new()));
                 match dir_entry {
                     TestFileOpsEntry::Directory(listing) => {
-                        listing.insert(SimpleDirEntry {
-                            file_type,
-                            file_name: name.to_owned(),
-                        });
+                        listing.insert((name.to_owned(), file_type));
                         file_type = FileType::Directory;
                         path = dir;
                     }
@@ -178,13 +175,11 @@ impl FileOps for TestFileOps {
     }
 
     async fn read_dir(&self, path: CellPath) -> buck2_error::Result<ReadDirOutput> {
-        let included = self
+        let listing = self
             .entries
             .get(&path)
             .and_then(|e| match e {
-                TestFileOpsEntry::Directory(listing) => {
-                    Some(listing.iter().cloned().sorted().collect::<Vec<_>>().into())
-                }
+                TestFileOpsEntry::Directory(listing) => Some(listing),
                 _ => None,
             })
             .ok_or_else(|| {
@@ -194,7 +189,16 @@ impl FileOps for TestFileOps {
                     path
                 )
             })?;
-        Ok(ReadDirOutput { included })
+        let mut builder: PackedStringSliceBuilder<FileName, FileType> =
+            PackedStringSliceBuilder::with_capacity(listing.len());
+        // BTreeSet iterates in sorted order — by FileNameBuf, then FileType.
+        // The sort key for the packed slice is the file name only.
+        for (file_name, file_type) in listing {
+            builder.push(file_name, *file_type);
+        }
+        Ok(ReadDirOutput {
+            included: builder.build_sorted(),
+        })
     }
 
     async fn read_path_metadata_if_exists(
@@ -249,16 +253,18 @@ impl FileOpsDelegate for TestCellFileOps {
         &self,
         _ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
-    ) -> buck2_error::Result<Arc<[RawDirEntry]>> {
+    ) -> buck2_error::Result<PackedStringSlice<str, FileType>> {
         let path = CellPath::new(self.0, path);
-        let simple_entries = FileOps::read_dir(&self.1, path).await?.included;
-        Ok(simple_entries
-            .iter()
-            .map(|e| RawDirEntry {
-                file_name: e.file_name.clone().into_inner(),
-                file_type: e.file_type,
-            })
-            .collect())
+        let included = FileOps::read_dir(&self.1, path).await?.included;
+        // Re-pack as raw `str`-typed since the FileOpsDelegate boundary is
+        // pre-validation. The strings are already valid `FileName`s, so the
+        // delegate's filter pass will accept them all.
+        let mut builder: PackedStringSliceBuilder<str, FileType> =
+            PackedStringSliceBuilder::with_capacity(included.len());
+        for (file_name, file_type) in included.iter_with_tag() {
+            builder.push(file_name.as_str(), file_type);
+        }
+        Ok(builder.build_sorted())
     }
 
     async fn read_path_metadata_if_exists(

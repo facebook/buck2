@@ -32,7 +32,7 @@ use buck2_node::visibility::VisibilityPattern;
 use buck2_node::visibility::VisibilityPatternList;
 use buck2_node::visibility::VisibilitySpecification;
 use buck2_node::visibility::WithinViewSpecification;
-use buck2_util::arc_str::ArcS;
+use buck2_util::arc_str::PackedStr;
 use dupe::Dupe;
 use starlark::values::Heap;
 use starlark::values::Value;
@@ -53,7 +53,7 @@ use crate::attrs::resolve::ctx::AttrResolutionContext;
 #[buck2(tag = Tier0)]
 enum ConfiguredAttrError {
     #[error("Source path `{0}` cannot be used in attributes referenced in transition")]
-    SourceFileToStarlarkValue(ArcS<PackageRelativePath>),
+    SourceFileToStarlarkValue(PackedStr<PackageRelativePath>),
 }
 
 pub trait ConfiguredAttrExt {

@@ -60,6 +60,7 @@ use buck2_server_ctx::late_bindings::LSP_SERVER_COMMAND;
 use buck2_server_ctx::late_bindings::LspServerCommand;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::streaming_request_handler::StreamingRequestHandler;
+use buck2_util::arc_str::PackedStr;
 use dice::DiceTransaction;
 use dice::Version;
 use dupe::Dupe;
@@ -563,7 +564,8 @@ impl<'a> BuckLspContext<'a> {
                             // this thing on disk, so treat it like a source artifact
                             let buildfile: &PackageRelativePath =
                                 PackageRelativePath::new(listing.buildfile())?;
-                            let source_path = SourcePath::new(package.dupe(), buildfile.into());
+                            let source_path =
+                                SourcePath::new(package.dupe(), PackedStr::new(buildfile));
                             let relative_path = artifact_fs.resolve_source(source_path.as_ref())?;
                             let path = self.fs.resolve(&relative_path);
                             let uri = Uri::from_file_path(&path).ok_or_else(|| {

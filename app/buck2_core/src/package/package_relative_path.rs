@@ -21,7 +21,6 @@ use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathIter;
 use buck2_fs::paths::relative_path::RelativePath;
 use buck2_fs::paths::relative_path::RelativePathBuf;
-use buck2_util::arc_str::ArcS;
 use buck2_util::arc_str::StringInside;
 use pagable::Pagable;
 use pagable::PagableBoxDeserialize;
@@ -412,11 +411,6 @@ impl PackageRelativePath {
     #[inline]
     pub fn to_box(&self) -> Box<PackageRelativePath> {
         self.to_buf().into_box()
-    }
-
-    #[inline]
-    pub fn to_arc(&self) -> ArcS<PackageRelativePath> {
-        ArcS::from(self)
     }
 }
 

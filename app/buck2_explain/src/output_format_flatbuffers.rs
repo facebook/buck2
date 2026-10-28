@@ -85,6 +85,7 @@ mod tests {
     use buck2_node::call_stack::StarlarkCallStack;
     use buck2_node::nodes::configured::ConfiguredTargetNode;
     use buck2_query::query::syntax::simple::eval::set::TargetSet;
+    use buck2_util::arc_str::PackedStr;
     use dupe::Dupe;
     use starlark::codemap::FileSpan;
     use starlark::errors::Frame;
@@ -102,9 +103,9 @@ mod tests {
                 let srcs = ["foo/bar", "foo/bar2"]
                     .iter()
                     .map(|p| {
-                        b.encode_source_file(&CoercedPath::File(
-                            PackageRelativePath::new(p).unwrap().to_arc(),
-                        ))
+                        b.encode_source_file(&CoercedPath::File(PackedStr::new(
+                            PackageRelativePath::new(p).unwrap(),
+                        )))
                     })
                     .collect::<buck2_error::Result<Vec<_>>>()?;
                 b.encode_list(&srcs)

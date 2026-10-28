@@ -36,6 +36,17 @@ pub trait StringInside {
     fn from_str(s: &str) -> &Self;
 }
 
+impl StringInside for str {
+    #[inline]
+    fn as_str(wrapper: &Self) -> &str {
+        wrapper
+    }
+    #[inline]
+    fn from_str(s: &str) -> &Self {
+        s
+    }
+}
+
 #[derive(
     Eq, PartialEq, Ord, PartialOrd, Hash, StrongHash, Clone_, Dupe_, Debug, Allocative
 )]

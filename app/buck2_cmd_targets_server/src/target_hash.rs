@@ -186,10 +186,10 @@ impl FileHasher for PathsAndContentsHasher {
                             .included;
                         res.extend(files.len().to_be_bytes());
                         for x in files.iter() {
-                            let name = x.file_name.as_str();
+                            let name = x.as_str();
                             res.extend(name.len().to_be_bytes());
                             res.extend(name.as_bytes());
-                            hash_item(ctx, cell_path.join(&x.file_name), res).await?;
+                            hash_item(ctx, cell_path.join(x), res).await?;
                         }
                     }
                 },

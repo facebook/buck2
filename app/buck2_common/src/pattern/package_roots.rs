@@ -139,9 +139,9 @@ pub async fn collect_package_roots<E>(
         // The rev() call isn't necessary, it ends up causing us to slightly prefer running
         // things in order and we've encountered a specific case that benefits a lot from it
         // (due to having some huge things in an `apps/` dir).
-        for entry in listing.iter().rev() {
-            if entry.file_type.is_dir() {
-                let child = path.join(&entry.file_name);
+        for (file_name, file_type) in listing.iter_with_tag().rev() {
+            if file_type.is_dir() {
+                let child = path.join(file_name);
                 if seen.insert(child) {
                     queue.push(list_dir(child));
                 }

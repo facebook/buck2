@@ -99,7 +99,6 @@ rust_library(
         "//buck2/gazebo/variant_name:variant_name",
         "//buck2/pagable:pagable",
         "//buck2/shed/static_interner:static_interner",
-        "//buck2/starlark-rust/starlark_map:starlark_map",
         # @oss-disable[end= ]: "//common/rust/folly/logging:logging",
         # @oss-disable[end= ]: "//common/rust/folly/memory:memory",
         # @oss-disable[end= ]: "//common/rust/gflags:gflags",

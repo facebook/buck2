@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-use std::sync::Arc;
-
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::cells::CellResolver;
@@ -20,6 +18,8 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_hash::BuckDashMap;
 use buck2_hash::BuckMutSet;
+use buck2_util::arc_str::PackedStringSlice;
+use buck2_util::arc_str::PackedStringSliceBuilder;
 use cmp_any::PartialEqAny;
 use derivative::Derivative;
 use derive_more::Display;
@@ -41,7 +41,7 @@ use crate::dice::cells::HasCellResolver;
 use crate::dice::data::HasIoProvider;
 use crate::file_ops::baseline::HasFileSystemBaseline;
 use crate::file_ops::delegate::FileOpsDelegate;
-use crate::file_ops::metadata::RawDirEntry;
+use crate::file_ops::metadata::FileType;
 use crate::file_ops::metadata::RawPathMetadata;
 
 /// A `FileOpsDelegate` implementation that calls out to the `IoProvider` to read files.
@@ -97,7 +97,7 @@ struct IoReadDirKey(CellPath);
 
 #[async_trait]
 impl Key for IoReadDirKey {
-    type Value = buck2_error::Result<Arc<[RawDirEntry]>>;
+    type Value = buck2_error::Result<PackedStringSlice<str, FileType>>;
 
     async fn compute(
         &self,
@@ -127,7 +127,7 @@ impl Key for IoReadDirKey {
 async fn io_read_dir_key_impl(
     ctx: &mut DiceComputations<'_>,
     path: CellPath,
-) -> buck2_error::Result<Arc<[RawDirEntry]>> {
+) -> buck2_error::Result<PackedStringSlice<str, FileType>> {
     let project_path = ctx.get_cell_resolver().await?.resolve_path(path)?;
     let read_dir_cache = ctx
         .per_transaction_data()
@@ -135,9 +135,9 @@ async fn io_read_dir_key_impl(
         .get::<ReadDirCache>()
         .expect("ReadDirCache is expected to be set.");
     if let Some(cached) = read_dir_cache.0.get(&project_path) {
-        return Ok(cached.clone());
+        return Ok(cached.dupe());
     };
-    let mut entries = ctx
+    let entries = ctx
         .global_data()
         .get_io_provider()
         .read_dir(project_path.clone())
@@ -145,10 +145,15 @@ async fn io_read_dir_key_impl(
         .with_buck_error_context(|| format!("Error listing dir `{}`", project_path))?
         .into_entries();
 
-    // Make sure entries are deterministic, since read_dir isn't.
-    entries.sort_by(|a, b| a.file_name.cmp(&b.file_name));
-    let entries: Arc<[RawDirEntry]> = Arc::from(entries);
-    read_dir_cache.0.insert(project_path, entries.clone());
+    // Pack into a sorted compact representation. `read_dir` is not guaranteed
+    // to return entries in any particular order.
+    let mut builder: PackedStringSliceBuilder<str, FileType> =
+        PackedStringSliceBuilder::with_capacity(entries.len());
+    for e in &entries {
+        builder.push(&e.file_name, e.file_type);
+    }
+    let entries = builder.sort_and_build();
+    read_dir_cache.0.insert(project_path, entries.dupe());
 
     Ok(entries)
 }
@@ -239,7 +244,7 @@ impl Key for IoExistsMatchingExactCaseKey {
         // for this
         let entry = self.0.path().file_name().unwrap();
         let dir = io_read_dir_key_impl(ctx, dir).await?;
-        Ok(dir.iter().any(|f| &*f.file_name == entry))
+        Ok(dir.contains(entry.as_str()))
     }
 
     fn equality_behavior() -> EqualityBehavior<Self::Value> {
@@ -280,7 +285,7 @@ impl FileOpsDelegate for IoFileOpsDelegate {
         &self,
         ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
-    ) -> buck2_error::Result<Arc<[RawDirEntry]>> {
+    ) -> buck2_error::Result<PackedStringSlice<str, FileType>> {
         let path = CellPath::new(self.cell, path);
         ctx.compute(&IoReadDirKey(path)).await?.dupe()
     }
@@ -310,7 +315,7 @@ impl FileOpsDelegate for IoFileOpsDelegate {
     }
 }
 
-struct ReadDirCache(BuckDashMap<ProjectRelativePathBuf, Arc<[RawDirEntry]>>);
+struct ReadDirCache(BuckDashMap<ProjectRelativePathBuf, PackedStringSlice<str, FileType>>);
 
 pub fn initialize_read_dir_cache(data: &mut UserComputationData) {
     data.data.set(ReadDirCache(Default::default()));

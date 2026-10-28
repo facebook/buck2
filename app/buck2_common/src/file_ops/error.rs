@@ -127,7 +127,7 @@ pub(super) fn extended_ignore_error<'a>(
                                 });
                             } else if let Some(suggestion) = did_you_mean(
                                 file_name.as_str(),
-                                v.included.iter().map(|x| x.file_name.as_str()),
+                                v.included.iter_with_tag().map(|s| s.0.as_str()),
                             ) {
                                 return Some(ReadDirError::DirectoryDoesNotExist {
                                     path,

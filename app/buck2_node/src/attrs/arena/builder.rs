@@ -17,6 +17,7 @@ use buck2_core::target::label::label::TargetLabel;
 use buck2_hash::BuckHasher;
 use buck2_hash::BuckMutMap;
 use buck2_util::arc_str::ArcS;
+use buck2_util::arc_str::PackedStr;
 use buck2_util::pointer_identity::StaticPointerIdentity;
 use buck2_util::pointer_identity::mix_addr;
 use buck2_util::strong_hasher::StrongHash128;
@@ -81,7 +82,7 @@ pub struct CoercedAttrArenaBuilder {
     /// (missing-file soft error) carry fresh allocations and never hit.
     /// Directories are excluded: their value includes the expanded file
     /// list, so the dir pointer alone does not imply value equality.
-    pub(super) path_by_ptr: hashbrown::HashTable<(ArcS<PackageRelativePath>, u32, u64)>,
+    pub(super) path_by_ptr: hashbrown::HashTable<(PackedStr<PackageRelativePath>, u32, u64)>,
     /// Whole-value tables' content dedup: value hash to table index.
     pub(super) visibility_dedup: hashbrown::HashTable<(u64, u32)>,
     pub(super) within_view_dedup: hashbrown::HashTable<(u64, u32)>,
@@ -92,9 +93,9 @@ pub struct CoercedAttrArenaBuilder {
     pub(super) roots: Vec<AttrWord>,
 }
 
-/// Bucket hash for the source-file lookaside: mixes the `ArcS` data
+/// Bucket hash for the source-file lookaside: mixes the packed string's data
 /// address (identity, not content).
-pub(super) fn path_addr_hash(f: &ArcS<PackageRelativePath>) -> u64 {
+pub(super) fn path_addr_hash(f: &PackedStr<PackageRelativePath>) -> u64 {
     mix_addr(f.as_str().as_ptr().addr())
 }
 
@@ -232,7 +233,7 @@ impl CoercedAttrArenaBuilder {
         dispatch(v.arena.kind_of(v.r), CopyParts { v, b: self })
     }
 
-    /// Path table index and content hash, via the `ArcS` pointer lookaside
+    /// Path table index and content hash, via the data pointer lookaside
     /// for files (see `path_by_ptr`).
     pub(crate) fn source_path_idx_and_hash(&mut self, p: &CoercedPath) -> (u32, u64) {
         let file = match p {

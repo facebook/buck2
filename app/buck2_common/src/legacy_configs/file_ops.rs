@@ -257,14 +257,14 @@ impl ConfigParserFileOps for DiceConfigFileOps<'_, '_> {
         let out = DiceFileComputations::read_dir_include_ignores(self.ctx, path)
             .await?
             .included
-            .iter()
-            .filter_map(|e| match e.file_type {
+            .iter_with_tag()
+            .filter_map(|(file_name, file_type)| match file_type {
                 FileType::Directory => Some(ConfigDirEntry {
-                    name: e.file_name.clone(),
+                    name: file_name.to_owned(),
                     is_dir: true,
                 }),
                 FileType::File => Some(ConfigDirEntry {
-                    name: e.file_name.clone(),
+                    name: file_name.to_owned(),
                     is_dir: false,
                 }),
                 FileType::Symlink | FileType::Unknown => None,

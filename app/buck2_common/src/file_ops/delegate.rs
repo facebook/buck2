@@ -16,7 +16,9 @@ use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::unchecked_cell_rel_path::UncheckedCellRelativePath;
 use buck2_events::dispatch::console_message;
-use buck2_fs::paths::file_name::FileNameBuf;
+use buck2_fs::paths::file_name::FileName;
+use buck2_util::arc_str::PackedStringSlice;
+use buck2_util::arc_str::PackedStringSliceBuilder;
 use cmp_any::PartialEqAny;
 use dice::DiceComputations;
 use dice::EqualityBehavior;
@@ -35,10 +37,9 @@ use crate::file_ops::delegate::keys::FileOpsKey;
 use crate::file_ops::delegate::keys::FileOpsValue;
 use crate::file_ops::dice::CheckIgnores;
 use crate::file_ops::io::IoFileOpsDelegate;
-use crate::file_ops::metadata::RawDirEntry;
+use crate::file_ops::metadata::FileType;
 use crate::file_ops::metadata::RawPathMetadata;
 use crate::file_ops::metadata::ReadDirOutput;
-use crate::file_ops::metadata::SimpleDirEntry;
 use crate::ignores::all_cells::HasCellFileIgnores;
 use crate::ignores::file_ignores::CellFileIgnores;
 use crate::ignores::file_ignores::FileIgnoreResult;
@@ -77,12 +78,14 @@ pub trait FileOpsDelegate: PagableTagged + Allocative + Send + Sync {
         path: &'async_trait CellRelativePath,
     ) -> buck2_error::Result<Option<String>>;
 
-    /// Return the list of file outputs, sorted.
+    /// Return the list of file outputs, sorted by file name. Names are not
+    /// validated as [`FileName`]s — invalid names get filtered out by
+    /// [`FileOpsDelegateWithIgnores::read_dir`].
     async fn read_dir(
         &self,
         ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
-    ) -> buck2_error::Result<Arc<[RawDirEntry]>>;
+    ) -> buck2_error::Result<PackedStringSlice<str, FileType>>;
 
     async fn read_path_metadata_if_exists(
         &self,
@@ -236,35 +239,27 @@ impl FileOpsDelegateWithIgnores {
             buck2_error::Ok(is_ignored)
         };
 
-        // Filter out any entries that are ignored.
-        let mut included_entries = Vec::new();
-        for e in entries.iter() {
-            let RawDirEntry {
-                file_type,
-                file_name,
-            } = e;
-
-            if !is_ignored(file_name)? {
-                let file_name = match FileNameBuf::try_from_or_get_back(file_name.to_owned()) {
-                    Ok(file_name) => file_name,
-                    Err(file_name) => {
-                        console_message(format!(
-                            "File name `{file_name}` is not valid. \
-                                    Add the path to `project.ignore` to mute this message",
-                        ));
-                        continue;
-                    }
-                };
-                included_entries.push(SimpleDirEntry {
-                    file_name,
-                    file_type: *file_type,
-                });
+        // Filter out any entries that are ignored, and validate names as
+        // `FileName`s. Input is sorted; we only remove entries, never reorder,
+        // so the output stays sorted.
+        let mut builder: PackedStringSliceBuilder<FileName, FileType> =
+            PackedStringSliceBuilder::with_capacity(entries.len());
+        for (file_name_str, file_type) in entries.iter_with_tag() {
+            if is_ignored(file_name_str)? {
+                continue;
             }
+            let Ok(file_name) = <&FileName>::try_from(file_name_str) else {
+                console_message(format!(
+                    "File name `{file_name_str}` is not valid. \
+                            Add the path to `project.ignore` to mute this message",
+                ));
+                continue;
+            };
+            builder.push(file_name, file_type);
         }
-        let read_dir_output = ReadDirOutput {
-            included: included_entries.into(),
-        };
-        Ok(read_dir_output)
+        Ok(ReadDirOutput {
+            included: builder.build_sorted(),
+        })
     }
 
     pub(crate) async fn exists_matching_exact_case(

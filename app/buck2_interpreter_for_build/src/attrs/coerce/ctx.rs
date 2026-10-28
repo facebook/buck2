@@ -45,9 +45,9 @@ use buck2_query::query::syntax::simple::functions::QueryLiteralVisitor;
 use buck2_query_parser::Expr;
 use buck2_query_parser::spanned::Spanned;
 use buck2_util::arc_str::ArcStr;
+use buck2_util::arc_str::PackedStr;
 use bumpalo::Bump;
 use dupe::Dupe;
-use dupe::IterDupedExt;
 use hashbrown::HashTable;
 use hashbrown::hash_table;
 use starlark::values::Value;
@@ -302,7 +302,7 @@ impl<'v> AttrCoercionContext<'v> for BuildAttrCoercionContext {
                     .into(),
                 );
             }
-            let files = listing.files_within(&path).duped().collect();
+            let files = listing.files_within(&path).collect();
             Ok(CoercedPath::Directory(Box::new(CoercedDirectory {
                 dir: path,
                 files,
@@ -318,7 +318,7 @@ impl<'v> AttrCoercionContext<'v> for BuildAttrCoercionContext {
                 )
                 .into());
             }
-            Ok(CoercedPath::File(path.to_arc()))
+            Ok(CoercedPath::File(PackedStr::new(path)))
         }
     }
 

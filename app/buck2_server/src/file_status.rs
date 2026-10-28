@@ -259,8 +259,8 @@ async fn check_file_status(
 
             let mut dice_names = dice_read_dir
                 .included
-                .iter()
-                .map(|e| e.file_name.clone())
+                .iter_with_tag()
+                .map(|e| e.0.to_owned())
                 .collect::<Vec<_>>();
 
             fs_names.sort();

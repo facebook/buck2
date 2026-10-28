@@ -10,12 +10,16 @@
 
 pub(crate) mod base;
 mod fat;
+mod packed;
 mod slice;
 mod string_like;
 mod thin;
 mod thin_slice;
 
 pub use crate::arc_str::fat::ArcStr;
+pub use crate::arc_str::packed::PackedStr;
+pub use crate::arc_str::packed::PackedStringSlice;
+pub use crate::arc_str::packed::PackedStringSliceBuilder;
 pub use crate::arc_str::slice::ArcSlice;
 pub use crate::arc_str::string_like::ArcS;
 pub use crate::arc_str::string_like::StringInside;

@@ -19,7 +19,6 @@ use buck2_build_api::materialize::invocation_re_use_case;
 use buck2_common::file_ops::delegate::FileOpsDelegate;
 use buck2_common::file_ops::metadata::FileMetadata;
 use buck2_common::file_ops::metadata::FileType;
-use buck2_common::file_ops::metadata::RawDirEntry;
 use buck2_common::file_ops::metadata::RawPathMetadata;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_common::io::fs::is_executable;
@@ -63,6 +62,8 @@ use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_util::arc_str::PackedStringSlice;
+use buck2_util::arc_str::PackedStringSliceBuilder;
 use buck2_util::strong_hasher::Blake3StrongHasher;
 use cmp_any::PartialEqAny;
 use dice::CancellationContext;
@@ -305,7 +306,10 @@ impl BundledFileOpsDelegate {
     }
 
     /// Return the list of file outputs, sorted.
-    async fn read_dir(&self, path: &CellRelativePath) -> buck2_error::Result<Arc<[RawDirEntry]>> {
+    async fn read_dir(
+        &self,
+        path: &CellRelativePath,
+    ) -> buck2_error::Result<PackedStringSlice<str, FileType>> {
         let dir = match self.get_entry_at_path(path)? {
             DirectoryEntry::Dir(dir) => dir,
             DirectoryEntry::Leaf(_) => {
@@ -313,18 +317,15 @@ impl BundledFileOpsDelegate {
             }
         };
 
-        let entries = dir
-            .entries()
-            .map(|(name, entry)| RawDirEntry {
-                file_name: name.to_owned().into_inner(),
-                file_type: match entry {
-                    DirectoryEntry::Leaf(_) => FileType::File,
-                    DirectoryEntry::Dir(_) => FileType::Directory,
-                },
-            })
-            .collect();
-
-        Ok(entries)
+        let mut builder: PackedStringSliceBuilder<str, FileType> = PackedStringSliceBuilder::new();
+        for (name, entry) in dir.entries() {
+            let file_type = match entry {
+                DirectoryEntry::Leaf(_) => FileType::File,
+                DirectoryEntry::Dir(_) => FileType::Directory,
+            };
+            builder.push(name.as_str(), file_type);
+        }
+        Ok(builder.sort_and_build())
     }
 
     fn read_file_if_exists(
@@ -370,7 +371,7 @@ impl FileOpsDelegate for BundledFileOpsDelegate {
         &self,
         _ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
-    ) -> buck2_error::Result<Arc<[RawDirEntry]>> {
+    ) -> buck2_error::Result<PackedStringSlice<str, FileType>> {
         self.read_dir(path).await
     }
 
@@ -646,22 +647,12 @@ mod tests {
         let root_metadata = ops.read_path_metadata_if_exists(root).unwrap().unwrap();
         assert_matches!(root_metadata, RawPathMetadata::Directory);
         let root_entries = ops.read_dir(root).await.unwrap();
-        assert!(root_entries.is_sorted());
         assert_eq!(
-            &*root_entries,
-            &[
-                RawDirEntry {
-                    file_name: ".buckconfig".into(),
-                    file_type: FileType::File
-                },
-                RawDirEntry {
-                    file_name: "BUCK_TREE".into(),
-                    file_type: FileType::File
-                },
-                RawDirEntry {
-                    file_name: "dir".into(),
-                    file_type: FileType::Directory
-                },
+            root_entries.iter_with_tag().collect::<Vec<_>>(),
+            vec![
+                (".buckconfig", FileType::File),
+                ("BUCK_TREE", FileType::File),
+                ("dir", FileType::Directory),
             ],
         );
 
@@ -669,7 +660,6 @@ mod tests {
         let dir_metadata = ops.read_path_metadata_if_exists(dir).unwrap().unwrap();
         assert_matches!(dir_metadata, RawPathMetadata::Directory);
         let dir_entries = ops.read_dir(dir).await.unwrap();
-        assert!(dir_entries.is_sorted());
         assert_eq!(dir_entries.len(), 5);
     }
 

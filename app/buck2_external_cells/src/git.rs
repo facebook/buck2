@@ -22,7 +22,7 @@ use buck2_build_api::materialize::invocation_re_use_case;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::file_ops::delegate::FileOpsDelegate;
 use buck2_common::file_ops::metadata::FileDigestConfig;
-use buck2_common::file_ops::metadata::RawDirEntry;
+use buck2_common::file_ops::metadata::FileType;
 use buck2_common::file_ops::metadata::RawPathMetadata;
 use buck2_common::io::IoProvider;
 use buck2_common::io::fs::FsIoProvider;
@@ -55,6 +55,8 @@ use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_hash::BuckMutMap;
+use buck2_util::arc_str::PackedStringSlice;
+use buck2_util::arc_str::PackedStringSliceBuilder;
 use buck2_util::process::background_command;
 use cmp_any::PartialEqAny;
 use dice::CancellationContext;
@@ -360,18 +362,22 @@ impl FileOpsDelegate for GitFileOpsDelegate {
         &self,
         _ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
-    ) -> buck2_error::Result<Arc<[RawDirEntry]>> {
+    ) -> buck2_error::Result<PackedStringSlice<str, FileType>> {
         let project_path = self.resolve(path);
-        let mut entries = (&self.io as &dyn IoProvider)
+        let entries = (&self.io as &dyn IoProvider)
             .read_dir(project_path)
             .await
             .with_buck_error_context(|| format!("Error listing dir `{path}`"))?
             .into_entries();
 
-        // Make sure entries are deterministic, since read_dir isn't.
-        entries.sort_by(|a, b| a.file_name.cmp(&b.file_name));
-
-        Ok(entries.into())
+        // Pack into a sorted compact representation. `read_dir` is not
+        // guaranteed to return entries in any particular order.
+        let mut builder: PackedStringSliceBuilder<str, FileType> =
+            PackedStringSliceBuilder::with_capacity(entries.len());
+        for e in &entries {
+            builder.push(&e.file_name, e.file_type);
+        }
+        Ok(builder.sort_and_build())
     }
 
     async fn read_path_metadata_if_exists(

@@ -26,6 +26,7 @@ use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::source_path::SourcePath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_node::nodes::unconfigured::TargetNode;
+use buck2_util::arc_str::PackedStr;
 use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -345,7 +346,10 @@ fn fs_operations(builder: &mut MethodsBuilder) {
 
                     let package_relative_path =
                         PackageRelativePath::new(forward_relative_path.as_path())?;
-                    Ok(SourcePath::new(package_label, package_relative_path.into()))
+                    Ok(SourcePath::new(
+                        package_label,
+                        PackedStr::new(package_relative_path),
+                    ))
                 }
                 .boxed_local()
             })

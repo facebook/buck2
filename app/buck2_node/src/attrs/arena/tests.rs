@@ -24,6 +24,7 @@ use buck2_core::provider::label::testing::ProvidersLabelTestExt;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_hash::BuckMutMap;
 use buck2_util::arc_str::ArcStr;
+use buck2_util::arc_str::PackedStr;
 use dupe::Dupe;
 use pagable::PagableDeserialize;
 use pagable::PagableSerialize;
@@ -941,12 +942,12 @@ fn test_arg_query_macro_repeated_literal_resolves_every_occurrence() {
 #[test]
 fn test_source_file_pointer_dedup() {
     use buck2_core::package::package_relative_path::PackageRelativePath;
-    let shared = PackageRelativePath::new("hdrs/common.h").unwrap().to_arc();
+    let shared = PackedStr::new(PackageRelativePath::new("hdrs/common.h").unwrap());
     let a = source_file(CoercedPath::File(shared.dupe()));
     let b = source_file(CoercedPath::File(shared));
-    let other = source_file(CoercedPath::File(
-        PackageRelativePath::new("other.h").unwrap().to_arc(),
-    ));
+    let other = source_file(CoercedPath::File(PackedStr::new(
+        PackageRelativePath::new("other.h").unwrap(),
+    )));
     let mut bld = CoercedAttrArena::builder();
     let AttrToken(r1, h1) = a(&mut bld).unwrap();
     let AttrToken(r2, h2) = b(&mut bld).unwrap();

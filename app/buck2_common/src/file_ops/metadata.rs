@@ -20,7 +20,7 @@ use buck2_fs::paths::RelativePath;
 use buck2_fs::paths::RelativePathBuf;
 use buck2_fs::paths::abs_path::AbsPath;
 use buck2_fs::paths::file_name::FileName;
-use buck2_fs::paths::file_name::FileNameBuf;
+use buck2_util::arc_str::PackedStringSlice;
 use compact_str::CompactString;
 use derive_more::Display;
 use dupe::Dupe;
@@ -74,39 +74,28 @@ impl FileType {
     }
 }
 
-#[derive(
-    Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Allocative, Pagable
-)]
-pub struct SimpleDirEntry {
-    // Put the `file_name` first so we sort by it (which is what people expect)
-    pub file_name: FileNameBuf,
-    pub file_type: FileType,
-}
-
-#[derive(
-    Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Pagable, Allocative
-)]
+/// Transient IO-boundary type returned from `IoProvider::read_dir_impl`. Not
+/// stored in DICE — entries are immediately sorted and packed into the more
+/// compact [`ReadDirOutput`] representation.
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Allocative)]
 pub struct RawDirEntry {
     // Put the `file_name` first so we sort by it (which is what people expect)
     /// Not all file names are accepted as file names in Buck. Such files are automatically ignored.
     /// This should probably be something like `CompactOsString`.
-    #[pagable(flatten_serde)]
     pub file_name: CompactString,
     pub file_type: FileType,
 }
 
-#[derive(
-    Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Dupe, Allocative, Pagable
-)]
+#[derive(Clone, Eq, PartialEq, Hash, Debug, Dupe, Allocative, Pagable)]
 pub struct ReadDirOutput {
-    /// Sorted.
-    pub included: Arc<[SimpleDirEntry]>,
+    /// Sorted by file name.
+    pub included: PackedStringSlice<FileName, FileType>,
 }
 
 impl ReadDirOutput {
     /// Is the file name in the directory listing. Ignores files that were explicitly ignored.
     pub fn contains(&self, file_name: &FileName) -> bool {
-        self.included.iter().any(|x| x.file_name == file_name)
+        self.included.contains(file_name)
     }
 }
 

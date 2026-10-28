@@ -50,7 +50,7 @@ use buck2_hash::BuckMutMap;
 use buck2_hash::buck_mut_insertion_set;
 use buck2_interpreter_for_build::interpreter::build_context::BuildContext;
 use buck2_interpreter_for_build::interpreter::testing::cells;
-use buck2_util::arc_str::ArcS;
+use buck2_util::arc_str::PackedStr;
 use dupe::Dupe;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
@@ -88,7 +88,8 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
             ctx.build_file_cell().name(),
             CellRelativePath::from_path(package).unwrap(),
         )?;
-        let path = SourcePath::new(package, ArcS::from(PackageRelativePath::new(path)?));
+        let path = PackageRelativePath::new(path)?;
+        let path = SourcePath::new(package, PackedStr::new(path));
         Ok(StarlarkArtifact::new(SourceArtifact::new(path).into()))
     }
 

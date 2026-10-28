@@ -15,12 +15,11 @@ use buck2_core::package::PackageLabel;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::package_relative_path::PackageRelativePathBuf;
 use buck2_fs::paths::file_name::FileNameBuf;
-use buck2_util::arc_str::ArcS;
+use buck2_util::arc_str::PackedStringSliceBuilder;
 use dice::DiceComputations;
 use dupe::Dupe;
 use futures::FutureExt;
 use futures::future::BoxFuture;
-use starlark_map::sorted_vec::SortedVec;
 
 use crate::file_ops::dice::DiceFileComputations;
 use crate::find_buildfile::find_buildfile;
@@ -364,10 +363,10 @@ impl<'c, 'd> InterpreterPackageListingResolver<'c, 'd> {
 }
 
 struct Directory {
-    path: ArcS<PackageRelativePath>,
-    files: Vec<ArcS<PackageRelativePath>>,
+    path: PackageRelativePathBuf,
+    files: Vec<PackageRelativePathBuf>,
     subdirs: Vec<Directory>,
-    subpackages: Vec<ArcS<PackageRelativePath>>,
+    subpackages: Vec<PackageRelativePathBuf>,
     buildfile: Option<FileNameBuf>,
 
     recursive_files_count: usize,
@@ -407,12 +406,12 @@ impl Directory {
         let mut subdirs = Vec::new();
         let mut files = Vec::new();
 
-        for d in &*entries {
-            let child_path = path.join(&d.file_name);
-            if d.file_type.is_dir() {
+        for (file_name, file_type) in entries.iter_with_tag() {
+            let child_path = path.join(file_name);
+            if file_type.is_dir() {
                 subdirs.push(child_path);
             } else {
-                files.push(child_path.to_arc());
+                files.push(child_path);
             }
         }
 
@@ -429,7 +428,7 @@ impl Directory {
         }
 
         Ok(Some(Directory {
-            path: path.to_arc(),
+            path: path.to_owned(),
             files,
             subdirs,
             subpackages,
@@ -447,7 +446,7 @@ impl Directory {
         subdirs: Vec<PackageRelativePathBuf>,
     ) -> BoxFuture<
         'a,
-        Result<(Vec<Directory>, Vec<ArcS<PackageRelativePath>>), GatherPackageListingError>,
+        Result<(Vec<Directory>, Vec<PackageRelativePathBuf>), GatherPackageListingError>,
     > {
         async move {
             let mut new_subdirs = Vec::new();
@@ -464,7 +463,7 @@ impl Directory {
                 let (path, res) = res?;
                 match res {
                     Some(v) => new_subdirs.push(v),
-                    None => subpackages.push(path.to_arc()),
+                    None => subpackages.push(path),
                 }
             }
             Ok((new_subdirs, subpackages))
@@ -474,14 +473,18 @@ impl Directory {
 
     fn collect_into(
         self,
-        files: &mut Vec<ArcS<PackageRelativePath>>,
-        dirs: &mut Vec<ArcS<PackageRelativePath>>,
-        pkgs: &mut Vec<ArcS<PackageRelativePath>>,
+        files: &mut PackedStringSliceBuilder<PackageRelativePath>,
+        dirs: &mut PackedStringSliceBuilder<PackageRelativePath>,
+        pkgs: &mut PackedStringSliceBuilder<PackageRelativePath>,
     ) {
-        files.extend(self.files);
-        pkgs.extend(self.subpackages);
+        for f in &self.files {
+            files.push(f, ());
+        }
+        for s in &self.subpackages {
+            pkgs.push(s, ());
+        }
         if !self.path.is_empty() {
-            dirs.push(self.path);
+            dirs.push(&self.path, ());
         }
         for d in self.subdirs {
             d.collect_into(files, dirs, pkgs)
@@ -490,20 +493,20 @@ impl Directory {
 
     fn flatten(mut self) -> PackageListing {
         let buildfile = self.buildfile.take().unwrap();
-        let mut files = Vec::with_capacity(self.recursive_files_count);
-        let mut dirs = Vec::with_capacity(self.recursive_dirs_count);
-        let mut subpackages = Vec::with_capacity(self.recursive_subpackages_count);
+        let mut files: PackedStringSliceBuilder<PackageRelativePath> =
+            PackedStringSliceBuilder::with_capacity(self.recursive_files_count);
+        let mut dirs: PackedStringSliceBuilder<PackageRelativePath> =
+            PackedStringSliceBuilder::with_capacity(self.recursive_dirs_count);
+        let mut subpackages: PackedStringSliceBuilder<PackageRelativePath> =
+            PackedStringSliceBuilder::with_capacity(self.recursive_subpackages_count);
 
         self.collect_into(&mut files, &mut dirs, &mut subpackages);
 
         // The files are discovered in a deterministic order but not necessarily sorted.
-        // TODO(cjhopman): Do we require that subpackages be sorted for anything?
-        let subpackages = SortedVec::from(subpackages);
-
         PackageListing::new(
-            files.into_iter().collect(),
-            dirs.into_iter().collect(),
-            subpackages,
+            files.sort_and_build(),
+            dirs.sort_and_build(),
+            subpackages.sort_and_build(),
             buildfile,
         )
     }
