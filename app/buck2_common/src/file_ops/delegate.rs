@@ -31,7 +31,6 @@ use pagable::typetag::PagableTagged;
 
 use crate::dice::cells::HasCellResolver;
 use crate::external_cells::EXTERNAL_CELLS_IMPL;
-use crate::file_ops::baseline::HasFileSystemBaseline;
 use crate::file_ops::delegate::keys::FileOpsKey;
 use crate::file_ops::delegate::keys::FileOpsValue;
 use crate::file_ops::dice::CheckIgnores;
@@ -132,7 +131,6 @@ impl Key for FileOpsKey {
             let delegate = IoFileOpsDelegate {
                 cells: cells.dupe(),
                 cell: self.cell,
-                baseline: ctx.get_file_system_baseline().await?.dupe(),
             };
             FileOpsDelegateWithIgnores::new(ignores, Arc::new(delegate))
         };

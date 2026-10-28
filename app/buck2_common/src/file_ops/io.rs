@@ -39,7 +39,6 @@ use pagable::pagable_typetag;
 
 use crate::dice::cells::HasCellResolver;
 use crate::dice::data::HasIoProvider;
-use crate::file_ops::baseline::FileSystemBaseline;
 use crate::file_ops::baseline::HasFileSystemBaseline;
 use crate::file_ops::delegate::FileOpsDelegate;
 use crate::file_ops::metadata::RawDirEntry;
@@ -53,16 +52,13 @@ use crate::file_ops::metadata::RawPathMetadata;
 pub(super) struct IoFileOpsDelegate {
     pub(super) cells: CellResolver,
     pub(super) cell: CellName,
-    /// Not consulted by reads, which see the files as they are. It takes part in the delegate's
-    /// equality, so that nothing read under one baseline is reused under another.
-    pub(super) baseline: FileSystemBaseline,
 }
 
 /// The `Io*` keys are the DICE nodes at which file system state enters the graph; file watchers
 /// invalidate them through the `FileChangeTracker`.
 ///
-/// Each of them depends on the [`FileSystemBaseline`] so that nothing read under one baseline is
-/// reused under another.
+/// Each of them depends on the [`FileSystemBaseline`](crate::file_ops::baseline::FileSystemBaseline)
+/// so that nothing read under one baseline is reused under another.
 #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
 #[pagable_typetag(dice::DiceKeyDyn)]
 struct IoReadFileKey(CellPath);
