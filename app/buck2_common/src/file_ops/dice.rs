@@ -62,7 +62,7 @@ impl DiceFileComputations {
     /// Whether a file, directory or symlink exists at the path, spelled exactly like that in
     /// every component, with no symlink above it, nothing ignored on the way, and inside this
     /// cell rather than a cell nested in it.
-    pub async fn exists_matching_exact_case(
+    pub async fn exists(
         ctx: &mut DiceComputations<'_>,
         path: CellPath,
     ) -> buck2_error::Result<bool> {
@@ -76,8 +76,8 @@ impl DiceFileComputations {
             return Ok(false);
         }
         match external_cell_delegate(ctx, cells, path.cell()).await? {
-            Some(delegate) => delegate.exists_matching_exact_case(ctx, path.ipath()).await,
-            None => io::exists_matching_exact_case(ctx, cells.resolve_ipath(path)?).await,
+            Some(delegate) => delegate.exists(ctx, path.ipath()).await,
+            None => io::exists(ctx, cells.resolve_ipath(path)?).await,
         }
     }
 

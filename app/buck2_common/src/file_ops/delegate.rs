@@ -46,11 +46,11 @@ pub trait FileOpsDelegate: Allocative + Send + Sync {
         path: ICellRelativePath,
     ) -> buck2_error::Result<Option<RawPathMetadata>>;
 
-    /// Check if a path exists in the exact case given.
+    /// Whether anything is at the path, spelled exactly like that.
     ///
-    /// The default implementation assumes that `read_path_metadata_if_exists` is already correctly
-    /// case-sensitive - to the extent that that's not the case, this must be overridden.
-    async fn exists_matching_exact_case(
+    /// The default implementation assumes that `read_path_metadata_if_exists` is already exact
+    /// about spelling; a delegate for which it is not must override this.
+    async fn exists(
         &self,
         ctx: &mut DiceComputations<'_>,
         path: ICellRelativePath,

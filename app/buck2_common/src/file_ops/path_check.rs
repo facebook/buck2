@@ -664,7 +664,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn exists_matching_exact_case() -> buck2_error::Result<()> {
+    async fn exists() -> buck2_error::Result<()> {
         let f = Fixture::with_cells("ign", &[("root", ""), ("sub", "sub")]).await?;
         f.fs.write_file("a/b/f", "");
         f.fs.write_file("ign/f", "");
@@ -673,12 +673,9 @@ mod tests {
         let ctx = f.transaction(FileChangeTracker::new()).await?;
 
         let exists = async |path: &str| {
-            DiceFileComputations::exists_matching_exact_case(
-                &mut ctx.ctx(),
-                CellPath::testing_new(path),
-            )
-            .await
-            .unwrap()
+            DiceFileComputations::exists(&mut ctx.ctx(), CellPath::testing_new(path))
+                .await
+                .unwrap()
         };
         assert!(exists("root//a/b/f").await);
         assert!(exists("root//a/b").await);

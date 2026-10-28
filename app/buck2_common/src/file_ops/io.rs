@@ -352,7 +352,7 @@ pub(super) async fn read_path_metadata_if_exists(
 }
 
 /// Whether something is at the path, spelled exactly like that and not under an ignored prefix.
-pub(super) async fn exists_matching_exact_case(
+pub(super) async fn exists(
     ctx: &mut DiceComputations<'_>,
     path: IProjectRelativePath,
 ) -> buck2_error::Result<bool> {

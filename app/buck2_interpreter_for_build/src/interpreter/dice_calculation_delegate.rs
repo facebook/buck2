@@ -461,12 +461,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                 _cancellation: &CancellationContext,
             ) -> Self::Value {
                 for package_file_path in PackageFilePath::for_dir(self.0.as_cell_path()) {
-                    if DiceFileComputations::exists_matching_exact_case(
-                        ctx,
-                        *package_file_path.path(),
-                    )
-                    .await?
-                    {
+                    if DiceFileComputations::exists(ctx, *package_file_path.path()).await? {
                         return Ok(Some(package_file_path));
                     }
                 }
