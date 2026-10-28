@@ -12,10 +12,12 @@ import json
 import os
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import importlib_resources as resources
 
 from .dsym_allowlist import kept_debug_file_paths, write_dsymutil_allowlist
+from .dsym_allowlist_main import main
 from .scrubber import scrub
 
 # `HelloWorld` links three object files directly and one object file from a
@@ -128,3 +130,20 @@ class DsymAllowlistTest(unittest.TestCase):
                     ]
                 },
             )
+
+    def test_main(self) -> None:
+        output = os.path.join(self.tmp_dir.name, "allow.yaml")
+        argv = [
+            "dsym_allowlist",
+            "--input",
+            _resource("HelloWorld"),
+            "--output",
+            output,
+            "--targets-file",
+            _resource("focused_targets.json"),
+        ]
+        with patch("sys.argv", argv):
+            main()
+
+        with open(output) as f:
+            self.assertEqual(json.load(f), {"objects": [{"filename": _ARCHIVE_MEMBER}]})
