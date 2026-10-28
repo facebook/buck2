@@ -26,9 +26,9 @@ from buck2.tests.e2e_util.buck_workspace import (
 )
 from buck2.tests.e2e_util.helper.utils import filter_events
 
-# The fixture's `.buckconfig` sets two `DaemonStartupConfig`s:
-# `buck2_hydration.enable_paging` (pagable DICE storage on disk) and
-# `buck2_hydration.page_out_on_idle` (page the graph out when the daemon goes idle).
+# The fixture's `.bucksettings.toml` sets two `DaemonStartupConfig`s:
+# `hydration.enable_paging` (pagable DICE storage on disk) and
+# `hydration.page_out_on_idle` (page the graph out when the daemon goes idle).
 # `_hydration_settings` adds `page_out_policy = "once_per_key"` and
 # `eviction_policy = "on_idle"` unless a test says otherwise.
 
@@ -129,11 +129,9 @@ def _target_output(result: BuildResult, target: str) -> str:
 
 
 def _hydration_settings(buck: Buck, **settings: bool | str) -> None:
-    # Through the settings layer: the fixture's `.buckconfig` sets
-    # `page_out_on_idle = true` as a project config, which outranks the external
-    # config `extra_buck_config` writes - but settings outrank both, and
-    # `page_out_on_idle` only falls back to buckconfig when settings leave it
-    # unset. `enable_paging` stays unset here so the fixture still provides it.
+    # Written to the home `.bucksettings.local.toml`, which outranks the
+    # fixture's repo `.bucksettings.toml` (`enable_paging`, `page_out_on_idle`,
+    # `page_out_min_free_disk_gb`) key by key.
     #
     # Under the default `eviction_policy`, `on_memory_pressure`, a page-out
     # evicts nothing, and a daemon with no memory tracker does not page out on
@@ -218,8 +216,8 @@ class PagingTest(BuckTestCase):
         # Note: this does not check that stale paged-out values are reclaimed from
         # storage. Garbage-collecting them is future work (reference counting).
         #
-        # Pagable storage is set up by `buck2_hydration.enable_paging = true` in the
-        # fixture `.buckconfig` (a `DaemonStartupConfig`).
+        # Pagable storage is set up by `hydration.enable_paging = true` in the
+        # fixture `.bucksettings.toml` (a `DaemonStartupConfig`).
         (buck.cwd / "src.txt").write_text("content-0\n")
         assert _output(await _build(buck)) == "content-0\n"
 
@@ -328,10 +326,7 @@ class PagingTest(BuckTestCase):
         data_dir="paging",
         write_invocation_record=True,
         allow_soft_errors=True,
-        extra_buck_config={
-            "buck2": {"restarter": "true"},
-            "buck2_hydration": {"pagable_storage_backend": "sqlite"},
-        },
+        extra_buck_config={"buck2": {"restarter": "true"}},
     )
     async def test_failed_demand_page_in_recomputes_without_restart(
         self, buck: Buck
@@ -487,7 +482,7 @@ class PagingTest(BuckTestCase):
     @buck_test(data_dir="paging", write_invocation_record=True, allow_soft_errors=True)
     async def test_page_out_on_idle(self, buck: Buck) -> None:
         _hydration_settings(buck)
-        # With `buck2_hydration.page_out_on_idle`, the daemon pages the DICE graph out to
+        # With `hydration.page_out_on_idle`, the daemon pages the DICE graph out to
         # disk in a background task once it goes idle after a command. Subsequent
         # builds stay correct by paging values back in on demand.
         (buck.cwd / "src.txt").write_text("content-0\n")

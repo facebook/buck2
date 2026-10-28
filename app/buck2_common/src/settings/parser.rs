@@ -732,12 +732,11 @@ mod tests {
             let startup_config = startup_config_for(Some(&hydration_rollout_toml(
                 "enable_paging = true\npage_out_on_idle = true\npage_out_on_idle_isolation_dir_scope = \"non_default\"",
             )))?;
-            assert_eq!(
+            assert!(
                 startup_config
                     .daemon_buck_settings()
                     .hydration
-                    .enable_paging(),
-                Some(true)
+                    .enable_paging()
             );
             assert_eq!(
                 startup_config.idle_page_out_config_for_isolation_dir(

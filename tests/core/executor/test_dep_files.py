@@ -1946,13 +1946,6 @@ class DepFilesTest(BuckTestCase):
         # Recomputing paged-out nodes gives their critical path entries overlapping spans, which
         # is the `critical_path_entry_overlap` soft error.
         allow_soft_errors=True,
-        extra_buck_config={
-            "buck2_hydration": {
-                "enable_paging": "true",
-                "page_out_on_idle": "true",
-                "page_out_min_free_disk_gb": "0",
-            }
-        },
     )
     @parametrize("input_format", ["json", "args"])
     async def test_canonical_input_paged_analysis(
@@ -1961,7 +1954,11 @@ class DepFilesTest(BuckTestCase):
         # The page-in below needs the page-out to evict, which the default
         # `eviction_policy`, `on_memory_pressure`, does not.
         (buck.get_settings_home_dir() / ".bucksettings.local.toml").write_text(
-            '[hydration]\neviction_policy = "on_idle"\n'
+            "[hydration]\n"
+            "enable_paging = true\n"
+            "page_out_on_idle = true\n"
+            "page_out_min_free_disk_gb = 0\n"
+            'eviction_policy = "on_idle"\n'
         )
         options = {"canonical_unused_src": "true", "canonical_format": input_format}
         await _build_canonical_input(buck, options, ACTION_EXECUTION_KIND_LOCAL)

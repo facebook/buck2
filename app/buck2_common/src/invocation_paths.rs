@@ -275,7 +275,7 @@ impl InvocationPaths {
     }
 
     /// Subdirectory of `cache_dir` responsible for storing paged-out DICE node
-    /// values (see `buck2_hydration.enable_paging`).
+    /// values (see `hydration.enable_paging`).
     ///
     /// Deliberately absent from [`Self::valid_cache_dirs`], so it is wiped on
     /// daemon startup: the `DiceKey`->`DataKey` mapping needed to read it back

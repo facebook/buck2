@@ -170,7 +170,7 @@ pub async fn configure_dice_for_buck(
     buck_settings: DaemonBuckSettings,
     // Path to open pagable DICE storage at, or `None` to leave paging disabled.
     dice_state_path: Option<&Path>,
-    // On-disk backend for pagable storage (`buck2_hydration.pagable_storage_backend`).
+    // On-disk backend for pagable storage (`hydration.pagable_storage_backend`).
     pagable_storage_backend: PagableStorageBackend,
     // Which values a page-out writes (`hydration.page_out_policy`).
     page_out_policy: PageOutPolicy,
@@ -198,7 +198,7 @@ pub async fn configure_dice_for_buck(
     // Opt-in pagable storage, enabling `Dice::page_out()` to serialize node
     // values to disk (backend chosen by `pagable_storage_backend`) via `buck2
     // debug hydration`. `dice_state_path` is `Some` when
-    // `buck2_hydration.enable_paging` is set (its value is the default path,
+    // `hydration.enable_paging` is set (its value is the default path,
     // under buck-out). The `BUCK2_DICE_DB_PATH` override (used by benchmarks)
     // takes precedence and picks the path.
     if let Some(path) = &engine_config.dice_state_path {

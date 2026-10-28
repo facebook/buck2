@@ -544,8 +544,8 @@ impl HealthCheckConfig {
 }
 
 /// Pagable DICE storage settings, present (`Some`) only when paging is enabled by
-/// the `hydration` Buck settings or their legacy `buck2_hydration` fallbacks.
-/// `page_out_on_idle` also implies paging is enabled. When present, the daemon
+/// the `hydration` Buck settings. `page_out_on_idle` also implies paging is
+/// enabled. When present, the daemon
 /// sets up on-disk storage during construction so `buck2 debug hydration` can
 /// page node values out to / in from disk. Read at startup because it gates that
 /// setup.
@@ -565,55 +565,20 @@ pub struct HydrationConfig {
 }
 
 impl HydrationConfig {
-    /// Returns `None` when neither the Buck settings nor their legacy fallbacks
-    /// enable paging.
-    fn from_config(
-        config: &LegacyBuckConfig,
-        settings: &DaemonBuckSettings,
-    ) -> buck2_error::Result<Option<Self>> {
-        fn resolve_bool(
-            setting: Option<bool>,
-            config: &LegacyBuckConfig,
-            property: &'static str,
-        ) -> buck2_error::Result<bool> {
-            if let Some(setting) = setting {
-                return Ok(setting);
-            }
-
-            Ok(config
-                .parse(BuckconfigKeyRef {
-                    section: "buck2_hydration",
-                    property,
-                })?
-                .unwrap_or(false))
-        }
-
+    /// Returns `None` when the Buck settings do not enable paging.
+    fn from_settings(settings: &DaemonBuckSettings) -> Option<Self> {
         let hydration = &settings.hydration;
-        let page_out_on_idle =
-            resolve_bool(hydration.page_out_on_idle(), config, "page_out_on_idle")?;
-        // `page_out_on_idle` implies pagable storage, so it enables it too.
-        let enabled =
-            page_out_on_idle || resolve_bool(hydration.enable_paging(), config, "enable_paging")?;
-        if !enabled {
-            return Ok(None);
+        let page_out_on_idle = hydration.page_out_on_idle();
+        if !(page_out_on_idle || hydration.enable_paging()) {
+            return None;
         }
-        Ok(Some(Self {
-            pagable_storage_backend: config
-                .parse::<PagableStorageBackend>(BuckconfigKeyRef {
-                    section: "buck2_hydration",
-                    property: "pagable_storage_backend",
-                })?
-                .unwrap_or_default(),
+        Some(Self {
+            pagable_storage_backend: hydration.pagable_storage_backend(),
             page_out_on_idle,
-            page_out_min_free_disk_gb: config
-                .parse(BuckconfigKeyRef {
-                    section: "buck2_hydration",
-                    property: "page_out_min_free_disk_gb",
-                })?
-                .unwrap_or(100),
+            page_out_min_free_disk_gb: hydration.page_out_min_free_disk_gb(),
             page_out_policy: hydration.page_out_policy(),
             eviction_policy: hydration.eviction_policy(),
-        }))
+        })
     }
 }
 
@@ -784,7 +749,7 @@ impl DaemonStartupConfig {
                 section: "buck2",
                 property: "daemon_idle_timeout_s",
             })?,
-            hydration: HydrationConfig::from_config(config, settings)?,
+            hydration: HydrationConfig::from_settings(settings),
         };
         Ok(Self {
             buck_settings: settings.dupe(),
@@ -945,13 +910,14 @@ mod tests {
     }
 
     #[test]
-    fn test_hydration_settings_fall_back_to_legacy_config() -> buck2_error::Result<()> {
+    fn test_legacy_hydration_buckconfig_is_ignored() -> buck2_error::Result<()> {
         let config = parse(
             &[(
                 "config",
                 indoc!(
                     r#"
                     [buck2_hydration]
+                    enable_paging = true
                     page_out_on_idle = true
                     "#
                 ),
@@ -961,82 +927,18 @@ mod tests {
 
         let startup_config =
             DaemonStartupConfig::new(&config, &DaemonBuckSettings::default(), false)?;
-        let hydration = startup_config
-            .startup_options
-            .hydration
-            .expect("Legacy idle page-out config should enable hydration");
-        assert!(hydration.page_out_on_idle);
-        Ok(())
-    }
-
-    #[test]
-    fn test_hydration_settings_override_legacy_config() -> buck2_error::Result<()> {
-        let config = parse(
-            &[(
-                "config",
-                indoc!(
-                    r#"
-                    [buck2_hydration]
-                    enable_paging = true
-                    page_out_on_idle = true
-                    "#
-                ),
-            )],
-            "config",
-        )?;
-        let settings = resolve_setting_flags(vec![table(
-            "[hydration]\nenable_paging = true\npage_out_on_idle = false",
-        )])?;
-
-        let startup_config = DaemonStartupConfig::new(&config, &settings.daemon, false)?;
-        let hydration = startup_config
-            .startup_options
-            .hydration
-            .expect("Explicit Buck settings should keep hydration enabled");
-        assert!(!hydration.page_out_on_idle);
-        Ok(())
-    }
-
-    #[test]
-    fn test_hydration_settings_can_disable_legacy_config() -> buck2_error::Result<()> {
-        let config = parse(
-            &[(
-                "config",
-                indoc!(
-                    r#"
-                    [buck2_hydration]
-                    enable_paging = true
-                    page_out_on_idle = true
-                    "#
-                ),
-            )],
-            "config",
-        )?;
-        let settings = resolve_setting_flags(vec![table(
-            "[hydration]\nenable_paging = false\npage_out_on_idle = false",
-        )])?;
-
-        let startup_config = DaemonStartupConfig::new(&config, &settings.daemon, false)?;
-        assert_eq!(startup_config.startup_options.hydration, None);
+        assert_eq!(
+            startup_config.startup_options.hydration, None,
+            "Only the `hydration` Buck settings enable paging"
+        );
         Ok(())
     }
 
     #[test]
     fn test_non_default_idle_page_out_scope() -> buck2_error::Result<()> {
-        let config = parse(
-            &[(
-                "config",
-                indoc!(
-                    r#"
-                    [buck2_hydration]
-                    page_out_on_idle = true
-                    "#
-                ),
-            )],
-            "config",
-        )?;
+        let config = parse(&[("config", "")], "config")?;
         let settings = resolve_setting_flags(vec![table(
-            "[hydration]\npage_out_on_idle_isolation_dir_scope = \"non_default\"",
+            "[hydration]\npage_out_on_idle = true\npage_out_on_idle_isolation_dir_scope = \"non_default\"",
         )])?;
         let startup_config = DaemonStartupConfig::new(&config, &settings.daemon, false)?;
 

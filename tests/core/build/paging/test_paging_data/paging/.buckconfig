@@ -6,9 +6,3 @@
 
 [build]
   execution_platforms = root//platforms:platforms
-
-[buck2_hydration]
-  enable_paging = true
-  page_out_on_idle = true
-  # Relax the disk-headroom gate so idle page-out always fires in the test.
-  page_out_min_free_disk_gb = 0

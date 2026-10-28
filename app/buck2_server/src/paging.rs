@@ -15,12 +15,12 @@
 //! hydration`, see [`crate::hydration`]) and automatic page-out when the daemon
 //! goes idle.
 //!
-//! Automatic page-out is enabled with `buck2_hydration.page_out_on_idle = true`. When
+//! Automatic page-out is enabled with `hydration.page_out_on_idle = true`. When
 //! enabled, a finishing command schedules a background task (see
 //! [`spawn_page_out_on_idle`]) that waits for DICE to go idle and then pages out
 //! to reclaim memory — but only when there is something to page out and there is
 //! disk headroom (see [`should_page_out_decision`], configurable via
-//! `buck2_hydration.*` / [`PageOutThresholds`]).
+//! `hydration.page_out_min_free_disk_gb` / [`PageOutThresholds`]).
 //!
 //! Concurrency: automatic page-out deliberately does *not* take the DICE
 //! exclusivity lock the explicit command uses, so it never blocks an incoming

@@ -66,7 +66,7 @@ use crate::value::DiceValidValue;
 use crate::value::HydratedValue;
 use crate::value::PageOutResult;
 
-/// On-disk backend for pagable DICE storage, from `buck2_hydration.pagable_storage_backend`.
+/// On-disk backend for pagable DICE storage, from `hydration.pagable_storage_backend`.
 #[derive(
     Allocative,
     Clone,
@@ -78,6 +78,7 @@ use crate::value::PageOutResult;
     PartialEq,
     Eq
 )]
+#[serde(rename_all = "snake_case")]
 pub enum PagableStorageBackend {
     /// SQLite database files.
     #[default]
