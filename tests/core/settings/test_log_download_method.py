@@ -103,12 +103,17 @@ class LogDownloadMethodTest(BuckTestCase):
             '[log_download]\nlog_url = "repo_local"\n'
         )
 
-        await buck.server(
+        await buck.server()
+        result = await buck.server(
             "--setting",
             "log_download.log_use_manifold=false",
             "--setting",
             "log_download.log_url=args",
         )
+        assert (
+            'Buck settings changed (log_download.log_url: "repo_local" -> "args"; '
+            "log_download.log_use_manifold: true -> false); restarting daemon..."
+        ) in result.stderr
         assert await _log_download_method(buck) == {"Curl": "args"}
 
     @buck_test()

@@ -33,6 +33,7 @@ use buck2_common::client_utils::retrying;
 use buck2_common::daemon_dir::DaemonDir;
 use buck2_common::init::DaemonStartupConfig;
 use buck2_common::invocation_paths::InvocationPaths;
+use buck2_common::settings::BuckSettingChange;
 use buck2_core::buck2_env;
 use buck2_data::DaemonWasStartedReason;
 use buck2_error::BuckErrorContext;
@@ -118,8 +119,8 @@ pub(crate) enum ConstraintUnsatisfiedReason {
     UserVersion,
     #[display("Startup config mismatch")]
     StartupConfig,
-    #[display("Buck settings changed")]
-    BuckSettings,
+    #[display("Buck settings changed ({})", changes.iter().map(ToString::to_string).collect::<Vec<_>>().join("; "))]
+    BuckSettings { changes: Vec<BuckSettingChange> },
     #[display("Reject daemon id")]
     RejectDaemonId,
     #[display("Trace IO mismatch")]
@@ -138,7 +139,7 @@ impl ConstraintUnsatisfiedReason {
                 buck2_data::DaemonWasStartedReason::ConstraintMismatchUserVersion
             }
             ConstraintUnsatisfiedReason::StartupConfig
-            | ConstraintUnsatisfiedReason::BuckSettings => {
+            | ConstraintUnsatisfiedReason::BuckSettings { .. } => {
                 buck2_data::DaemonWasStartedReason::ConstraintMismatchStartupConfig
             }
             ConstraintUnsatisfiedReason::RejectDaemonId => {
@@ -200,16 +201,21 @@ impl DaemonConstraintsRequest {
             return Err(ConstraintUnsatisfiedReason::StartupConfig);
         };
 
-        if self.daemon_startup_config.startup_options != server_config.startup_options {
-            return Err(ConstraintUnsatisfiedReason::StartupConfig);
-        }
-
         if !self
             .daemon_startup_config
             .buck_settings
             .is_daemon_compatible(&server_config.buck_settings)
         {
-            return Err(ConstraintUnsatisfiedReason::BuckSettings);
+            return Err(ConstraintUnsatisfiedReason::BuckSettings {
+                changes: self
+                    .daemon_startup_config
+                    .buck_settings
+                    .changes_from(&server_config.buck_settings),
+            });
+        }
+
+        if self.daemon_startup_config.startup_options != server_config.startup_options {
+            return Err(ConstraintUnsatisfiedReason::StartupConfig);
         }
 
         if let Some(r) = &self.reject_daemon {
@@ -901,7 +907,7 @@ async fn establish_connection_inner(
                             match reason {
                                 ConstraintUnsatisfiedReason::TraceIo
                                 | ConstraintUnsatisfiedReason::StartupConfig
-                                | ConstraintUnsatisfiedReason::BuckSettings => {
+                                | ConstraintUnsatisfiedReason::BuckSettings { .. } => {
                                     return Err(BuckdConnectError::NestedConstraintMismatch {
                                         reason,
                                     }
@@ -912,7 +918,7 @@ async fn establish_connection_inner(
                         }
 
                         let message = match reason {
-                            ConstraintUnsatisfiedReason::BuckSettings => {
+                            ConstraintUnsatisfiedReason::BuckSettings { .. } => {
                                 format!("{reason}; restarting daemon...")
                             }
                             _ => format!(
@@ -1551,12 +1557,30 @@ mod tests {
             req.daemon_startup_config.buck_settings = serde_json::from_str(settings).unwrap();
 
             let reason = req.satisfied(&daemon).unwrap_err();
-            assert!(matches!(reason, ConstraintUnsatisfiedReason::BuckSettings));
+            assert!(matches!(
+                reason,
+                ConstraintUnsatisfiedReason::BuckSettings { .. }
+            ));
             assert_eq!(
                 reason.to_daemon_was_started_reason(),
                 DaemonWasStartedReason::ConstraintMismatchStartupConfig,
             );
         }
+    }
+
+    #[test]
+    fn test_buck_settings_details_survive_error_chain() {
+        let mut req = request(DesiredTraceIoState::Existing);
+        let daemon = constraints(false);
+        req.daemon_startup_config.buck_settings =
+            serde_json::from_str(r#"{"agent_materialization":{"enabled":true}}"#).unwrap();
+
+        let reason = req.satisfied(&daemon).unwrap_err();
+        let expected = "Buck settings changed (agent_materialization.enabled: null -> true)";
+        assert_eq!(reason.to_string(), expected);
+        let error: buck2_error::Error =
+            BuckdConnectError::NestedConstraintMismatch { reason }.into();
+        assert!(format!("{error:#}").contains(expected));
     }
 
     #[test]

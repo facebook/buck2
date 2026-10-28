@@ -25,6 +25,7 @@ mod path;
 mod rollouts;
 pub mod settings;
 
+pub use settings::BuckSettingChange;
 pub use settings::BuckSettings;
 pub use settings::PackageVisibilityDefaultIntersection;
 pub use settings::PackageVisibilitySection;

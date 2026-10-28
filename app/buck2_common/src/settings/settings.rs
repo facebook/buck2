@@ -14,6 +14,7 @@ use allocative::Allocative;
 use dupe::Dupe;
 use serde::Deserialize;
 use serde::Serialize;
+use serde_json::Value;
 
 use crate::settings::agent_interactive::AgentInteractiveSettings;
 use crate::settings::agent_materialization::AgentMaterializationSettings;
@@ -71,6 +72,16 @@ pub struct BuckSettings {
     pub package_visibility: PackageVisibilitySection,
 }
 
+/// A stored setting value changing from the daemon's snapshot to the current client's settings.
+/// JSON null represents an unset override, which can differ from an explicit default value.
+#[derive(Debug, PartialEq, Eq, derive_more::Display)]
+#[display("{key}: {old_value} -> {new_value}")]
+pub struct BuckSettingChange {
+    pub key: String,
+    pub old_value: Value,
+    pub new_value: Value,
+}
+
 impl From<BuckSettingsData> for BuckSettings {
     fn from(data: BuckSettingsData) -> Self {
         Self {
@@ -100,6 +111,35 @@ impl BuckSettings {
     pub fn is_daemon_compatible(&self, other: &Self) -> bool {
         self == other
     }
+
+    /// Changed stored values, ordered by setting name for deterministic diagnostics.
+    #[cold]
+    pub fn changes_from(&self, previous: &Self) -> Vec<BuckSettingChange> {
+        let previous = serde_json::to_value(previous)
+            .expect("Buck Settings contain only JSON-compatible values");
+        let current =
+            serde_json::to_value(self).expect("Buck Settings contain only JSON-compatible values");
+        let mut changes: Vec<_> = ALL_SECTION_METADATA
+            .iter()
+            .flat_map(|section| {
+                section
+                    .settings
+                    .iter()
+                    .map(move |setting| (section.section_name, setting.name))
+            })
+            .filter_map(|(section, name)| {
+                let old_value = &previous[section][name];
+                let new_value = &current[section][name];
+                (old_value != new_value).then(|| BuckSettingChange {
+                    key: format!("{section}.{name}"),
+                    old_value: old_value.clone(),
+                    new_value: new_value.clone(),
+                })
+            })
+            .collect();
+        changes.sort_unstable_by(|left, right| left.key.cmp(&right.key));
+        changes
+    }
 }
 
 #[cfg(test)]
@@ -125,6 +165,43 @@ mod tests {
     use std::collections::BTreeSet;
 
     use super::*;
+
+    #[test]
+    fn test_changed_setting_values() {
+        let previous: BuckSettings = serde_json::from_str(
+            r#"{"agent_interactive":{"enabled":true},"log_download":{"log_url":"old\nvalue","log_use_manifold":true}}"#,
+        ).unwrap();
+        let current: BuckSettings = serde_json::from_str(
+            r#"{"agent_materialization":{"enabled":false},"log_download":{"log_url":"new\"value","log_use_manifold":true}}"#,
+        ).unwrap();
+
+        let changes = current.changes_from(&previous);
+        assert_eq!(
+            changes,
+            vec![
+                BuckSettingChange {
+                    key: "agent_interactive.enabled".to_owned(),
+                    old_value: Value::Bool(true),
+                    new_value: Value::Null,
+                },
+                BuckSettingChange {
+                    key: "agent_materialization.enabled".to_owned(),
+                    old_value: Value::Null,
+                    new_value: Value::Bool(false),
+                },
+                BuckSettingChange {
+                    key: "log_download.log_url".to_owned(),
+                    old_value: Value::String("old\nvalue".to_owned()),
+                    new_value: Value::String("new\"value".to_owned()),
+                },
+            ],
+        );
+        assert_eq!(
+            changes[2].to_string(),
+            r#"log_download.log_url: "old\nvalue" -> "new\"value""#,
+        );
+        assert!(current.changes_from(&current).is_empty());
+    }
 
     #[test]
     fn test_all_settings_are_registered() {
