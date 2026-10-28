@@ -23,6 +23,10 @@ use futures::future::BoxFuture;
 use futures::stream::FuturesUnordered;
 use tokio_stream::StreamExt;
 
+/// What `command_error` says for a directory that is not a repository buck2 knows. It is
+/// recorded like any other reason for having no revision, but it is not a failure to report.
+const NOT_A_REPOSITORY: &str = "Unknown repository type";
+
 /// Spawn tasks to collect version control information
 /// and return a droppable handle that will cancel them on drop.
 pub(crate) fn spawn_version_control_collector(
@@ -43,7 +47,9 @@ pub(crate) fn spawn_version_control_collector(
         )));
 
         while let Some(event) = tasks.next().await {
-            if let Some(error) = &event.command_error {
+            if let Some(error) = &event.command_error
+                && error != NOT_A_REPOSITORY
+            {
                 soft_error!(
                     "spawn_version_control_collector_failed",
                     buck2_error::buck2_error!(buck2_error::ErrorTag::Input, "{}", error)
@@ -91,7 +97,7 @@ async fn create_revision_data(
         RepoVcs::Hg => create_hg_data(&mut revision, revision_type, repo_root).await,
         RepoVcs::Git => create_git_data(&mut revision, revision_type, repo_root).await,
         RepoVcs::Unknown => {
-            revision.command_error = Some("Unknown repository type".to_owned());
+            revision.command_error = Some(NOT_A_REPOSITORY.to_owned());
         }
     }
     revision
