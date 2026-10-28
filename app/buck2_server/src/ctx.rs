@@ -1374,7 +1374,13 @@ impl ServerCommandContextTrait for ServerCommandContext<'_> {
             self.base_context.repo().io.name().to_owned(),
         );
 
-        metadata.insert("materializer".to_owned(), "deferred".to_owned());
+        metadata.insert(
+            "materializer".to_owned(),
+            self.base_context
+                .repo()
+                .materializer_implementation
+                .to_owned(),
+        );
 
         if let Some(originating_cgroup) = &self.base_context.daemon.daemon_originating_cgroup {
             metadata.insert(

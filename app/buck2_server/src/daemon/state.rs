@@ -210,6 +210,10 @@ pub struct RepoState {
     /// A unique identifier for the materializer state.
     pub materializer_state_identity: Option<SqliteIdentity>,
 
+    /// Which materializer `materializer` is, as `buck2.materializer` names it; reported in
+    /// command metadata.
+    pub materializer_implementation: &'static str,
+
     /// Tracks data about previous command (e.g. configs)
     pub previous_command_data: Arc<LockedPreviousCommandData>,
 
@@ -792,6 +796,11 @@ impl TenantState {
             disk_state_options,
             create_unhashed_outputs_lock: Arc::new(Mutex::new(())),
             materializer_state_identity,
+            materializer_implementation: if disk_state_core {
+                disk_state::CONFIG_VALUE
+            } else {
+                "deferred"
+            },
             previous_command_data: LockedPreviousCommandData::new(),
             incremental_db_state,
             persisted_dep_file_cache,
