@@ -108,7 +108,6 @@ class LiveBuilder(ParBuilder):
     def _gen_header(self):
         linktreedir = self.linktree.rsplit("/", 1)[-1]
 
-        base_dir = '$(dirname "$(readlink -f "$0")")/' + linktreedir
         absolute_base_dir = os.path.abspath(self.linktree)
         if absolute_base_dir.startswith("/re_cwd"):
             # This is a remote execution job, the actual path will be different
@@ -129,16 +128,16 @@ class LiveBuilder(ParBuilder):
             "# Make live par compatible with the par_builder and export the same environment variable\n"
             "# See https://fburl.com/workplace/u561pr0v for more details\n"
             'export FB_XAR_INVOKED_NAME="$0"\n'
-            'if [ -f "{base_dir}/_bootstrap.sh" ]; then\n'
-            '  MAIN_MODULE="{base_dir}/{run_livepar}"\n'
-            '  exec "{base_dir}/_bootstrap.sh" "${{MAIN_MODULE}}" "$@"\n'
+            '__lpar_dir="$(dirname "$(readlink -f "$0")")"\n'
+            'if [ -f "$__lpar_dir/{linktreedir}/_bootstrap.sh" ]; then\n'
+            '  MAIN_MODULE="$__lpar_dir/{linktreedir}/{run_livepar}"\n'
+            '  exec "$__lpar_dir"/{linktreedir}/_bootstrap.sh "${{MAIN_MODULE}}" "$@"\n'
             "else\n"
             '  MAIN_MODULE="{absolute_base_dir}/{run_livepar}"\n'
             '  exec "{absolute_base_dir}/_bootstrap.sh" "${{MAIN_MODULE}}" "$@"\n'
             "fi\n"
         )
         return script.format(
-            base_dir=base_dir,
             absolute_base_dir=absolute_base_dir,
             linktreedir=linktreedir,
             argcomplete_hint=self.options.argcomplete_hint,
