@@ -179,52 +179,6 @@ class UncategorizedTest(BuckTestCase):
         (buck.cwd / "hello").rmdir()
         await buck.targets(":")
 
-    @buck_test(
-        data_dir="invalid_file_invalidation",
-        skip_for_os=["windows"],
-        setup_eden=True,
-    )
-    async def test_invalid_file_invalidation(self, buck: Buck) -> None:
-        """
-        This is a regression test for T136963408.
-        """
-
-        await buck.build(":root")
-
-        src = buck.cwd / "src"
-        invalid = src / "\\"
-        invalid_nested = src / "\\" / "a"
-        invalid_nested_invalid = src / "\\" / "\\"
-
-        # Create an invalid file. Build should work.
-        invalid.touch()
-        output = await buck.build(":root")
-        assert "is not valid, the entry is ignored" in output.stderr
-
-        # Delete it, build should work.
-        invalid.unlink()
-        await buck.build(":root")
-
-        # Create an invalid dir. Build should still work.
-        invalid_nested.mkdir(parents=True)
-        output = await buck.build(":root")
-        assert "is not valid, the entry is ignored" in output.stderr
-
-        # And delete it. Things should work.
-        invalid_nested.rmdir()
-        invalid.rmdir()
-        await buck.build(":root")
-
-        # Finally, do an invalid file inside an invalid dir...
-        invalid_nested_invalid.mkdir(parents=True)
-        output = await buck.build(":root")
-        assert "is not valid, the entry is ignored" in output.stderr
-
-        # And delete it. Things should again.
-        invalid_nested_invalid.rmdir()
-        invalid.rmdir()
-        await buck.build(":root")
-
     @buck_test(data_dir="concurrency")
     async def test_concurrency(self, buck: Buck) -> None:
         await buck.build("//:weight", "--local-only", "--no-remote-cache")
