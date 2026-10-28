@@ -10,7 +10,10 @@
 
 package com.facebook.buck.jvm.kotlin.buildtools
 
+import com.facebook.buck.core.util.log.Logger
 import com.facebook.buck.jvm.java.CompilerClassToSourceMap
+import java.io.IOException
+import java.nio.file.NoSuchFileException
 import java.nio.file.Path
 import org.jetbrains.kotlin.buildtools.api.KotlinLogger
 
@@ -18,8 +21,21 @@ internal class KotlinClassToSourceMap(
     private val output: Path,
     private val classesDir: Path,
     private val sourceRoot: Path,
+    private val state: Path? = null,
 ) {
-  private val mapping = CompilerClassToSourceMap()
+  private val restoredMapping = state?.let {
+    try {
+      CompilerClassToSourceMap.read(it)
+    } catch (_: NoSuchFileException) {
+      LOG.debug("No source mapping state at %s; forcing a full compilation", it)
+      null
+    } catch (error: IOException) {
+      LOG.warn(error, "Cannot restore source mapping state from %s; forcing a full compilation", it)
+      null
+    }
+  }
+  val requiresRebuild: Boolean = state != null && restoredMapping == null
+  private val mapping = restoredMapping ?: CompilerClassToSourceMap()
 
   fun logger(delegate: KotlinLogger): KotlinLogger =
       object : KotlinLogger by delegate {
@@ -50,5 +66,10 @@ internal class KotlinClassToSourceMap(
   fun write() {
     mapping.retainExistingOutputs(classesDir)
     mapping.write(output)
+    if (state != null) mapping.write(state)
+  }
+
+  companion object {
+    private val LOG: Logger = Logger.get(KotlinClassToSourceMap::class.java)
   }
 }

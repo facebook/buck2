@@ -38,14 +38,16 @@ internal class KotlinCompilationService(
         compilationService.makeCompilerExecutionStrategyConfiguration()
 
     val jvmCompilationConfiguration =
-        jvmCompilationConfigurationFactory.create(mode).apply {
-          if (logger != null) {
-            useLogger(logger)
-          }
-          if (classToSourceMap != null) {
-            useLogger(classToSourceMap.logger(this.logger))
-          }
-        }
+        jvmCompilationConfigurationFactory
+            .create(mode, classToSourceMap?.requiresRebuild ?: false)
+            .apply {
+              if (logger != null) {
+                useLogger(logger)
+              }
+              if (classToSourceMap != null) {
+                useLogger(classToSourceMap.logger(this.logger))
+              }
+            }
 
     val result =
         compilationService.compileJvm(

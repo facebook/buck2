@@ -511,6 +511,71 @@ internal class KotlinCompilationServiceTest {
     )
   }
 
+  @Test
+  fun `incremental maps retain unchanged classes and remove deleted classes`() {
+    val output = temporaryFolder.root.resolve("mapping.json").path
+    val state = incrementalDir.resolve("class-to-source.json").path
+    fun compile(sources: List<KotlinSourceFile>): CompilationResult =
+        kotlinCompilationService.compile(
+            ProjectId.ProjectUUID(UUID.randomUUID()),
+            createCompilerArgs(sources, classesDir),
+            createIncrementalMode(),
+            classToSourceMap =
+                KotlinClassToSourceMap(output, classesDir.path, sourcesDir.path, state),
+        )
+    assertEquals(
+        CompilationResult.COMPILATION_SUCCESS,
+        compile(listOf(fooSourceFile, barSourceFile)),
+    )
+    val expected = mapOf("Foo.class" to setOf("Foo.kt"), "Bar.class" to setOf("Bar.kt"))
+    assertEquals(expected, CompilerClassToSourceMap.read(output).entries)
+    resetClassModificationTimesToSentinel()
+    fooSourceFile.changeContent("counter = 1", "counter = 2")
+    assertEquals(
+        CompilationResult.COMPILATION_SUCCESS,
+        compile(listOf(fooSourceFile, barSourceFile)),
+    )
+    assertEquals(
+        SENTINEL_TIMESTAMP_MS,
+        Files.getLastModifiedTime(classesDir.resolve("Bar.class").path).toMillis(),
+    )
+    assertEquals(expected, CompilerClassToSourceMap.read(output).entries)
+    assertEquals(
+        CompilationResult.COMPILATION_SUCCESS,
+        compile(listOf(fooSourceFile, barSourceFile)),
+    )
+    assertEquals(expected, CompilerClassToSourceMap.read(output).entries)
+    Files.delete(barSourceFile.absPath.path)
+    assertEquals(CompilationResult.COMPILATION_SUCCESS, compile(listOf(fooSourceFile)))
+    assertEquals(
+        mapOf("Foo.class" to setOf("Foo.kt")),
+        CompilerClassToSourceMap.read(output).entries,
+    )
+    Files.delete(state)
+    assertEquals(CompilationResult.COMPILATION_SUCCESS, compile(listOf(fooSourceFile)))
+    assertEquals(
+        mapOf("Foo.class" to setOf("Foo.kt")),
+        CompilerClassToSourceMap.read(output).entries,
+    )
+    for (invalidState in listOf("{\"", "null", "{\"Foo.class\":null}", "{\"Foo.class\":[null]}")) {
+      Files.writeString(state, invalidState)
+      resetClassModificationTimesToSentinel()
+      assertEquals(CompilationResult.COMPILATION_SUCCESS, compile(listOf(fooSourceFile)))
+      assertNotEquals(
+          SENTINEL_TIMESTAMP_MS,
+          Files.getLastModifiedTime(classesDir.resolve("Foo.class").path).toMillis(),
+      )
+      assertEquals(
+          mapOf("Foo.class" to setOf("Foo.kt")),
+          CompilerClassToSourceMap.read(output).entries,
+      )
+      assertEquals(
+          CompilerClassToSourceMap.read(output).entries,
+          CompilerClassToSourceMap.read(state).entries,
+      )
+    }
+  }
+
   private fun createCompilerArgs(
       sourceFiles: List<KotlinSourceFile>,
       outputDir: AbsPath,

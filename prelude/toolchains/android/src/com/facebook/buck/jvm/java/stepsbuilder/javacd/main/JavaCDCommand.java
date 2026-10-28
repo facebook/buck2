@@ -30,7 +30,9 @@ import java.io.IOException;
 import java.io.Reader;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
@@ -50,6 +52,7 @@ public class JavaCDCommand implements JvmCDCommand {
   private final ImmutableMap<Path, Path> jarToJarDirMap;
   private final PostBuildParams postBuildParams;
   private final CompilerOutputPaths compilerOutputPaths;
+  private final List<Path> sourcePaths;
 
   public JavaCDCommand(String[] args, ImmutableMap<String, String> env)
       throws CmdLineException, IOException {
@@ -80,6 +83,10 @@ public class JavaCDCommand implements JvmCDCommand {
             .getCompilerOutputPathsValue()
             .getLibraryCompilerOutputPath();
     CompilerClassToSourceMap.prepare(compilerOutputPaths, stepsBuilder.getRuleCellRoot().getPath());
+    this.sourcePaths =
+        buildJavaCommand.getBaseJarCommand().getJavaSrcs().stream()
+            .map(RelPath::getPath)
+            .collect(Collectors.toList());
   }
 
   public void maybeWriteClassAbi() throws IOException {
@@ -147,7 +154,7 @@ public class JavaCDCommand implements JvmCDCommand {
   @Override
   public void postExecute() throws IOException {
     CompilerClassToSourceMap.writeCombined(
-        compilerOutputPaths, stepsBuilder.getRuleCellRoot().getPath());
+        compilerOutputPaths, stepsBuilder.getRuleCellRoot().getPath(), sourcePaths);
     maybeWriteClassAbi();
     maybeWriteAbiDir();
     maybeWriteDepFile();

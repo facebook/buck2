@@ -102,6 +102,12 @@ class BuildToolsKotlinc : Kotlinc {
                   it,
                   outputDirectory.path,
                   ruleCellRoot.path,
+                  (mode as? KotlincMode.Incremental)
+                      ?.kotlicWorkingDir
+                      ?.path
+                      ?.resolve(
+                          com.facebook.buck.jvm.java.CompilerClassToSourceMap.KOTLIN_FILE_NAME,
+                      ),
               )
             },
         )

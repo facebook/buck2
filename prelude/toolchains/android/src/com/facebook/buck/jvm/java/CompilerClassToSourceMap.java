@@ -22,6 +22,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.stream.Collectors;
 
 /**
  * Compiler output paths relative to the classes directory, and their source paths relative to the
@@ -86,7 +87,8 @@ public final class CompilerClassToSourceMap {
     Files.deleteIfExists(workingDir.resolve(KOTLIN_FILE_NAME));
   }
 
-  public static void writeCombined(CompilerOutputPaths paths, Path root) throws IOException {
+  public static void writeCombined(CompilerOutputPaths paths, Path root, Collection<Path> sources)
+      throws IOException {
     if (paths.getCompilerClassToSourceMap() == null) {
       return;
     }
@@ -98,6 +100,17 @@ public final class CompilerClassToSourceMap {
         combined.merge(read(input));
       }
     }
+    Set<String> declaredSources =
+        sources.stream()
+            .map(
+                source ->
+                    root.toAbsolutePath()
+                        .normalize()
+                        .relativize(root.resolve(source).toAbsolutePath().normalize())
+                        .toString()
+                        .replace('\\', '/'))
+            .collect(Collectors.toSet());
+    combined.entries.values().forEach(origins -> origins.retainAll(declaredSources));
     combined.write(root.resolve(paths.getCompilerClassToSourceMap().getPath()));
   }
 }

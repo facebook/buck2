@@ -13,11 +13,13 @@ package com.facebook.buck.jvm.java;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 
+import com.facebook.buck.core.filesystems.RelPath;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import javax.tools.StandardJavaFileManager;
 import javax.tools.ToolProvider;
@@ -62,6 +64,33 @@ public class CompilerClassToSourceMapTest {
     mapping.put("Kept.class", List.of(root.resolve("New.kt")), root);
     mapping.retainExistingOutputs(classes);
     assertEquals(Map.of("Kept.class", Set.of("New.kt")), mapping.getEntries());
+  }
+
+  @Test
+  public void combinedMapPreservesClassesWithoutDeclaredSources() throws Exception {
+    Path root = temporaryFolder.getRoot().toPath();
+    CompilerOutputPaths paths =
+        new CompilerOutputPaths(
+            RelPath.get("classes"),
+            RelPath.get("."),
+            Optional.empty(),
+            RelPath.get("annotations"),
+            RelPath.get("srcs"),
+            RelPath.get("working"),
+            Optional.empty(),
+            RelPath.get("mapping.json"));
+    CompilerClassToSourceMap java = new CompilerClassToSourceMap();
+    java.put("p/GeneratedJava.class", List.of(Path.of("working/Generated.java")), root);
+    java.write(root.resolve("working").resolve(CompilerClassToSourceMap.JAVA_FILE_NAME));
+    CompilerClassToSourceMap kotlin = new CompilerClassToSourceMap();
+    kotlin.put("p/GeneratedKotlin.class", List.of(Path.of("working/Generated.kt")), root);
+    kotlin.write(root.resolve("working").resolve(CompilerClassToSourceMap.KOTLIN_FILE_NAME));
+
+    CompilerClassToSourceMap.writeCombined(paths, root, List.of());
+
+    assertEquals(
+        Map.of("p/GeneratedJava.class", Set.of(), "p/GeneratedKotlin.class", Set.of()),
+        CompilerClassToSourceMap.read(root.resolve("mapping.json")).getEntries());
   }
 
   @Test
