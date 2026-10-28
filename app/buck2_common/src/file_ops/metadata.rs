@@ -83,11 +83,14 @@ pub struct SimpleDirEntry {
     pub file_type: FileType,
 }
 
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Allocative)]
+#[derive(
+    Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Pagable, Allocative
+)]
 pub struct RawDirEntry {
     // Put the `file_name` first so we sort by it (which is what people expect)
     /// Not all file names are accepted as file names in Buck. Such files are automatically ignored.
     /// This should probably be something like `CompactOsString`.
+    #[pagable(flatten_serde)]
     pub file_name: CompactString,
     pub file_type: FileType,
 }

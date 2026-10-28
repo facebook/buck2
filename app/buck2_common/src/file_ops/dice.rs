@@ -17,12 +17,9 @@ use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::name::CellName;
 use buck2_fs::paths::file_name::FileNameBuf;
-use buck2_hash::BuckMutSet;
 use derive_more::Display;
 use dice::DiceComputations;
-use dice::DiceTransactionUpdater;
 use dice::EqualityBehavior;
-use dice::InvalidationSourcePriority;
 use dice::Key;
 use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
@@ -164,105 +161,6 @@ pub(crate) enum CheckIgnores {
     No,
 }
 
-#[derive(Allocative)]
-pub struct FileChangeTracker {
-    files_to_dirty: BuckMutSet<ReadFileKey>,
-    dirs_to_dirty: BuckMutSet<ReadDirKey>,
-    paths_to_dirty: BuckMutSet<PathMetadataKey>,
-    exists_matching_exact_case_to_dirty: BuckMutSet<ExistsMatchingExactCaseKey>,
-
-    maybe_modified_dirs: BuckMutSet<CellPath>,
-}
-
-impl FileChangeTracker {
-    pub fn new() -> Self {
-        Self {
-            files_to_dirty: Default::default(),
-            dirs_to_dirty: Default::default(),
-            paths_to_dirty: Default::default(),
-            maybe_modified_dirs: Default::default(),
-            exists_matching_exact_case_to_dirty: Default::default(),
-        }
-    }
-
-    pub fn write_to_dice(mut self, ctx: &mut DiceTransactionUpdater) -> buck2_error::Result<()> {
-        // See comment on `dir_entries_changed_for_watchman_bug`
-        for p in self.paths_to_dirty.clone() {
-            if let Some(dir) = p.0.parent() {
-                if self.maybe_modified_dirs.contains(&dir) {
-                    self.entry_added_or_removed(p.0);
-                }
-            }
-        }
-
-        ctx.changed(self.files_to_dirty)?;
-        ctx.changed(self.dirs_to_dirty)?;
-        ctx.changed(self.paths_to_dirty)?;
-        ctx.changed(self.exists_matching_exact_case_to_dirty)?;
-
-        Ok(())
-    }
-
-    fn entry_added_or_removed(&mut self, path: CellPath) {
-        self.paths_to_dirty.insert(PathMetadataKey(path));
-        self.exists_matching_exact_case_to_dirty
-            .insert(ExistsMatchingExactCaseKey(path));
-        let parent = path.parent();
-        if let Some(parent) = parent {
-            // The above can be None (validly!) if we have a cell we either create or delete.
-            // That never happens in established repos, but if you are setting one up, it's not uncommon.
-            // Since we don't include paths in different cells, the fact we don't dirty the parent
-            // (which is in an enclosing cell) doesn't matter.
-            self.insert_dir_keys(parent);
-        }
-    }
-
-    fn insert_dir_keys(&mut self, path: CellPath) {
-        self.dirs_to_dirty.insert(ReadDirKey {
-            path,
-            check_ignores: CheckIgnores::No,
-        });
-        self.dirs_to_dirty.insert(ReadDirKey {
-            path,
-            check_ignores: CheckIgnores::Yes,
-        });
-    }
-
-    pub fn file_added_or_removed(&mut self, path: CellPath) {
-        self.file_contents_changed(path);
-        self.entry_added_or_removed(path);
-    }
-
-    pub fn dir_added_or_removed(&mut self, path: CellPath) {
-        self.entry_added_or_removed(path);
-    }
-
-    pub fn file_contents_changed(&mut self, path: CellPath) {
-        self.files_to_dirty.insert(ReadFileKey(path));
-        self.paths_to_dirty.insert(PathMetadataKey(path));
-    }
-
-    /// Normally, buck does not need the file watcher to tell it that a directory's entries have
-    /// changed. However, in some cases file watcher want to force-invalidate directory listings,
-    /// and so this exists. It should not normally be used.
-    pub fn dir_entries_changed_force_invalidate(&mut self, path: CellPath) {
-        self.insert_dir_keys(path);
-    }
-
-    /// Normally, we ignore directory modification events from file watchers and instead compute
-    /// them ourselves when a file in the directory is reported as having been added or removed.
-    /// However, watchman has a bug in which it sometimes incorrectly doesn't report files as having
-    /// been added/removed. We work around this by implementing some logic that marks a directory
-    /// listing as being invalid if both the directory and at least one of its entries is reported
-    /// as having been modified.
-    ///
-    /// We cannot unconditionally respect directory modification events from the file watcher, as it
-    /// is not aware of our ignore rules.
-    pub fn dir_entries_changed_for_watchman_bug(&mut self, path: CellPath) {
-        self.maybe_modified_dirs.insert(path);
-    }
-}
-
 /// The return value of a `ReadFileKey` computation.
 ///
 /// Instead of the actual file contents, this holds a `FileOpsDelegateWithIgnores`
@@ -314,10 +212,6 @@ impl Key for ReadFileKey {
         EqualityBehavior::AlwaysUnequal
     }
 
-    fn invalidation_source_priority() -> InvalidationSourcePriority {
-        InvalidationSourcePriority::High
-    }
-
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
         OkPagableValueSerialize::<Self::Value>::new()
     }
@@ -348,10 +242,6 @@ impl Key for ReadDirKey {
             (Ok(x), Ok(y)) => x == y,
             _ => false,
         })
-    }
-
-    fn validity(x: &Self::Value) -> bool {
-        x.is_ok()
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -385,10 +275,6 @@ impl Key for ExistsMatchingExactCaseKey {
         })
     }
 
-    fn validity(x: &Self::Value) -> bool {
-        x.is_ok()
-    }
-
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
         OkPagableValueSerialize::<Self::Value>::new()
     }
@@ -411,10 +297,6 @@ impl Key for PathMetadataKey {
             .read_path_metadata_if_exists(ctx, self.0.path())
             .await?;
 
-        if let Some(RawPathMetadata::Symlink { at, to: _ }) = res {
-            ctx.compute(&ReadFileKey(at)).await?.as_ref().duped_err()?;
-        }
-
         Ok(res)
     }
 
@@ -423,14 +305,6 @@ impl Key for PathMetadataKey {
             (Ok(x), Ok(y)) => x == y,
             _ => false,
         })
-    }
-
-    fn validity(x: &Self::Value) -> bool {
-        x.is_ok()
-    }
-
-    fn invalidation_source_priority() -> InvalidationSourcePriority {
-        InvalidationSourcePriority::High
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {

@@ -20,7 +20,7 @@ use async_trait::async_trait;
 use blake3::Hash;
 use buck2_common::file_ops::baseline::FileSystemBaseline;
 use buck2_common::file_ops::baseline::SetFileSystemBaseline;
-use buck2_common::file_ops::dice::FileChangeTracker;
+use buck2_common::file_ops::io::FileChangeTracker;
 use buck2_common::file_ops::metadata::FileType;
 use buck2_common::ignores::ignore_set::IgnoreSet;
 use buck2_common::invocation_paths::InvocationPaths;
