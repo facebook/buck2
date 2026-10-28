@@ -11,8 +11,8 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_core::cells::CellResolver;
 use buck2_core::cells::name::CellName;
-use buck2_core::cells::nested::NestedCells;
 use buck2_core::cells::paths::CellRelativePath;
 use pagable::Pagable;
 
@@ -77,32 +77,45 @@ impl FileIgnoreResult {
     }
 }
 
-/// Ignores files based on configured ignore patterns and cell paths.
+/// Ignores files based on configured ignore patterns and nested cell roots,
+/// viewed from a particular cell.
 #[derive(PartialEq, Eq, Allocative, Debug, Pagable)]
 pub struct CellFileIgnores {
-    ignores: Arc<IgnoreSet>,
-    cell_ignores: NestedCells,
+    cells: CellResolver,
     cell: CellName,
+    ignores: Arc<IgnoreSet>,
 }
 
 impl CellFileIgnores {
-    pub fn new(ignores: Arc<IgnoreSet>, nested_cells: NestedCells, cell: CellName) -> Self {
+    pub fn new(cells: CellResolver, cell: CellName, ignores: Arc<IgnoreSet>) -> Self {
+        // Verify the cell is present in the resolver up front so that `check`
+        // does not have to handle a fallible lookup.
+        assert!(
+            cells.get(cell).is_ok(),
+            "cell `{cell}` missing from CellResolver"
+        );
         CellFileIgnores {
-            ignores,
-            cell_ignores: nested_cells,
+            cells,
             cell,
+            ignores,
         }
     }
 
     pub(crate) fn check(&self, path: &CellRelativePath) -> FileIgnoreResult {
-        if let Some(pattern) = self.ignores.matches_candidate(self.cell, path) {
+        let instance = self
+            .cells
+            .get(self.cell)
+            .expect("cell exists in resolver, validated in new()");
+
+        let project_path = instance.path().join(path);
+        if let Some(pattern) = self.ignores.matches_candidate(&project_path) {
             return FileIgnoreResult::Ignored(FileIgnoreReason::IgnoredByPattern {
                 path: path.as_str().to_owned(),
                 pattern: pattern.to_owned(),
             });
         }
 
-        if let Some((_, cell_name, _)) = self.cell_ignores.matches(path) {
+        if let Some((_, cell_name, _)) = instance.nested_cells().matches(path) {
             return FileIgnoreResult::Ignored(FileIgnoreReason::IgnoredByCell {
                 path: path.as_str().to_owned(),
                 cell_name,
@@ -117,39 +130,43 @@ impl CellFileIgnores {
 mod tests {
     use std::sync::Arc;
 
-    use buck2_core::cells::cell_root_path::CellRootPath;
+    use buck2_core::cells::CellResolver;
+    use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::name::CellName;
-    use buck2_core::cells::nested::NestedCells;
     use buck2_core::cells::paths::CellRelativePath;
-    use buck2_core::fs::project_rel_path::ProjectRelativePath;
+    use dupe::Dupe;
 
     use crate::ignores::file_ignores::CellFileIgnores;
     use crate::ignores::ignore_set::IgnoreSet;
 
     #[test]
     fn file_ignores() -> buck2_error::Result<()> {
-        let cells = &[
+        // The test cell is intentionally not at the project root. A separate
+        // cell at the actual project root is included so the CellResolver
+        // accepts the setup.
+        let test_cell = CellName::testing_new("test_root");
+        let cells = CellResolver::testing_with_names_and_paths(&[
             (
                 CellName::testing_new("root"),
-                CellRootPath::new(ProjectRelativePath::unchecked_new("root")),
+                CellRootPathBuf::testing_new(""),
             ),
+            (test_cell, CellRootPathBuf::testing_new("root")),
             (
                 CellName::testing_new("other"),
-                CellRootPath::new(ProjectRelativePath::unchecked_new("root/other_cell")),
+                CellRootPathBuf::testing_new("root/other_cell"),
             ),
             (
                 CellName::testing_new("third"),
-                CellRootPath::new(ProjectRelativePath::unchecked_new("third")),
+                CellRootPathBuf::testing_new("third"),
             ),
-        ];
-        let nested_cells = NestedCells::from_cell_roots(cells, CellRootPath::testing_new("root"));
-        let root_cell = CellName::testing_new("root");
+        ]);
+
         let ignore_set = Arc::new(IgnoreSet::testing_new_single_cell(
-            root_cell,
+            cells.dupe(),
+            test_cell,
             "**/*.java , some/dir/**, one/*, \n    recursive, trailing_slash/",
-            true,
         )?);
-        let ignores = CellFileIgnores::new(ignore_set, nested_cells, root_cell);
+        let ignores = CellFileIgnores::new(cells, test_cell, ignore_set);
 
         assert!(
             ignores

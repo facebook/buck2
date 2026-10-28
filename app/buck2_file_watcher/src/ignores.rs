@@ -12,7 +12,6 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_common::ignores::ignore_set::IgnoreSet;
-use buck2_core::cells::CellResolver;
 use buck2_core::fs::i_project_rel_path::IProjectRelativePath;
 
 /// Type that file watchers use to determine if a file is ignored
@@ -22,20 +21,15 @@ use buck2_core::fs::i_project_rel_path::IProjectRelativePath;
 /// for that file's parent directory.
 #[derive(Allocative, Clone)]
 pub struct FileWatcherIgnores {
-    // FIXME(JakobDegen): This is implemented by storing a cell resolver and the `project.ignore`
-    // data from daemon startup, but that's completely wrong - either of these might change, and if
-    // they do, we'll just report incorrect file changes.
-    cells: CellResolver,
     ignores: Arc<IgnoreSet>,
 }
 
 impl FileWatcherIgnores {
-    pub fn new(cells: CellResolver, ignores: Arc<IgnoreSet>) -> Self {
-        Self { cells, ignores }
+    pub fn new(ignores: Arc<IgnoreSet>) -> Self {
+        Self { ignores }
     }
 
     pub(crate) fn is_ignored(&self, path: IProjectRelativePath) -> bool {
-        let cell_path = self.cells.get_cell_path(&path);
-        self.ignores.is_match(cell_path.cell(), cell_path.path())
+        self.ignores.is_match(&path)
     }
 }

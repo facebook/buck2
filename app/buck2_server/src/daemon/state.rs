@@ -433,7 +433,7 @@ impl TenantState {
             cell_configs.insert(cell, config);
         }
         let ignore_set = Arc::new(compute_ignore_set(cells.dupe(), &cell_configs)?);
-        let file_watcher_ignores = FileWatcherIgnores::new(cells.dupe(), ignore_set.dupe());
+        let file_watcher_ignores = FileWatcherIgnores::new(ignore_set.dupe());
 
         let disk_state_options = DiskStateOptions::new(root_config)?;
         let blocking_executor = shared.blocking_executor_factory.for_project(fs.dupe());

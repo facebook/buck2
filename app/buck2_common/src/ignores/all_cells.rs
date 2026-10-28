@@ -13,6 +13,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use buck2_core::cells::name::CellName;
 use dice::DiceComputations;
+use dupe::Dupe;
 
 use crate::dice::cells::HasCellResolver;
 use crate::ignores::file_ignores::CellFileIgnores;
@@ -33,12 +34,13 @@ impl HasCellFileIgnores for DiceComputations<'_> {
         cell_name: CellName,
     ) -> buck2_error::Result<Arc<CellFileIgnores>> {
         let cells = self.get_cell_resolver().await?;
-        let instance = cells.get(cell_name)?;
+        // Validate that the cell exists before constructing.
+        let _ = cells.get(cell_name)?;
         let ignores = self.global_data().get_ignore_set();
-
-        let cell_ignores =
-            CellFileIgnores::new(ignores, instance.nested_cells().clone(), cell_name);
-
-        Ok(Arc::new(cell_ignores))
+        Ok(Arc::new(CellFileIgnores::new(
+            cells.dupe(),
+            cell_name,
+            ignores,
+        )))
     }
 }

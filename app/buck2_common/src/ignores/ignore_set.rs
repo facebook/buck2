@@ -15,6 +15,7 @@ use allocative::Allocative;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_error::internal_error;
 use buck2_hash::BuckMutMap;
 use dice::DiceData;
@@ -45,28 +46,27 @@ pub fn compute_ignore_set(
         })
         .collect::<buck2_error::Result<_>>()?;
 
-    Ok(IgnoreSet { by_cell })
+    Ok(IgnoreSet { by_cell, cells })
 }
 
 #[derive(Debug, Allocative, PagableUnsupported, PartialEq, Eq)]
 pub struct IgnoreSet {
     by_cell: BuckMutMap<CellName, PerCellIgnoreSet>,
+    cells: CellResolver,
 }
 
 impl IgnoreSet {
     /// Returns a pattern that matches the candidate if there is one.
-    pub(crate) fn matches_candidate<'a>(
-        &'a self,
-        cell: CellName,
-        path: &CellRelativePath,
-    ) -> Option<&'a str> {
+    pub(crate) fn matches_candidate<'a>(&'a self, path: &ProjectRelativePath) -> Option<&'a str> {
+        let (cell, path) = self.cells.split_cell_path(path);
         self.by_cell
             .get(&cell)
             .and_then(|ignore_set| ignore_set.matches_candidate(path))
     }
 
     /// Returns whether any pattern matches.
-    pub fn is_match(&self, cell: CellName, path: &CellRelativePath) -> bool {
+    pub fn is_match(&self, path: &ProjectRelativePath) -> bool {
+        let (cell, path) = self.cells.split_cell_path(path);
         self.by_cell
             .get(&cell)
             .is_some_and(|ignore_set| ignore_set.is_match(path))
@@ -83,13 +83,14 @@ impl IgnoreSet {
     }
 
     pub fn testing_new_single_cell(
+        cells: CellResolver,
         cell: CellName,
         spec: &str,
-        root_cell: bool,
     ) -> buck2_error::Result<Self> {
+        let root_cell = cells.is_root_cell(cell);
         let mut by_cell = BuckMutMap::default();
         by_cell.insert(cell, PerCellIgnoreSet::from_ignore_spec(spec, root_cell)?);
-        Ok(Self { by_cell })
+        Ok(Self { by_cell, cells })
     }
 }
 
@@ -248,13 +249,31 @@ impl PerCellIgnoreSet {
 
 #[cfg(test)]
 mod tests {
+    use buck2_core::cells::cell_root_path::CellRootPathBuf;
+
     use super::*;
 
     #[test]
-    fn test_ignore_set_defaults() {
-        let set = PerCellIgnoreSet::from_ignore_spec("", true).unwrap();
-        assert!(set.is_match(CellRelativePath::testing_new("buck-out/gen/src/file.txt")));
-        assert!(set.is_match(CellRelativePath::testing_new("buck-out/art/src/file.txt")));
-        assert!(!set.is_match(CellRelativePath::testing_new("src/file.txt")));
+    fn test_root_cell_defaults_include_buck_out() {
+        let root = CellName::testing_new("root");
+        let cells =
+            CellResolver::testing_with_name_and_path(root, CellRootPathBuf::testing_new(""));
+        let set = IgnoreSet::testing_new_single_cell(cells, root, "").unwrap();
+        assert!(set.is_match(ProjectRelativePath::new("buck-out/gen/src/file.txt").unwrap()));
+        assert!(set.is_match(ProjectRelativePath::new("buck-out/art/src/file.txt").unwrap()));
+        assert!(!set.is_match(ProjectRelativePath::new("src/file.txt").unwrap()));
+    }
+
+    #[test]
+    fn test_non_root_cell_prefixes_patterns() {
+        let root = CellName::testing_new("root");
+        let cells =
+            CellResolver::testing_with_name_and_path(root, CellRootPathBuf::testing_new(""));
+        let set = IgnoreSet::testing_new_single_cell(cells, root, "recursive, some/*").unwrap();
+        assert!(set.is_match(ProjectRelativePath::new("recursive").unwrap()));
+        assert!(set.is_match(ProjectRelativePath::new("recursive/sub").unwrap()));
+        assert!(set.is_match(ProjectRelativePath::new("some/x").unwrap()));
+        assert!(!set.is_match(ProjectRelativePath::new("x/recursive").unwrap()));
+        assert!(!set.is_match(ProjectRelativePath::new("foo/bar/some/x/y").unwrap()));
     }
 }

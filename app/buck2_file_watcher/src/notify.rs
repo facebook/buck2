@@ -342,9 +342,9 @@ mod tests {
             fs_util::canonicalize(AbsNormPathBuf::new(tempdir.path().to_owned()).unwrap()).unwrap();
         let root = ProjectRoot::new(root_path).unwrap();
         let ignores = Arc::new(
-            IgnoreSet::testing_new_single_cell(CellName::testing_new("root"), "", true).unwrap(),
+            IgnoreSet::testing_new_single_cell(cells, CellName::testing_new("root"), "").unwrap(),
         );
-        (root, FileWatcherIgnores::new(cells, ignores), tempdir)
+        (root, FileWatcherIgnores::new(ignores), tempdir)
     }
 
     /// The kernel-overflow signal can arrive as a rescan-flagged event with no paths attached

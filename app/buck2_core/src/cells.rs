@@ -312,14 +312,24 @@ impl CellResolver {
     }
 
     pub fn get_cell_path<P: AsRef<ProjectRelativePath> + ?Sized>(&self, path: &P) -> CellPath {
-        let path = path.as_ref();
+        let (cell, relative) = self.split_cell_path(path.as_ref());
+        CellPath::new(cell, relative)
+    }
+
+    /// The cell containing the path, and the path relative to that cell's root. Unlike
+    /// `get_cell_path`, this does not intern anything, so it is the one to use on paths that are
+    /// looked at once, such as directory entries.
+    pub fn split_cell_path<'a>(
+        &self,
+        path: &'a ProjectRelativePath,
+    ) -> (CellName, &'a CellRelativePath) {
         let cell = self.find(path);
         // Both of these unwraps are ok by construction of the `CellResolver`
         let instance = self.get(cell).unwrap();
         let relative = path
             .strip_prefix(instance.path().as_project_relative_path())
             .unwrap();
-        CellPath::new(cell, CellRelativePath::new(relative))
+        (cell, CellRelativePath::new(relative))
     }
 
     pub fn get_cell_path_from_abs_path(
