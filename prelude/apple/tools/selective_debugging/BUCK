@@ -8,6 +8,7 @@ source_listing()
 python_library(
     name = "lib",
     srcs = [
+        "dsym_allowlist.py",
         "macho.py",
         "macho_parser.py",
         "scrubber.py",
@@ -39,6 +40,7 @@ python_binary(
 meta_python_test(
     name = "tests",
     srcs = [
+        "dsym_allowlist_test.py",
         "scrubber_test.py",
         "spec_test.py",
     ],
