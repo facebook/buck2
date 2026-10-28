@@ -43,6 +43,13 @@ def _transition_opt_by_default_impl(platform: PlatformInfo, refs: struct, attrs:
     if not is_dev:
         return platform
 
+    # Preserve explicitly requested coverage (dev-cov/dbgo-cov/opt-cov) without
+    # adding a ref: minimal fixtures lack the build_mode setting, and resolving
+    # a missing ref fails analysis before this runs.
+    for constraint_value in constraints.values():
+        if str(getattr(constraint_value, "label", "")).endswith("[code-coverage]"):
+            return platform
+
     no_san_label = refs._opt_by_default__no_san[ConstraintValueInfo].setting.label
     sanitizer_constraint = constraints[no_san_label].label if no_san_label in constraints else None
     is_default_dev_sanitizer = (
