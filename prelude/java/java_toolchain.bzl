@@ -28,6 +28,7 @@ JavaToolchainInfo = provider(
         "class_abi_generator": provider_field(typing.Any, default = None),
         "class_loader_bootstrapper": provider_field(typing.Any, default = None),
         "compile_and_package": provider_field(typing.Any, default = None),
+        "compiler_class_to_source_map": provider_field(typing.Any, default = None),
         "cp_snapshot_generator": provider_field(typing.Any, default = None),
         "dep_files": provider_field(typing.Any, default = None),
         "fat_jar": provider_field(typing.Any, default = None),
