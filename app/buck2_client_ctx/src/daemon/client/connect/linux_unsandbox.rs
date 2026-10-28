@@ -15,7 +15,7 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::sync::LazyLock;
 
-use buck2_core::warn_user;
+use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use buck2_error::buck2_error;
@@ -141,7 +141,7 @@ async fn daemon_unsandboxed_wrapper(
         Err(_) => false,
     };
     if !wrapper_is_setuid {
-        warn_user!(
+        soft_error!(
             "buck_unsandbox_daemon_wrapper_not_setuid",
             buck2_error!(
                 ErrorTag::Environment,
@@ -154,7 +154,7 @@ async fn daemon_unsandboxed_wrapper(
     }
 
     let Some(release) = BuckWrapperRelease::create(UNSANDBOX_DAEMON_WRAPPER).await else {
-        warn_user!(
+        soft_error!(
             "buck_unsandbox_daemon_wrapper_release_unavailable",
             buck2_error!(
                 ErrorTag::Environment,
@@ -167,7 +167,7 @@ async fn daemon_unsandboxed_wrapper(
     };
 
     if !release.is_at_least(&MIN_UNSANDBOX_DAEMON_WRAPPER_RELEASE) {
-        warn_user!(
+        soft_error!(
             "buck_unsandbox_daemon_wrapper_release_too_old",
             buck2_error!(
                 ErrorTag::Environment,
@@ -194,7 +194,7 @@ async fn daemon_unsandboxed_wrapper(
             .file_name()
             .map(|filename| filename.to_string_lossy())
             .unwrap_or(Cow::Borrowed("<none>"));
-        warn_user!(
+        soft_error!(
             "buck_unsandbox_daemon_unsupported_daemon_filename",
             buck2_error!(
                 ErrorTag::Environment,
