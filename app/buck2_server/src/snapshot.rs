@@ -245,6 +245,9 @@ impl SnapshotCollector {
     fn add_daemon_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
         snapshot.blocking_executor_io_queue_size =
             self.daemon.blocking_executor_factory.queue_size() as u64;
+        let inline_io = self.daemon.blocking_executor_factory.inline_io_stats();
+        snapshot.blocking_executor_io_inline_in_flight = inline_io.in_flight;
+        snapshot.blocking_executor_io_inline_waiting = inline_io.waiting;
         if let Some(store) = self
             .tenant
             .repo

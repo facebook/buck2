@@ -1251,6 +1251,12 @@ message Snapshot {
   uint64 buck2_system_cpu_us = 3;
   // Queue size of the blocking executor.
   uint64 blocking_executor_io_queue_size = 4;
+  // Inline I/O on the blocking executor: operations running on their caller's
+  // thread right now, and operations waiting for a permit to do so. The pooled
+  // executor bounds them to the host's parallelism; the direct one does not
+  // wait, so `waiting` stays zero under it.
+  uint64 blocking_executor_io_inline_in_flight = 19;
+  uint64 blocking_executor_io_inline_waiting = 20;
   // Tokio blocking queue depth.
   uint64 tokio_blocking_queue_depth = 14;
   // Tokio num idle blocking threads.

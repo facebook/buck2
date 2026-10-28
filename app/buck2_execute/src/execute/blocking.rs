@@ -9,6 +9,8 @@
  */
 
 use std::sync::Arc;
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
 
 use allocative::Allocative;
 use async_trait::async_trait;
@@ -79,6 +81,49 @@ pub trait IoRequest: Send + Sync + 'static {
     fn execute(self: Box<Self>, project_fs: &ProjectRoot) -> buck2_error::Result<()>;
 }
 
+/// What the inline I/O path is doing right now. Inline I/O runs on its caller's thread; the
+/// pooled executor first takes a permit from a semaphore sized to the host's parallelism, the
+/// direct one runs at once, so `waiting` is only ever non-zero under the pooled one.
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+pub struct InlineIoStats {
+    pub in_flight: u64,
+    pub waiting: u64,
+}
+
+#[derive(Allocative, Default)]
+pub struct InlineIoCounters {
+    #[allocative(skip)]
+    in_flight: AtomicU64,
+    #[allocative(skip)]
+    waiting: AtomicU64,
+}
+
+impl InlineIoCounters {
+    fn stats(&self) -> InlineIoStats {
+        InlineIoStats {
+            in_flight: self.in_flight.load(Ordering::Relaxed),
+            waiting: self.waiting.load(Ordering::Relaxed),
+        }
+    }
+}
+
+/// Holds a counter up for as long as it lives, so that a caller cancelled while waiting is
+/// counted out again.
+struct Gauge<'a>(&'a AtomicU64);
+
+impl<'a> Gauge<'a> {
+    fn up(counter: &'a AtomicU64) -> Self {
+        counter.fetch_add(1, Ordering::Relaxed);
+        Gauge(counter)
+    }
+}
+
+impl Drop for Gauge<'_> {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::Relaxed);
+    }
+}
+
 struct ThreadPoolIoRequest {
     project_fs: ProjectRoot,
     io: Box<dyn IoRequest>,
@@ -143,6 +188,7 @@ impl BuckBlockingExecutorShared {
 #[derive(Allocative)]
 struct BuckBlockingExecutor {
     shared: Arc<BuckBlockingExecutorShared>,
+    inline: Arc<InlineIoCounters>,
     #[allocative(skip)]
     project_fs: ProjectRoot,
 }
@@ -153,12 +199,15 @@ impl BlockingExecutor for BuckBlockingExecutor {
         &self,
         f: Box<dyn FnOnce() -> buck2_error::Result<()> + Send + 'a>,
     ) -> buck2_error::Result<()> {
-        let _permit = self
-            .shared
-            .io_data_semaphore
-            .acquire()
-            .await
-            .expect("This semaphore is never closed");
+        let _permit = {
+            let _waiting = Gauge::up(&self.inline.waiting);
+            self.shared
+                .io_data_semaphore
+                .acquire()
+                .await
+                .expect("This semaphore is never closed")
+        };
+        let _in_flight = Gauge::up(&self.inline.in_flight);
 
         tokio::task::block_in_place(f)
     }
@@ -197,6 +246,7 @@ impl BlockingExecutor for BuckBlockingExecutor {
 
 #[derive(Allocative)]
 struct DirectIoExecutor {
+    inline: Arc<InlineIoCounters>,
     #[allocative(skip)]
     project_fs: ProjectRoot,
 }
@@ -207,6 +257,7 @@ impl BlockingExecutor for DirectIoExecutor {
         &self,
         f: Box<dyn FnOnce() -> buck2_error::Result<()> + Send + 'a>,
     ) -> buck2_error::Result<()> {
+        let _in_flight = Gauge::up(&self.inline.in_flight);
         tokio::task::block_in_place(f)
     }
 
@@ -247,6 +298,7 @@ enum BlockingExecutorFactoryKind {
 #[derive(Allocative)]
 pub struct BlockingExecutorFactory {
     kind: BlockingExecutorFactoryKind,
+    inline: Arc<InlineIoCounters>,
 }
 
 impl BlockingExecutorFactory {
@@ -259,16 +311,23 @@ impl BlockingExecutorFactory {
             ))
         };
 
-        Ok(Self { kind })
+        Ok(Self {
+            kind,
+            inline: Arc::new(InlineIoCounters::default()),
+        })
     }
 
     pub fn for_project(&self, project_fs: ProjectRoot) -> Arc<dyn BlockingExecutor> {
         match &self.kind {
             BlockingExecutorFactoryKind::Pooled(shared) => Arc::new(BuckBlockingExecutor {
                 shared: shared.dupe(),
+                inline: self.inline.dupe(),
                 project_fs,
             }),
-            BlockingExecutorFactoryKind::Direct => Arc::new(DirectIoExecutor { project_fs }),
+            BlockingExecutorFactoryKind::Direct => Arc::new(DirectIoExecutor {
+                inline: self.inline.dupe(),
+                project_fs,
+            }),
         }
     }
 
@@ -277,6 +336,11 @@ impl BlockingExecutorFactory {
             BlockingExecutorFactoryKind::Pooled(shared) => shared.command_sender.len(),
             BlockingExecutorFactoryKind::Direct => 0,
         }
+    }
+
+    /// Inline I/O across every executor this factory made.
+    pub fn inline_io_stats(&self) -> InlineIoStats {
+        self.inline.stats()
     }
 }
 
@@ -423,15 +487,38 @@ mod tests {
         let root = ProjectRootTemp::new()?;
         let pooled = BuckBlockingExecutor {
             shared: Arc::new(BuckBlockingExecutorShared::default_concurrency()?),
+            inline: Arc::new(InlineIoCounters::default()),
             project_fs: root.path().dupe(),
         };
         assert_propagates_soft_error_context(&pooled).await?;
 
         let direct = DirectIoExecutor {
+            inline: Arc::new(InlineIoCounters::default()),
             project_fs: root.path().dupe(),
         };
         assert_propagates_soft_error_context(&direct).await?;
 
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn inline_io_is_counted_while_it_runs() -> buck2_error::Result<()> {
+        let root = ProjectRootTemp::new()?;
+        let factory = BlockingExecutorFactory::create()?;
+        let executor = factory.for_project(root.path().dupe());
+        assert_eq!(factory.inline_io_stats(), InlineIoStats::default());
+
+        let seen = executor
+            .execute_io_inline(|| Ok(factory.inline_io_stats()))
+            .await?;
+        assert_eq!(
+            seen,
+            InlineIoStats {
+                in_flight: 1,
+                waiting: 0
+            }
+        );
+        assert_eq!(factory.inline_io_stats(), InlineIoStats::default());
         Ok(())
     }
 
