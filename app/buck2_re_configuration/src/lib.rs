@@ -29,6 +29,8 @@ pub trait RemoteExecutionStaticMetadataImpl: Sized {
     fn action_cache_semaphore_size(&self) -> usize;
     /// How many CAS presence-check RPCs may be in flight at once.
     fn presence_check_concurrency(&self) -> usize;
+    /// How many digests one CAS presence-check RPC carries at most.
+    fn presence_check_max_batch(&self) -> usize;
 }
 
 #[derive(Clone, Debug, Allocative)]
@@ -105,6 +107,7 @@ mod fbcode {
         pub cas_address: Option<String>,
         pub cas_connection_count: i32,
         pub presence_check_concurrency: usize,
+        pub presence_check_max_batch: usize,
         pub shared_casd_cache_path: Option<String>,
         pub legacy_shared_casd_mode: Option<String>,
         pub shared_casd_mode_small_files: Option<CASdMode>,
@@ -184,6 +187,14 @@ mod fbcode {
                         property: "presence_check_concurrency",
                     })?
                     .unwrap_or(100),
+                // The internal CAS client accepts up to 500 per RPC; 50 keeps the RPCs close in
+                // shape to the one-per-action calls `find_missing` made before the check existed.
+                presence_check_max_batch: legacy_config
+                    .parse(BuckconfigKeyRef {
+                        section: BUCK2_RE_CLIENT_CFG_SECTION,
+                        property: "presence_check_max_batch",
+                    })?
+                    .unwrap_or(50),
                 shared_casd_cache_path: legacy_config.parse(BuckconfigKeyRef {
                     section: BUCK2_RE_CLIENT_CFG_SECTION,
                     property: "cas_shared_cache",
@@ -396,6 +407,10 @@ mod fbcode {
         fn presence_check_concurrency(&self) -> usize {
             self.presence_check_concurrency
         }
+
+        fn presence_check_max_batch(&self) -> usize {
+            self.presence_check_max_batch
+        }
     }
 }
 
@@ -434,6 +449,10 @@ mod not_fbcode {
 
         fn presence_check_concurrency(&self) -> usize {
             100
+        }
+
+        fn presence_check_max_batch(&self) -> usize {
+            50
         }
     }
 }

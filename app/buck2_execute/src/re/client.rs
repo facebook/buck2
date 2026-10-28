@@ -179,6 +179,7 @@ struct RemoteExecutionClientData {
     local_cache: LocalCacheStats,
     persistent_cache_mode: Option<String>,
     presence_check_concurrency: usize,
+    presence_check_max_batch: usize,
 }
 
 /// Issues presence-check RPCs through a client, under whatever use case each batch belongs to.
@@ -255,6 +256,7 @@ impl RemoteExecutionClient {
                 local_cache: Default::default(),
                 persistent_cache_mode,
                 presence_check_concurrency: re_config.static_metadata.presence_check_concurrency(),
+                presence_check_max_batch: re_config.static_metadata.presence_check_max_batch(),
             }),
         })
     }
@@ -487,9 +489,12 @@ impl RemoteExecutionClient {
         let backend: Arc<dyn TtlBackend> = Arc::new(ClientTtlBackend {
             client: self.dupe(),
         });
-        CasPresence::global(self.data.presence_check_concurrency)
-            .check(backend, use_case, negative_cache, digests)
-            .await
+        CasPresence::global(
+            self.data.presence_check_concurrency,
+            self.data.presence_check_max_batch,
+        )
+        .check(backend, use_case, negative_cache, digests)
+        .await
     }
 
     pub async fn get_digest_expirations(
