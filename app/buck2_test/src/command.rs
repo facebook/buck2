@@ -122,6 +122,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::downward_api::BuckTestDownwardApi;
 use crate::executor_launcher::ExecutorLaunch;
 use crate::executor_launcher::ExecutorLauncher;
+use crate::executor_launcher::ExecutorOutput;
 use crate::executor_launcher::OutOfProcessTestExecutor;
 use crate::executor_launcher::TestExecutorClientWrapper;
 use crate::local_resource_registry::HasLocalResourceRegistry;
@@ -920,29 +921,7 @@ async fn test_targets(
         .await
         .buck_error_context("Failed to retrieve executor exit code")?;
 
-    if executor_output.signal.is_some() {
-        // The executor was killed by a signal: a crash (e.g. SIGSEGV) or an OOM kill,
-        // as opposed to an orderly non-zero exit.
-        let mut error = buck2_error::buck2_error!(
-            ErrorTag::TestExecutorSignaled,
-            "{}",
-            executor_output.termination_message()
-        );
-        for tag in executor_output.telemetry_string_tags() {
-            error = error.string_tag(&tag);
-        }
-        return Err(error);
-    }
-
-    if executor_output.exit_code != Some(0) {
-        let mut error = buck2_error::buck2_error!(
-            ErrorTag::TestExecutorNonZeroExit,
-            "{}",
-            executor_output.termination_message()
-        );
-        for tag in executor_output.telemetry_string_tags() {
-            error = error.string_tag(&tag);
-        }
+    if let Some(error) = executor_termination_error(&executor_output) {
         return Err(error);
     }
 
@@ -2101,6 +2080,38 @@ fn ai_agent_tpx_args(agent_context: &[buck2_data::AgentContextEntry]) -> Vec<Str
     args
 }
 
+/// The error for a test executor that did not exit cleanly, or `None` if it did.
+///
+/// The string tags become part of the error's category key, which is the identity
+/// of the Logview MIDs tracking executor deaths: signal deaths are split by signal
+/// and core-dumped bit on purpose; non-zero exits are not split by status, since
+/// nearly all of them are status 1 and the status is already in the message.
+fn executor_termination_error(output: &ExecutorOutput) -> Option<buck2_error::Error> {
+    if let Some(signal) = output.signal {
+        // A crash (e.g. SIGSEGV) or an OOM kill, as opposed to an orderly non-zero exit.
+        let mut error = buck2_error::buck2_error!(
+            ErrorTag::TestExecutorSignaled,
+            "{}",
+            output.termination_message()
+        );
+        error = error.string_tag(&format!("signal({signal})"));
+        if output.core_dumped {
+            error = error.string_tag("core_dumped");
+        }
+        return Some(error);
+    }
+
+    if output.exit_code != Some(0) {
+        return Some(buck2_error::buck2_error!(
+            ErrorTag::TestExecutorNonZeroExit,
+            "{}",
+            output.termination_message()
+        ));
+    }
+
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use buck2_cli_proto::RepresentativeConfigFlag;
@@ -2110,7 +2121,57 @@ mod tests {
     use crate::command::InternalRunnerConfig;
     use crate::command::TestLabelFiltering;
     use crate::command::ai_agent_tpx_args;
+    use crate::command::executor_termination_error;
     use crate::command::generate_config_entry_args;
+    use crate::executor_launcher::ExecutorOutput;
+
+    fn executor_output(
+        exit_code: Option<i32>,
+        signal: Option<i32>,
+        core_dumped: bool,
+    ) -> ExecutorOutput {
+        ExecutorOutput {
+            exit_code,
+            signal,
+            core_dumped,
+            stdout: String::new(),
+            stderr: String::new(),
+        }
+    }
+
+    // These category keys identify the Logview MIDs that track executor deaths;
+    // a changed key opens a new regression task.
+    #[test]
+    fn non_zero_exit_category_key_is_not_split_by_status() {
+        let error = executor_termination_error(&executor_output(Some(1), None, false)).unwrap();
+        assert_eq!(
+            error.category_key(),
+            "buck2_test/src/command.rs:TEST_EXECUTOR_NON_ZERO_EXIT"
+        );
+    }
+
+    #[test]
+    fn signal_death_category_key_includes_signal_and_core_dump() {
+        let error = executor_termination_error(&executor_output(None, Some(11), true)).unwrap();
+        assert_eq!(
+            error.category_key(),
+            "buck2_test/src/command.rs:TEST_EXECUTOR_SIGNALED:core_dumped:signal(11)"
+        );
+    }
+
+    #[test]
+    fn signal_death_without_core_dump_omits_core_tag() {
+        let error = executor_termination_error(&executor_output(None, Some(9), false)).unwrap();
+        assert_eq!(
+            error.category_key(),
+            "buck2_test/src/command.rs:TEST_EXECUTOR_SIGNALED:signal(9)"
+        );
+    }
+
+    #[test]
+    fn clean_exit_is_not_an_error() {
+        assert!(executor_termination_error(&executor_output(Some(0), None, false)).is_none());
+    }
 
     #[test]
     fn only_include_labels_in_includes() {

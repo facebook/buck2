@@ -208,6 +208,10 @@ impl Error {
         Self(Arc::new(ErrorKind::WithContext(context.into(), self)))
     }
 
+    /// Attaches a free-form tag. String tags are part of `category_key()` as well as
+    /// of the `error_tags` telemetry column, so adding one to an existing error moves
+    /// its events to a new category (a new Logview MID). Use one to split an error
+    /// family on purpose, not for a telemetry-only annotation.
     pub fn string_tag(self, context: &str) -> Self {
         Self(Arc::new(ErrorKind::WithContext(
             ContextValue::StringTag(StringTag {

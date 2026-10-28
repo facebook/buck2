@@ -155,23 +155,6 @@ impl ExecutorOutput {
             self.stdout, self.stderr
         )
     }
-
-    /// Structured tags describing abnormal termination, for telemetry.
-    /// Mirrors the `signal(N)` / `exit_code(N)` string-tag format used for
-    /// exit statuses elsewhere. Clean exits produce no tags.
-    pub(crate) fn telemetry_string_tags(&self) -> Vec<String> {
-        if let Some(signal) = self.signal {
-            let mut tags = vec![format!("signal({signal})")];
-            if self.core_dumped {
-                tags.push("core_dumped".to_owned());
-            }
-            tags
-        } else if let Some(exit_code) = self.exit_code.filter(|code| *code != 0) {
-            vec![format!("exit_code({exit_code})")]
-        } else {
-            Vec::new()
-        }
-    }
 }
 
 #[async_trait]
@@ -299,60 +282,6 @@ mod tests {
             "unexpected message: {}",
             output.termination_message()
         );
-    }
-
-    #[test]
-    fn signal_death_tags_include_signal_and_core_dump() {
-        let output = ExecutorOutput {
-            exit_code: None,
-            signal: Some(11),
-            core_dumped: true,
-            stdout: String::new(),
-            stderr: String::new(),
-        };
-        assert_eq!(
-            output.telemetry_string_tags(),
-            vec!["signal(11)".to_owned(), "core_dumped".to_owned()]
-        );
-    }
-
-    #[test]
-    fn signal_death_without_core_dump_omits_core_tag() {
-        let output = ExecutorOutput {
-            exit_code: None,
-            signal: Some(9),
-            core_dumped: false,
-            stdout: String::new(),
-            stderr: String::new(),
-        };
-        assert_eq!(output.telemetry_string_tags(), vec!["signal(9)".to_owned()]);
-    }
-
-    #[test]
-    fn non_zero_exit_tags_include_exit_code() {
-        let output = ExecutorOutput {
-            exit_code: Some(3),
-            signal: None,
-            core_dumped: false,
-            stdout: String::new(),
-            stderr: String::new(),
-        };
-        assert_eq!(
-            output.telemetry_string_tags(),
-            vec!["exit_code(3)".to_owned()]
-        );
-    }
-
-    #[test]
-    fn clean_exit_produces_no_tags() {
-        let output = ExecutorOutput {
-            exit_code: Some(0),
-            signal: None,
-            core_dumped: false,
-            stdout: String::new(),
-            stderr: String::new(),
-        };
-        assert!(output.telemetry_string_tags().is_empty());
     }
 
     // An orderly non-zero exit must be reported as an exit code, with no signal.
