@@ -17,11 +17,8 @@ use async_trait::async_trait;
 use buck2_common::file_ops::baseline::FileSystemBaseline;
 use buck2_common::file_ops::baseline::SetFileSystemBaseline;
 use buck2_common::file_ops::io::FileChangeTracker;
-use buck2_common::ignores::ignore_set::IgnoreSet;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
-use buck2_core::cells::CellResolver;
-use buck2_core::cells::name::CellName;
 use buck2_core::fs::i_project_rel_path::IProjectRelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
@@ -37,7 +34,6 @@ use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_hash::BuckFixedSortedMap;
 use buck2_hash::BuckMutSet;
 use dice::DiceTransactionUpdater;
 use dupe::Dupe;
@@ -49,8 +45,6 @@ use edenfs::LargeChangeNotification;
 use edenfs::SmallChangeNotification;
 use fbinit::FacebookInit;
 use tokio::sync::RwLock;
-use tracing::debug;
-use tracing::info;
 
 use crate::dep_files::DepFileCache;
 use crate::edenfs::sapling::MergebaseDetails;
@@ -64,6 +58,7 @@ use crate::edenfs::utils::dtype_into_file_watcher_kind;
 use crate::edenfs::utils::find_first_valid_parent;
 use crate::file_watcher::FileWatcher;
 use crate::file_watcher::SyncOutcome;
+use crate::ignores::FileWatcherIgnores;
 use crate::mergebase::Mergebase;
 use crate::stats::FileWatcherStats;
 
@@ -106,10 +101,9 @@ pub(crate) struct EdenFsFileWatcher {
     eden_root: AbsNormPathBuf,
     #[allocative(skip)]
     checkpoint: RwLock<Checkpoint>,
-    cells: CellResolver,
     // The project root, relative to the eden mount point
     project_root: ForwardRelativePathBuf,
-    ignore_specs: BuckFixedSortedMap<CellName, IgnoreSet>,
+    ignores: FileWatcherIgnores,
     mergebase: RwLock<Option<MergebaseDetails>>,
     last_mergebase: RwLock<Option<MergebaseDetails>>,
     mergebase_with: Option<String>,
@@ -123,8 +117,7 @@ impl EdenFsFileWatcher {
         fb: FacebookInit,
         project_root: &ProjectRoot,
         root_config: &LegacyBuckConfig,
-        cells: CellResolver,
-        ignore_specs: BuckFixedSortedMap<CellName, IgnoreSet>,
+        ignores: FileWatcherIgnores,
         dep_file_cache: Arc<dyn DepFileCache>,
     ) -> buck2_error::Result<Self> {
         let manager = EdenConnectionManager::new(
@@ -164,9 +157,8 @@ impl EdenFsFileWatcher {
                 position: JournalPosition::default(),
                 baseline: FileSystemBaseline::unique(),
             }),
-            cells,
             project_root,
-            ignore_specs,
+            ignores,
             mergebase: RwLock::new(None),
             last_mergebase: RwLock::new(None),
             mergebase_with,
@@ -513,38 +505,20 @@ impl EdenFsFileWatcher {
             return Ok(());
         }
 
-        let cell_path = self.cells.get_cell_path(&project_rel_path);
-
-        let ignore = self
-            .ignore_specs
-            .get(&cell_path.cell())
-            // This shouldn't ever really happen. However, because of the bugs caused by just
-            // storing the `CellResolver` in the watcher permanently, sometimes it can, so we just
-            // default to not ignoring the file in that case
-            .is_some_and(|ignore| ignore.is_match(cell_path.path()));
-
-        info!("EdenFS: {:?} (ignore = {})", cell_path, ignore);
+        let ignore = self.ignores.is_ignored(project_rel_path);
 
         if ignore {
             stats.add_ignored(1);
         } else if processed_changes.insert(EdenFsEvent {
             event_type: event,
             event_kind: kind,
-            path: cell_path.to_string(),
+            path: project_rel_path.to_string(),
         }) {
             stats.add(project_rel_path, event, kind);
 
             match (event, kind) {
                 (Type::Create, Kind::Directory) => tracker.dir_added_or_removed(project_rel_path),
-                (Type::Create, _) => {
-                    if kind == Kind::Symlink {
-                        debug!(
-                            "New symlink detected (source symlinks are not supported): {}",
-                            cell_path
-                        );
-                    }
-                    tracker.file_added_or_removed(project_rel_path)
-                }
+                (Type::Create, _) => tracker.file_added_or_removed(project_rel_path),
                 (Type::Modify, Kind::Directory) => {
                     // FIXME(JakobDegen): This should not be needed
                     tracker.dir_entries_changed_force_invalidate(project_rel_path)

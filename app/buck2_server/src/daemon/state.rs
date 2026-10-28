@@ -88,6 +88,7 @@ use buck2_execute_impl::sqlite::materializer_db::MaterializerStateSqliteDb;
 use buck2_file_watcher::dep_files::DepFileCache;
 use buck2_file_watcher::dep_files::create_dep_file_cache;
 use buck2_file_watcher::file_watcher::FileWatcher;
+use buck2_file_watcher::ignores::FileWatcherIgnores;
 use buck2_fs::cwd::WorkingDirectory;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileNameBuf;
@@ -422,10 +423,10 @@ impl TenantState {
             root_config,
         )?);
 
-        let mut ignore_specs = Vec::new();
+        let mut ignore_specs: BuckMutMap<CellName, IgnoreSet> = BuckMutMap::default();
         for (cell, _) in cells.cells() {
             let config = legacy_cells.parse_single_cell(cell, &fs).await?;
-            ignore_specs.push((
+            ignore_specs.insert(
                 cell,
                 IgnoreSet::from_ignore_spec(
                     config
@@ -436,10 +437,9 @@ impl TenantState {
                         .unwrap_or(""),
                     cells.is_root_cell(cell),
                 )?,
-            ));
+            );
         }
-        let ignore_specs: BuckFixedSortedMap<CellName, IgnoreSet> =
-            ignore_specs.into_iter().collect();
+        let file_watcher_ignores = FileWatcherIgnores::new(cells.dupe(), ignore_specs);
 
         let disk_state_options = DiskStateOptions::new(root_config)?;
         let blocking_executor = shared.blocking_executor_factory.for_project(fs.dupe());
@@ -689,8 +689,7 @@ impl TenantState {
             fb,
             paths.project_root(),
             root_config,
-            cells.dupe(),
-            ignore_specs,
+            file_watcher_ignores,
             dep_file_cache.dupe(),
         )
         .with_buck_error_context(|| {

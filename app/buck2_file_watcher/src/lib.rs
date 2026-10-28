@@ -15,6 +15,7 @@ pub mod dep_files;
 mod edenfs;
 pub mod file_watcher;
 mod fs_hash_crawler;
+pub mod ignores;
 pub mod mergebase;
 mod notify;
 mod stats;

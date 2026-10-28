@@ -15,18 +15,14 @@ use async_trait::async_trait;
 use buck2_common::file_ops::baseline::FileSystemBaseline;
 use buck2_common::file_ops::baseline::SetFileSystemBaseline;
 use buck2_common::file_ops::io::FileChangeTracker;
-use buck2_common::ignores::ignore_set::IgnoreSet;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
-use buck2_core::cells::CellResolver;
-use buck2_core::cells::name::CellName;
 use buck2_core::fs::i_project_rel_path::IProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_error::internal_error;
 use buck2_events::dispatch::span_async;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
-use buck2_hash::BuckFixedSortedMap;
 use buck2_util::process::async_background_command;
 use dice::DiceTransactionUpdater;
 use dupe::Dupe;
@@ -38,6 +34,7 @@ use watchman_client::prelude::FileType;
 use crate::dep_files::DepFileCache;
 use crate::file_watcher::FileWatcher;
 use crate::file_watcher::SyncOutcome;
+use crate::ignores::FileWatcherIgnores;
 use crate::mergebase::Mergebase;
 use crate::stats::FileWatcherStats;
 use crate::watchman::core::SyncableQuery;
@@ -48,11 +45,7 @@ use crate::watchman::core::WatchmanKind;
 use crate::watchman::utils::find_first_valid_parent;
 
 struct WatchmanQueryProcessor {
-    // FIXME(JakobDegen): Storing these values statically is completely broken. See
-    // `tests/e2e/cells/test_file_watcher_resolution:test_changing_cell_location_bug` for a repro of
-    // a bug.
-    cells: CellResolver,
-    ignore_specs: BuckFixedSortedMap<CellName, IgnoreSet>,
+    ignores: FileWatcherIgnores,
     empty_on_fresh_instance: bool,
     report_global_rev: bool,
     last_mergebase: Option<String>,
@@ -128,15 +121,8 @@ impl WatchmanQueryProcessor {
         }
 
         let path = IProjectRelativePath::intern_directly(&path);
-        let cell_path = self.cells.get_cell_path(&path);
 
-        let ignore = self
-            .ignore_specs
-            .get(&cell_path.cell())
-            // This shouldn't ever really happen. However, because of the bugs caused by just
-            // storing the `CellResolver` in the watcher permanently, sometimes it can, so we just
-            // default to not ignoring the file in that case
-            .is_some_and(|ignore| ignore.is_match(cell_path.path()));
+        let ignore = self.ignores.is_ignored(path);
 
         info!("Watchman: {:?} (ignore = {})", ev, ignore);
 
@@ -363,8 +349,7 @@ impl WatchmanFileWatcher {
     pub(crate) fn new(
         project_root: &AbsNormPath,
         root_config: &LegacyBuckConfig,
-        cells: CellResolver,
-        ignore_specs: BuckFixedSortedMap<CellName, IgnoreSet>,
+        ignores: FileWatcherIgnores,
         dep_file_cache: Arc<dyn DepFileCache>,
     ) -> buck2_error::Result<Self> {
         let watchman_merge_base = root_config
@@ -411,8 +396,7 @@ impl WatchmanFileWatcher {
                 Expr::FileType(FileType::Symlink),
             ]),
             Box::new(WatchmanQueryProcessor {
-                cells,
-                ignore_specs,
+                ignores,
                 empty_on_fresh_instance,
                 report_global_rev,
                 last_mergebase: None,

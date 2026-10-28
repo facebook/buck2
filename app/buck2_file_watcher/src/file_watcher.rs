@@ -12,19 +12,15 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_common::ignores::ignore_set::IgnoreSet;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_core::buck2_env;
-use buck2_core::cells::CellResolver;
-use buck2_core::cells::name::CellName;
 use buck2_core::fs::project::ProjectRoot;
 #[cfg(fbcode_build)]
 use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use buck2_error::buck2_error;
-use buck2_hash::BuckFixedSortedMap;
 use dice::DiceTransactionUpdater;
 use dupe::Dupe;
 
@@ -32,6 +28,7 @@ use crate::dep_files::DepFileCache;
 #[cfg(fbcode_build)]
 use crate::edenfs::interface::EdenFsFileWatcher;
 use crate::fs_hash_crawler::FsHashCrawler;
+use crate::ignores::FileWatcherIgnores;
 use crate::mergebase::Mergebase;
 use crate::notify::NotifyFileWatcher;
 use crate::watchman::interface::WatchmanFileWatcher;
@@ -94,8 +91,7 @@ impl dyn FileWatcher {
         fb: fbinit::FacebookInit,
         project_root: &ProjectRoot,
         root_config: &LegacyBuckConfig,
-        cells: CellResolver,
-        ignore_specs: BuckFixedSortedMap<CellName, IgnoreSet>,
+        ignores: FileWatcherIgnores,
         dep_file_cache: Arc<dyn DepFileCache>,
     ) -> buck2_error::Result<Arc<dyn FileWatcher>> {
         if !project_root.root().as_path().exists() {
@@ -132,8 +128,7 @@ impl dyn FileWatcher {
                 fb,
                 project_root,
                 root_config,
-                cells.clone(),
-                ignore_specs.clone(),
+                ignores.clone(),
                 dep_file_cache.clone(),
             ) {
                 Ok(edenfs) => return Ok(Arc::new(edenfs)),
@@ -152,21 +147,15 @@ impl dyn FileWatcher {
 
         match watcher_conf {
             "watchman" => Ok(Arc::new(
-                WatchmanFileWatcher::new(
-                    project_root.root(),
-                    root_config,
-                    cells,
-                    ignore_specs,
-                    dep_file_cache,
-                )
-                .buck_error_context("Creating watchman file watcher")?,
+                WatchmanFileWatcher::new(project_root.root(), root_config, ignores, dep_file_cache)
+                    .buck_error_context("Creating watchman file watcher")?,
             )),
             "notify" => Ok(Arc::new(
-                NotifyFileWatcher::new(project_root, cells, ignore_specs)
+                NotifyFileWatcher::new(project_root, ignores)
                     .buck_error_context("Creating notify file watcher")?,
             )),
             "fs_hash_crawler" => Ok(Arc::new(
-                FsHashCrawler::new(project_root, cells, ignore_specs)
+                FsHashCrawler::new(project_root, ignores)
                     .buck_error_context("Creating fs_crawler file watcher")?,
             )),
             other => Err(buck2_error!(

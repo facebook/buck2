@@ -17,10 +17,7 @@ use async_trait::async_trait;
 use buck2_common::file_ops::baseline::FileSystemBaseline;
 use buck2_common::file_ops::baseline::SetFileSystemBaseline;
 use buck2_common::file_ops::io::FileChangeTracker;
-use buck2_common::ignores::ignore_set::IgnoreSet;
 use buck2_common::invocation_paths::InvocationPaths;
-use buck2_core::cells::CellResolver;
-use buck2_core::cells::name::CellName;
 use buck2_core::fs::i_project_rel_path::IProjectRelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_data::FileWatcherEventType;
@@ -28,7 +25,6 @@ use buck2_data::FileWatcherKind;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_events::dispatch::span_async;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
-use buck2_hash::BuckFixedSortedMap;
 use buck2_hash::BuckMutInsertionSet;
 use dice::DiceTransactionUpdater;
 use dupe::Dupe;
@@ -44,6 +40,7 @@ use tracing::info;
 
 use crate::file_watcher::FileWatcher;
 use crate::file_watcher::SyncOutcome;
+use crate::ignores::FileWatcherIgnores;
 use crate::mergebase::Mergebase;
 use crate::stats::FileWatcherStats;
 
@@ -81,8 +78,7 @@ impl NotifyFileData {
         &mut self,
         event: notify::Result<notify::Event>,
         root: &ProjectRoot,
-        cells: &CellResolver,
-        ignore_specs: &BuckFixedSortedMap<CellName, IgnoreSet>,
+        ignores: &FileWatcherIgnores,
     ) -> buck2_error::Result<()> {
         let event =
             event.map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::NotifyWatcher))?;
@@ -111,11 +107,7 @@ impl NotifyFileData {
                 continue;
             }
 
-            let cell_path = cells.get_cell_path(&path);
-            let ignore = ignore_specs
-                .get(&cell_path.cell())
-                // See the comment on the analogous code in `watchman/interface.rs`
-                .is_some_and(|ignore| ignore.is_match(cell_path.path()));
+            let ignore = ignores.is_ignored(path);
 
             info!(
                 "FileWatcher: {:?} {:?} (ignore = {})",
@@ -255,18 +247,14 @@ pub struct NotifyFileWatcher {
 }
 
 impl NotifyFileWatcher {
-    pub fn new(
-        root: &ProjectRoot,
-        cells: CellResolver,
-        ignore_specs: BuckFixedSortedMap<CellName, IgnoreSet>,
-    ) -> buck2_error::Result<Self> {
+    pub fn new(root: &ProjectRoot, ignores: FileWatcherIgnores) -> buck2_error::Result<Self> {
         let data = Arc::new(Mutex::new(Ok(NotifyFileData::new())));
         let data2 = data.dupe();
         let root2 = root.dupe();
         let mut watcher = notify::recommended_watcher(move |event| {
             let mut guard = data2.lock().unwrap();
             if let Ok(state) = &mut *guard {
-                if let Err(e) = state.process(event, &root2, &cells, &ignore_specs) {
+                if let Err(e) = state.process(event, &root2, &ignores) {
                     *guard = Err(e);
                 }
             }
@@ -332,22 +320,19 @@ impl FileWatcher for NotifyFileWatcher {
 
 #[cfg(test)]
 mod tests {
+    use buck2_core::cells::CellResolver;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::name::CellName;
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use buck2_fs::fs_util::uncategorized as fs_util;
     use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+    use buck2_hash::BuckMutMap;
     use notify::event::CreateKind;
     use notify::event::Flag;
 
     use super::*;
 
-    fn fixture() -> (
-        ProjectRoot,
-        CellResolver,
-        BuckFixedSortedMap<CellName, IgnoreSet>,
-        tempfile::TempDir,
-    ) {
+    fn fixture() -> (ProjectRoot, FileWatcherIgnores, tempfile::TempDir) {
         let cells = CellResolver::testing_with_name_and_path(
             CellName::testing_new("root"),
             CellRootPathBuf::testing_new(""),
@@ -356,7 +341,11 @@ mod tests {
         let root_path =
             fs_util::canonicalize(AbsNormPathBuf::new(tempdir.path().to_owned()).unwrap()).unwrap();
         let root = ProjectRoot::new(root_path).unwrap();
-        (root, cells, BuckFixedSortedMap::default(), tempdir)
+        (
+            root,
+            FileWatcherIgnores::new(cells, BuckMutMap::default()),
+            tempdir,
+        )
     }
 
     /// The kernel-overflow signal can arrive as a rescan-flagged event with no paths attached
@@ -365,10 +354,10 @@ mod tests {
     /// inconsistency the missed-events handling exists to close.
     #[test]
     fn rescan_event_with_no_paths_sets_missed_events() {
-        let (root, cells, ignores, _t) = fixture();
+        let (root, ignores, _t) = fixture();
         let mut state = NotifyFileData::new();
         let event = notify::Event::new(EventKind::Any).set_flag(Flag::Rescan);
-        state.process(Ok(event), &root, &cells, &ignores).unwrap();
+        state.process(Ok(event), &root, &ignores).unwrap();
         assert!(
             state.missed_events,
             "a pathless rescan event must set missed_events"
@@ -377,13 +366,13 @@ mod tests {
 
     #[test]
     fn rescan_event_with_paths_sets_missed_events() {
-        let (root, cells, ignores, _t) = fixture();
+        let (root, ignores, _t) = fixture();
         let mut state = NotifyFileData::new();
         let path = root.resolve(ProjectRelativePath::new("f").unwrap());
         let event = notify::Event::new(EventKind::Create(CreateKind::File))
             .add_path(path.into_abs_path_buf().into_path_buf())
             .set_flag(Flag::Rescan);
-        state.process(Ok(event), &root, &cells, &ignores).unwrap();
+        state.process(Ok(event), &root, &ignores).unwrap();
         assert!(state.missed_events);
     }
 
