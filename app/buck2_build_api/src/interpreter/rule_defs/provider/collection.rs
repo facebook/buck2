@@ -101,10 +101,6 @@ enum ProviderCollectionError {
     )]
     RequestedInvalidSubTarget(ProviderName, ConfiguredProvidersLabel, Vec<String>),
     #[error(
-        "Cannot handle flavor `{flavor}` on target `{target}`. Most flavors are unsupported in Buck2."
-    )]
-    UnknownFlavors { target: String, flavor: String },
-    #[error(
         "provider collection operation {0} parameter type must be a provider type \
         but not and instance of provider (for example, `RunInfo` or user defined provider type), \
         got `{1}`"
@@ -698,13 +694,6 @@ impl<'f> FrozenProviderCollectionValueRef<'f> {
                         },
                     )?;
                     Ok(FrozenProviderCollectionValueRef { inner })
-                }
-                NonDefaultProvidersName::UnrecognizedFlavor(flavor) => {
-                    Err(ProviderCollectionError::UnknownFlavors {
-                        target: label.unconfigured().to_string(),
-                        flavor: (**flavor).to_owned(),
-                    }
-                    .into())
                 }
             },
         }
