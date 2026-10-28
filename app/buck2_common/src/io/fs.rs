@@ -15,6 +15,7 @@ use std::sync::LazyLock;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_core::fs::i_project_rel_path::IProjectRelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
@@ -170,9 +171,9 @@ fn read_dir_entries(
 impl IoProvider for FsIoProvider {
     async fn read_file_if_exists_impl(
         &self,
-        path: ProjectRelativePathBuf,
+        path: IProjectRelativePath,
     ) -> buck2_error::Result<Option<String>> {
-        let path = self.fs.resolve(&path);
+        let path = self.fs.resolve(path);
         let is_eden = self.is_eden;
 
         // Don't want to totally saturate the executor with these so that some other work can progress.
@@ -190,7 +191,7 @@ impl IoProvider for FsIoProvider {
 
     async fn read_dir_impl(
         &self,
-        path: ProjectRelativePathBuf,
+        path: IProjectRelativePath,
     ) -> buck2_error::Result<ReadDirOutcome> {
         // Don't want to totally saturate the executor with these so that some other work can progress.
         // For normal fs (or warm eden), something smaller would probably be fine, for eden couple hundred is probably
@@ -198,7 +199,7 @@ impl IoProvider for FsIoProvider {
         static SEMAPHORE: LazyLock<Semaphore> = LazyLock::new(|| Semaphore::new(400));
         let _permit = SEMAPHORE.acquire().await.unwrap();
 
-        let abs_path = self.fs.resolve(&path);
+        let abs_path = self.fs.resolve(path);
         let is_eden = self.is_eden;
 
         let (outcome, invalid_names) = spawn_blocking(move || {
@@ -213,18 +214,29 @@ impl IoProvider for FsIoProvider {
 
     async fn read_path_metadata_if_exists_impl(
         &self,
-        path: ProjectRelativePathBuf,
+        path: IProjectRelativePath,
     ) -> buck2_error::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>> {
         let fs = self.fs.dupe();
-        let path = path.into_forward_relative_path_buf();
         let file_digest_config = FileDigestConfig::source(self.cas_digest_config);
         let is_eden = self.is_eden;
         spawn_blocking(move || {
-            let meta = read_path_metadata(fs.root(), &path, file_digest_config)
-                .map_err(|e| classify_eden_error(is_eden, fs.root().join(&path).as_abs_path(), e))?
-                .map(|raw_meta_or_redirection| {
-                    raw_meta_or_redirection.map(ProjectRelativePathBuf::from)
-                });
+            let meta = read_path_metadata(
+                fs.root(),
+                path.as_forward_relative_path(),
+                file_digest_config,
+            )
+            .map_err(|e| {
+                classify_eden_error(
+                    is_eden,
+                    fs.root()
+                        .join(path.as_forward_relative_path())
+                        .as_abs_path(),
+                    e,
+                )
+            })?
+            .map(|raw_meta_or_redirection| {
+                raw_meta_or_redirection.map(ProjectRelativePathBuf::from)
+            });
 
             Ok(meta)
         })

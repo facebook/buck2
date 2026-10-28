@@ -29,9 +29,11 @@ use buck2_common::io::fs::FsIoProvider;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::external::ExternalCellOrigin;
 use buck2_core::cells::external::GitCellSetup;
+use buck2_core::cells::i_cell_relative_path::ICellRelativePath;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::fs::buck_out_path::BuckOutPathResolver;
+use buck2_core::fs::i_project_rel_path::IProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_directory::directory::directory::Directory;
@@ -335,12 +337,12 @@ pub(crate) struct GitFileOpsDelegate {
 }
 
 impl GitFileOpsDelegate {
-    fn resolve(&self, path: &CellRelativePath) -> ProjectRelativePathBuf {
+    fn resolve(&self, path: &CellRelativePath) -> IProjectRelativePath {
         self.buck_out_resolver
             .resolve_external_cell_source(path, ExternalCellOrigin::Git(self.setup.dupe()))
     }
 
-    fn get_base_path(&self) -> ProjectRelativePathBuf {
+    fn get_base_path(&self) -> IProjectRelativePath {
         self.resolve(CellRelativePath::empty())
     }
 }
@@ -351,9 +353,9 @@ impl FileOpsDelegate for GitFileOpsDelegate {
     async fn read_file_if_exists(
         &self,
         _ctx: &mut DiceComputations<'_>,
-        path: &'async_trait CellRelativePath,
+        path: ICellRelativePath,
     ) -> buck2_error::Result<Option<String>> {
-        let project_path = self.resolve(path);
+        let project_path = self.resolve(&path);
         (&self.io as &dyn IoProvider)
             .read_file_if_exists(project_path)
             .await
@@ -362,9 +364,9 @@ impl FileOpsDelegate for GitFileOpsDelegate {
     async fn read_dir(
         &self,
         _ctx: &mut DiceComputations<'_>,
-        path: &'async_trait CellRelativePath,
+        path: ICellRelativePath,
     ) -> buck2_error::Result<PackedStringSlice<FileName, FileType>> {
-        let project_path = self.resolve(path);
+        let project_path = self.resolve(&path);
         let entries = (&self.io as &dyn IoProvider)
             .read_dir(project_path)
             .await
@@ -384,9 +386,9 @@ impl FileOpsDelegate for GitFileOpsDelegate {
     async fn read_path_metadata_if_exists(
         &self,
         _ctx: &mut DiceComputations<'_>,
-        path: &'async_trait CellRelativePath,
+        path: ICellRelativePath,
     ) -> buck2_error::Result<Option<RawPathMetadata>> {
-        let project_path = self.resolve(path);
+        let project_path = self.resolve(&path);
 
         let Some(metadata) = (&self.io as &dyn IoProvider)
             .read_path_metadata_if_exists(project_path)
@@ -478,7 +480,7 @@ pub(crate) async fn materialize_all(
 ) -> buck2_error::Result<(ProjectRelativePathBuf, ReadLease)> {
     // Get the `GitFileOpsDelegate` instance to make sure all the data is materialized.
     let ops = get_file_ops_delegate(ctx, cell, setup.dupe()).await?;
-    let path = ops.get_base_path();
+    let path = ops.get_base_path().to_buf();
     // The checkout is tracked as one root, whose value the materializer has; asking for it by
     // that value is what holds it for the reader.
     let materializer = ctx.per_transaction_data().get_materializer();

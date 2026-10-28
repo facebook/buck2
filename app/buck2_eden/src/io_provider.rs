@@ -27,6 +27,7 @@ use buck2_common::io::fs::ReadUncheckedOptions;
 use buck2_common::io::report_invalid_file_names;
 use buck2_core;
 use buck2_core::buck2_env;
+use buck2_core::fs::i_project_rel_path::IProjectRelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::io_counters::IoCounterKey;
@@ -130,7 +131,7 @@ impl EdenIoProvider {
 
     async fn read_path_metadata_if_exists_impl(
         &self,
-        path: &ProjectRelativePathBuf,
+        path: IProjectRelativePath,
     ) -> buck2_error::Result<PathMetadataResult> {
         let _guard = IoCounterKey::StatEden.guard();
 
@@ -193,7 +194,7 @@ impl EdenIoProvider {
 
                     let meta = self
                         .fs
-                        .read_unchecked(path.clone(), options)
+                        .read_unchecked(path.to_buf(), options)
                         .await
                         .with_buck_error_context(|| {
                             format!(
@@ -261,7 +262,7 @@ impl EdenIoProvider {
 
     async fn read_dir_impl(
         &self,
-        path: ProjectRelativePathBuf,
+        path: IProjectRelativePath,
     ) -> buck2_error::Result<ReadDirOutcome> {
         let _guard = IoCounterKey::ReadDirEden.guard();
 
@@ -375,7 +376,7 @@ impl EdenIoProvider {
 
     async fn read_file_if_exists_impl(
         &self,
-        path: ProjectRelativePathBuf,
+        path: IProjectRelativePath,
     ) -> buck2_error::Result<Option<String>> {
         let _guard = IoCounterKey::Read.guard();
         let params = GetFileContentRequest {
@@ -447,9 +448,9 @@ impl EdenIoProvider {
 impl IoProvider for EdenIoProvider {
     async fn read_path_metadata_if_exists_impl(
         &self,
-        path: ProjectRelativePathBuf,
+        path: IProjectRelativePath,
     ) -> buck2_error::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>> {
-        match self.read_path_metadata_if_exists_impl(&path).await {
+        match self.read_path_metadata_if_exists_impl(path).await {
             Ok(PathMetadataResult::Result(res)) => Ok(res),
             Ok(PathMetadataResult::Error(err)) => {
                 match err {
@@ -477,7 +478,7 @@ impl IoProvider for EdenIoProvider {
 
     async fn read_file_if_exists_impl(
         &self,
-        path: ProjectRelativePathBuf,
+        path: IProjectRelativePath,
     ) -> buck2_error::Result<Option<String>> {
         if buck2_env!("BUCK2_ENABLE_EDEN_THRIFT_READ", bool)? || self.use_eden_thrift_read {
             self.read_file_if_exists_impl(path)
@@ -492,7 +493,7 @@ impl IoProvider for EdenIoProvider {
 
     async fn read_dir_impl(
         &self,
-        path: ProjectRelativePathBuf,
+        path: IProjectRelativePath,
     ) -> buck2_error::Result<ReadDirOutcome> {
         self.read_dir_impl(path)
             .await

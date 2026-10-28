@@ -22,6 +22,7 @@ use buck2_common::file_ops::metadata::RawSymlink;
 use buck2_common::io::IoProvider;
 use buck2_common::io::fs::FsIoProvider;
 use buck2_core::cells::CellResolver;
+use buck2_core::fs::i_project_rel_path::IProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_fs::paths::abs_path::AbsPath;
@@ -145,7 +146,14 @@ impl ServerCommandTemplate for FileStatusServerCommand {
         for path in &self.req.paths {
             let path = project_root.relativize_any(AbsPath::new(Path::new(path))?)?;
             writeln!(&mut stderr, "Check file status: {path}")?;
-            check_file_status(&mut ctx.ctx(), cell_resolver, io, &path, &mut result).await?;
+            check_file_status(
+                &mut ctx.ctx(),
+                cell_resolver,
+                io,
+                IProjectRelativePath::intern_directly(&path),
+                &mut result,
+            )
+            .await?;
         }
         if result.bad != 0 {
             Err(buck2_error::buck2_error!(
@@ -169,12 +177,12 @@ async fn check_file_status(
     ctx: &mut DiceComputations,
     cell_resolver: &CellResolver,
     io: &dyn IoProvider,
-    path: &ProjectRelativePath,
+    path: IProjectRelativePath,
     result: &mut FileStatusResult,
 ) -> buck2_error::Result<()> {
     result.checking();
 
-    let cell_path = cell_resolver.get_cell_path(path);
+    let cell_path = cell_resolver.get_cell_path(&path);
     if DiceFileComputations::is_ignored(ctx, cell_path)
         .await?
         .is_ignored()
@@ -182,21 +190,21 @@ async fn check_file_status(
         return Ok(());
     }
 
-    let fs_metadata = io.read_path_metadata_if_exists(path.to_owned()).await?;
+    let fs_metadata = io.read_path_metadata_if_exists(path).await?;
 
     let dice_metadata = DiceFileComputations::read_path_metadata_if_exists(ctx, cell_path).await?;
 
     let (fs_metadata, dice_metadata) = match (&fs_metadata, &dice_metadata) {
         (Some(fs), Some(dice)) => (fs, dice),
         (fs, dice) => {
-            result.report("existence", path, &fs.is_some(), &dice.is_some())?;
+            result.report("existence", &path, &fs.is_some(), &dice.is_some())?;
             return Ok(());
         }
     };
 
     result.report(
         "entry kind",
-        path,
+        &path,
         fs_metadata.variant_name(),
         dice_metadata.variant_name(),
     )?;
@@ -213,11 +221,11 @@ async fn check_file_status(
             },
         ) => {
             let dice_at = cell_resolver.resolve_path(*dice_at)?;
-            result.report("symlink component location", path, fs_at, &dice_at)?;
+            result.report("symlink component location", &path, fs_at, &dice_at)?;
 
             result.report(
                 "symlink destination kind",
-                path,
+                &path,
                 fs_to.variant_name(),
                 dice_to.variant_name(),
             )?;
@@ -228,16 +236,16 @@ async fn check_file_status(
                     RawSymlink::Relative(dice_rel, dice_raw_rel),
                 ) => {
                     let dice_rel = cell_resolver.resolve_path(*dice_rel)?;
-                    result.report("relative symlink destination", path, fs_rel, &dice_rel)?;
+                    result.report("relative symlink destination", &path, fs_rel, &dice_rel)?;
                     result.report(
                         "relative symlink destination raw",
-                        path,
+                        &path,
                         fs_raw_rel,
                         dice_raw_rel,
                     )?;
                 }
                 (RawSymlink::External(fs_ext), RawSymlink::External(dice_ext)) => {
-                    result.report("external symlink destination", path, fs_ext, dice_ext)?;
+                    result.report("external symlink destination", &path, fs_ext, dice_ext)?;
                 }
                 _ => {
                     // Reported earlier
@@ -245,7 +253,7 @@ async fn check_file_status(
             };
         }
         (RawPathMetadata::File(fs_file), RawPathMetadata::File(dice_file)) => {
-            result.report("file metadata", path, fs_file, dice_file)?;
+            result.report("file metadata", &path, fs_file, dice_file)?;
         }
         (RawPathMetadata::Directory, RawPathMetadata::Directory) => {
             let fs_read_dir = io.read_dir(path.to_owned()).await?.into_entries();
@@ -269,10 +277,17 @@ async fn check_file_status(
             let fs_names = DirList(fs_names);
             let dice_names = DirList(dice_names);
 
-            result.report("directory contents", path, &fs_names, &dice_names)?;
+            result.report("directory contents", &path, &fs_names, &dice_names)?;
 
             for file_name in &fs_names.0 {
-                check_file_status(ctx, cell_resolver, io, &path.join(file_name), result).await?;
+                check_file_status(
+                    ctx,
+                    cell_resolver,
+                    io,
+                    path.join(file_name.as_forward_rel_path()),
+                    result,
+                )
+                .await?;
             }
         }
         (_, _) => {

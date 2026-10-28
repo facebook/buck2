@@ -62,6 +62,11 @@ pub struct CellPath {
 
 impl CellPath {
     #[inline]
+    pub fn new_i(cell: CellName, path: ICellRelativePath) -> Self {
+        Self { cell, path }
+    }
+
+    #[inline]
     pub fn new(cell: CellName, path: &CellRelativePath) -> Self {
         Self::new_parts(cell, &[path.as_forward_relative_path()])
     }
@@ -113,6 +118,11 @@ impl CellPath {
     #[inline]
     pub fn path(self) -> &'static CellRelativePath {
         self.path.as_cell_relative_path()
+    }
+
+    #[inline]
+    pub fn ipath(self) -> ICellRelativePath {
+        self.path
     }
 
     /// Creates a 'CellPath' with `path` adjoined to self.

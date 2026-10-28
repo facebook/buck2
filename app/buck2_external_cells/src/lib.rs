@@ -22,7 +22,7 @@ use buck2_common::file_ops::metadata::RawPathMetadata;
 use buck2_core::cells::cell_root_path::CellRootPath;
 use buck2_core::cells::external::ExternalCellOrigin;
 use buck2_core::cells::name::CellName;
-use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_core::fs::i_project_rel_path::IProjectRelativePath;
 use buck2_execute::execute::blocking::HasBlockingExecutor;
 use buck2_execute::execute::readonly_outputs::make_output_paths_writable;
 use dice::DiceComputations;
@@ -37,7 +37,7 @@ struct ConcreteExternalCellsImpl;
 #[buck2(tag = Tier0)]
 enum ExternalCellsError {
     #[error("Tried to expand external cell to `{0}`, but that directory already contains data!")]
-    ExpandDataAlreadyPresent(ProjectRelativePathBuf),
+    ExpandDataAlreadyPresent(IProjectRelativePath),
 }
 
 #[async_trait]
@@ -69,14 +69,14 @@ impl buck2_common::external_cells::ExternalCellsImpl for ConcreteExternalCellsIm
         origin: ExternalCellOrigin,
         path: &CellRootPath,
     ) -> buck2_error::Result<()> {
-        let dest_path = path.as_project_relative_path().to_buf();
+        let dest_path = IProjectRelativePath::intern_directly(path.as_project_relative_path());
         let io = ctx.global_data().get_io_provider();
 
         // Make sure we're not about to overwrite existing data
-        match io.read_path_metadata_if_exists(dest_path.clone()).await? {
+        match io.read_path_metadata_if_exists(dest_path).await? {
             None => (),
             Some(RawPathMetadata::Directory) => {
-                let data = io.read_dir(dest_path.clone()).await?.into_entries();
+                let data = io.read_dir(dest_path).await?.into_entries();
                 if !data.is_empty() {
                     return Err(ExternalCellsError::ExpandDataAlreadyPresent(dest_path).into());
                 }
@@ -98,14 +98,14 @@ impl buck2_common::external_cells::ExternalCellsImpl for ConcreteExternalCellsIm
         };
 
         let fs = io.project_root().dupe();
-        let copied = fs.copy(&materialized_path, &dest_path);
+        let copied = fs.copy(&materialized_path, dest_path);
         // The copy read the cell under the lease.
         drop(lease);
         copied?;
         // The copy carries the materialized files' modes, read-only under
         // `buck2.readonly_outputs`, and the expanded cell is the user's to edit.
         ctx.get_blocking_executor()
-            .execute_io_inline(move || make_output_paths_writable(&fs, &[dest_path]))
+            .execute_io_inline(move || make_output_paths_writable(&fs, &[dest_path.to_buf()]))
             .await
     }
 }

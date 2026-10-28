@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_core::cells::i_cell_relative_path::ICellRelativePath;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::unchecked_cell_rel_path::UncheckedCellRelativePath;
@@ -74,20 +75,20 @@ pub trait FileOpsDelegate: PagableTagged + Allocative + Send + Sync {
     async fn read_file_if_exists(
         &self,
         ctx: &mut DiceComputations<'_>,
-        path: &'async_trait CellRelativePath,
+        path: ICellRelativePath,
     ) -> buck2_error::Result<Option<String>>;
 
     /// Return the list of file outputs, sorted by file name.
     async fn read_dir(
         &self,
         ctx: &mut DiceComputations<'_>,
-        path: &'async_trait CellRelativePath,
+        path: ICellRelativePath,
     ) -> buck2_error::Result<PackedStringSlice<FileName, FileType>>;
 
     async fn read_path_metadata_if_exists(
         &self,
         ctx: &mut DiceComputations<'_>,
-        path: &'async_trait CellRelativePath,
+        path: ICellRelativePath,
     ) -> buck2_error::Result<Option<RawPathMetadata>>;
 
     /// Check if a path exists in the exact case given.
@@ -97,7 +98,7 @@ pub trait FileOpsDelegate: PagableTagged + Allocative + Send + Sync {
     async fn exists_matching_exact_case(
         &self,
         ctx: &mut DiceComputations<'_>,
-        path: &'async_trait CellRelativePath,
+        path: ICellRelativePath,
     ) -> buck2_error::Result<bool> {
         let metadata = self.read_path_metadata_if_exists(ctx, path).await?;
         Ok(metadata.is_some())
@@ -201,7 +202,7 @@ impl FileOpsDelegateWithIgnores {
     pub async fn read_file_if_exists(
         &self,
         ctx: &mut DiceComputations<'_>,
-        path: &CellRelativePath,
+        path: ICellRelativePath,
     ) -> buck2_error::Result<Option<String>> {
         self.delegate.read_file_if_exists(ctx, path).await
     }
@@ -210,10 +211,10 @@ impl FileOpsDelegateWithIgnores {
     pub(crate) async fn read_dir(
         &self,
         ctx: &mut DiceComputations<'_>,
-        path: &CellRelativePath,
+        path: ICellRelativePath,
     ) -> buck2_error::Result<ReadDirOutput> {
         // TODO(cjhopman): This should also probably verify that the parent chain is not ignored.
-        self.check_ignores(UncheckedCellRelativePath::new(path))
+        self.check_ignores(UncheckedCellRelativePath::new(path.as_ref()))
             .into_result()?;
 
         let entries = self.delegate.read_dir(ctx, path).await?;
@@ -253,11 +254,11 @@ impl FileOpsDelegateWithIgnores {
 
     pub(crate) async fn exists_matching_exact_case(
         &self,
-        path: &CellRelativePath,
+        path: ICellRelativePath,
         dice: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<bool> {
         if self
-            .check_ignores(UncheckedCellRelativePath::new(path))
+            .check_ignores(UncheckedCellRelativePath::new(path.as_ref()))
             .is_ignored()
         {
             return Ok(false);
@@ -269,7 +270,7 @@ impl FileOpsDelegateWithIgnores {
     pub async fn read_path_metadata_if_exists(
         &self,
         ctx: &mut DiceComputations<'_>,
-        path: &CellRelativePath,
+        path: ICellRelativePath,
     ) -> buck2_error::Result<Option<RawPathMetadata>> {
         self.delegate.read_path_metadata_if_exists(ctx, path).await
     }

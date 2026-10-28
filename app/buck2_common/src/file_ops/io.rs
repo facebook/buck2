@@ -12,9 +12,9 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::cell_path::CellPath;
+use buck2_core::cells::i_cell_relative_path::ICellRelativePath;
 use buck2_core::cells::name::CellName;
-use buck2_core::cells::paths::CellRelativePath;
-use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_core::fs::i_project_rel_path::IProjectRelativePath;
 use buck2_error::BuckErrorContext;
 use buck2_fs::paths::file_name::FileName;
 use buck2_hash::BuckDashMap;
@@ -129,7 +129,7 @@ async fn io_read_dir_key_impl(
     ctx: &mut DiceComputations<'_>,
     path: CellPath,
 ) -> buck2_error::Result<PackedStringSlice<FileName, FileType>> {
-    let project_path = ctx.get_cell_resolver().await?.resolve_path(path)?;
+    let project_path = ctx.get_cell_resolver().await?.resolve_ipath(path)?;
     let read_dir_cache = ctx
         .per_transaction_data()
         .data
@@ -141,7 +141,7 @@ async fn io_read_dir_key_impl(
     let entries = ctx
         .global_data()
         .get_io_provider()
-        .read_dir(project_path.clone())
+        .read_dir(project_path)
         .await
         .with_buck_error_context(|| format!("Error listing dir `{}`", project_path))?
         .into_entries();
@@ -172,12 +172,12 @@ impl Key for IoPathMetadataKey {
         _cancellations: &CancellationContext,
     ) -> Self::Value {
         ctx.get_file_system_baseline().await?;
-        let project_path = ctx.get_cell_resolver().await?.resolve_path(self.0)?;
+        let project_path = ctx.get_cell_resolver().await?.resolve_ipath(self.0)?;
 
         let Some(meta) = ctx
             .global_data()
             .get_io_provider()
-            .read_path_metadata_if_exists(project_path.clone())
+            .read_path_metadata_if_exists(project_path)
             .await
             .with_buck_error_context(|| {
                 format!("Error accessing metadata for path `{project_path}`")
@@ -270,14 +270,14 @@ impl FileOpsDelegate for IoFileOpsDelegate {
     async fn read_file_if_exists(
         &self,
         ctx: &mut DiceComputations<'_>,
-        path: &'async_trait CellRelativePath,
+        path: ICellRelativePath,
     ) -> buck2_error::Result<Option<String>> {
-        let path = CellPath::new(self.cell, path);
+        let path = CellPath::new_i(self.cell, path);
         ctx.compute(&IoReadFileKey(path))
             .await?
             .as_ref()
             .duped_err()?;
-        let project_path = self.cells.resolve_path(path)?;
+        let project_path = self.cells.resolve_ipath(path)?;
         let io = ctx.global_data().get_io_provider();
         io.read_file_if_exists(project_path).await
     }
@@ -285,27 +285,27 @@ impl FileOpsDelegate for IoFileOpsDelegate {
     async fn read_dir(
         &self,
         ctx: &mut DiceComputations<'_>,
-        path: &'async_trait CellRelativePath,
+        path: ICellRelativePath,
     ) -> buck2_error::Result<PackedStringSlice<FileName, FileType>> {
-        let path = CellPath::new(self.cell, path);
+        let path = CellPath::new_i(self.cell, path);
         ctx.compute(&IoReadDirKey(path)).await?.dupe()
     }
 
     async fn read_path_metadata_if_exists(
         &self,
         ctx: &mut DiceComputations<'_>,
-        path: &'async_trait CellRelativePath,
+        path: ICellRelativePath,
     ) -> buck2_error::Result<Option<RawPathMetadata>> {
-        let path = CellPath::new(self.cell, path);
+        let path = CellPath::new_i(self.cell, path);
         ctx.compute(&IoPathMetadataKey(path)).await?.dupe()
     }
 
     async fn exists_matching_exact_case(
         &self,
         ctx: &mut DiceComputations<'_>,
-        path: &'async_trait CellRelativePath,
+        path: ICellRelativePath,
     ) -> buck2_error::Result<bool> {
-        let path = CellPath::new(self.cell, path);
+        let path = CellPath::new_i(self.cell, path);
         ctx.compute(&IoExistsMatchingExactCaseKey(path))
             .await?
             .dupe()
@@ -316,7 +316,7 @@ impl FileOpsDelegate for IoFileOpsDelegate {
     }
 }
 
-struct ReadDirCache(BuckDashMap<ProjectRelativePathBuf, PackedStringSlice<FileName, FileType>>);
+struct ReadDirCache(BuckDashMap<IProjectRelativePath, PackedStringSlice<FileName, FileType>>);
 
 pub fn initialize_read_dir_cache(data: &mut UserComputationData) {
     data.data.set(ReadDirCache(Default::default()));

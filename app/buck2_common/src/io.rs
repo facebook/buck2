@@ -14,6 +14,7 @@ pub mod trace;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPath;
+use buck2_core::fs::i_project_rel_path::IProjectRelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -83,17 +84,17 @@ impl From<buck2_error::Error> for ReadDirError {
 pub trait IoProvider: Allocative + Send + Sync {
     async fn read_file_if_exists_impl(
         &self,
-        path: ProjectRelativePathBuf,
+        path: IProjectRelativePath,
     ) -> buck2_error::Result<Option<String>>;
 
     async fn read_dir_impl(
         &self,
-        path: ProjectRelativePathBuf,
+        path: IProjectRelativePath,
     ) -> buck2_error::Result<ReadDirOutcome>;
 
     async fn read_path_metadata_if_exists_impl(
         &self,
-        path: ProjectRelativePathBuf,
+        path: IProjectRelativePath,
     ) -> buck2_error::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>>;
 
     /// Request that this I/O provider be up to date with whatever I/O operations the user might
@@ -123,7 +124,7 @@ pub trait IoProvider: Allocative + Send + Sync {
 impl dyn IoProvider + '_ {
     pub async fn read_file_if_exists(
         &self,
-        path: ProjectRelativePathBuf,
+        path: IProjectRelativePath,
     ) -> buck2_error::Result<Option<String>> {
         self.read_file_if_exists_impl(path)
             .await
@@ -132,14 +133,14 @@ impl dyn IoProvider + '_ {
 
     pub async fn read_dir(
         &self,
-        path: ProjectRelativePathBuf,
+        path: IProjectRelativePath,
     ) -> buck2_error::Result<ReadDirOutcome> {
         self.read_dir_impl(path).await.tag(ErrorTag::IoSource)
     }
 
     pub async fn read_path_metadata_if_exists(
         &self,
-        path: ProjectRelativePathBuf,
+        path: IProjectRelativePath,
     ) -> buck2_error::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>> {
         self.read_path_metadata_if_exists_impl(path)
             .await

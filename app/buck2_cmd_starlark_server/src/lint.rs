@@ -77,7 +77,7 @@ async fn lint_file(
     cache: &mut Cache<'_>,
 ) -> buck2_error::Result<Vec<Lint>> {
     let dialect = path.file_type().dialect(false);
-    let proj_path = cell_resolver.resolve_path(*path.path())?;
+    let proj_path = cell_resolver.resolve_ipath(*path.path())?;
     let path_str = proj_path.to_string();
     let content = io
         .read_file_if_exists(proj_path)

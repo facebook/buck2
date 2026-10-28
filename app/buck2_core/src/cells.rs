@@ -113,6 +113,7 @@ use crate::cells::cell_root_path::CellRootPathBuf;
 use crate::cells::name::CellName;
 use crate::cells::nested::NestedCells;
 use crate::cells::paths::CellRelativePath;
+use crate::fs::i_project_rel_path::IProjectRelativePath;
 use crate::fs::project::ProjectRoot;
 use crate::fs::project_rel_path::ProjectRelativePath;
 use crate::fs::project_rel_path::ProjectRelativePathBuf;
@@ -371,6 +372,14 @@ impl CellResolver {
     /// ```
     pub fn resolve_path(&self, cell_path: CellPath) -> buck2_error::Result<ProjectRelativePathBuf> {
         Ok(self.get(cell_path.cell())?.path().join(cell_path.path()))
+    }
+
+    pub fn resolve_ipath(&self, cell_path: CellPath) -> buck2_error::Result<IProjectRelativePath> {
+        let root = self.get(cell_path.cell())?.path();
+        Ok(IProjectRelativePath::intern_concat_directly([
+            root.as_forward_relative_path(),
+            cell_path.path().as_forward_relative_path(),
+        ]))
     }
 
     // These are constructors for tests.

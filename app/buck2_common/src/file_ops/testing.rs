@@ -15,8 +15,8 @@ use std::sync::Arc;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPath;
+use buck2_core::cells::i_cell_relative_path::ICellRelativePath;
 use buck2_core::cells::name::CellName;
-use buck2_core::cells::paths::CellRelativePath;
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::file_name::FileNameBuf;
 use buck2_util::arc_str::PackedStringSlice;
@@ -242,9 +242,9 @@ impl FileOpsDelegate for TestCellFileOps {
     async fn read_file_if_exists(
         &self,
         _ctx: &mut DiceComputations<'_>,
-        path: &'async_trait CellRelativePath,
+        path: ICellRelativePath,
     ) -> buck2_error::Result<Option<String>> {
-        let cell_path = CellPath::new(self.0, path);
+        let cell_path = CellPath::new_i(self.0, path);
         FileOps::read_file_if_exists(&self.1, cell_path).await
     }
 
@@ -252,18 +252,18 @@ impl FileOpsDelegate for TestCellFileOps {
     async fn read_dir(
         &self,
         _ctx: &mut DiceComputations<'_>,
-        path: &'async_trait CellRelativePath,
+        path: ICellRelativePath,
     ) -> buck2_error::Result<PackedStringSlice<FileName, FileType>> {
-        let path = CellPath::new(self.0, path);
+        let path = CellPath::new_i(self.0, path);
         Ok(FileOps::read_dir(&self.1, path).await?.included)
     }
 
     async fn read_path_metadata_if_exists(
         &self,
         _ctx: &mut DiceComputations<'_>,
-        path: &'async_trait CellRelativePath,
+        path: ICellRelativePath,
     ) -> buck2_error::Result<Option<RawPathMetadata>> {
-        let path = CellPath::new(self.0, path);
+        let path = CellPath::new_i(self.0, path);
         FileOps::read_path_metadata_if_exists(&self.1, path).await
     }
 

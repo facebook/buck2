@@ -23,6 +23,7 @@ use buck2_common::file_ops::metadata::RawPathMetadata;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_common::io::fs::is_executable;
 use buck2_core::cells::external::ExternalCellOrigin;
+use buck2_core::cells::i_cell_relative_path::ICellRelativePath;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::paths::CellRelativePathBuf;
@@ -362,26 +363,26 @@ impl FileOpsDelegate for BundledFileOpsDelegate {
     async fn read_file_if_exists(
         &self,
         _ctx: &mut DiceComputations<'_>,
-        path: &'async_trait CellRelativePath,
+        path: ICellRelativePath,
     ) -> buck2_error::Result<Option<String>> {
-        Ok(self.read_file_if_exists(path)?.map(|s| s.to_owned()))
+        Ok(self.read_file_if_exists(&path)?.map(|s| s.to_owned()))
     }
 
     /// Return the list of file outputs, sorted.
     async fn read_dir(
         &self,
         _ctx: &mut DiceComputations<'_>,
-        path: &'async_trait CellRelativePath,
+        path: ICellRelativePath,
     ) -> buck2_error::Result<PackedStringSlice<FileName, FileType>> {
-        self.read_dir(path).await
+        self.read_dir(&path).await
     }
 
     async fn read_path_metadata_if_exists(
         &self,
         _ctx: &mut DiceComputations<'_>,
-        path: &'async_trait CellRelativePath,
+        path: ICellRelativePath,
     ) -> buck2_error::Result<Option<RawPathMetadata>> {
-        self.read_path_metadata_if_exists(path)
+        self.read_path_metadata_if_exists(&path)
     }
 
     fn eq_token(&self) -> PartialEqAny<'_> {
@@ -433,10 +434,12 @@ async fn declare_all_source_artifacts(
     let buck_out_resolver = artifact_fs.buck_out_path_resolver();
 
     for (path, entry) in ops.dir.unordered_walk_leaves().with_paths() {
-        let path = buck_out_resolver.resolve_external_cell_source(
-            CellRelativePath::new(path.as_ref()),
-            ExternalCellOrigin::Bundled(cell_name),
-        );
+        let path = buck_out_resolver
+            .resolve_external_cell_source(
+                CellRelativePath::new(path.as_ref()),
+                ExternalCellOrigin::Bundled(cell_name),
+            )
+            .to_buf();
         requests.push(WriteRequest {
             path,
             content: entry.contents.to_vec(),
@@ -554,7 +557,7 @@ pub(crate) async fn materialize_all(
         // written through `declare_write` under the CAS config. The two are identical today; a
         // materializer that checks values against disk should be sent the `declare_write`
         // results instead.
-        artifacts.push((path, ArtifactValue::file(entry.metadata.dupe())));
+        artifacts.push((path.to_buf(), ArtifactValue::file(entry.metadata.dupe())));
     }
 
     let re_use_case = invocation_re_use_case(ctx);
@@ -570,10 +573,12 @@ pub(crate) async fn materialize_all(
         .await?;
     let lease = response.ensure_results_ok()?;
     Ok((
-        buck_out_resolver.resolve_external_cell_source(
-            CellRelativePath::unchecked_new(""),
-            ExternalCellOrigin::Bundled(cell),
-        ),
+        buck_out_resolver
+            .resolve_external_cell_source(
+                CellRelativePath::unchecked_new(""),
+                ExternalCellOrigin::Bundled(cell),
+            )
+            .to_buf(),
         lease,
     ))
 }

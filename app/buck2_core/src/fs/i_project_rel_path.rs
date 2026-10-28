@@ -72,6 +72,10 @@ impl IProjectRelativePath {
         }
     }
 
+    pub fn join(self, path: &ForwardRelativePath) -> Self {
+        Self::intern_concat_directly([self.as_forward_relative_path(), path])
+    }
+
     #[inline]
     pub fn as_str(self) -> &'static str {
         self.path.as_str()

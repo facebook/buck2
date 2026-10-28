@@ -182,7 +182,7 @@ impl ReadFileValue {
         ctx: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<Option<String>> {
         self.file_ops
-            .read_file_if_exists(ctx, self.path.path())
+            .read_file_if_exists(ctx, self.path.ipath())
             .await
     }
 }
@@ -234,7 +234,7 @@ impl Key for ReadDirKey {
         _cancellations: &CancellationContext,
     ) -> Self::Value {
         let file_ops = get_delegated_file_ops(ctx, self.path.cell(), self.check_ignores).await?;
-        file_ops.read_dir(ctx, self.path.path()).await
+        file_ops.read_dir(ctx, self.path.ipath()).await
     }
 
     fn equality_behavior() -> EqualityBehavior<Self::Value> {
@@ -264,7 +264,7 @@ impl Key for ExistsMatchingExactCaseKey {
     ) -> Self::Value {
         get_delegated_file_ops(ctx, self.0.cell(), CheckIgnores::Yes)
             .await?
-            .exists_matching_exact_case(self.0.path(), ctx)
+            .exists_matching_exact_case(self.0.ipath(), ctx)
             .await
     }
 
@@ -294,7 +294,7 @@ impl Key for PathMetadataKey {
     ) -> Self::Value {
         let res = get_delegated_file_ops(ctx, self.0.cell(), CheckIgnores::No)
             .await?
-            .read_path_metadata_if_exists(ctx, self.0.path())
+            .read_path_metadata_if_exists(ctx, self.0.ipath())
             .await?;
 
         Ok(res)

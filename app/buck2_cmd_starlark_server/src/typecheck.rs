@@ -92,7 +92,7 @@ impl Cache<'_> {
     async fn run(&mut self, path: OwnedStarlarkPath) -> buck2_error::Result<Interface> {
         let path_ref = path.borrow();
         writeln!(self.stderr, "Type checking: {path_ref}")?;
-        let proj_path = self.cell_resolver.resolve_path(*path_ref.path())?;
+        let proj_path = self.cell_resolver.resolve_ipath(*path_ref.path())?;
         let path_str = proj_path.to_string();
         let src = self
             .io

@@ -77,10 +77,13 @@ impl ArtifactFs {
             .get(source_artifact_path.package().cell_name())?
             .external()
         {
-            Ok(self.buck_out_path_resolver.resolve_external_cell_source(
-                source_artifact_path.to_cell_path().path(),
-                origin.dupe(),
-            ))
+            Ok(self
+                .buck_out_path_resolver
+                .resolve_external_cell_source(
+                    source_artifact_path.to_cell_path().path(),
+                    origin.dupe(),
+                )
+                .to_buf())
         } else {
             Ok(cell_resolver
                 .resolve_path(source_artifact_path.package().as_cell_path())?

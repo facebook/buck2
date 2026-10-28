@@ -20,7 +20,7 @@ use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bxl::BxlFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::CellResolver;
-use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_core::fs::i_project_rel_path::IProjectRelativePath;
 use buck2_core::package::PackageLabel;
 use buck2_fs::paths::file_name::FileName;
 use buck2_interpreter::paths::package::PackageFilePath;
@@ -33,15 +33,15 @@ use dupe::Dupe;
 #[buck2(tag = Input)]
 enum StarlarkFilesError {
     #[error("File not found, `{0}`")]
-    FileNotFound(ProjectRelativePathBuf),
+    FileNotFound(IProjectRelativePath),
     #[error("Symlinks and other esoteric files are not supported, `{0}`")]
-    UnsupportedFileType(ProjectRelativePathBuf),
+    UnsupportedFileType(IProjectRelativePath),
 }
 
 #[async_recursion]
 async fn starlark_file(
     ctx: &mut DiceComputations<'_>,
-    proj_path: ProjectRelativePathBuf,
+    proj_path: IProjectRelativePath,
     // None = this file was given explicitly
     // Some = it was a directory traversal (and we know its type)
     recursive: Option<FileType>,
@@ -61,7 +61,7 @@ async fn starlark_file(
 
     let typ = match &recursive {
         Some(typ) => typ.dupe(),
-        None => match io.read_path_metadata_if_exists(proj_path.clone()).await? {
+        None => match io.read_path_metadata_if_exists(proj_path).await? {
             None => {
                 return Err(StarlarkFilesError::FileNotFound(proj_path).into());
             }
@@ -76,15 +76,14 @@ async fn starlark_file(
 
     match typ {
         FileType::Directory => {
-            for x in io.read_dir(proj_path.clone()).await?.into_entries() {
+            for x in io.read_dir(proj_path).await?.into_entries() {
                 let Ok(file_name) = FileName::new(&x.file_name) else {
                     // Skip files which buck does not like:
                     // this function works with `CellPath` values,
                     // which cannot be constructed from paths not acceptable by buck.
                     continue;
                 };
-                let mut child_path = proj_path.clone();
-                child_path.push(file_name);
+                let child_path = proj_path.join(file_name.as_forward_rel_path());
                 starlark_file(ctx, child_path, Some(x.file_type), cell_resolver, io, files).await?;
             }
         }
@@ -137,7 +136,7 @@ pub(crate) async fn starlark_files(
     for path in paths {
         let path = path.resolve(context.working_dir_abs());
         let cell_path = cell_resolver.get_cell_path_from_abs_path(&path, context.project_root())?;
-        let proj_path = cell_resolver.resolve_path(cell_path)?;
+        let proj_path = cell_resolver.resolve_ipath(cell_path)?;
         starlark_file(ctx, proj_path, None, cell_resolver, io, &mut files).await?;
     }
     Ok(files)

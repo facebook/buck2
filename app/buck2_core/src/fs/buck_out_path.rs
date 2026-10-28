@@ -28,6 +28,7 @@ use crate::content_hash::ContentBasedPathHash;
 use crate::deferred::base_deferred_key::BaseDeferredKey;
 use crate::deferred::key::DeferredHolderKey;
 use crate::fs::dynamic_actions_action_key::DynamicActionsActionKey;
+use crate::fs::i_project_rel_path::IProjectRelativePath;
 use crate::fs::project_rel_path::ProjectRelativePath;
 use crate::fs::project_rel_path::ProjectRelativePathBuf;
 use crate::provider::label::ConfiguredProvidersLabel;
@@ -336,8 +337,8 @@ impl BuckOutPathResolver {
         &self,
         path: &CellRelativePath,
         origin: ExternalCellOrigin,
-    ) -> ProjectRelativePathBuf {
-        ProjectRelativePathBuf::from(ForwardRelativePathBuf::concat([
+    ) -> IProjectRelativePath {
+        IProjectRelativePath::intern_concat_directly([
             self.buck_out_v2.0.as_forward_relative_path(),
             ForwardRelativePath::new("external_cells").unwrap(),
             match origin {
@@ -353,7 +354,7 @@ impl BuckOutPathResolver {
                 }
             },
             path.as_ref(),
-        ]))
+        ])
     }
 
     pub fn resolve_scratch(
