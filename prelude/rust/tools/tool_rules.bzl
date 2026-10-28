@@ -29,7 +29,7 @@ def _get_rustc_cfg_impl(ctx: AnalysisContext) -> list[Provider]:
             cmd.append("-Zunstable-options")
 
     env = {}
-    if ctx.attrs.enable_nightly_cfgs or uses_custom_target:
+    if toolchain_info.nightly_features or ctx.attrs.enable_nightly_cfgs or uses_custom_target:
         env["RUSTC_BOOTSTRAP"] = "1"
 
     if toolchain_info.rust_target_path != None:

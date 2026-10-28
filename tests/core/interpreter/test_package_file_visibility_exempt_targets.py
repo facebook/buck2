@@ -46,9 +46,11 @@ class PackageFileVisibilityExemptTargetsTest(BuckTestCase):
     async def test_audit_mode_reports_instead_of_failing(self, buck: Buck) -> None:
         set_default_intersection(buck, "audit")
         await buck.ctargets("root//outside:uses_legacy")
-        result = await buck.ctargets("root//outside:uses_strict")
-        assert "package_visibility_audit_would_block" in result.stderr
-        assert "root//boundary/strict:t" in result.stderr
+        await buck.ctargets("root//outside:uses_strict")
+        # Recorded as a deprecation, which is not shown on the console
+        log = await buck.log("show")
+        assert "package_visibility_audit_would_block" in log.stdout
+        assert "root//boundary/strict:t" in log.stdout
 
     @buck_test()
     async def test_exemption_does_not_weaken_ancestor_layer(self, buck: Buck) -> None:

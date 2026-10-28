@@ -33,6 +33,7 @@ use buck2_common::client_utils::retrying;
 use buck2_common::daemon_dir::DaemonDir;
 use buck2_common::init::DaemonStartupConfig;
 use buck2_common::invocation_paths::InvocationPaths;
+use buck2_common::settings::BuckSettingChange;
 use buck2_core::buck2_env;
 use buck2_data::DaemonWasStartedReason;
 use buck2_error::BuckErrorContext;
@@ -118,6 +119,8 @@ pub(crate) enum ConstraintUnsatisfiedReason {
     UserVersion,
     #[display("Startup config mismatch")]
     StartupConfig,
+    #[display("Buck settings changed ({})", changes.iter().map(ToString::to_string).collect::<Vec<_>>().join("; "))]
+    BuckSettings { changes: Vec<BuckSettingChange> },
     #[display("Reject daemon id")]
     RejectDaemonId,
     #[display("Trace IO mismatch")]
@@ -135,7 +138,8 @@ impl ConstraintUnsatisfiedReason {
             ConstraintUnsatisfiedReason::UserVersion => {
                 buck2_data::DaemonWasStartedReason::ConstraintMismatchUserVersion
             }
-            ConstraintUnsatisfiedReason::StartupConfig => {
+            ConstraintUnsatisfiedReason::StartupConfig
+            | ConstraintUnsatisfiedReason::BuckSettings { .. } => {
                 buck2_data::DaemonWasStartedReason::ConstraintMismatchStartupConfig
             }
             ConstraintUnsatisfiedReason::RejectDaemonId => {
@@ -193,7 +197,18 @@ impl DaemonConstraintsRequest {
             server.ok()
         });
 
-        if Some(&self.daemon_startup_config) != server_daemon_startup_config.as_ref() {
+        let Some(server_config) = server_daemon_startup_config else {
+            return Err(ConstraintUnsatisfiedReason::StartupConfig);
+        };
+
+        let changes = self
+            .daemon_startup_config
+            .buck_settings_changes_from(&server_config);
+        if !changes.is_empty() {
+            return Err(ConstraintUnsatisfiedReason::BuckSettings { changes });
+        }
+
+        if self.daemon_startup_config.startup_options != server_config.startup_options {
             return Err(ConstraintUnsatisfiedReason::StartupConfig);
         }
 
@@ -444,6 +459,7 @@ impl<'a> BuckdLifecycle<'a> {
         #[cfg(fbcode_build)]
         if !constraints
             .daemon_startup_config
+            .startup_options
             .http
             .proxy_env_allowlist
             .is_empty()
@@ -521,7 +537,7 @@ impl<'a> BuckdLifecycle<'a> {
         );
 
         let (cmd, resource_control_args) = create_daemon_spawn_command(
-            &daemon_startup_config.resource_control,
+            &daemon_startup_config.startup_options.resource_control,
             executable,
             unit_name,
             project_dir.root(),
@@ -884,7 +900,8 @@ async fn establish_connection_inner(
                         ) {
                             match reason {
                                 ConstraintUnsatisfiedReason::TraceIo
-                                | ConstraintUnsatisfiedReason::StartupConfig => {
+                                | ConstraintUnsatisfiedReason::StartupConfig
+                                | ConstraintUnsatisfiedReason::BuckSettings { .. } => {
                                     return Err(BuckdConnectError::NestedConstraintMismatch {
                                         reason,
                                     }
@@ -894,11 +911,15 @@ async fn establish_connection_inner(
                             }
                         }
 
-                        events_ctx
-                            .eprintln(&format!(
+                        let message = match reason {
+                            ConstraintUnsatisfiedReason::BuckSettings { .. } => {
+                                format!("{reason}; restarting daemon...")
+                            }
+                            _ => format!(
                                 "buck2 daemon constraint mismatch: {reason}; killing daemon..."
-                            ))
-                            .await?;
+                            ),
+                        };
+                        events_ctx.eprintln(&message).await?;
 
                         deadline
                             .run(
@@ -1475,6 +1496,7 @@ fn is_nested_invocation(
 
 #[cfg(test)]
 mod tests {
+    use buck2_common::settings::BuckSettings;
     use buck2_error::internal_error;
 
     use super::*;
@@ -1506,11 +1528,89 @@ mod tests {
         }
     }
 
+    fn request_with_settings(settings: &str) -> DaemonConstraintsRequest {
+        let mut req = request(DesiredTraceIoState::Existing);
+        let mut startup = serde_json::to_value(&req.daemon_startup_config).unwrap();
+        let settings: BuckSettings = serde_json::from_str(settings).unwrap();
+        startup["buck_settings"] = serde_json::to_value(settings.daemon).unwrap();
+        req.daemon_startup_config = serde_json::from_value(startup).unwrap();
+        req
+    }
+
     #[test]
     fn test_constraints_equal_for_same_constraints() {
         let req = request(DesiredTraceIoState::Enabled);
         let daemon = constraints(true);
         assert!(req.satisfied(&daemon).is_ok());
+    }
+
+    #[test]
+    fn test_buck_settings_mismatch() {
+        for settings in [
+            r#"{"analysis":{"record_requested_anon_targets":false}}"#,
+            r#"{"hydration":{"enable_paging":true}}"#,
+            r#"{"log_download":{"log_url":"https://example.com/"}}"#,
+            r#"{"package_visibility":{"default_intersection":"enforce"}}"#,
+        ] {
+            let req = request_with_settings(settings);
+            let daemon = constraints(false);
+
+            let reason = req.satisfied(&daemon).unwrap_err();
+            assert!(matches!(
+                reason,
+                ConstraintUnsatisfiedReason::BuckSettings { .. }
+            ));
+            assert_eq!(
+                reason.to_daemon_was_started_reason(),
+                DaemonWasStartedReason::ConstraintMismatchStartupConfig,
+            );
+        }
+    }
+
+    #[test]
+    fn test_buck_settings_details_survive_error_chain() {
+        let req = request_with_settings(
+            r#"{"hydration":{"enable_paging":true},"agent_materialization":{"enabled":true}}"#,
+        );
+        let daemon = constraints(false);
+
+        let reason = req.satisfied(&daemon).unwrap_err();
+        let expected = "Buck settings changed (hydration.enable_paging: null -> true)";
+        assert_eq!(reason.to_string(), expected);
+        let error: buck2_error::Error =
+            BuckdConnectError::NestedConstraintMismatch { reason }.into();
+        assert!(format!("{error:#}").contains(expected));
+    }
+
+    #[test]
+    fn test_invocation_sections_reuse_daemon() {
+        for settings in [
+            r#"{"agent_materialization":{"enabled":true}}"#,
+            r#"{"agent_materialization":{"enabled":false}}"#,
+            r#"{"agent_interactive":{"enabled":true,"killall_enabled":true,"clean_enabled":true,"new_isolation_dir_enabled":true}}"#,
+            r#"{"agent_interactive":{"enabled":false}}"#,
+        ] {
+            let req = request_with_settings(settings);
+            let mut daemon = constraints(false);
+            assert!(req.satisfied(&daemon).is_ok(), "{settings}");
+
+            daemon.daemon_startup_config = Some(req.daemon_startup_config.serialize().unwrap());
+            let req = request(DesiredTraceIoState::Existing);
+            assert!(req.satisfied(&daemon).is_ok(), "{settings}");
+        }
+    }
+
+    #[test]
+    fn test_missing_or_invalid_startup_config() {
+        let req = request(DesiredTraceIoState::Existing);
+        for config in [None, Some("{}"), Some("invalid json")] {
+            let mut daemon = constraints(false);
+            daemon.daemon_startup_config = config.map(str::to_owned);
+            assert!(matches!(
+                req.satisfied(&daemon),
+                Err(ConstraintUnsatisfiedReason::StartupConfig)
+            ));
+        }
     }
 
     #[test]
@@ -1623,8 +1723,11 @@ mod tests {
         };
 
         assert!(req.satisfied(&daemon).is_ok());
-        req.daemon_startup_config.daemon_buster = Some("1".to_owned());
-        assert!(req.satisfied(&daemon).is_err());
+        req.daemon_startup_config.startup_options.daemon_buster = Some("1".to_owned());
+        assert!(matches!(
+            req.satisfied(&daemon),
+            Err(ConstraintUnsatisfiedReason::StartupConfig)
+        ));
     }
 
     #[cfg(not(windows))]

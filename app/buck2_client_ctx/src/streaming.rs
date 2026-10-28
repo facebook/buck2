@@ -76,7 +76,7 @@ fn update_events_ctx<T: StreamingCommand>(
         .immediate_config
         .daemon_startup_config()
         .map(|daemon_startup_config| {
-            daemon_startup_config
+            daemon_startup_config.startup_options
                 .health_check_config
                 .enable_health_checks
         })
@@ -346,7 +346,7 @@ fn get_event_log_subscriber<T: StreamingCommand>(
         log_size_counter_bytes,
         ctx.immediate_config
             .daemon_startup_config()
-            .map(|daemon_startup_config| daemon_startup_config.retained_event_logs)
+            .map(|daemon_startup_config| daemon_startup_config.startup_options.retained_event_logs)
             .unwrap_or(DEFAULT_RETAINED_EVENT_LOGS),
     );
     Box::new(log)

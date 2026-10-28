@@ -128,12 +128,7 @@ pub async fn create_daemon_spawn_command(
                 (_, Ok(s)) => s,
                 (ResourceControlStatus::Required, Err(e)) => return Err(e),
                 (ResourceControlStatus::IfAvailable, Err(e)) => {
-                    soft_error!(
-                        "daemon_spawner_resource_control_unavailable",
-                        e,
-                        quiet: true
-                    )
-                    .ok();
+                    soft_error!("daemon_spawner_resource_control_unavailable", e);
                     DaemonSpawner::None
                 }
             }

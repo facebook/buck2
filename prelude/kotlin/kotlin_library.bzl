@@ -349,6 +349,15 @@ def get_language_version_arg(ctx: AnalysisContext) -> list[str]:
     language_version = get_language_version(ctx)
     return ["-language-version=" + language_version]
 
+def _kotlinc_arg_text(arg) -> str:
+    """The text kotlincd gives kotlinc for one `extra_kotlinc_arguments`
+    element: KotlinCStepsBuilder passes each element unchanged. `str()` of an
+    `attrs.arg()` value is that text in one pair of double quotes, with a
+    macro written as `$(location ...)`."""
+    if isinstance(arg, str):
+        return arg
+    return str(arg)[1:-1]
+
 def filter_out_language_version(extra_arguments: list) -> list:
     return [arg for arg in extra_arguments if not (isinstance(arg, str) and "-language-version" in arg)]
 
@@ -606,6 +615,7 @@ def build_kotlin_library(
                     generated_sources,
                     annotation_processor_properties,
                     ksp_annotation_processor_properties,
+                    target_level,
                 )
 
             class_to_src_map, sources_jar, class_to_src_map_sub_targets = get_class_to_source_map_info(
@@ -773,6 +783,7 @@ def _typecheck_subtarget(
     generated_sources: list[Artifact],
     annotation_processor_properties,
     ksp_annotation_processor_properties,
+    target_level: int,
 ) -> dict:
     if not kotlin_toolchain.typechecker_enabled:
         return extra_sub_targets
@@ -829,13 +840,14 @@ def _typecheck_subtarget(
     # would only make this action wait for kotlincd.
     checked_generated_sources = generated_sources if has_processors else []
 
-    # extra_kotlinc_arguments holds attrs.arg() objects, not strings (compare
-    # the str(arg) inspection in get_language_version above). Normalize each
-    # element (strip whitespace/quotes) and compare exactly: a substring
-    # test would false-match -Werror inside unrelated values.
+    # kotlinc matches a flag on the exact text of its argument, so each
+    # decision below reads an element's text as kotlinc receives it. A
+    # substring test would false-match -Werror inside unrelated values, and
+    # `"-Werror"` (quotes included) or ` -Werror` is a source path to kotlinc,
+    # not -Werror.
     def has_flag(*names):
         return lazy.is_any(
-            lambda a: str(a).strip().strip('"') in names,
+            lambda a: _kotlinc_arg_text(a) in names,
             ctx.attrs.extra_kotlinc_arguments or [],
         )
 
@@ -847,11 +859,29 @@ def _typecheck_subtarget(
     # kotlinc reports, so the checker must see them too.
     warning_levels = []
     for a in ctx.attrs.extra_kotlinc_arguments or []:
-        flag = str(a).strip().strip('"')
+        flag = _kotlinc_arg_text(a)
         if flag.startswith("-Xwarning-level="):
             warning_levels.append(flag[len("-Xwarning-level=") :])
         elif flag.startswith("-Xsuppress-warning="):
             warning_levels.append(flag[len("-Xsuppress-warning=") :] + ":disabled")
+
+    # Every other kotlinc argument reaches the checker, in the order kotlincd
+    # passes them (KotlinCStepsBuilder.getKotlincExtraArguments), so repeated
+    # flags resolve the same: each compiler plugin's options, the JVM target,
+    # -Xjspecify-annotations=strict (both compile paths add it), then
+    # extra_kotlinc_arguments without the flags handled above, each with the
+    # text it was tested on. A `__codegen_dir__` option value passes as the
+    # literal: the checker runs no plugin and writes no plugin output.
+    kotlinc_args = []
+    for plugin, options in ctx.attrs.kotlin_compiler_plugins:
+        if options and not _is_ksp_plugin(str(plugin)):
+            kotlinc_args += ["-P", ",".join(["{}={}".format(key, value) for key, value in options.items()])]
+    kotlinc_args += ["-jvm-target", get_kotlinc_compatible_target(str(target_level)), "-Xjspecify-annotations=strict"]
+    for a in ctx.attrs.extra_kotlinc_arguments or []:
+        flag = _kotlinc_arg_text(a)
+        handled = flag in ("-Werror", "-nowarn", "-W") or "-language-version" in flag
+        if not handled and not flag.startswith("-Xwarning-level=") and not flag.startswith("-Xsuppress-warning="):
+            kotlinc_args.append(a)
 
     report = ctx.actions.declare_output("typecheck_report.json")
     args = cmd_args([
@@ -873,6 +903,8 @@ def _typecheck_subtarget(
         args.add("--nowarn")
     for level in warning_levels:
         args.add(["--warning-level", level])
+    for a in kotlinc_args:
+        args.add(cmd_args("--kotlinc-arg=", a, delimiter = ""))
     if has_plugins:
         args.add("--plugins")
 

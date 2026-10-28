@@ -13,7 +13,7 @@ use std::time::Instant;
 
 use buck2_artifact::actions::key::ActionKey;
 use buck2_core::deferred::key::DeferredHolderKey;
-use buck2_core::soft_error;
+use buck2_core::soft_error_or_panic;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::BuckErrorOptionContext;
 use buck2_events::dispatch::with_dispatcher_opt_async;
@@ -236,11 +236,7 @@ impl DetailedAggregatedMetricsStateTracker {
                     Ok((_complete, sketch)) if !sketch.is_empty() => (label, Some(sketch)),
                     Ok(_) => (label, None),
                     Err(e) => {
-                        let _ignored = soft_error!(
-                            "action_graph_sketch_computation_error",
-                            e,
-                            quiet: true
-                        );
+                        soft_error_or_panic!("action_graph_sketch_computation_error", e);
                         (label, None)
                     }
                 }

@@ -19,6 +19,7 @@ import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.core.util.log.Logger;
 import com.facebook.buck.jvm.cd.command.kotlin.LanguageVersion;
 import com.facebook.buck.jvm.core.BuildTargetValue;
+import com.facebook.buck.jvm.java.CompilerClassToSourceMap;
 import com.facebook.buck.jvm.java.CompilerOutputPaths;
 import com.facebook.buck.jvm.kotlin.cd.analytics.KotlinCDAnalytics;
 import com.facebook.buck.jvm.kotlin.cd.analytics.KotlinCDLoggingContext;
@@ -149,6 +150,10 @@ public class KotlincStep implements IsolatedStep {
     return getKotlinc().getShortName();
   }
 
+  protected boolean emitsClassToSourceMap() {
+    return true;
+  }
+
   @Override
   public StepExecutionResult executeIsolatedStep(IsolatedExecutionContext context) {
     ImmutableList<String> compilerOptions = getOptions(context, combinedClassPathEntries);
@@ -174,7 +179,15 @@ public class KotlincStep implements IsolatedStep {
               Optional.of(outputPaths.getWorkingDirectory().getPath()),
               context.getRuleCellRoot(),
               kotlincMode,
-              loggingContext);
+              loggingContext,
+              context.getRuleCellRoot().resolve(outputDirectory),
+              emitsClassToSourceMap() && outputPaths.getCompilerClassToSourceMap() != null
+                  ? context
+                      .getRuleCellRoot()
+                      .resolve(outputPaths.getWorkingDirectory())
+                      .getPath()
+                      .resolve(CompilerClassToSourceMap.KOTLIN_FILE_NAME)
+                  : null);
 
       Instant compilationEnd = Instant.now();
       Duration compilationDuration = Duration.between(compilationStart, compilationEnd);

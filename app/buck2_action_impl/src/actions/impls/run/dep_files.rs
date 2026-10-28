@@ -46,6 +46,7 @@ use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
+use buck2_core::soft_error_or_panic;
 use buck2_directory::directory::directory::Directory;
 use buck2_directory::directory::directory_hasher::DirectoryDigester;
 use buck2_directory::directory::directory_ref::DirectoryRef;
@@ -1313,14 +1314,13 @@ pub(crate) async fn match_if_identical_action(
         // changes, so a row that fails to decode means that version was not bumped, and the drift
         // would otherwise disable the cache silently.
         let drop_malformed = |config_key: Vec<u8>, e: buck2_error::Error| {
-            let _unused = soft_error!(
+            soft_error_or_panic!(
                 "malformed_dep_file_db_entry",
                 buck2_error::buck2_error!(
                     buck2_error::ErrorTag::Tier0,
                     "Dropping malformed persisted dep-file entry. {}",
                     e
-                ),
-                quiet: true
+                )
             );
             store.delete(logical_key.clone(), config_key);
         };
@@ -2479,7 +2479,7 @@ impl DeclaredDepFiles {
                                 "Dep file is missing at {}",
                                 dep_file_path
                             )
-                        )?;
+                        );
                         return Ok(None);
                     }
                 };
@@ -2557,7 +2557,7 @@ impl ConcreteDepFiles {
                 .buck_error_context("Invalid line encountered in dep file")?;
 
             if let Err(e) = Self::add_path_to_selector(path, &mut selector, fs, builder) {
-                soft_error!("failed_to_add_dep_file_path_to_selector", e)?;
+                soft_error!("failed_to_add_dep_file_path_to_selector", e);
                 return Ok(None);
             }
         }

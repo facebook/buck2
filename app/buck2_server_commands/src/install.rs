@@ -79,6 +79,7 @@ use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
 use buck2_error::ErrorTag;
+use buck2_event_log::should_upload_log;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::span_async;
 use buck2_events::dispatch::span_async_simple;
@@ -897,14 +898,18 @@ async fn handle_install_request(
     };
 
     let mut log_url = None;
-    let log_location = match upload_installer_logs(&log_path).await {
-        Ok(url) => {
-            log_url = Some(url.clone());
-            url
-        }
-        Err(err) => {
-            let _unused = soft_error!("installer_log_upload_failed", err.clone());
-            log_path.to_string()
+    let log_location = if !should_upload_log()? {
+        log_path.to_string()
+    } else {
+        match upload_installer_logs(&log_path).await {
+            Ok(url) => {
+                log_url = Some(url.clone());
+                url
+            }
+            Err(err) => {
+                soft_error!("installer_log_upload_failed", err.clone());
+                log_path.to_string()
+            }
         }
     };
 

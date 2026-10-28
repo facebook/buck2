@@ -12,7 +12,7 @@ use std::time::Duration;
 
 use allocative::Allocative;
 use buck2_core::buck2_env;
-use buck2_core::soft_error;
+use buck2_core::soft_error_or_panic;
 use buck2_data::*;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::dispatch::with_dispatcher_async;
@@ -125,9 +125,9 @@ impl BuckDiceTracker {
                             // could not serve in time can be read off against
                             // failures of the stored data.
                             if transient {
-                                soft_error!("dice_page_in_failed_transient", error).ok();
+                                soft_error_or_panic!("dice_page_in_failed_transient", error);
                             } else {
-                                soft_error!("dice_page_in_failed", error).ok();
+                                soft_error_or_panic!("dice_page_in_failed", error);
                             }
                         }
                         None => {

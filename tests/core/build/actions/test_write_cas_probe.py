@@ -12,8 +12,8 @@
 With `buck2.write_cas_probe` on, a write action asks the CAS for its content before writing it.
 When the CAS has the content with enough TTL left, the output is declared as a CAS download and
 nothing is written until something needs the file; otherwise the write proceeds as before. A copy
-of a source file asks the same way before copying. Neither asks under `--local-only` or
-`--no-remote-cache`.
+of a source file, alone or into a `copied_dir`, asks the same way before copying. None of them
+asks under `--local-only` or `--no-remote-cache`.
 """
 
 from buck2.tests.e2e_util.api.buck import Buck
@@ -134,6 +134,79 @@ class WriteCasProbeTest(BuckTestCase):
         # ...until something needs the file, which then comes out of the CAS.
         await buck.build(target, *configs)
         assert output.read_text() == content
+
+    @buck_test(write_invocation_record=True)
+    async def test_copied_dir_of_a_source_file_the_cas_has_is_not_made(
+        self, buck: Buck
+    ) -> None:
+        content = random_string()
+        (buck.cwd / "src.txt").write_text(content)
+        configs = ["-c", f"test.content={random_string()}"]
+        # `copied_dir` reports the `symlinked_dir` category.
+        category = "symlinked_dir"
+
+        res = await buck.build("//:copied_dir_src", "--materializations=none", *configs)
+        assert presence_check_rpcs(res) >= 1, "the probe asked the CAS"
+        assert (
+            await get_last_execution_kind(buck, category=category)
+            == ACTION_EXECUTION_KIND_SIMPLE
+        )
+
+        await buck.build(
+            "//:consume_src", "--remote-only", "--no-remote-cache", *configs
+        )
+
+        # The directory's one file is in the CAS now: nothing is copied...
+        target = "//:copied_dir_src_again"
+        res = await buck.build(target, "--materializations=none", *configs)
+        output = res.get_build_report().output_for_target(target)
+        assert presence_check_answers(res) >= 1, "the probe ran"
+        assert (
+            await get_last_execution_kind(buck, category=category)
+            == ACTION_EXECUTION_KIND_DEFERRED
+        )
+        assert not output.exists()
+
+        # ...until something needs it, which then comes out of the CAS.
+        await buck.build(target, *configs)
+        assert (output / "src.txt").read_text() == content
+
+    @buck_test(write_invocation_record=True, skip_for_materializer=["deferred"])
+    async def test_copied_dir_stashes_only_the_files_the_cas_lacks(
+        self, buck: Buck
+    ) -> None:
+        # The probe asks about a copied directory's files one at a time: the directory itself is
+        # in the CAS only if some action uploaded it in this exact shape, while its files are
+        # inputs the CAS usually has. Here one file is uploaded and one is not, so only the second
+        # enters the stash.
+        content_a = random_string() * 32
+        content_b = random_string() * 8
+        (buck.cwd / "mixed_a.txt").write_text(content_a)
+        (buck.cwd / "mixed_b.txt").write_text(content_b)
+        configs = ["-c", f"test.content={random_string()}"]
+
+        await buck.build(
+            "//:consume_mixed_b", "--remote-only", "--no-remote-cache", *configs
+        )
+
+        target = "//:copied_dir_mixed"
+        res = await buck.build(target, "--materializations=none", *configs)
+        output = res.get_build_report().output_for_target(target)
+        assert presence_check_answers(res) >= 2, "the probe asked about both files"
+        assert (
+            await get_last_execution_kind(buck, category="symlinked_dir")
+            == ACTION_EXECUTION_KIND_SIMPLE
+        )
+        snapshot = res.invocation_record()["last_snapshot"]
+        assert int(snapshot.get("blob_store_entries", 0)) == 1, (
+            "one file entered the stash"
+        )
+        assert int(snapshot.get("blob_store_bytes", 0)) == len(content_a)
+        assert not output.exists()
+
+        await buck.build(target, *configs)
+        assert (output / "mixed_a.txt").read_text() == content_a
+        assert (output / "mixed_b.txt").read_text() == content_b
 
     @buck_test(write_invocation_record=True, skip_for_materializer=["deferred"])
     async def test_content_already_on_disk_is_copied_rather_than_downloaded(

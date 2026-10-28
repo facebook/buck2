@@ -67,7 +67,7 @@ pub fn get_host_info(
             {
                 Ok(v) => v,
                 Err(e) => {
-                    soft_error!("invalid_xcode_version", e)?;
+                    soft_error!("invalid_xcode_version", e);
                     None
                 }
             }

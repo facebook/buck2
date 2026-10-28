@@ -755,7 +755,7 @@ def parametrize(
     product of their entries.
 
     The test cases are named after the test and the case: `test_foo` with the id `linux` is
-    `test_foo_linux`. An empty `argvalues` leaves one case that skips.
+    `test_foo_linux`. An empty `argvalues` leaves no case: the test does not exist.
     """
     names = (
         [n.strip() for n in argnames.split(",")]
@@ -807,9 +807,6 @@ def _expand_parametrized_tests(cls: type) -> None:
         if stacked is None:
             continue
         delattr(cls, name)
-        if not all(stacked):
-            setattr(cls, name, _skipping_test_case(fn, name, "empty parameter set"))
-            continue
         for combination in itertools.product(*stacked):
             case_id = "-".join(case_id for case_id, _ in combination)
             kwargs = {}
@@ -850,16 +847,6 @@ def _bind_test_case(
                 raise TypeError(
                     f"{name} returned {result!r} instead of running: make it async"
                 )
-
-    return _as_test_case(case, fn, name)
-
-
-def _skipping_test_case(
-    fn: Callable[..., Any], name: str, reason: str
-) -> Callable[..., Any]:
-    @functools.wraps(fn)
-    def case(self: unittest.TestCase) -> None:
-        self.skipTest(reason)
 
     return _as_test_case(case, fn, name)
 

@@ -35,6 +35,7 @@ use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::legacy_configs::parse_buckconfig_metadata;
+use buck2_common::settings::DaemonBuckSettings;
 use buck2_common::settings::PackageVisibilityDefaultIntersection;
 use buck2_common::sqlite::sqlite_db::SqliteDb;
 use buck2_common::sqlite::sqlite_db::SqliteIdentity;
@@ -47,7 +48,7 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::is_open_source;
 use buck2_core::rollout_percentage::RolloutPercentage;
-use buck2_core::soft_error;
+use buck2_core::soft_error_or_panic;
 use buck2_core::tag_result;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
@@ -209,6 +210,10 @@ pub struct RepoState {
 
     /// A unique identifier for the materializer state.
     pub materializer_state_identity: Option<SqliteIdentity>,
+
+    /// Which materializer `materializer` is, as `buck2.materializer` names it; reported in
+    /// command metadata.
+    pub materializer_implementation: &'static str,
 
     /// Tracks data about previous command (e.g. configs)
     pub previous_command_data: Arc<LockedPreviousCommandData>,
@@ -379,6 +384,7 @@ impl TenantState {
 
         let digest_algorithms = init_ctx
             .daemon_startup_config
+            .startup_options
             .digest_algorithms
             .as_ref()
             .map(|algos| {
@@ -396,6 +402,7 @@ impl TenantState {
 
         let preferred_source_algorithm = init_ctx
             .daemon_startup_config
+            .startup_options
             .source_digest_algorithm
             .as_deref()
             .map(|a| convert_algorithm_kind(a.parse()?))
@@ -436,7 +443,11 @@ impl TenantState {
         let cache_dir_path = paths.cache_dir_path();
         let valid_cache_dirs = paths.valid_cache_dirs();
 
-        let implementation = init_ctx.daemon_startup_config.materializer.as_deref();
+        let implementation = init_ctx
+            .daemon_startup_config
+            .startup_options
+            .materializer
+            .as_deref();
         let disk_state_core = implementation == Some(disk_state::CONFIG_VALUE);
         let deferred_materializer_configs = {
             let defer_write_actions = root_config
@@ -589,15 +600,14 @@ impl TenantState {
                     })
                 }
                 Err(e) => {
-                    let _unused = soft_error!(
+                    soft_error_or_panic!(
                         "dep_file_store_init",
                         buck2_error::buck2_error!(
                             buck2_error::ErrorTag::Tier0,
                             "Failed to start the persisted dep-file cache; continuing without \
                              it. {}",
                             e
-                        ),
-                        quiet: true
+                        )
                     );
                     None
                 }
@@ -613,7 +623,7 @@ impl TenantState {
             static_metadata.dupe(),
             Some(paths.re_logs_dir()),
             paths.buck_out_path(),
-            init_ctx.daemon_startup_config.paranoid,
+            init_ctx.daemon_startup_config.startup_options.paranoid,
         ));
         // Used only to dispatch events to scribe that are not associated with a specific command
         // (ex. materializer clean up events).
@@ -702,7 +712,7 @@ impl TenantState {
             })?
             .unwrap_or(false);
 
-        let paranoid = if init_ctx.daemon_startup_config.paranoid {
+        let paranoid = if init_ctx.daemon_startup_config.startup_options.paranoid {
             Some(ParanoidDownloader::new(
                 fs.clone(),
                 blocking_executor.dupe(),
@@ -722,11 +732,13 @@ impl TenantState {
 
         let action_freezing_enabled = init_ctx
             .daemon_startup_config
+            .startup_options
             .resource_control
             .enable_suspension;
 
         let evicts_on_memory_pressure = init_ctx
             .daemon_startup_config
+            .startup_options
             .hydration
             .as_ref()
             .is_some_and(|hydration| hydration.eviction_policy == EvictionPolicy::OnMemoryPressure);
@@ -793,6 +805,11 @@ impl TenantState {
             disk_state_options,
             create_unhashed_outputs_lock: Arc::new(Mutex::new(())),
             materializer_state_identity,
+            materializer_implementation: if disk_state_core {
+                disk_state::CONFIG_VALUE
+            } else {
+                "deferred"
+            },
             previous_command_data: LockedPreviousCommandData::new(),
             incremental_db_state,
             persisted_dep_file_cache,
@@ -1118,7 +1135,7 @@ pub struct DaemonStateData {
     pub named_semaphores_for_run_actions: Arc<NamedSemaphores>,
 
     /// Effective `package_visibility.default_intersection`, fixed for the daemon's
-    /// lifetime (sourced from `DaemonStartupConfig.buck_settings`).
+    /// lifetime (sourced from the daemon's Buck Settings).
     pub(crate) package_visibility_default_intersection: PackageVisibilityDefaultIntersection,
 
     /// Counters of the TTL refresher that walks the file digest interner. The refresher itself
@@ -1167,6 +1184,13 @@ fn _assert_send_sync(
 }
 
 impl DaemonStateData {
+    pub(crate) fn daemon_buck_settings(&self) -> &DaemonBuckSettings {
+        self.tenant_state_factory
+            .init_ctx
+            .daemon_startup_config
+            .daemon_buck_settings()
+    }
+
     fn repo_shared_services(&self) -> DaemonSharedServices<'_> {
         DaemonSharedServices {
             blocking_executor_factory: &self.blocking_executor_factory,
@@ -1364,7 +1388,10 @@ impl DaemonState {
             tracing::info!("Creating memory tracker...");
             let memory_tracker = memory_tracker::create_memory_tracker(
                 cgroup_tree,
-                &init_ctx.daemon_startup_config.resource_control,
+                &init_ctx
+                    .daemon_startup_config
+                    .startup_options
+                    .resource_control,
                 &daemon_id,
             )
             .await?;
@@ -1416,7 +1443,7 @@ impl DaemonState {
             let package_visibility_default_intersection = tenant_state_factory
                 .init_ctx
                 .daemon_startup_config
-                .buck_settings
+                .daemon_buck_settings()
                 .package_visibility
                 .default_intersection();
             let tenants = TenantStateRegistry::new(tenant).await?;
@@ -1491,7 +1518,6 @@ impl DaemonState {
         tag_result!(
             "eden_not_connected",
             check_working_dir::check_working_dir(),
-            quiet: true,
             daemon_in_memory_state_is_corrupted: true,
             task: false
         )?;
@@ -1556,7 +1582,6 @@ impl DaemonState {
         tag_result!(
             "stale_cwd",
             res,
-            quiet: true,
             daemon_in_memory_state_is_corrupted: true,
             task: false
         )?;
@@ -1567,7 +1592,7 @@ impl DaemonState {
     pub fn validate_buck_out_mount(&self, repo: &RepoState) -> buck2_error::Result<()> {
         #[cfg(fbcode_build)]
         {
-            use buck2_core::soft_error;
+            use buck2_core::warn_user;
             use buck2_fs::error::IoResultExt;
             use buck2_fs::fs_util;
 
@@ -1602,16 +1627,15 @@ impl DaemonState {
                 }
             }
 
-            soft_error!(
+            warn_user!(
                 "eden_buck_out",
                 buck2_error::buck2_error!(
                     buck2_error::ErrorTag::Environment,
                     "Buck is running in an Eden repository, but `buck-out` is not redirected. \
                      This will likely lead to failed or slow builds. \
                      To remediate, run `eden redirect fixup`."
-                ),
-                quiet:false
-            )?;
+                )
+            );
         }
         #[cfg(not(fbcode_build))]
         {
@@ -1656,6 +1680,7 @@ const DEFAULT_READ_TIMEOUT_MS: u64 = 10000;
 async fn http_client_from_startup_config(
     config: &DaemonStartupConfig,
 ) -> buck2_error::Result<HttpClientBuilder> {
+    let http = &config.startup_options.http;
     let mut builder = if is_open_source() {
         HttpClientBuilder::oss().await?
     } else {
@@ -1663,13 +1688,13 @@ async fn http_client_from_startup_config(
     };
     #[cfg(fbcode_build)]
     builder
-        .with_internal_proxy_from_env(&config.http.proxy_env_allowlist)
+        .with_internal_proxy_from_env(&http.proxy_env_allowlist)
         .await?;
-    builder.with_max_redirects(config.http.max_redirects.unwrap_or(DEFAULT_MAX_REDIRECTS));
-    builder.with_http2(config.http.http2);
-    builder.with_max_concurrent_requests(config.http.max_concurrent_requests);
+    builder.with_max_redirects(http.max_redirects.unwrap_or(DEFAULT_MAX_REDIRECTS));
+    builder.with_http2(http.http2);
+    builder.with_max_concurrent_requests(http.max_concurrent_requests);
 
-    match config.http.connect_timeout() {
+    match http.connect_timeout() {
         Timeout::Value(d) => {
             builder.with_connect_timeout(Some(d));
         }
@@ -1678,7 +1703,7 @@ async fn http_client_from_startup_config(
         }
         _ => {}
     }
-    match config.http.read_timeout() {
+    match http.read_timeout() {
         Timeout::Value(d) => {
             builder.with_read_timeout(Some(d));
         }
@@ -1687,7 +1712,7 @@ async fn http_client_from_startup_config(
         }
         _ => {}
     }
-    match config.http.write_timeout() {
+    match http.write_timeout() {
         Timeout::Value(d) => {
             builder.with_write_timeout(Some(d));
         }
@@ -1704,7 +1729,7 @@ mod tests {
 
     use buck2_cli_proto::TenantIdentity;
     use buck2_common::legacy_configs::configs::testing::parse;
-    use buck2_common::settings::BuckSettings;
+    use buck2_common::settings::DaemonBuckSettings;
     use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_fs::paths::file_name::FileNameBuf;
     use indoc::indoc;
@@ -1867,7 +1892,8 @@ mod tests {
             )],
             "config",
         )?;
-        let startup_config = DaemonStartupConfig::new(&config, &BuckSettings::empty(), false)?;
+        let startup_config =
+            DaemonStartupConfig::new(&config, &DaemonBuckSettings::default(), false)?;
         let builder = http_client_from_startup_config(&startup_config).await?;
         assert_eq!(5, builder.max_redirects().unwrap());
         assert_eq!(Some(Duration::from_millis(10)), builder.connect_timeout());
@@ -1895,7 +1921,8 @@ mod tests {
             )],
             "config",
         )?;
-        let startup_config = DaemonStartupConfig::new(&config, &BuckSettings::empty(), false)?;
+        let startup_config =
+            DaemonStartupConfig::new(&config, &DaemonBuckSettings::default(), false)?;
         let builder = http_client_from_startup_config(&startup_config).await?;
         assert_eq!(None, builder.connect_timeout());
         assert_eq!(

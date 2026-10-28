@@ -393,6 +393,7 @@ impl<T> IoResultExt<T> for Result<T, IoError> {
 mod tests {
     use super::*;
 
+    #[cfg(unix)]
     fn io_error(code: i32) -> IoError {
         IoError {
             source: IoErrorSource::Io(io::Error::from_raw_os_error(code)),

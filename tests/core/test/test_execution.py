@@ -14,7 +14,11 @@ from buck2.tests.e2e_util.helper.utils import random_string, read_what_ran
 
 
 class ExecutionTest(BuckTestCase):
-    @buck_test()
+    # Running a test more than once reuses its key in the critical path graph, which is the
+    # `critical_path_duplicate_key` soft error.
+    @buck_test(
+        allow_soft_errors=True,
+    )
     async def test_stable_action_digest_with_deterministic_paths(
         self, buck: Buck
     ) -> None:
@@ -48,7 +52,11 @@ class ExecutionTest(BuckTestCase):
             f"Test action digests differ between runs: {first_digests[0]} vs {second_digests[0]}"
         )
 
-    @buck_test()
+    # Running a test more than once reuses its key in the critical path graph, which is the
+    # `critical_path_duplicate_key` soft error.
+    @buck_test(
+        allow_soft_errors=True,
+    )
     async def test_stress_runs_have_different_action_digests(self, buck: Buck) -> None:
         await buck.test(
             "-c",
@@ -95,7 +103,11 @@ class ExecutionTest(BuckTestCase):
             f"Expected exactly one cached test.run entry, got {len(second_test_runs)}"
         )
 
-    @buck_test()
+    # Running a test more than once reuses its key in the critical path graph, which is the
+    # `critical_path_duplicate_key` soft error.
+    @buck_test(
+        allow_soft_errors=True,
+    )
     async def test_remote_test_execution_not_cached_for_stress_runs(
         self, buck: Buck
     ) -> None:
@@ -154,7 +166,11 @@ class ExecutionTest(BuckTestCase):
             "Expected test to run locally, not be cached!"
         )
 
-    @buck_test()
+    # Running a test more than once reuses its key in the critical path graph, which is the
+    # `critical_path_duplicate_key` soft error.
+    @buck_test(
+        allow_soft_errors=True,
+    )
     async def test_remote_test_execution_not_cached_with_no_remote_cache(
         self,
         buck: Buck,

@@ -16,7 +16,12 @@ from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
 class DaemonCgroupFallbackTest(BuckTestCase):
-    @buck_test(skip_for_os=["darwin", "windows"], disable_daemon_cgroup=False)
+    # Falling back from an unavailable resource control is the soft error under test.
+    @buck_test(
+        skip_for_os=["darwin", "windows"],
+        disable_daemon_cgroup=False,
+        allow_soft_errors=True,
+    )
     async def test_if_available_fallback_no_user_session(self, buck: Buck) -> None:
         """When status=if_available and systemd-run --user can't connect to the
         user session bus, the daemon should start successfully without cgroups

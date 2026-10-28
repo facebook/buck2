@@ -18,7 +18,7 @@ use buck2_common::chunk_reader::ChunkReader;
 use buck2_common::manifold;
 use buck2_common::manifold::ManifoldChunkedUploader;
 use buck2_common::manifold::ManifoldClient;
-use buck2_core::soft_error;
+use buck2_core::soft_error_or_panic;
 use buck2_data::InstantEvent;
 use buck2_data::PersistEventLogSubprocess;
 use buck2_data::instant_event::Data;
@@ -308,7 +308,7 @@ fn status_from_result(res: buck2_error::Result<()>) -> (Vec<String>, Option<Stri
             Some(categorize_error(&e).to_owned()),
             false,
         );
-        let _unused = soft_error!(categorize_error(&e), e);
+        soft_error_or_panic!(categorize_error(&e), e);
         status
     } else {
         (vec![], None, true)

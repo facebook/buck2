@@ -226,10 +226,8 @@ impl BuckCgroupTree {
                 buck2_error!(
                     buck2_error::ErrorTag::Environment,
                     "cpuset controller is not available in the cgroup the daemon was launched in"
-                ),
-                quiet: true
-            )
-            .ok();
+                )
+            );
         }
 
         prepped

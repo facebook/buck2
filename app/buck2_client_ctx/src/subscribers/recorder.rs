@@ -13,6 +13,7 @@ use std::cmp::min;
 use std::io::Write;
 use std::ops::Sub;
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
@@ -27,6 +28,7 @@ use buck2_common::convert::ProstDurationExt;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_core::buck2_env;
 use buck2_core::soft_error;
+use buck2_core::soft_error_or_panic;
 use buck2_data::ErrorReport;
 use buck2_data::FileWatcherProvider;
 use buck2_data::FileWatcherStart;
@@ -106,6 +108,14 @@ const MEMORY_PRESSURE_TAG: &str = "memory_pressure_warning";
 
 const SYSTEM_LOAD1_WINDOW: Duration = Duration::from_secs(60);
 const SYSTEM_LOAD5_WINDOW: Duration = Duration::from_secs(5 * 60);
+
+/// Soft errors the client itself reports, before or outside of any event stream. The daemon's
+/// arrive as events; these are added to the record when it is written.
+static CLIENT_SOFT_ERRORS: Mutex<Vec<SoftError>> = Mutex::new(Vec::new());
+
+pub fn note_client_soft_error(soft_error: SoftError) {
+    CLIENT_SOFT_ERRORS.lock().unwrap().push(soft_error);
+}
 
 pub struct InvocationRecorder {
     write_to_path: Option<AbsPathBuf>,
@@ -624,7 +634,7 @@ impl InvocationRecorder {
         let build_count = paths.and_then(|p| match BuildCountManager::new(p.build_count_dir()) {
             Ok(manager) => Some(manager),
             Err(e) => {
-                let _unused = soft_error!("build_count_init_failed", e);
+                soft_error_or_panic!("build_count_init_failed", e);
                 None
             }
         });
@@ -759,6 +769,8 @@ impl InvocationRecorder {
     }
 
     fn create_record_event(&mut self) -> BuckEvent {
+        self.soft_error_categories
+            .extend(std::mem::take(&mut *CLIENT_SOFT_ERRORS.lock().unwrap()));
         let mut sink_success_count = None;
         let mut sink_failure_count = None;
         let mut sink_dropped_count = None;
@@ -1530,7 +1542,7 @@ impl InvocationRecorder {
                     Ok(Some(build_count)) => build_count,
                     Ok(None) => Default::default(),
                     Err(e) => {
-                        let _ignored = soft_error!("build_count_error", e);
+                        soft_error!("build_count_error", e);
                         Default::default()
                     }
                 }

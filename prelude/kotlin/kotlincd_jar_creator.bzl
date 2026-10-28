@@ -108,7 +108,13 @@ def create_jar_artifact_kotlincd(
         if not is_creating_subtarget and actual_abi_generation_mode == AbiGenerationMode("source_only") and kotlin_toolchain.kosabi_applicability_plugin != None
         else None
     )
-    output_paths = define_output_paths(actions, actions_identifier, label, uses_content_based_paths = True)
+    output_paths = define_output_paths(
+        actions,
+        actions_identifier,
+        label,
+        uses_content_based_paths = True,
+        emit_compiler_class_to_source_map = not is_creating_subtarget,
+    )
 
     # Only create class-abi inline for class-mode targets. For source_only targets,
     # the fallback in cd_jar_creator_util.bzl (create_abi) handles class-abi generation
@@ -330,6 +336,7 @@ def create_jar_artifact_kotlincd(
                 incremental_state_dir = incremental_state_dir,
                 abi_jar_snapshot = abi_jar_snapshot,
                 used_jars_json = used_jars_json,
+                compiler_class_to_source_map = output_paths.compiler_class_to_source_map,
             ),
             proto,
             tracking_outputs,

@@ -13,7 +13,7 @@ use std::time::Duration;
 use std::time::Instant;
 
 use buck2_build_signals::env::WaitingCategory;
-use buck2_core::soft_error;
+use buck2_core::soft_error_or_panic;
 use buck2_util::time_span::TimeSpan;
 use variant_name::VariantName;
 
@@ -197,7 +197,7 @@ impl CriticalPathProtoEnhancer {
         if let Some(overlap) = self.last_entry_end.checked_duration_since(entry_start)
             && overlap > Duration::ZERO
         {
-            let _ignored = soft_error!(
+            soft_error_or_panic!(
                 "critical_path_entry_overlap",
                 buck2_error::buck2_error!(
                     buck2_error::ErrorTag::Tier0,
@@ -214,8 +214,7 @@ impl CriticalPathProtoEnhancer {
                     self.entries.last(),
                     entry
                 )
-                .into(),
-                quiet: true
+                .into()
             );
         }
 

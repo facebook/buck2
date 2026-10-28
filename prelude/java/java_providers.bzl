@@ -277,6 +277,7 @@ JavaCompileOutputs = record(
     preprocessed_library = Artifact,
     incremental_state_dir = Artifact | None,
     used_jars_json = Artifact | None,
+    compiler_class_to_source_map = field(Artifact | None, default = None),
 )
 
 JavaProviders = record(
@@ -328,6 +329,7 @@ def make_compile_outputs(
     incremental_state_dir: Artifact | None = None,
     abi_jar_snapshot: Artifact | None = None,
     used_jars_json: Artifact | None = None,
+    compiler_class_to_source_map: Artifact | None = None,
     full_library_compiler_depth: JavaCompilerDepth | None = None,
     abi_compiler_depth: JavaCompilerDepth | None = None,
 ) -> JavaCompileOutputs:
@@ -350,6 +352,7 @@ def make_compile_outputs(
         preprocessed_library = preprocessed_library,
         incremental_state_dir = incremental_state_dir,
         used_jars_json = used_jars_json,
+        compiler_class_to_source_map = compiler_class_to_source_map,
     )
 
 def create_abi(actions: AnalysisActions, class_abi_generator: Dependency, library: Artifact, keepSynthetic: bool = False) -> Artifact:

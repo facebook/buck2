@@ -286,10 +286,11 @@ impl DownloadFileAction {
                 // Falling back to the download is correct for this action, but a CAS that cannot
                 // answer this query would silently turn every download into an origin fetch,
                 // which should be visible somewhere.
-                let _ignored = buck2_core::soft_error!(
+                buck2_core::soft_error!(
                     "download_file_cas_probe_failed",
-                    e.context(format!("CAS lookup for `{digest}` failed; downloading instead")),
-                    quiet: true
+                    e.context(format!(
+                        "CAS lookup for `{digest}` failed; downloading instead"
+                    ))
                 );
                 return Ok(None);
             }

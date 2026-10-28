@@ -104,7 +104,13 @@ def create_jar_artifact_javacd(
         class_abi_jar = None
         class_abi_output_dir = None
 
-    output_paths = define_output_paths(actions, actions_identifier, label, uses_content_based_paths)
+    output_paths = define_output_paths(
+        actions,
+        actions_identifier,
+        label,
+        uses_content_based_paths,
+        emit_compiler_class_to_source_map = not is_creating_subtarget,
+    )
 
     compiling_deps_tset = get_compiling_deps_tset(actions, deps, [additional_classpath_entries] if additional_classpath_entries else [])
     full_library_compiler_depth = compiler_depth_for_action(label, "javacd_jar", compiling_deps_tset, identifier = actions_identifier)
@@ -212,6 +218,7 @@ def create_jar_artifact_javacd(
             annotation_processor_output = output_paths.annotations,
             abi_jar_snapshot = abi_jar_snapshot,
             used_jars_json = used_jars_json,
+            compiler_class_to_source_map = output_paths.compiler_class_to_source_map,
         )
     else:
         full_jar_snapshot = generate_java_classpath_snapshot(

@@ -9,6 +9,7 @@
 # pyre-ignore-all-errors
 
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -129,3 +130,40 @@ class HeaderTest(unittest.TestCase):
     def test_a_path_with_a_space_reaches_the_bootstrap(self):
         self.assertIn("BOOTSTRAP REACHED", self._run_from("nospace").stdout)
         self.assertIn("BOOTSTRAP REACHED", self._run_from("with space").stdout)
+
+    def test_one_version_when_the_path_is_repointed_mid_launch(self):
+        # Like an installer flipping `~current` while the header runs, every
+        # `readlink` repoints it to the other version after answering.
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            _, header = _generate(tmp)
+            pkg = tmp / "pkg"
+            for version in ("v1", "v2"):
+                stub = pkg / version / "bin#link-tree" / "_bootstrap.sh"
+                stub.parent.mkdir(parents=True)
+                stub.write_text('#!/bin/bash\necho "$0" "$1"\n', encoding="utf8")
+                stub.chmod(0o755)
+                shutil.copy(header, pkg / version / "bin.par")
+            (pkg / "~current").symlink_to("v1")
+            (tmp / "bin").symlink_to(pkg / "~current" / "bin.par")
+            shims = tmp / "shims"
+            shims.mkdir()
+            readlink = shims / "readlink"
+            readlink.write_text(
+                "#!/bin/bash\n"
+                f'out="$({shutil.which("readlink")} "$@")"\n'
+                f'cur="$({shutil.which("readlink")} "{pkg}/~current")"\n'
+                f'ln -sfn "$([ "$cur" = v1 ] && echo v2 || echo v1)" "{pkg}/~current"\n'
+                'echo "$out"\n',
+                encoding="utf8",
+            )
+            readlink.chmod(0o755)
+            proc = subprocess.run(
+                [str(tmp / "bin")],
+                capture_output=True,
+                encoding="utf8",
+                env={"PATH": f"{shims}:{os.environ.get('PATH', '/usr/bin:/bin')}"},
+            )
+            bootstrap, main_module = proc.stdout.split()
+            self.assertEqual(Path(bootstrap).parent.parent.name, "v1")
+            self.assertEqual(Path(main_module).parent.parent.name, "v1")

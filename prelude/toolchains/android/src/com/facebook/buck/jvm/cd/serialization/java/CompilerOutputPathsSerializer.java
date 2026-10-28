@@ -45,7 +45,8 @@ public class CompilerOutputPathsSerializer {
         outputPaths.getWorkingDirectory().isEmpty()
             ? tmpDir.get()
             : toRelPath(outputPaths.getWorkingDirectory()),
-        toOptionalRelPath(outputPaths.getOutputJarPath()));
+        toOptionalRelPath(outputPaths.getOutputJarPath()),
+        toOptionalRelPath(outputPaths.getCompilerClassToSourceMap()).orElse(null));
   }
 
   private static RelPath toRelPath(String relPath) {

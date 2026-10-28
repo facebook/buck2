@@ -17,10 +17,10 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::V
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_promise_artifact::StarlarkPromiseArtifact;
 use buck2_build_api::interpreter::rule_defs::provider::dependency::Dependency;
 use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedStringWithMacros;
+use buck2_core::deprecation;
 use buck2_core::execution_types::execution_group::ExecutionGroup;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_core::soft_error;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_node::attrs::attr_type::AttrType;
@@ -343,10 +343,11 @@ fn to_anon_target_any(value: Value, ctx: &AnonAttrCtx) -> buck2_error::Result<An
     } else if let Some(s) = value.unpack_str() {
         Ok(AnonTargetAttr::String(StringLiteral(ctx.intern_str(s))))
     } else {
-        soft_error!(
+        deprecation!(
             "coerce_to_any",
             AnonTargetCoercionError::CannotCoerceToAny(value.get_type(), value.to_repr()).into(),
-        )?;
+            owner: "jtbraun", started: "2023-04-29"
+        );
         Ok(AnonTargetAttr::String(StringLiteral(
             ctx.intern_str(&value.to_str()),
         )))

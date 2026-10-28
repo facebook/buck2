@@ -95,7 +95,7 @@ mod tests {
             Some(false)
         };
         assert_eq!(
-            BuckSettings::empty().log_download.log_use_manifold(),
+            BuckSettings::empty().daemon.log_download.log_use_manifold(),
             expected
         );
     }
@@ -104,7 +104,7 @@ mod tests {
     fn test_log_use_manifold() -> buck2_error::Result<()> {
         let settings =
             resolve_setting_flags(vec![table("[log_download]\nlog_use_manifold = false")])?;
-        assert_eq!(settings.log_download.log_use_manifold(), Some(false));
+        assert_eq!(settings.daemon.log_download.log_use_manifold(), Some(false));
         Ok(())
     }
 
@@ -112,7 +112,7 @@ mod tests {
     fn test_log_url() -> buck2_error::Result<()> {
         let settings =
             resolve_setting_flags(vec![table("[log_download]\nlog_url = \"test.com\"")])?;
-        assert_eq!(settings.log_download.log_url(), Some("test.com"));
+        assert_eq!(settings.daemon.log_download.log_url(), Some("test.com"));
         Ok(())
     }
 

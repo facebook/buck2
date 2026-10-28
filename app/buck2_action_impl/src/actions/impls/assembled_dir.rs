@@ -46,6 +46,7 @@ use starlark::values::Value;
 use starlark::values::ValueError;
 use starlark::values::dict::UnpackDictEntries;
 
+use crate::actions::impls::cas_probe;
 use crate::actions::impls::copy::CopyMode;
 
 #[derive(Debug, buck2_error::Error)]
@@ -294,6 +295,7 @@ impl Action for AssembledDirAction {
         )?;
         let mut builder = ArtifactValueBuilder::new(fs, ctx.digest_config());
         let mut srcs = Vec::new();
+        let mut source_digests = Vec::new();
 
         for (group, relative_dest, copy) in &self.args {
             let (src_artifact, value) =
@@ -325,6 +327,9 @@ impl Action for AssembledDirAction {
                         temp_dest.as_ref(),
                         *executable_bit_override,
                     )?;
+                    if src_artifact.is_source() {
+                        source_digests.extend(cas_probe::file_digests_of(&dest_entry));
+                    }
                     srcs.push((
                         src,
                         relative_dest,
@@ -350,6 +355,13 @@ impl Action for AssembledDirAction {
             }
             .as_ref(),
         )?;
+        // Copied source files are not known to be in the CAS, and the probe a `copy` makes asks
+        // about them a file at a time: the files are action inputs the CAS usually has, while the
+        // directory assembled here is in the CAS only if some action uploaded it in this exact
+        // shape. A file the CAS holds is stamped and the store leaves it out when the copy's
+        // sources are offered to it; the rest is copied as before. Copies of build artifacts are
+        // the materializer's already, and symlinks copy nothing.
+        let all_in_cas = cas_probe::stamp_if_in_cas(ctx, source_digests).await;
         let srcs = srcs
             .into_iter()
             .map(
@@ -363,7 +375,6 @@ impl Action for AssembledDirAction {
                 },
             )
             .collect_vec();
-
         ctx.materializer()
             .declare_copy(actual_output, value.dupe(), srcs)
             .await?;
@@ -371,7 +382,11 @@ impl Action for AssembledDirAction {
             ActionOutputs::from_single(self.output().get_path().dupe(), value),
             ActionExecutionMetadata {
                 dep_file_db_writes_queued: 0,
-                execution_kind: ActionExecutionKind::Simple,
+                execution_kind: if all_in_cas {
+                    ActionExecutionKind::Deferred
+                } else {
+                    ActionExecutionKind::Simple
+                },
                 timing: ActionExecutionTimingData::default(),
                 input_files_bytes: None,
                 waiting_data,

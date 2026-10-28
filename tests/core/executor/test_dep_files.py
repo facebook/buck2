@@ -1943,6 +1943,9 @@ class DepFilesTest(BuckTestCase):
         data_dir="dep_files",
         write_invocation_record=True,
         skip_for_os=["windows"],
+        # Recomputing paged-out nodes gives their critical path entries overlapping spans, which
+        # is the `critical_path_entry_overlap` soft error.
+        allow_soft_errors=True,
         extra_buck_config={
             "buck2_hydration": {
                 "enable_paging": "true",

@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashSet;
 use std::io::Write;
 
 use async_trait::async_trait;
@@ -20,6 +19,7 @@ use buck2_core::execution_types::execution_group::NamedExecutionGroup;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::target_configured_target_label::TargetConfiguredTargetLabel;
+use buck2_hash::BuckMutSet;
 use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::execution::EXECUTION_PLATFORMS_BUCKCONFIG;
@@ -195,8 +195,8 @@ struct GroupDeps {
 
 #[derive(Default)]
 struct GroupDepSet {
-    by_group: HashSet<(Option<NamedExecutionGroup>, ConfiguredTargetLabel)>,
-    in_named_group: HashSet<ConfiguredTargetLabel>,
+    by_group: BuckMutSet<(Option<NamedExecutionGroup>, ConfiguredTargetLabel)>,
+    in_named_group: BuckMutSet<ConfiguredTargetLabel>,
 }
 
 impl GroupDepSet {

@@ -138,7 +138,7 @@ impl dyn FileWatcher {
             ) {
                 Ok(edenfs) => return Ok(Arc::new(edenfs)),
                 Err(e) if e.has_tag(ErrorTag::IoNotConnected) => {
-                    soft_error!("edenfs_watcher_creation_failure", e)?;
+                    soft_error!("edenfs_watcher_creation_failure", e);
                     // fallback to watchman if failed to create edenfs watcher
                     "watchman"
                 }

@@ -21,7 +21,7 @@ use std::ops::Deref;
 use std::path::Path;
 use std::path::PathBuf;
 
-pub use buck2_env::soft_error::soft_error;
+use buck2_env::soft_error::soft_error_or_panic;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use buck2_error::buck2_error;
@@ -56,13 +56,12 @@ fn with_retries<T>(mut func: impl FnMut() -> io::Result<T>) -> io::Result<T> {
         match func() {
             Ok(v) => {
                 if let Some(err) = last_error_kind {
-                    // Solely for logging, we don't want to error if the value wasn't "thrown"
-                    soft_error!(
+                    // Counts how often the retry policy earns its keep; an `io::Result` has no
+                    // room for a `buck2_error`, so under the hard-error policy this panics.
+                    soft_error_or_panic!(
                         "fs_io_succeeded_after_retry",
-                        buck2_error!(buck2_error::ErrorTag::Input, "{}", err.to_string()),
-                        quiet: true
-                    )
-                    .ok();
+                        buck2_error!(buck2_error::ErrorTag::Input, "{}", err.to_string())
+                    );
                 }
                 return Ok(v);
             }

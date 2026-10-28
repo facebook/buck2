@@ -8,6 +8,7 @@
 ## Provider
 ## anon\_rule
 ## dedupe
+## deprecation
 ## dynamic\_actions
 ## enforce\_visibility\_intersection
 ## enforce\_within\_view\_intersection

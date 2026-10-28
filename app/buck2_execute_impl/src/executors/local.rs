@@ -32,7 +32,7 @@ use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_core::soft_error;
+use buck2_core::soft_error_or_panic;
 use buck2_core::tag_error;
 use buck2_core::tag_result;
 use buck2_error::BuckErrorContext;
@@ -802,7 +802,7 @@ impl LocalExecutor {
                     timing.execution_stats = execution_stats;
                     if let Some(cgroup_result) = cgroup_result {
                         if let Some(e) = cgroup_result.error {
-                            let _unused = soft_error!("action_cgroup_error", e);
+                            soft_error_or_panic!("action_cgroup_error", e);
                         }
                         timing.suspend_duration = cgroup_result.suspend_duration;
                         timing.suspend_count = Some(cgroup_result.suspend_count);
@@ -1445,7 +1445,6 @@ pub async fn materialize_inputs(
             return Err(tag_error!(
                 "cas_missing_fatal",
                 MaterializationError::NotFound { source }.into(),
-                quiet: true,
                 task: false,
                 daemon_in_memory_state_is_corrupted: true,
                 action_cache_is_corrupted: corrupted
@@ -1516,7 +1515,6 @@ async fn check_inputs(
                                 let _ignored = tag_result!(
                                     "missing_local_inputs",
                                     metadata.categorize_internal().buck_error_context("Missing input"),
-                                    quiet: true,
                                     task: false,
                                     daemon_materializer_state_is_corrupted: true
                                 );

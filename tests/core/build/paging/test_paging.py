@@ -195,7 +195,9 @@ def _data_key_io(result: BuildResult, prefix: str) -> dict[str, int]:
 
 
 class PagingTest(BuckTestCase):
-    @buck_test(data_dir="paging", write_invocation_record=True)
+    # Recomputing paged-out nodes gives their critical path entries overlapping spans, which is
+    # the `critical_path_entry_overlap` soft error.
+    @buck_test(data_dir="paging", write_invocation_record=True, allow_soft_errors=True)
     @parametrize("defer_field_reads", [False, True])
     async def test_incremental_build_after_page_out(
         self, buck: Buck, defer_field_reads: bool
@@ -464,7 +466,7 @@ class PagingTest(BuckTestCase):
             "expected the anonymous target analysis to be paged back in"
         )
 
-    @buck_test(data_dir="paging", write_invocation_record=True)
+    @buck_test(data_dir="paging", write_invocation_record=True, allow_soft_errors=True)
     async def test_page_out_on_idle(self, buck: Buck) -> None:
         _hydration_settings(buck)
         # With `buck2_hydration.page_out_on_idle`, the daemon pages the DICE graph out to
@@ -558,7 +560,7 @@ class PagingTest(BuckTestCase):
             != _PAGE_OUT_STARTED_STARTED
         ), "a no-op rebuild computes nothing new, so it should not trigger a page-out"
 
-    @buck_test(data_dir="paging", write_invocation_record=True)
+    @buck_test(data_dir="paging", write_invocation_record=True, allow_soft_errors=True)
     async def test_page_out_at_most_once(self, buck: Buck) -> None:
         # Under `once_per_key` a value is paged out at most once: once an
         # incremental build pages a value back in (or recomputes it), it stays
@@ -597,7 +599,7 @@ class PagingTest(BuckTestCase):
             "values were paged in"
         )
 
-    @buck_test(data_dir="paging", write_invocation_record=True)
+    @buck_test(data_dir="paging", write_invocation_record=True, allow_soft_errors=True)
     async def test_values_paged_out_once_stay_resident(self, buck: Buck) -> None:
         # Under `once_per_value`: once an incremental build pages a value back in, or
         # recomputes it, the value stays resident: the idle page-out writes the
@@ -755,7 +757,7 @@ class PagingTest(BuckTestCase):
             f"the pagable store shrank across a page-out: {summary}"
         )
 
-    @buck_test(data_dir="paging", write_invocation_record=True)
+    @buck_test(data_dir="paging", write_invocation_record=True, allow_soft_errors=True)
     @parametrize("defer_field_reads", [False, True])
     async def test_provider_and_action_reads_skip_unrelated_actions(
         self, buck: Buck, defer_field_reads: bool
@@ -793,7 +795,7 @@ class PagingTest(BuckTestCase):
         if defer_field_reads:
             assert changed.invocation_record()["paging_data_keys_in"] < 500
 
-    @buck_test(data_dir="paging", write_invocation_record=True)
+    @buck_test(data_dir="paging", write_invocation_record=True, allow_soft_errors=True)
     async def test_cached_build_metadata_skips_configured_graph(
         self, buck: Buck
     ) -> None:

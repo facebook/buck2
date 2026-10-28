@@ -816,8 +816,7 @@ message StructuredError {
   // Is this error indicative of the RE action cache returning corrupted
   // results?
   bool action_cache_is_corrupted = 10;
-  // Whether the error should be converted to a hard error in the future.
-  bool deprecation = 11;
+  reserved 11;
 }
 
 message CriticalPathEntry {
@@ -1252,6 +1251,12 @@ message Snapshot {
   uint64 buck2_system_cpu_us = 3;
   // Queue size of the blocking executor.
   uint64 blocking_executor_io_queue_size = 4;
+  // Inline I/O on the blocking executor: operations running on their caller's
+  // thread right now, and operations waiting for a permit to do so. The pooled
+  // executor bounds them to the host's parallelism; the direct one does not
+  // wait, so `waiting` stays zero under it.
+  uint64 blocking_executor_io_inline_in_flight = 19;
+  uint64 blocking_executor_io_inline_waiting = 20;
   // Tokio blocking queue depth.
   uint64 tokio_blocking_queue_depth = 14;
   // Tokio num idle blocking threads.
@@ -3377,6 +3382,7 @@ enum CallerKind {
   CALLER_KIND_AGENT = 1;
   CALLER_KIND_COMMAND_SHELL = 2;
   CALLER_KIND_OTHER = 3;
+  CALLER_KIND_WRAPPER = 4;
 }
 
 enum AgentDetectionStopReason {
@@ -3900,6 +3906,9 @@ message BuildGraphStats {
 message SoftError {
   string category = 1;
   bool is_quiet = 2;
+  // A use of something that is being removed, as opposed to something going
+  // wrong.
+  bool is_deprecation = 3;
 }
 
 message BuildTarget {

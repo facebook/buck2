@@ -18,7 +18,7 @@ use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::dice::SetLegacyConfigs;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
-use buck2_common::settings::BuckSettings;
+use buck2_common::settings::DaemonBuckSettings;
 use buck2_common::settings::dice::SetBuckSettings;
 use buck2_common::tenting::SetTentingAclProvider;
 use buck2_common::tenting::TentingAclProvider;
@@ -126,7 +126,7 @@ pub struct DiceRootConfiguration<'a> {
     pub digest_config: DigestConfig,
     pub root_config: Option<&'a LegacyBuckConfig>,
     pub tenting_acl_provider: Option<Arc<dyn TentingAclProvider>>,
-    pub buck_settings: BuckSettings,
+    pub buck_settings: DaemonBuckSettings,
 }
 
 /// Construct the immutable data associated with one repository root tree.
@@ -167,7 +167,7 @@ pub async fn configure_dice_for_buck(
     digest_config: DigestConfig,
     root_config: Option<&LegacyBuckConfig>,
     tenting_acl_provider: Option<Arc<dyn TentingAclProvider>>,
-    buck_settings: BuckSettings,
+    buck_settings: DaemonBuckSettings,
     // Path to open pagable DICE storage at, or `None` to leave paging disabled.
     dice_state_path: Option<&Path>,
     // On-disk backend for pagable storage (`buck2_hydration.pagable_storage_backend`).

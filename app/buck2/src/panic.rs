@@ -67,6 +67,7 @@ mod imp {
 
     use backtrace::Backtrace;
     use buck2_core::error::SoftErrorContext;
+    use buck2_core::error::SoftErrorKind;
     use buck2_core::error::StructuredErrorOptions;
     use buck2_data::Location;
     use buck2_events::BuckEvent;
@@ -154,6 +155,14 @@ mod imp {
                 logview_key.to_string(),
             );
         }
+        if let SoftErrorKind::Deprecation { owner, started } = &options.kind {
+            if let Some(owner) = owner {
+                map.insert("deprecation_owner".to_owned(), owner.to_string());
+            }
+            if let Some(started) = started {
+                map.insert("deprecation_started".to_owned(), started.to_string());
+            }
+        }
         map
     }
 
@@ -186,22 +195,34 @@ mod imp {
             &options,
             Some(buck2_data::SoftError {
                 category: category.to_owned(),
-                is_quiet: options.quiet,
+                is_quiet: !options.user_facing,
+                is_deprecation: matches!(&options.kind, SoftErrorKind::Deprecation { .. }),
             }),
         );
 
-        // If the soft error was fired in a context with an ambient dispatcher, then we only send
-        // it there, but some contexts don't have one, and in that case, we notify all running
-        // commands.
-        match buck2_events::dispatch::get_dispatcher_opt() {
+        // The report goes out once. A command's event stream reaches Scribe on its own; only a
+        // report with no command behind it is written directly.
+        let delivered = match buck2_events::dispatch::get_dispatcher_opt() {
             Some(dispatcher) => {
                 dispatcher.instant_event(event.clone());
+                true
             }
             None => {
+                // The client has no event stream of its own: the record picks the report up
+                // directly, and a user-facing one goes to stderr right here.
                 #[cfg(client_only)]
-                let warn = !options.quiet;
-                #[cfg(not(client_only))]
                 let warn = {
+                    if let Some(soft_error) = event.soft_error_category.clone() {
+                        buck2_client_ctx::subscribers::recorder::note_client_soft_error(soft_error);
+                    }
+                    if options.user_facing {
+                        let _ignored =
+                            buck2_client_ctx::eprintln!("Warning \"{}\": {:#}", category, err);
+                    }
+                    false
+                };
+                #[cfg(not(client_only))]
+                let (warn, sent) = {
                     let sent = if context.is_command_scoped() {
                         buck2_server::active_commands::dispatch_soft_error_for_context(
                             context, &event,
@@ -209,15 +230,20 @@ mod imp {
                     } else {
                         buck2_server::active_commands::broadcast_instant_event(&event)
                     };
-                    !sent && !options.quiet
+                    (!sent && options.user_facing, sent)
                 };
+                #[cfg(client_only)]
+                let sent = false;
                 if warn {
                     tracing::warn!("Warning \"{}\": {:#}", category, err);
                 }
+                sent
             }
-        }
+        };
 
-        write_to_scribe(fb, event);
+        if !delivered {
+            write_to_scribe(fb, event);
+        }
     }
 
     fn panic_payload(
@@ -233,14 +259,13 @@ mod imp {
             payload: message,
             metadata,
             backtrace,
-            quiet: options.quiet,
+            quiet: !options.user_facing,
             task: Some(options.task),
             soft_error_category: soft_error_category
                 .map(|arg0: buck2_data::SoftError| ToOwned::to_owned(&arg0)),
             daemon_in_memory_state_is_corrupted: options.daemon_in_memory_state_is_corrupted,
             daemon_materializer_state_is_corrupted: options.daemon_materializer_state_is_corrupted,
             action_cache_is_corrupted: options.action_cache_is_corrupted,
-            deprecation: options.deprecation,
         }
     }
 

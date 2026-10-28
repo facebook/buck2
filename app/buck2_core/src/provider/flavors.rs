@@ -21,11 +21,11 @@ use std::sync::OnceLock;
 
 use regex::RegexSet;
 
+use crate::deprecation;
 use crate::is_open_source;
 use crate::provider::label::NonDefaultProvidersName;
 use crate::provider::label::ProviderName;
 use crate::provider::label::ProvidersName;
-use crate::soft_error;
 
 /// Families of buck1 platform flavors, in the order of [`PLATFORM_REGEX_SET`].
 ///
@@ -317,20 +317,18 @@ pub fn map_flavors(flavors: &str, full_target: &str) -> buck2_error::Result<Prov
     // We log the target with the offending flavor here, though in practice we'll have to
     // rely on the wrapping span in order to find it.
     match category {
-        FlavorCategory::Platform => soft_error!(
+        FlavorCategory::Platform => deprecation!(
             "platform_flavor",
             err,
-            deprecation: true,
-            quiet: true,
+            owner: "drollman", started: "2023-03-09",
             low_cardinality_key_for_additional_logview_samples: Some(Box::new(key))
-        )?,
-        FlavorCategory::Subtarget | FlavorCategory::Unrecognized => soft_error!(
+        ),
+        FlavorCategory::Subtarget | FlavorCategory::Unrecognized => deprecation!(
             category.name(),
             err,
-            deprecation: true,
-            quiet: true,
+            owner: "drollman", started: "2023-03-09",
             low_cardinality_key_for_additional_logview_samples: Some(Box::new(key))
-        )?,
+        ),
     };
 
     Ok(providers)

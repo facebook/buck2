@@ -283,19 +283,23 @@ impl TenantStateInitPreferences {
     ) -> buck2_error::Result<(Arc<Dice>, BranchId)> {
         // `hydration` is `Some` when paging is enabled (via `enable_paging` or
         // `page_out_on_idle`), which is what gates setting up on-disk storage.
-        let hydration = self.daemon_startup_config.hydration.as_ref();
+        let hydration = self
+            .daemon_startup_config
+            .startup_options
+            .hydration
+            .as_ref();
         configure_dice_for_buck(
             io,
             digest_config,
             Some(root_config),
             tenting_acl_provider,
-            self.daemon_startup_config.buck_settings.dupe(),
+            self.daemon_startup_config.daemon_buck_settings().dupe(),
             hydration.map(|_| dice_state_path),
             hydration.map_or_else(Default::default, |h| h.pagable_storage_backend),
             hydration.map_or_else(Default::default, |h| h.page_out_policy),
             hydration.map_or_else(Default::default, |h| h.eviction_policy),
             self.daemon_startup_config
-                .buck_settings
+                .daemon_buck_settings()
                 .hydration
                 .defer_field_reads(),
         )
@@ -381,7 +385,11 @@ impl BuckdServer {
 
         let final_artifact_materialization =
             FinalArtifactMaterialization::try_new_from_config_value(
-                init_ctx.daemon_startup_config.materializations.as_deref(),
+                init_ctx
+                    .daemon_startup_config
+                    .startup_options
+                    .materializations
+                    .as_deref(),
             )?;
 
         let tenant_paths = paths.tenant_paths();
@@ -401,7 +409,10 @@ impl BuckdServer {
             Some(
                 BuckCgroupTree::set_up(
                     prepped_cgroups,
-                    &init_ctx.daemon_startup_config.resource_control,
+                    &init_ctx
+                        .daemon_startup_config
+                        .startup_options
+                        .resource_control,
                 )
                 .await?,
             )
@@ -413,7 +424,10 @@ impl BuckdServer {
         certs_validation_background_job(cert_state.dupe()).await;
 
         let inactivity_config = DaemonInactivityConfig::try_new(
-            init_ctx.daemon_startup_config.daemon_idle_timeout_s,
+            init_ctx
+                .daemon_startup_config
+                .startup_options
+                .daemon_idle_timeout_s,
             init_ctx.started_for_clean_stale,
         )?;
 
@@ -755,6 +769,7 @@ impl BuckdServer {
                                     soft_error_category: Some(buck2_data::SoftError {
                                         category: "paging_deferred_read_failed".to_owned(),
                                         is_quiet: false,
+                                        is_deprecation: false,
                                     }),
                                     daemon_in_memory_state_is_corrupted: true,
                                     ..Default::default()
@@ -770,6 +785,7 @@ impl BuckdServer {
                                     soft_error_category: Some(buck2_data::SoftError {
                                         category: "paging_heap_indexed_under_two_keys".to_owned(),
                                         is_quiet: false,
+                                        is_deprecation: false,
                                     }),
                                     ..Default::default()
                                 });
@@ -2235,7 +2251,7 @@ pub(crate) mod eden_health {
     use std::time::Duration;
 
     use buck2_core::fs::project::ProjectRoot;
-    use buck2_core::soft_error;
+    use buck2_core::soft_error_or_panic;
     use buck2_eden::connection::EdenConnectionManager;
     use buck2_eden::connection::EdenDaemonIdentity;
     use buck2_eden::error::EdenDaemonRestarted;
@@ -2278,7 +2294,7 @@ pub(crate) mod eden_health {
                                 let identity = EdenDaemonIdentity::from_daemon_info(&info);
                                 if let Some(last) = &last_identity {
                                     if !last.is_same_daemon(&identity) {
-                                        soft_error!(
+                                        soft_error_or_panic!(
                                             "eden_restart_detected",
                                             EdenDaemonRestarted {
                                                 old_pid: last.pid(),
@@ -2287,8 +2303,7 @@ pub(crate) mod eden_health {
                                                 new_start_time: identity.start_time(),
                                             }
                                             .into()
-                                        )
-                                        .ok();
+                                        );
                                     }
                                 }
                                 last_identity = Some(identity);
@@ -2298,12 +2313,14 @@ pub(crate) mod eden_health {
                                     "check hit an EdenFS error caused by a hanging mount: {:#}",
                                     e
                                 );
-                                soft_error!(
+                                soft_error_or_panic!(
                                     "eden_thrift_health_check_failed",
-                                    buck2_error!(buck2_error::ErrorTag::Input, "check failed with: {:#}", e),
-                                    quiet: true
-                                )
-                                .ok();
+                                    buck2_error!(
+                                        buck2_error::ErrorTag::Input,
+                                        "check failed with: {:#}",
+                                        e
+                                    )
+                                );
                             }
                             Err(e) => {
                                 tracing::debug!("check failed with a non-hanging error: {:#}", e);
@@ -2319,12 +2336,14 @@ pub(crate) mod eden_health {
                     // This _could_ signal a hanging mount, so we'll report a possible hang.
                     Err(e) => {
                         tracing::error!("check failed to create an EdenFS client: {:#}", e);
-                        soft_error!(
+                        soft_error_or_panic!(
                             "eden_thrift_client_creation_failed",
-                            buck2_error!(buck2_error::ErrorTag::Input, "client creation failed with: {:#}", e),
-                            quiet: true
-                        )
-                        .ok();
+                            buck2_error!(
+                                buck2_error::ErrorTag::Input,
+                                "client creation failed with: {:#}",
+                                e
+                            )
+                        );
                     }
                 }
             }

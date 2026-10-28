@@ -103,6 +103,11 @@ public class KosabiStubgenStep extends KotlincStep {
   }
 
   @Override
+  protected boolean emitsClassToSourceMap() {
+    return false;
+  }
+
+  @Override
   public String getShortName() {
     return KosabiStubgenStep.class.getSimpleName();
   }

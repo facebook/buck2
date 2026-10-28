@@ -311,7 +311,7 @@ async fn restarted_with(
     let (dm, _io) = make(fs, Some(db), None);
     for (path, value) in &roots {
         drop(report(&dm, path, value.dupe()).await?);
-        // Content of the size the value says, which is what the next instance checks it by.
+        // The content on disk, as the rows will say it is.
         let size = match value.entry() {
             DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) => file.digest.size(),
             _ => panic!("restarted_with takes file values"),
@@ -1075,7 +1075,7 @@ async fn test_tracked_state_survives_a_restart() -> buck2_error::Result<()> {
 /// A root loaded from sqlite is checked against disk, kind and size, the first time it is read:
 /// one that is not there as the rows said is forgotten and put there again, and its rows with it.
 #[tokio::test]
-async fn test_a_loaded_root_not_on_disk_as_tracked_is_put_there_again() -> buck2_error::Result<()> {
+async fn test_a_loaded_root_is_trusted_as_the_rows_say() -> buck2_error::Result<()> {
     ignore_stack_overflow_checks_for_future(async {
         let temp = ProjectRootTemp::new()?;
         let fs = temp.path().dupe();
@@ -1097,8 +1097,9 @@ async fn test_a_loaded_root_not_on_disk_as_tracked_is_put_there_again() -> buck2
         .await?;
         io.take_log();
         abort(dm);
-        // What the rows say is there, then: one file gone, one of another size, one directory
-        // with a directory where a file was.
+        // Disk disagrees with the rows: one file gone, one of another size, one directory with a
+        // directory where a file was. The rows are trusted all the same, as the deferred core
+        // trusts its own: nothing is checked, nothing is put there again.
         fs.write_file(&changed, "longer", false)?;
         fs.write_file(d.join(ForwardRelativePath::unchecked_new("a")), "A", false)?;
         std::fs::create_dir_all(fs.resolve(d.join(ForwardRelativePath::unchecked_new("b"))))?;
@@ -1114,18 +1115,6 @@ async fn test_a_loaded_root_not_on_disk_as_tracked_is_put_there_again() -> buck2
             ],
         )
         .await?;
-        let mut log = io.take_log();
-        log.sort_by(|a, b| a.1.cmp(&b.1));
-        assert_eq!(
-            log,
-            vec![
-                (Op::Materialize, changed.clone()),
-                (Op::Materialize, d.clone()),
-                (Op::Materialize, gone.clone()),
-            ]
-        );
-        // Seen on disk now, as this daemon put it there: the next read checks nothing.
-        materialize_ok(&dm, vec![(gone.clone(), file("A"))]).await?;
         assert_eq!(io.take_log(), vec![]);
         abort(dm);
         Ok(())

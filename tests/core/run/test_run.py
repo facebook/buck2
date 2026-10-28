@@ -65,10 +65,12 @@ class RunTest(BuckTestCase):
 
         await f(["--"], ["val", "--long", "-s", "spa  ces"])
         await f(["--"], ["val", "--", "test"])
-        # Without --, a deprecation warning is emitted but command still succeeds
+        # Without --, the command still succeeds; the missing separator is recorded as a
+        # deprecation, which is not shown on the console
         result = await buck.run("root//:echo_args", "val", "--long")
         assert result.stdout.strip() == "val --long"
-        assert "will require" in result.stderr
+        log = await buck.log("show")
+        assert "Soft Error: run_args_without_separator" in log.stdout
         await f(
             [], ["val", "--", "x"]
         )  # Would work differently in Buck1 (no -- to user)
@@ -85,10 +87,11 @@ class RunTest(BuckTestCase):
         )
 
     @buck_test(allow_soft_errors=True)
-    async def test_run_args_without_separator_warning(self, buck: Buck) -> None:
+    async def test_run_args_without_separator_is_recorded(self, buck: Buck) -> None:
         result = await buck.run("root//:echo_args", "my_arg")
         assert result.stdout.strip() == "my_arg"
-        assert "will require" in result.stderr
+        log = await buck.log("show")
+        assert "Soft Error: run_args_without_separator" in log.stdout
 
     @buck_test()
     async def test_input(self, buck: Buck) -> None:

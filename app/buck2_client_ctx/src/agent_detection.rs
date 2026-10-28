@@ -14,12 +14,15 @@
 //! names and `exec` can also mislead detection. Results and caller diagnostics
 //! are logged to improve the classifier; only explicit `direct_call` controls advice.
 
+use std::env;
 use std::ffi::OsString;
 use std::path::Path;
 use std::time::Duration;
 
 use buck2_data::AgentDetectionStopReason;
 use buck2_hash::BuckMutSet;
+use buck2_wrapper_common::BUCK_WRAPPER_PID_ENV_VAR;
+use buck2_wrapper_common::BUCK2_WRAPPER_ENV_VAR;
 use buck2_wrapper_common::kill::process_creation_time;
 use sysinfo::Pid;
 use sysinfo::ProcessRefreshKind;
@@ -42,6 +45,8 @@ enum Caller {
     Agent,
     /// Shell running a command, e.g. `bash -c 'buck2 ...'`; check its parent.
     CommandShell,
+    /// The launching Buck wrapper, identified by its direct-parent PID marker.
+    Wrapper,
     /// Tool boundary, e.g. `python tool.py` or `bash script.sh`, or unsupported
     /// shell arguments; stop with a non-match.
     Other,
@@ -55,6 +60,7 @@ impl Caller {
         match self {
             Self::Agent => buck2_data::CallerKind::Agent,
             Self::CommandShell => buck2_data::CallerKind::CommandShell,
+            Self::Wrapper => buck2_data::CallerKind::Wrapper,
             Self::Other => buck2_data::CallerKind::Other,
             Self::Unknown => buck2_data::CallerKind::Unknown,
         }
@@ -69,11 +75,19 @@ struct ProcessInfo {
 }
 
 pub(crate) fn infer_direct_agent_call() -> AgentCallInference {
+    let wrapper_pid = if env::var(BUCK2_WRAPPER_ENV_VAR).ok().as_deref() == Some("1") {
+        env::var(BUCK_WRAPPER_PID_ENV_VAR)
+            .ok()
+            .and_then(|pid| pid.parse::<u32>().ok())
+            .map(Pid::from_u32)
+    } else {
+        None
+    };
     let mut system = System::new();
     let refresh = ProcessRefreshKind::nothing()
         .with_exe(UpdateKind::OnlyIfNotSet)
         .with_cmd(UpdateKind::OnlyIfNotSet);
-    walk_ancestors(Pid::from_u32(std::process::id()), |pid| {
+    walk_ancestors(Pid::from_u32(std::process::id()), wrapper_pid, |pid| {
         system.refresh_processes_specifics(ProcessesToUpdate::Some(&[pid]), true, refresh);
         let process = system.process(pid)?;
         Some(ProcessInfo {
@@ -91,6 +105,7 @@ pub(crate) fn infer_direct_agent_call() -> AgentCallInference {
 
 fn walk_ancestors(
     client_pid: Pid,
+    wrapper_pid: Option<Pid>,
     mut read_process: impl FnMut(Pid) -> Option<ProcessInfo>,
 ) -> AgentCallInference {
     let mut callers = Vec::new();
@@ -98,6 +113,8 @@ fn walk_ancestors(
         let Some(mut child) = read_process(client_pid) else {
             break 'walk (None, AgentDetectionStopReason::ClientUnavailable);
         };
+        // An inherited marker must not let us skip a tool elsewhere in the ancestry.
+        let wrapper_pid = wrapper_pid.filter(|pid| Some(*pid) == child.parent_pid);
         let mut seen = BuckMutSet::default();
         seen.insert(client_pid);
         for _ in 0..MAX_PROCESS_DEPTH {
@@ -115,13 +132,20 @@ fn walk_ancestors(
             if parent.creation_time > child.creation_time {
                 break 'walk (None, AgentDetectionStopReason::NewerParent);
             }
+            // The setuid wrapper's exe can remain unreadable after privilege drop.
+            // This invocation marker is a heuristic, not authentication.
+            let caller = if wrapper_pid == Some(parent_pid) {
+                Caller::Wrapper
+            } else {
+                parent.caller
+            };
             callers.push(buck2_data::CallerProcess {
-                kind: parent.caller.to_proto().into(),
+                kind: caller.to_proto().into(),
                 executable: parent.executable.clone(),
             });
-            match parent.caller {
+            match caller {
                 Caller::Agent => break 'walk (Some(true), AgentDetectionStopReason::Agent),
-                Caller::CommandShell => child = parent,
+                Caller::CommandShell | Caller::Wrapper => child = parent,
                 Caller::Other => break 'walk (Some(false), AgentDetectionStopReason::Other),
                 Caller::Unknown => break 'walk (None, AgentDetectionStopReason::Unknown),
             }
@@ -314,7 +338,14 @@ mod tests {
     }
 
     fn walk(rows: &[(u32, Option<u32>, u64, Caller)]) -> Option<bool> {
-        walk_ancestors(Pid::from_u32(1), |pid| {
+        walk_with_wrapper(rows, None).inferred_direct_call
+    }
+
+    fn walk_with_wrapper(
+        rows: &[(u32, Option<u32>, u64, Caller)],
+        wrapper_pid: Option<u32>,
+    ) -> AgentCallInference {
+        walk_ancestors(Pid::from_u32(1), wrapper_pid.map(Pid::from_u32), |pid| {
             let (_, parent_pid, creation_time, caller) =
                 rows.iter().find(|row| row.0 == pid.as_u32())?;
             Some(ProcessInfo {
@@ -324,7 +355,64 @@ mod tests {
                 executable: None,
             })
         })
-        .inferred_direct_call
+    }
+
+    #[test]
+    fn wrapper_preserves_agent_and_tool_boundaries() {
+        use Caller::*;
+        for wrapper in [Unknown, Other] {
+            for (boundary, expected) in [(Agent, Some(true)), (Other, Some(false)), (Unknown, None)]
+            {
+                let rows = [
+                    (1, Some(2), 10, Other),
+                    (2, Some(3), 9, wrapper),
+                    (3, Some(4), 8, CommandShell),
+                    (4, None, 7, boundary),
+                ];
+                let inference = walk_with_wrapper(&rows, Some(2));
+                assert_eq!(inference.inferred_direct_call, expected);
+                assert_eq!(
+                    inference
+                        .callers
+                        .iter()
+                        .map(|caller| caller.kind())
+                        .collect::<Vec<_>>(),
+                    [
+                        Wrapper.to_proto(),
+                        CommandShell.to_proto(),
+                        boundary.to_proto()
+                    ],
+                );
+                assert_eq!(
+                    walk(&rows),
+                    if wrapper == Other { Some(false) } else { None },
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn wrapper_marker_requires_the_current_direct_parent() {
+        use Caller::*;
+        let rows = [
+            (1, Some(2), 10, Other),
+            (2, Some(3), 9, CommandShell),
+            (3, Some(4), 8, Other),
+            (4, None, 7, Agent),
+        ];
+        for wrapper_pid in [None, Some(1), Some(3), Some(99)] {
+            assert_eq!(
+                walk_with_wrapper(&rows, wrapper_pid).inferred_direct_call,
+                Some(false)
+            );
+        }
+        let newer_parent =
+            walk_with_wrapper(&[(1, Some(2), 10, Other), (2, None, 11, Unknown)], Some(2));
+        assert_eq!(
+            newer_parent.stop_reason,
+            Some(AgentDetectionStopReason::NewerParent)
+        );
+        assert!(newer_parent.callers.is_empty());
     }
 
     #[test]
@@ -375,7 +463,7 @@ mod tests {
             ),
         ] {
             let mut visited = Vec::new();
-            let inference = walk_ancestors(Pid::from_u32(1), |pid| {
+            let inference = walk_ancestors(Pid::from_u32(1), None, |pid| {
                 visited.push(pid.as_u32());
                 let (caller, executable) = match pid.as_u32() {
                     1 => (Caller::Other, Some("buck2")),
@@ -416,7 +504,7 @@ mod tests {
             (Some(2), 1, AgentDetectionStopReason::Cycle, 1),
             (None, 2, AgentDetectionStopReason::NewerParent, 0),
         ] {
-            let inference = walk_ancestors(Pid::from_u32(1), |pid| match pid.as_u32() {
+            let inference = walk_ancestors(Pid::from_u32(1), None, |pid| match pid.as_u32() {
                 1 | 2 => Some(ProcessInfo {
                     parent_pid: if pid.as_u32() == 1 {
                         Some(Pid::from_u32(2))
@@ -437,7 +525,7 @@ mod tests {
             assert_eq!(inference.stop_reason, Some(reason));
             assert_eq!(inference.callers.len(), observed);
         }
-        let unavailable = walk_ancestors(Pid::from_u32(1), |_| None);
+        let unavailable = walk_ancestors(Pid::from_u32(1), None, |_| None);
         assert_eq!(
             unavailable.stop_reason,
             Some(AgentDetectionStopReason::ClientUnavailable)
@@ -445,7 +533,7 @@ mod tests {
         assert!(unavailable.callers.is_empty());
 
         let mut reads = 0;
-        let inference = walk_ancestors(Pid::from_u32(1), |pid| {
+        let inference = walk_ancestors(Pid::from_u32(1), None, |pid| {
             reads += 1;
             Some(ProcessInfo {
                 parent_pid: Some(Pid::from_u32(pid.as_u32() + 1)),

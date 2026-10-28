@@ -249,7 +249,7 @@ where
         .await
         .buck_error_context("Error computing critical path")
     {
-        buck2_fs::fs_util::soft_error!("critical_path_computation_failed", e)?;
+        buck2_core::soft_error!("critical_path_computation_failed", e);
     }
     result
 }

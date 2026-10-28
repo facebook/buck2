@@ -24,6 +24,7 @@ use buck2_core;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::soft_error;
+use buck2_core::soft_error_or_panic;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_error::conversion::from_any_with_tag;
@@ -264,7 +265,7 @@ impl EdenConnectionManager {
         let current = match self.fetch_identity().await {
             Ok(current) => current,
             Err(e) => {
-                soft_error!("eden_identity_fetch_failed", e, quiet: true).ok();
+                soft_error!("eden_identity_fetch_failed", e);
                 return Ok(());
             }
         };
@@ -350,11 +351,14 @@ impl EdenConnectionManager {
                     // Attempts may be > 1 if we had to reconnect. We only want to log a soft error
                     // on retry. Solely for logging purposes, don't panic if value wasn't "thrown"
                     if retries > 0 {
-                        soft_error!(
+                        soft_error_or_panic!(
                             "eden_io_succeeded_after_retry",
-                            buck2_error!(buck2_error::ErrorTag::Input, "Eden IO retried {} times", retries),
-                            quiet: true
-                        ).ok();
+                            buck2_error!(
+                                buck2_error::ErrorTag::Input,
+                                "Eden IO retried {} times",
+                                retries
+                            )
+                        );
                     }
                     break Ok(res);
                 }

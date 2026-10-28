@@ -15,7 +15,7 @@ use std::process::Stdio;
 use std::sync::LazyLock;
 
 use allocative::Allocative;
-use buck2_core::soft_error;
+use buck2_core::soft_error_or_panic;
 use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
 use buck2_error::ErrorTag;
@@ -209,15 +209,15 @@ pub(crate) async fn get_mergebase<D: AsRef<Path>, C: AsRef<str>, M: AsRef<str>>(
         }
         .into());
     } else if !output.stderr.is_empty() {
-        soft_error!(
+        // Sapling's stderr from a successful `sl log`. Nobody has characterized what it says in
+        // practice, so it is recorded for the oncall and not shown to the user.
+        soft_error_or_panic!(
             "sapling_mergebase_warning",
             SaplingError::MergebaseWarning {
                 stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
             }
-            .into(),
-            quiet: false
-        )
-        .ok();
+            .into()
+        );
     }
 
     parse_log_output(output.stdout)

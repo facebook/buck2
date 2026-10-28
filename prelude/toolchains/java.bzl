@@ -117,6 +117,7 @@ def _java_toolchain_impl(ctx):
             cp_snapshot_generator = None,
             dep_files = None,
             fat_jar_main_class_lib = ctx.attrs.fat_jar_main_class_lib,
+            compiler_class_to_source_map = ctx.attrs.compiler_class_to_source_map,
             gen_class_to_source_map = ctx.attrs.gen_class_to_source_map,
             gen_class_to_source_map_include_sourceless_compiled_packages = ctx.attrs.gen_class_to_source_map_include_sourceless_compiled_packages,
             gen_class_to_source_map_debuginfo = None,
@@ -159,6 +160,10 @@ _java_toolchain = rule(
         "class_loader_bootstrapper": attrs.option(attrs.source(), default = None),
         "compile_and_package": attrs.exec_dep(
             default = "prelude//java/tools:compile_and_package",
+            providers = [RunInfo],
+        ),
+        "compiler_class_to_source_map": attrs.exec_dep(
+            default = "prelude//java/tools:compiler_class_to_source_map",
             providers = [RunInfo],
         ),
         "fat_jar": attrs.exec_dep(

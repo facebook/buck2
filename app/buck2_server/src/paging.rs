@@ -41,7 +41,7 @@ use std::time::Instant;
 
 use buck2_common::memory;
 use buck2_core::buck2_env;
-use buck2_core::soft_error;
+use buck2_core::soft_error_or_panic;
 use buck2_error::ErrorTag;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_events::dispatch::EventDispatcher;
@@ -179,7 +179,7 @@ fn measured_db_size_bytes(size: Option<Result<u64, Arc<std::io::Error>>>) -> Opt
         None => None,
         Some(Ok(bytes)) => Some(bytes),
         Some(Err(e)) => {
-            let _unused = soft_error!(
+            soft_error_or_panic!(
                 "paging_db_size_measurement_failed",
                 buck2_error::buck2_error!(
                     buck2_error::ErrorTag::Tier0,
@@ -363,7 +363,7 @@ impl Drop for PageOutGuard {
 }
 
 /// Resource thresholds gating idle page-out. GiB (not bytes) so
-/// `DaemonStartupConfig` stays `Eq` (no floats).
+/// `DaemonStartupOptions` stays `Eq` (no floats).
 #[derive(Clone, Copy, allocative::Allocative)]
 pub(crate) struct PageOutThresholds {
     /// Page out only when at least this many GiB of disk are free to write to.
@@ -417,7 +417,7 @@ pub(crate) async fn spawn_page_out_on_idle(
     let context_dispatcher = dispatcher.clone();
     tokio::spawn(with_dispatcher_async(context_dispatcher, async move {
         if let Err(e) = page_out_on_idle(guard, dice_manager, dispatcher).await {
-            let _unused = soft_error!(
+            soft_error_or_panic!(
                 "page_out_on_idle_failed",
                 e.context("Automatic page-out on idle failed")
             );

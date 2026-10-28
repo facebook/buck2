@@ -46,6 +46,18 @@ copy_source = rule(
     },
 )
 
+def _copied_dir_sources_impl(ctx):
+    out = ctx.actions.copied_dir("copied", {src.basename: src for src in ctx.attrs.srcs})
+    return [DefaultInfo(default_output = out)]
+
+# Copies source files into a directory in the daemon, as `copied_dir` does.
+copied_dir_sources = rule(
+    impl = _copied_dir_sources_impl,
+    attrs = {
+        "srcs": attrs.list(attrs.source()),
+    },
+)
+
 def _consume_source_impl(ctx):
     out = ctx.actions.declare_output("copy.txt", has_content_based_path = False)
     ctx.actions.run(

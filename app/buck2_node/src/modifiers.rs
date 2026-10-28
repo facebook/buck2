@@ -18,7 +18,7 @@ use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::name::CellName;
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_core::soft_error;
+use buck2_core::soft_error_or_panic;
 use buck2_error::buck2_error;
 use buck2_hash::BuckHasher;
 use buck2_hash::BuckMutInsertionMap;
@@ -334,10 +334,9 @@ impl CfgModifiers {
     /// Reports every entry the cfg constructor will reject, once per call.
     pub fn report_unresolvable(&self) {
         for (what, text) in self.unresolvable() {
-            let _unused = soft_error!(
+            soft_error_or_panic!(
                 "cfg_modifier_unresolvable",
-                buck2_error!(buck2_error::ErrorTag::Input, "{what}: `{text}`"),
-                quiet: true
+                buck2_error!(buck2_error::ErrorTag::Input, "{what}: `{text}`")
             );
         }
     }

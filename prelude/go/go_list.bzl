@@ -90,6 +90,7 @@ def go_list(
 
 # buildifier: disable=unused-variable
 def _parse_go_list_impl(actions: AnalysisActions, srcs: list[Artifact], package_root: str, go_list_out: ArtifactValue) -> list[Provider]:
+    _ = actions
     go_list = go_list_out.read_json()
     go_files, cgo_files, h_files, c_files, cxx_files, s_files, syso_files, test_go_files, x_test_go_files, ignored_go_files, ignored_other_files = (
         [],

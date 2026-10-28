@@ -50,6 +50,8 @@ class BuildToolsKotlinc : Kotlinc {
       ruleCellRoot: AbsPath,
       mode: KotlincMode,
       kotlinCDLoggingContext: KotlinCDLoggingContext,
+      outputDirectory: AbsPath,
+      classToSourceMapPath: Path?,
   ): Int {
     val argsStart = System.nanoTime()
     val compilerArgs = buildCompilerArgs(
@@ -95,6 +97,19 @@ class BuildToolsKotlinc : Kotlinc {
             compilerArgs,
             mode,
             BuckKotlinLogger(UncloseablePrintStream(context.stdErr), kotlinCDLoggingContext),
+            classToSourceMapPath?.let {
+              KotlinClassToSourceMap(
+                  it,
+                  outputDirectory.path,
+                  ruleCellRoot.path,
+                  (mode as? KotlincMode.Incremental)
+                      ?.kotlicWorkingDir
+                      ?.path
+                      ?.resolve(
+                          com.facebook.buck.jvm.java.CompilerClassToSourceMap.KOTLIN_FILE_NAME,
+                      ),
+              )
+            },
         )
     val compileMs = (System.nanoTime() - compileStart) / 1_000_000
     val gcAfter = getGcStats()

@@ -27,7 +27,7 @@ internal class JvmCompilationConfigurationFactory(
     private val kotlinCDLoggingContext: KotlinCDLoggingContext,
 ) {
 
-  fun create(mode: KotlincMode): JvmCompilationConfiguration =
+  fun create(mode: KotlincMode, forceRebuild: Boolean = false): JvmCompilationConfiguration =
       when (mode) {
         is NonIncremental -> {
           compilationService.makeJvmCompilationConfiguration()
@@ -49,6 +49,7 @@ internal class JvmCompilationConfigurationFactory(
                       setBuildDir(mode.buildDir.toFile())
                       usePreciseCompilationResultsBackup(true)
                       keepIncrementalCompilationCachesInMemory(true)
+                      if (forceRebuild) forceNonIncrementalMode(true)
 
                       val rebuildReason = mode.rebuildReason
                       if (rebuildReason != null) {

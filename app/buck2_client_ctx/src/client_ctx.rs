@@ -163,7 +163,7 @@ impl<'a> ClientCommandContext<'a> {
         if !agent.is_direct_call() || self.maybe_paths()?.is_none() {
             return Ok(Decision::Inactive);
         }
-        let settings = &self.buck_settings()?.agent_interactive;
+        let settings = &self.buck_settings()?.invocation.agent_interactive;
         let enabled = match advice {
             Advice::Killall => settings.killall_enabled(),
             Advice::Clean => settings.clean_enabled(),
@@ -286,6 +286,7 @@ impl<'a> ClientCommandContext<'a> {
             }
             .into(),
             profile_pattern_opts: starlark_opts.profile_pattern_opts(&self.working_dir),
+            invocation_settings: Some(serde_json::to_string(&self.buck_settings()?.invocation)?),
             ..self.empty_client_context(cmd.logging_name())?
         })
     }
@@ -337,6 +338,7 @@ impl<'a> ClientCommandContext<'a> {
             profile_pattern_opts: None,
             agent_context: self.agent_context().to_proto(),
             tenant_identity,
+            invocation_settings: None,
         })
     }
 
@@ -351,6 +353,7 @@ impl<'a> ClientCommandContext<'a> {
         Ok(self
             .immediate_config
             .daemon_startup_config()?
+            .startup_options
             .log_download_method
             .clone())
     }

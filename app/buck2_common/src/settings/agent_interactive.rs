@@ -57,7 +57,7 @@ pub struct AgentInteractiveSettings {
 
 impl AgentInteractiveSettings {
     /// Bump when the section's settings schema or semantics change.
-    pub(super) const METADATA: SectionMetadata = SectionMetadata {
+    pub(crate) const METADATA: SectionMetadata = SectionMetadata {
         section_name: "agent_interactive",
         section_version: 1,
         settings: &[
@@ -105,7 +105,7 @@ mod tests {
 
     #[test]
     fn guards_require_both_switches() -> buck2_error::Result<()> {
-        let defaults = BuckSettings::empty().agent_interactive;
+        let defaults = BuckSettings::empty().invocation.agent_interactive;
         assert!(!defaults.enabled());
         assert!(!defaults.killall_enabled());
         assert!(!defaults.clean_enabled());
@@ -117,6 +117,7 @@ mod tests {
                 let settings = resolve_setting_flags(vec![table(&format!(
                     "[agent_interactive]\nenabled = {master}\n{name} = true",
                 ))])?
+                .invocation
                 .agent_interactive;
                 assert_eq!(settings.enabled(), master);
                 assert_eq!(
@@ -132,6 +133,7 @@ mod tests {
         }
         let master_only =
             resolve_setting_flags(vec![table("[agent_interactive]\nenabled = true")])?
+                .invocation
                 .agent_interactive;
         assert!(!master_only.killall_enabled());
         assert!(!master_only.clean_enabled());

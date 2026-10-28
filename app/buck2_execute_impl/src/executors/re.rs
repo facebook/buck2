@@ -21,7 +21,7 @@ use buck2_core::execution_types::revision::LazyVcsRevision;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_core::soft_error;
+use buck2_core::soft_error_or_panic;
 use buck2_events::dispatch::span_async;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::action_digest::ActionDigest;
@@ -343,7 +343,7 @@ impl ReExecutor {
             let execution_time = response.timing().execution_time;
 
             if execution_time > timeout {
-                let res = soft_error!(
+                soft_error_or_panic!(
                     "re_timeout_exceeded",
                     buck2_error::buck2_error!(
                         buck2_error::ErrorTag::Tier0,
@@ -353,10 +353,6 @@ impl ReExecutor {
                         timeout.as_secs(),
                     )
                 );
-
-                if let Err(e) = res {
-                    return ControlFlow::Break(manager.error("re_timeout_exceeded", e));
-                }
             }
         }
 

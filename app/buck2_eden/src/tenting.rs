@@ -85,10 +85,8 @@ impl TentingAclProvider for EdenTentingAclProvider {
                         "get_tenting_acl_names({}): EdenFS call failed: {:#}",
                         path,
                         e
-                    ),
-                    quiet: true
-                )
-                .ok();
+                    )
+                );
                 return Ok(TentingStatus::Unknown);
             }
         };
@@ -104,10 +102,8 @@ impl TentingAclProvider for EdenTentingAclProvider {
                             "get_tenting_acl_names({}): attribute error: {:#}",
                             path,
                             e
-                        ),
-                        quiet: true
-                    )
-                    .ok();
+                        )
+                    );
                     return Ok(TentingStatus::Unknown);
                 }
             },
@@ -118,10 +114,8 @@ impl TentingAclProvider for EdenTentingAclProvider {
                         buck2_error::ErrorTag::Input,
                         "get_tenting_acl_names({}): empty response from EdenFS",
                         path
-                    ),
-                    quiet: true
-                )
-                .ok();
+                    )
+                );
                 return Ok(TentingStatus::Unknown);
             }
         };
@@ -147,10 +141,8 @@ impl TentingAclProvider for EdenTentingAclProvider {
                             buck2_error::ErrorTag::Input,
                             "get_tenting_acl_names({}): underAcl=true but no ACL names returned",
                             path
-                        ),
-                        quiet: true
-                    )
-                    .ok();
+                        )
+                    );
                     return Ok(TentingStatus::Unknown);
                 }
                 Ok(TentingStatus::Tented(Arc::from(acls)))

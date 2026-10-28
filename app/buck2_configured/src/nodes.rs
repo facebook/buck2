@@ -38,6 +38,7 @@ use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::configuration::pair::ConfigurationWithExec;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
+use buck2_core::deprecation;
 use buck2_core::execution_types::execution::ExecutionGroupResolutionPartial;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::execution_types::execution::ExecutionPlatformResolutionPartial;
@@ -52,7 +53,6 @@ use buck2_core::plugins::PluginLists;
 use buck2_core::plugins::PluginListsBuilder;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_core::soft_error;
 use buck2_core::target::configured_or_unconfigured::ConfiguredOrUnconfiguredTargetLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
@@ -413,12 +413,12 @@ fn check_dep_visibility(
     if package_visibility == PackageVisibilityDefaultIntersection::Audit
         && dep.is_visible_to_ignoring_default_layers(&consumer)?
     {
-        soft_error!(
+        deprecation!(
             "package_visibility_audit_would_block",
             err.into(),
-            quiet: false,
+            owner: "dust", started: "2026-10-02",
             low_cardinality_key_for_additional_logview_samples: Some(Box::new(dep.label().pkg())),
-        )?;
+        );
         return Ok(());
     }
     Err(err.into())
@@ -1668,12 +1668,12 @@ impl ConfiguredTargetNodeCalculationImpl for ConfiguredTargetNodeCalculationInst
                         if check_error_on_incompatible_dep(ctx, target.unconfigured_label()).await? {
                             return ResultMaybeCompatible::Err(reason.to_err());
                         }
-                        soft_error!(
+                        deprecation!(
                             "dep_only_incompatible_version_two", reason.to_soft_err(),
-                            quiet: false,
+                            owner: "scottcao", started: "2024-06-20",
                             // Log at least one sample per unique package.
                             low_cardinality_key_for_additional_logview_samples: Some(Box::new(target.unconfigured().pkg())),
-                        )?;
+                        );
                         if let Some(custom_soft_errors) = get_dep_only_incompatible_custom_soft_error(
                             ctx,
                             target.unconfigured_label(),
@@ -1681,12 +1681,12 @@ impl ConfiguredTargetNodeCalculationImpl for ConfiguredTargetNodeCalculationInst
                         .await?
                         {
                             for custom_soft_error in custom_soft_errors {
-                                soft_error!(
+                                deprecation!(
                                     &custom_soft_error,
                                     reason.to_soft_err(),
-                                    quiet: true,
+                                    owner: "scottcao", started: "2025-03-17",
                                     task: false,
-                                )?;
+                                );
                             }
                         }
                     }

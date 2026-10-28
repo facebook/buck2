@@ -16,7 +16,7 @@ use buck2_build_signals::env::NodeDuration;
 use buck2_build_signals::env::WaitingData;
 use buck2_build_signals::error::CriticalPathError;
 use buck2_build_signals::node_key::BuildSignalsNodeKey;
-use buck2_core::soft_error;
+use buck2_core::soft_error_or_panic;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_critical_path::AddEdgesError;
 use buck2_critical_path::Graph;
@@ -96,7 +96,7 @@ impl BuildListenerBackend for LongestPathGraphBackend {
         let res = res.or_else(|err| match err {
             PushError::Overflow => Err(CriticalPathError::GraphBuildOverflow),
             e @ PushError::DuplicateKey { .. } => {
-                drop(soft_error!("critical_path_duplicate_key", e.into(), quiet: true));
+                soft_error_or_panic!("critical_path_duplicate_key", e.into());
                 Ok(())
             }
         });

@@ -52,7 +52,9 @@ def _get_process_name(pid: int) -> str | None:
 
 
 class DaemonKilledOnCheckoutRemovalTest(BuckTestCase):
-    @buck_test(setup_eden=True, skip_final_kill=True)
+    # The daemon noticing its project root is gone is the `daemon_project_root_unavailable`
+    # soft error.
+    @buck_test(setup_eden=True, skip_final_kill=True, allow_soft_errors=True)
     @env("BUCK2_TESTING_CHECKER_INTERVAL_SECONDS", "1")
     async def test_daemon_killed_on_checkout_removal(self, buck: Buck) -> None:
         # Start the daemon and capture its PID and daemon dir before removal.
