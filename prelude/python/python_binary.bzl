@@ -737,12 +737,6 @@ def python_binary_impl(ctx: AnalysisContext) -> list[Provider] | Promise:
         executable_type = ExecutableType("binary"),
     )
 
-def _package_python_binary_remotely():
-    return select({
-        "DEFAULT": False,
-        "config//os/constraints:android": True,
-    })
-
 python_binary = prelude_rule(
     name = "python_binary",
     impl = python_binary_impl,
@@ -834,7 +828,6 @@ python_binary = prelude_rule(
         | python_executable_attrs()
         | {
             "link_style": attrs.enum(LinkableDepType, default = "static"),
-            "_package_remotely": attrs.bool(default = _package_python_binary_remotely()),
             "_python_internal_tools": python_common.internal_tools_arg(),
             "_python_toolchain": toolchains_common.python(),
         }

@@ -43,7 +43,7 @@ def get_resolved_cxx_binary_link_execution_preference(
     return get_link_execution_preference(ctx, links)
 
 def package_python_locally(ctx: AnalysisContext, python_toolchain: PythonToolchainInfo) -> bool:
-    if _is_core_tool(ctx) or getattr(ctx.attrs, "_package_remotely", False):
+    if _is_core_tool(ctx):
         return False
 
     return python_toolchain.build_standalone_binaries_locally
