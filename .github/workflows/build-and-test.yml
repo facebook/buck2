@@ -15,6 +15,15 @@ concurrency:
   group: build-and-test-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+env:
+  # rust-cache keeps only the dependency artifacts between runs, so every run
+  # compiles the workspace crates from scratch and incremental compilation only
+  # costs time and disk.
+  CARGO_INCREMENTAL: 0
+  # Backtraces keep their file:line; nothing in CI attaches a debugger. The
+  # `test` profile inherits this from `dev`.
+  CARGO_PROFILE_DEV_DEBUG: line-tables-only
+
 jobs:
   # Clippy and rustdoc check the crates; the tests build them. The two share no
   # artifacts, so they run as separate jobs for wall time.

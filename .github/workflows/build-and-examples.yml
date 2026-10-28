@@ -5,6 +5,12 @@ on:
 permissions:
   contents: read
 
+env:
+  # rust-cache keeps only the dependency artifacts between runs, so every run
+  # compiles the workspace crates from scratch and incremental compilation only
+  # costs time and disk.
+  CARGO_INCREMENTAL: 0
+
 jobs:
   macos-build-examples:
     # Pinned to macos-14: on the macos-15 runner image `latest-stable` selects an

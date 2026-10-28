@@ -16,6 +16,14 @@ concurrency:
   group: build-with-buck2-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+env:
+  # rust-cache keeps only the dependency artifacts between runs, so every run
+  # compiles the workspace crates from scratch and incremental compilation only
+  # costs time and disk.
+  CARGO_INCREMENTAL: 0
+  # This `buck2` only drives the build below; backtraces keep their file:line.
+  CARGO_PROFILE_DEV_DEBUG: line-tables-only
+
 jobs:
   # Runner labels are repository (owner) specific, so the Meta larger runner
   # (16-core-ubuntu) doesn't exist on forks; fall back to the standard
@@ -25,7 +33,6 @@ jobs:
     steps:
     - uses: actions/checkout@v6
     - uses: ./.github/actions/setup_rust_toolchain
-    # The debug build shares its cargo cache with "Build and test".
     - uses: ./.github/actions/build_debug
     - uses: ./.github/actions/setup_reindeer
     - uses: ./.github/actions/build_bootstrap
