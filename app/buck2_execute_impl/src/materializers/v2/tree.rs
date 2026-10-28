@@ -72,11 +72,6 @@ pub(crate) struct Tracked {
     #[allocative(skip)]
     pub(crate) last_access_time: Timestamp,
     pub(crate) classification: ArtifactClassification,
-    /// Whether this daemon has seen the root on disk: true for one it put there, false for one
-    /// loaded from sqlite until a reader has checked it. An unverified root is matched like any
-    /// other; what differs is that its first reader checks before reading, and that a write over
-    /// it does not exclude it.
-    pub(crate) verified: bool,
 }
 
 impl Dupe for Tracked {}
@@ -93,7 +88,6 @@ impl fmt::Debug for Tracked {
             .field("entry", &self.entry)
             .field("last_access_time", &self.last_access_time)
             .field("classification", &self.classification)
-            .field("verified", &self.verified)
             .finish()
     }
 }
@@ -216,9 +210,6 @@ pub(crate) enum Expect {
 #[derive(Debug)]
 pub(crate) struct Grant {
     pub(crate) hold: Hold,
-    /// For a read: whether this daemon has seen the content on disk (`Tracked::verified`). The
-    /// holder of an unverified root checks it against disk before reading.
-    pub(crate) verified: bool,
     /// For a write: the tracked roots below it that already hold what the want has there. The
     /// holder leaves them alone.
     pub(crate) exclusions: Vec<ProjectRelativePathBuf>,
@@ -606,39 +597,6 @@ impl<R> DiskTree<R> {
         true
     }
 
-    /// Records that this daemon has seen the root at exactly `path` on disk. Nothing happens for a
-    /// path that is not a root: a check of part of a root does not vouch for the rest of it.
-    pub(crate) fn mark_verified(&mut self, path: &ProjectRelativePath) {
-        if let Some(tracked) = self
-            .root
-            .get_mut(path.iter())
-            .and_then(|node| node.tracked.as_mut())
-        {
-            tracked.verified = true;
-        }
-    }
-
-    /// Forgets the root at or above `path`, for one found not to be on disk as the rows said.
-    /// Readers may hold it; they are reading what is not there either way, and the next request
-    /// for the path takes write mode once they let go.
-    pub(crate) fn untrack_containing(&mut self, path: &ProjectRelativePath) -> TreeChange {
-        let mut change = TreeChange::default();
-        let root = match self.lookup(path) {
-            Lookup::Exact(_) => path.to_buf(),
-            Lookup::Inside { .. } | Lookup::UnderLeaf { .. } => self.root_above(path),
-            Lookup::Untracked => return change,
-        };
-        if let Some(tracked) = self
-            .root
-            .get_mut(root.iter())
-            .and_then(|node| node.tracked.take())
-        {
-            change.removed(root.clone(), tracked);
-        }
-        self.prune(&root);
-        change
-    }
-
     /// Forgets whatever is tracked at or below `path`, except the roots in `keep`. Tracked
     /// directories strictly above `path` are expanded first, so that their other children stay
     /// tracked; a tracked file or symlink strictly above `path` is forgotten, since it is in the
@@ -744,7 +702,6 @@ impl<R> DiskTree<R> {
                         entry: entry.dupe(),
                         last_access_time: root.last_access_time,
                         classification: root.classification,
-                        verified: root.verified,
                     };
                     self.root.get_or_insert(child_path.iter()).tracked = Some(child.dupe());
                     change.added.push((child_path, child));
@@ -1046,8 +1003,7 @@ impl<R> DiskTree<R> {
         }
     }
 
-    /// The tracked roots strictly below `path` that hold what `entry` has at their relative path,
-    /// and that this daemon has seen on disk: an unverified root is rewritten rather than trusted.
+    /// The tracked roots strictly below `path` that hold what `entry` has at their relative path.
     fn exclusions(
         &self,
         path: &ProjectRelativePath,
@@ -1064,7 +1020,7 @@ impl<R> DiskTree<R> {
                     return None;
                 }
                 let wanted = find_in(dir, below)?;
-                (tracked.verified && tracked.entry.matches(&wanted)).then_some(root)
+                tracked.entry.matches(&wanted).then_some(root)
             })
             .collect()
     }
@@ -1123,28 +1079,21 @@ impl<R> DiskTree<R> {
     /// the tasks running on overlapping paths; a read bumps the access time.
     fn grant(&mut self, root: Root, change: &mut TreeChange) -> Grant {
         self.insert_lease(&root.path, root.mode);
-        let (hold, tasks, verified) = match root.mode {
+        let (hold, tasks) = match root.mode {
             Mode::Read => {
-                let verified = match self.lookup(&root.path) {
-                    Lookup::Exact(tracked) | Lookup::Inside { root: tracked, .. } => {
-                        tracked.verified
-                    }
-                    Lookup::UnderLeaf { .. } | Lookup::Untracked => true,
-                };
                 if let Some(touched) = self.touch(&root.path, Timestamp::now()) {
                     change.touched.push(touched);
                 }
-                (Hold::Read(ReadHold(root.path)), Vec::new(), verified)
+                (Hold::Read(ReadHold(root.path)), Vec::new())
             }
             Mode::Write => {
                 change.extend(self.untrack_except(&root.path, &root.exclusions));
                 let tasks = self.take_tasks_around(&root.path);
-                (Hold::Write(WriteHold(root.path)), tasks, true)
+                (Hold::Write(WriteHold(root.path)), tasks)
             }
         };
         Grant {
             hold,
-            verified,
             exclusions: root.exclusions,
             tasks,
         }
@@ -1436,15 +1385,6 @@ mod tests {
             entry: DiskEntry::from_action(&entry),
             last_access_time: Timestamp::UNIX_EPOCH,
             classification: ArtifactClassification::IntermediateOnly,
-            verified: true,
-        }
-    }
-
-    /// A root as sqlite's rows give it: not yet seen on disk by this daemon.
-    fn loaded(entry: ArtifactMetadata) -> Tracked {
-        Tracked {
-            verified: false,
-            ..tracked(entry)
         }
     }
 
@@ -1498,7 +1438,6 @@ mod tests {
     /// A grant as the tests look at it; its hold stays with the harness.
     struct Granted {
         mode: Mode,
-        verified: bool,
         exclusions: Vec<ProjectRelativePathBuf>,
         tasks: Vec<Task>,
     }
@@ -1581,7 +1520,6 @@ mod tests {
             self.holds.insert(label, grant.hold);
             Granted {
                 mode,
-                verified: grant.verified,
                 exclusions: grant.exclusions,
                 tasks: grant.tasks,
             }
@@ -1695,39 +1633,22 @@ mod tests {
         tree.check_invariants();
     }
 
-    /// A root loaded from sqlite is granted for reading like any other, marked for the reader
-    /// to check; checked, it is a root like any other; found wanting, it is forgotten under the
-    /// reader's hold, and the next request puts it there again. A write over an unverified root
-    /// that would match does not exclude it.
+    /// A root loaded from sqlite is a root like any other: granted for reading as the rows say,
+    /// and left alone by a write over it that would match it.
     #[test]
-    fn test_loaded_roots_are_checked_by_their_first_reader() {
+    fn test_loaded_roots_are_trusted() {
         let mut h = Harness::new();
-        h.tree.load(path("x"), loaded(file("x")));
-        h.tree.load(path("gone"), loaded(file("gone")));
-        h.tree.load(path("d/a"), loaded(file("a")));
+        h.tree.load(path("x"), tracked(file("x")));
+        h.tree.load(path("d/a"), tracked(file("a")));
 
         let granted = h.granted(1, "x", Want::Content(file("x")));
-        assert_eq!((granted.mode, granted.verified), (Mode::Read, false));
-        h.tree.mark_verified(&path("x"));
+        assert_eq!(granted.mode, Mode::Read);
         h.release(1);
-        let granted = h.granted(2, "x", Want::Content(file("x")));
-        assert_eq!((granted.mode, granted.verified), (Mode::Read, true));
-        h.release(2);
 
-        let granted = h.granted(3, "gone", Want::Content(file("gone")));
-        assert_eq!((granted.mode, granted.verified), (Mode::Read, false));
-        let change = h.tree.untrack_containing(&path("gone"));
-        assert_eq!(removed(&change), vec!["gone"]);
-        assert_eq!(roots(&h.tree), vec!["d/a", "x"]);
-        h.queued(4, "gone", Want::Content(file("gone")));
-        assert_eq!(h.release(3), vec![4]);
-        assert!(matches!(h.holds.get(&4), Some(Hold::Write(_))));
-        h.release(4);
-
-        let granted = h.granted(5, "d", Want::Content(dir(&[("a", "a"), ("b", "b")])));
+        let granted = h.granted(2, "d", Want::Content(dir(&[("a", "a"), ("b", "b")])));
         assert_eq!(granted.mode, Mode::Write);
-        assert_eq!(granted.exclusions, Vec::<ProjectRelativePathBuf>::new());
-        assert_eq!(roots(&h.tree), vec!["x"]);
+        assert_eq!(granted.exclusions, vec![path("d/a")]);
+        assert_eq!(roots(&h.tree), vec!["d/a", "x"]);
         h.tree.check_invariants();
     }
 
