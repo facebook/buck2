@@ -104,6 +104,11 @@ def make_py_package_providers(ctx: AnalysisContext, manifest_identifier: str, pe
 
     return providers
 
+# Python running as root can write .pyc files into read-only outplace trees.
+# No package owns those files, so uninstalls leave them behind.
+def _interpreter_args(ctx: AnalysisContext, package_style: PackageStyle) -> list[str]:
+    return ctx.attrs.interpreter_args + (["-B"] if package_style == PackageStyle("outplace") else [])
+
 def _live_par_generated_files(
     ctx: AnalysisContext,
     output: Artifact,
@@ -113,6 +118,7 @@ def _live_par_generated_files(
     main: EntryPoint,
     preload_libraries: ArgLike,
     output_suffix: str,
+    package_style: PackageStyle,
     linktree_suffix: str = "#link-tree",
 ) -> list[(Artifact, str)]:
     artifacts = []
@@ -136,8 +142,9 @@ def _live_par_generated_files(
     if ctx.attrs.runtime_env:
         for k, v in ctx.attrs.runtime_env.items():
             gen_bootstrap.add(cmd_args(["--runtime_env={}={}".format(k, v)]))
-    if ctx.attrs.interpreter_args:
-        gen_bootstrap.add(cmd_args(["--interpreter-flags={}".format(json.encode(ctx.attrs.interpreter_args))]))
+    interpreter_args = _interpreter_args(ctx, package_style)
+    if interpreter_args:
+        gen_bootstrap.add(cmd_args(["--interpreter-flags={}".format(json.encode(interpreter_args))]))
 
     gen_bootstrap.add([
         "--python",
@@ -570,8 +577,9 @@ def _make_py_package_impl(
         if ctx.attrs.runtime_env:
             for k, v in ctx.attrs.runtime_env.items():
                 cmd.add(cmd_args(["--passthrough", "--runtime_env={}={}".format(k, v)]))
-        if ctx.attrs.interpreter_args:
-            cmd.add(cmd_args(["--passthrough", "--interpreter-flags={}".format(json.encode(ctx.attrs.interpreter_args))]))
+        interpreter_args = _interpreter_args(ctx, package_style)
+        if interpreter_args:
+            cmd.add(cmd_args(["--passthrough", "--interpreter-flags={}".format(json.encode(interpreter_args))]))
         if package_style == PackageStyle("outplace"):
             cmd.add(cmd_args("--passthrough=--copy-files", hidden = runtime_artifacts))
 
@@ -730,6 +738,7 @@ def _make_py_package_live(
                 main,
                 preload_libraries,
                 output_suffix,
+                package_style,
             )
         )
 
