@@ -195,18 +195,18 @@ mod imp {
             }),
         );
 
-        // If the soft error was fired in a context with an ambient dispatcher, then we only send
-        // it there, but some contexts don't have one, and in that case, we notify all running
-        // commands.
-        match buck2_events::dispatch::get_dispatcher_opt() {
+        // The report goes out once. A command's event stream reaches Scribe on its own; only a
+        // report with no command behind it is written directly.
+        let delivered = match buck2_events::dispatch::get_dispatcher_opt() {
             Some(dispatcher) => {
                 dispatcher.instant_event(event.clone());
+                true
             }
             None => {
                 #[cfg(client_only)]
                 let warn = options.user_facing;
                 #[cfg(not(client_only))]
-                let warn = {
+                let (warn, sent) = {
                     let sent = if context.is_command_scoped() {
                         buck2_server::active_commands::dispatch_soft_error_for_context(
                             context, &event,
@@ -214,15 +214,20 @@ mod imp {
                     } else {
                         buck2_server::active_commands::broadcast_instant_event(&event)
                     };
-                    !sent && options.user_facing
+                    (!sent && options.user_facing, sent)
                 };
+                #[cfg(client_only)]
+                let sent = false;
                 if warn {
                     tracing::warn!("Warning \"{}\": {:#}", category, err);
                 }
+                sent
             }
-        }
+        };
 
-        write_to_scribe(fb, event);
+        if !delivered {
+            write_to_scribe(fb, event);
+        }
     }
 
     fn panic_payload(
