@@ -20,7 +20,6 @@ config = ovr_config
   enable_incremental_compilation = true
   frontend_compiler = defined_by_target
   kotlin_version = 2.3.21
-  kotlin_version_for_upgrade_only_do_not_use = 2.3.21
   kotlincd_dep_files = per_class
   ksp_version = 2.0.2
   ksp_version_for_kotlin_2_3_plus = 2.3.9

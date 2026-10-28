@@ -1,3 +1,4 @@
+# @oss-disable[end= ]: load("@fbsource//tools/build_defs:kotlin_version.bzl", "toolchain_kotlin_version")
 load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_binary", "buck_kotlin_library")
 load("@prelude//utils:source_listing.bzl", "source_listing")
 
@@ -6,10 +7,10 @@ oncall("android_devxx")
 source_listing()
 
 # compilercompat shims are bucketed by Kotlin minor version: every 2.3.x compiler
-# uses the compilercompat/2.3.0 folder. Key off kotlin_version_for_upgrade_only_do_not_use
-# (the same config the kotlincd toolchain selects the compiler jar from) so the shims
-# always match the compiler actually run -- not kotlin_version, which can differ.
-_KOTLIN_VERSION_PARTS = read_root_config("kotlin", "kotlin_version_for_upgrade_only_do_not_use", "2.3.21").split(".")
+# uses the compilercompat/2.3.0 folder. Key off the version the kotlincd toolchain
+# selects the compiler jar from, so the shims always match the compiler actually run.
+# @oss-disable[end= ]: _KOTLIN_VERSION_PARTS = toolchain_kotlin_version().split(".")
+_KOTLIN_VERSION_PARTS = read_root_config("kotlin", "kotlin_version", "2.3.21").split(".") # @oss-enable
 
 KOTLIN_VERSION = _KOTLIN_VERSION_PARTS[0] + "." + _KOTLIN_VERSION_PARTS[1] + ".0"
 
