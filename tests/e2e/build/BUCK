@@ -33,6 +33,15 @@ buck2_e2e_test(
 )
 
 buck2_e2e_test(
+    name = "test_build_id_inplace",
+    srcs = ["test_build_id_inplace.py"],
+    test_with_deployed_buck2 = True,
+    deps = [
+        "//buck2/tests/e2e_util:utils",
+    ],
+)
+
+buck2_e2e_test(
     name = "test_worker",
     srcs = ["test_worker.py"],
     labels = [tpx_labels.long_running],

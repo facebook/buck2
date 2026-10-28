@@ -811,10 +811,10 @@ class Buck(Executable):
         Returns a process created from the execuable path,
         command and any additional arguments
         """
-        buck_build_id = str(uuid.uuid1())
+        invocation_id = str(uuid.uuid1())
         command_env = self._get_command_env(env)
         if "BUCK_WRAPPER_UUID" not in command_env:
-            command_env["BUCK_WRAPPER_UUID"] = buck_build_id
+            command_env["BUCK_WRAPPER_UUID"] = invocation_id
 
         cwd = self._get_cwd(rel_cwd)
 
@@ -823,7 +823,7 @@ class Buck(Executable):
         if self.write_invocation_record and can_write_invocation_record:
             invocation_record_dir = cwd / "buck-out" / "tmp"
             invocation_record_dir.mkdir(parents=True, exist_ok=True)
-            invocation_record_path = invocation_record_dir / (buck_build_id + ".json")
+            invocation_record_path = invocation_record_dir / (invocation_id + ".json")
             separator_idx = args.index("--") if "--" in args else len(args)
             args[separator_idx:separator_idx] = [
                 "--unstable-write-invocation-record",
@@ -834,7 +834,6 @@ class Buck(Executable):
 
         args_tuple: Tuple[str, ...] = argv
         result_kwargs = result_kwargs or {}
-        _buck_build_id: str = buck_build_id
         _invocation_record_path: Optional[Path] = invocation_record_path
 
         def make_result(proc: subprocess.Process, stdout: str, stderr: str) -> R:
@@ -842,7 +841,6 @@ class Buck(Executable):
                 proc,
                 stdout,
                 stderr,
-                _buck_build_id,
                 _invocation_record_path,
                 buck_args=" ".join(args_tuple),
             )
@@ -850,7 +848,6 @@ class Buck(Executable):
                 return base  # type: ignore[return-value]
             return result_type(base, **result_kwargs)  # type: ignore[return-value]
 
-        _buck_build_id2: str = buck_build_id
         _invocation_record_path2: Optional[Path] = invocation_record_path
 
         def make_exception(
@@ -868,7 +865,6 @@ class Buck(Executable):
                 proc,
                 stdout,
                 stderr,
-                _buck_build_id2,
                 _invocation_record_path2,
             )
 

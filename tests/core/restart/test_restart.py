@@ -125,5 +125,6 @@ class RestartTest(BuckTestCase):
         )
         record = res.invocation_record()
         assert record["trace_id"] != trace_id
+        assert res.buck_build_id == record["trace_id"]
         assert record["restarted_trace_id"] == trace_id
         assert record["should_restart"] is False
