@@ -13,11 +13,10 @@ import os
 import shutil
 import subprocess
 from collections.abc import Callable
-from typing import BinaryIO, Optional
+from typing import BinaryIO, NamedTuple, Optional
 
 from apple.tools.re_compatibility_utils.writable import make_path_user_writable
 
-from .macho import Symbol
 from .macho_parser import load_commands, load_debug_symbols, load_header
 from .spec import Spec
 from .utils import MachOException
@@ -148,10 +147,17 @@ def _should_scrub_with_spec_file(
     ) and spec.scrub_debug_file_path(debug_file_path)
 
 
+class DebugFilePath(NamedTuple):
+    """The path of an `N_OSO` entry and where it is stored in the string table."""
+
+    offset: int
+    size: int
+    path: str
+
+
 def _scrub(
     f: BinaryIO,
-    strtab_offset: int,
-    symbols: list[Symbol],
+    debug_file_paths: list[DebugFilePath],
     scrub_handler: Callable[[str], bool],
 ) -> list[tuple[str, str]]:
     """
@@ -159,8 +165,52 @@ def _scrub(
     Each tuple contains a pair of the original path and the rewritten path
     """
     results = []
+    for offset, size, path_str in debug_file_paths:
+        if scrub_handler(path_str):
+            f.seek(offset)
+            # We don't want to modify the length of the path, so pad the replacement
+            # path with spaces
+            buffer = FAKE_PATH + b" " * (size - len(FAKE_PATH))
+            f.write(buffer)
+            results.append((path_str, buffer.decode()))
+        else:
+            results.append((path_str, path_str))
+    return results
+
+
+def load_debug_file_paths(f: BinaryIO) -> list[DebugFilePath] | None:
+    """
+    Returns the debug file paths of the `N_OSO` entries of a Mach-O file, with
+    where each path is stored. Returns `None` if the file has no symbol table to
+    look at.
+    """
+    header, offset = load_header(f, 0)
+    if not header.is_valid:
+        raise MachOException("Invalid macho format!")
+    lc_linkedit, lc_symtab = load_commands(f, offset, header.n_cmds)
+    if lc_linkedit is None:
+        return None
+    if lc_symtab is None:
+        raise MachOException("LC_SYMTAB command not found")
+    if lc_symtab.strtab_size == 0 or lc_symtab.n_symbols == 0:
+        return None
+    if lc_linkedit.file_size == 0:
+        raise MachOException("LC_SEGMENT_64 command for string table not found")
+    f.seek(lc_symtab.strtab_offset)
+    """
+    ld64 deliberately burns the first byte with the space character, so that zero is never a
+    valid string index and writes 0x00 at offset 1, so that it's always the empty string.
+    The code for this in ld64 is in LinkEditClassic.hpp (StringPoolAtom::StringPoolAtom).
+    """
+    if f.read(1) != b"\x20":
+        raise MachOException("First character in the string table is not a space")
+    if f.read(1) != b"\x00":
+        raise MachOException("Second character in the string table is not a NUL")
+
+    symbols = load_debug_symbols(f, lc_symtab.symtab_offset, lc_symtab.n_symbols)
+    debug_file_paths = []
     for symbol in symbols:
-        start = strtab_offset + symbol.strtab_index
+        start = lc_symtab.strtab_offset + symbol.strtab_index
         f.seek(start)
 
         # Read until we reach the end of the path, denoted by Hex 0.
@@ -172,19 +222,8 @@ def _scrub(
                 raise MachOException("Unterminated string in the string table")
             end = chunk.find(b"\x00")
             path += chunk if end == -1 else chunk[:end]
-        str_len = len(path)
-
-        path_str = path.decode()
-        if scrub_handler(path_str):
-            f.seek(start)
-            # We don't want to modify the length of the path, so pad the replacement
-            # path with spaces
-            buffer = FAKE_PATH + b" " * (str_len - len(FAKE_PATH))
-            f.write(buffer)
-            results.append((path_str, buffer.decode()))
-        else:
-            results.append((path_str, path_str))
-    return results
+        debug_file_paths.append(DebugFilePath(start, len(path), path.decode()))
+    return debug_file_paths
 
 
 def scrub(
@@ -213,31 +252,10 @@ def scrub(
 
     results = []
     with open(output_file, "r+b") as f:
-        header, offset = load_header(f, 0)
-        if not header.is_valid:
-            raise MachOException("Invalid macho format!")
-        lc_linkedit, lc_symtab = load_commands(f, offset, header.n_cmds)
-        if lc_linkedit is None:
+        debug_file_paths = load_debug_file_paths(f)
+        if debug_file_paths is None:
             return []
-        if lc_symtab is None:
-            raise MachOException("LC_SYMTAB command not found")
-        if lc_symtab.strtab_size == 0 or lc_symtab.n_symbols == 0:
-            return []
-        if lc_linkedit.file_size == 0:
-            raise MachOException("LC_SEGMENT_64 command for string table not found")
-        f.seek(lc_symtab.strtab_offset)
-        """
-        ld64 deliberately burns the first byte with the space character, so that zero is never a
-        valid string index and writes 0x00 at offset 1, so that it's always the empty string.
-        The code for this in ld64 is in LinkEditClassic.hpp (StringPoolAtom::StringPoolAtom).
-        """
-        if f.read(1) != b"\x20":
-            raise MachOException("First character in the string table is not a space")
-        if f.read(1) != b"\x00":
-            raise MachOException("Second character in the string table is not a NUL")
-
-        symbols = load_debug_symbols(f, lc_symtab.symtab_offset, lc_symtab.n_symbols)
-        results = _scrub(f, lc_symtab.strtab_offset, symbols, scrub_handler)
+        results = _scrub(f, debug_file_paths, scrub_handler)
 
     if adhoc_codesign_tool:
         subprocess.run(
