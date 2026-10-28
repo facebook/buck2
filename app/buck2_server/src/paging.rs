@@ -56,6 +56,7 @@ use dice::PagableNodeCounts;
 use dice::PageOutCancel;
 use dice::StorageIoSnapshot;
 use dupe::Dupe;
+use parking_lot::Mutex;
 use starlark::pagable::starlark_partial_deser_stats;
 use starlark::pagable::starlark_serialization_state_retained_bytes;
 use tokio::sync::Notify;
@@ -81,6 +82,7 @@ pub(crate) struct PagingManager {
     data_key_io_baseline: Option<StorageIoSnapshot>,
     /// `None` when pagable storage is not configured.
     eviction_baseline: Option<EvictionSnapshot>,
+    _eviction_gate: EvictionGateCommand,
 }
 
 impl PagingManager {
@@ -93,6 +95,7 @@ impl PagingManager {
         let dice = tenant.dice_manager.unsafe_dice();
         let data_key_io_baseline = dice.storage_io_metrics();
         let eviction_baseline = dice.eviction_metrics();
+        let _eviction_gate = tenant.eviction_gate.command_started();
         PagingManager {
             tenant,
             page_out_on_idle,
@@ -100,6 +103,7 @@ impl PagingManager {
             page_in_baseline,
             data_key_io_baseline,
             eviction_baseline,
+            _eviction_gate,
         }
     }
 
@@ -653,13 +657,58 @@ fn set_command_evictions(
     summary.command_evicted_bytes = command_evictions.and_then(|e| e.bytes_evicted);
 }
 
-/// Evicts a tenant's backed DICE values, those a row already holds, each time resource control
-/// starts seeing memory pressure (the default `hydration.eviction_policy`, `on_memory_pressure`,
-/// under which a page-out evicts nothing and these are the only evictions). Only the onset
-/// triggers it: while pressure lasts, what a command reads back is what it is using. Ends with
-/// the tenant or the tracker.
+/// Limits a tenant's memory-pressure evictions to one per command. While a command runs, an onset
+/// evicts only if no eviction has run since the most recent command started. With no command
+/// running, every onset evicts.
+#[derive(Default)]
+pub(crate) struct EvictionGate {
+    state: Mutex<EvictionGateState>,
+}
+
+#[derive(Default)]
+struct EvictionGateState {
+    active_commands: usize,
+    evicted_since_command_start: bool,
+}
+
+impl EvictionGate {
+    /// Registers a running command until the returned guard is dropped, and allows one more
+    /// eviction.
+    pub(crate) fn command_started(self: &Arc<Self>) -> EvictionGateCommand {
+        let mut state = self.state.lock();
+        state.active_commands += 1;
+        state.evicted_since_command_start = false;
+        EvictionGateCommand(self.dupe())
+    }
+
+    /// Whether an onset of memory pressure should evict now. Claims the running commands'
+    /// eviction when it says yes.
+    fn try_evict(&self) -> bool {
+        let mut state = self.state.lock();
+        if state.active_commands > 0 && state.evicted_since_command_start {
+            return false;
+        }
+        state.evicted_since_command_start = true;
+        true
+    }
+}
+
+/// A running command, registered with an [`EvictionGate`].
+pub(crate) struct EvictionGateCommand(Arc<EvictionGate>);
+
+impl Drop for EvictionGateCommand {
+    fn drop(&mut self) {
+        self.0.state.lock().active_commands -= 1;
+    }
+}
+
+/// Evicts a tenant's backed DICE values, those a row already holds, when resource control starts
+/// seeing memory pressure (the default `hydration.eviction_policy`, `on_memory_pressure`, under
+/// which a page-out evicts nothing and these are the only evictions), at most once per command
+/// (see [`EvictionGate`]). Only the onset triggers it. Ends with the tenant or the tracker.
 pub(crate) fn spawn_evict_on_memory_pressure(
     dice_manager: Weak<ConcurrencyHandler>,
+    gate: Arc<EvictionGate>,
     mut pressure: watch::Receiver<bool>,
 ) {
     tokio::spawn(async move {
@@ -670,6 +719,10 @@ pub(crate) fn spawn_evict_on_memory_pressure(
             let Some(dice_manager) = dice_manager.upgrade() else {
                 return;
             };
+            if !gate.try_evict() {
+                tracing::debug!("Skipping eviction: this command has already evicted once");
+                continue;
+            }
             evict_backed_measured(dice_manager.unsafe_dice()).await;
         }
     });
@@ -709,8 +762,11 @@ fn page_out_memory_snapshot(dice: &Arc<Dice>) -> (Option<u64>, Option<u64>, Opti
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use buck2_hash::IntentionallyStdHashMap;
 
+    use super::EvictionGate;
     use super::PageOutGuard;
     use super::PageOutThresholds;
     use super::cancel_active_page_out;
@@ -742,6 +798,38 @@ mod tests {
         assert!(!page_out_cancelled());
         drop(next);
         assert!(!page_out_in_progress());
+    }
+
+    #[test]
+    fn eviction_gate_allows_one_eviction_per_command() {
+        let gate = Arc::new(EvictionGate::default());
+        assert!(
+            gate.try_evict(),
+            "with no command running, every onset evicts"
+        );
+        assert!(
+            gate.try_evict(),
+            "with no command running, every onset evicts"
+        );
+
+        let first = gate.command_started();
+        assert!(gate.try_evict(), "a running command gets one eviction");
+        assert!(!gate.try_evict(), "and only one");
+
+        let second = gate.command_started();
+        assert!(gate.try_evict(), "a command starting allows one more");
+        assert!(!gate.try_evict());
+
+        drop(second);
+        assert!(
+            !gate.try_evict(),
+            "a command finishing does not reset the running one's allowance"
+        );
+        drop(first);
+        assert!(
+            gate.try_evict(),
+            "with no command running, every onset evicts"
+        );
     }
 
     #[test]

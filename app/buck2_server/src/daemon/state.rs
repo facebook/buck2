@@ -128,6 +128,7 @@ use crate::daemon::panic::DaemonStatePanicDiceDump;
 use crate::daemon::server::BuckdServerInitPreferences;
 use crate::daemon::server::TenantStateInitPreferences;
 use crate::daemon::tenting_provider::create_tenting_acl_provider;
+use crate::paging::EvictionGate;
 use crate::paging::PageOutThresholds;
 use crate::snapshot::DepFileDbSizeSampler;
 
@@ -164,6 +165,9 @@ pub struct TenantState {
 
     /// The DICE graph and the command concurrency state for this tenant.
     pub(crate) dice_manager: Arc<ConcurrencyHandler>,
+
+    #[allocative(skip)]
+    pub(crate) eviction_gate: Arc<EvictionGate>,
 }
 
 /// Services and caches associated with a repository-backed tenant.
@@ -781,11 +785,13 @@ impl TenantState {
         ];
 
         let dice_manager = ConcurrencyHandler::new(dice, root);
+        let eviction_gate = Arc::new(EvictionGate::default());
         if let Some(memory_tracker) = shared.memory_tracker
             && evicts_on_memory_pressure
         {
             crate::paging::spawn_evict_on_memory_pressure(
                 Arc::downgrade(&dice_manager),
+                eviction_gate.dupe(),
                 memory_tracker.memory_pressure(),
             );
         }
@@ -849,7 +855,11 @@ impl TenantState {
             }
         }
 
-        Ok(Arc::new(Self { repo, dice_manager }))
+        Ok(Arc::new(Self {
+            repo,
+            dice_manager,
+            eviction_gate,
+        }))
     }
 
     pub async fn spawn_dice_dump(
