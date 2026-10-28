@@ -20,18 +20,16 @@ INCOMPATIBLE_ERROR = r"root//:incompatible\s*is incompatible with"
 
 
 async def check_dep_only_incompatible_soft_err(buck: Buck, args: list[str]) -> None:
-    result = await buck.cquery(*args)
-    # This can't use the same INCOMPATIBLE_ERROR str as elsewhere.
-    # Because the result is a soft error, stderr has timestamps
-    # prefixing each line which makes this regex, which works elsewhere,
-    # fail here. The regex could try to match with the timestamp instead,
-    # but this is easier
+    await buck.cquery(*args)
+    # Recorded as a deprecation, which is not shown on the console
+    result = await buck.log("show")
+    assert "Soft Error: dep_only_incompatible_version_two" in result.stdout
     assert re.search(
         "does not pass compatibility check \\(will be error in future\\) because its transitive dep root//:incompatible",
-        result.stderr,
+        result.stdout,
         re.DOTALL | re.IGNORECASE,
     )
-    assert re.search("is incompatible with", result.stderr, re.DOTALL | re.IGNORECASE)
+    assert re.search("is incompatible with", result.stdout, re.DOTALL | re.IGNORECASE)
 
 
 class TargetIncompatibleTest(BuckTestCase):

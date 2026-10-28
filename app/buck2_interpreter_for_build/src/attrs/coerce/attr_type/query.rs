@@ -10,9 +10,9 @@
 
 use std::collections::BTreeMap;
 
+use buck2_core::deprecation;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
-use buck2_core::soft_error;
 use buck2_error::BuckErrorOptionContext;
 use buck2_node::attrs::arena::AttrToken;
 use buck2_node::attrs::attr_type::query::QueryAttrBase;
@@ -61,10 +61,10 @@ impl QueryAttrTypeExt for QueryAttrType {
                 // We could optimize this to do less work for duplicates, but it's generally not helpful.
                 let label = self.ctx.coerce_providers_label(pattern)?;
                 if label.name() != &ProvidersName::Default {
-                    soft_error!(
+                    deprecation!(
                         "query_literal_subtarget",
                         QueryError::SubtargetInQueryLiteral(pattern.to_owned()).into(),
-                        quiet: true
+                        owner: "jtbraun",
                     )?;
                 }
                 self.literals.insert(pattern, label);

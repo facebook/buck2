@@ -8,7 +8,7 @@
  * above-listed licenses.
  */
 
-use buck2_core::soft_error;
+use buck2_core::deprecation;
 use buck2_node::attrs::arena::AttrToken;
 use buck2_node::attrs::attr_type::any::AnyAttrType;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
@@ -61,9 +61,10 @@ fn to_literal<'v>(
     } else if let Some(s) = value.unpack_str() {
         ctx.attr_arena().encode_string(s)
     } else {
-        soft_error!(
+        deprecation!(
             "coerce_to_any",
             AnyError::CannotCoerce(value.get_type(), value.to_repr()).into(),
+            owner: "jtbraun"
         )?;
         ctx.attr_arena().encode_string(&value.to_str())
     }

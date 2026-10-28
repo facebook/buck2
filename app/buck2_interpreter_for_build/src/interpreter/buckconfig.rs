@@ -16,7 +16,9 @@ use allocative::Allocative;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::dice::OpaqueLegacyBuckConfigOnDice;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
-use buck2_core::soft_error;
+use buck2_core::error::SoftErrorKind;
+use buck2_core::error::StructuredErrorOptions;
+use buck2_core::error::handle_soft_error;
 use dice::DiceComputations;
 use hashbrown::HashTable;
 use starlark::any::ProvidesStaticType;
@@ -231,10 +233,16 @@ fn read_config_and_report_deprecated<'d>(
         let section = transform_logview_category(key.section);
         let prop = transform_logview_category(key.property);
 
-        soft_error!(
+        // Not `deprecation!`: that requires an owner, and a `[deprecated_config]` entry does not
+        // name one.
+        handle_soft_error(
             format!("deprecated_config_{section}_{prop}").as_str(),
             DeprecatedConfigError(property, msg).into(),
-            quiet: true,
+            (file!(), line!(), column!()),
+            StructuredErrorOptions {
+                kind: SoftErrorKind::Deprecation { owner: None },
+                ..Default::default()
+            },
         )?;
     }
     Ok(result)
