@@ -329,6 +329,29 @@ def append_linkable_args(args: cmd_args, linkable: LinkableTypes):
     else:
         fail("Encountered unhandled linkable {}".format(str(linkable)))
 
+# The artifacts `append_linkable_args` puts on the link line for `value`, in
+# order: an archive, or the objects of a virtual archive; a shared library, or
+# the interface the toolchain links against instead; every object of an
+# objects linkable. Frameworks and swiftmodules contribute none. Kept next to
+# `append_linkable_args` so the two agree.
+def link_info_outputs(value: LinkInfo) -> list[Artifact]:
+    outputs = []
+    for linkable in value.linkables:
+        if isinstance(linkable, ArchiveLinkable):
+            if linkable.archive.archive_contents_type == ArchiveContentsType("virtual"):
+                outputs.extend(linkable.archive.external_objects)
+            else:
+                outputs.append(linkable.archive.artifact)
+        elif isinstance(linkable, SharedLibLinkable):
+            outputs.append(linkable.lib)
+        elif isinstance(linkable, ObjectsLinkable):
+            outputs.extend(linkable.objects or [])
+        elif isinstance(linkable, FrameworksLinkable) or isinstance(linkable, SwiftmoduleLinkable):
+            pass
+        else:
+            fail("Encountered unhandled linkable {}".format(str(linkable)))
+    return outputs
+
 LinkInfoArgumentFilter = enum(
     "all",
     "object_files_and_lazy_archives_only",

@@ -533,6 +533,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
                 other_roots = link_group_extra_link_roots,
                 prefer_stripped_objects = impl_params.prefer_stripped_objects,
                 anonymous = ctx.attrs.anonymous_link_groups,
+                debug_linkable_extras = impl_params.generate_sub_targets.xcode_data,
                 allow_cache_upload = impl_params.exe_allow_cache_upload,
                 public_nodes = public_link_group_nodes,
                 transformation_spec_context = transformation_spec_context,
@@ -603,7 +604,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         )
 
         link_groups_binary_debug_info = LinkGroupsDebugLinkableItem(
-            ordered_linkables = create_debug_linkable_entries(labels_to_links.map, root = None),
+            ordered_linkables = create_debug_linkable_entries(labels_to_links.map, root = None, with_extras = impl_params.generate_sub_targets.xcode_data),
         )
         link_groups_debug_info = LinkGroupsDebugLinkInfo(
             binary = link_groups_binary_debug_info,
