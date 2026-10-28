@@ -164,6 +164,10 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
                 ),
             ],
         }
+        if xcode_data_enabled():
+            # The objects of the binary's own Swift sources, which the link takes as
+            # `extra_link_input` and `[objects]` (the C-family objects) does not list.
+            binary_subtargets["swift-objects"] = [DefaultInfo(default_outputs = swift_object_files)]
 
         validation_deps_outputs = get_validation_deps_outputs(ctx)
         stripped = get_apple_stripped_attr_value_with_default_fallback(ctx)
