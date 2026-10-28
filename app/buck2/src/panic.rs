@@ -191,6 +191,7 @@ mod imp {
             Some(buck2_data::SoftError {
                 category: category.to_owned(),
                 is_quiet: options.quiet,
+                is_deprecation: matches!(&options.kind, SoftErrorKind::Deprecation { .. }),
             }),
         );
 
@@ -244,7 +245,6 @@ mod imp {
             daemon_in_memory_state_is_corrupted: options.daemon_in_memory_state_is_corrupted,
             daemon_materializer_state_is_corrupted: options.daemon_materializer_state_is_corrupted,
             action_cache_is_corrupted: options.action_cache_is_corrupted,
-            deprecation: matches!(&options.kind, SoftErrorKind::Deprecation { .. }),
         }
     }
 

@@ -755,6 +755,7 @@ impl BuckdServer {
                                     soft_error_category: Some(buck2_data::SoftError {
                                         category: "paging_deferred_read_failed".to_owned(),
                                         is_quiet: false,
+                                        is_deprecation: false,
                                     }),
                                     daemon_in_memory_state_is_corrupted: true,
                                     ..Default::default()
@@ -770,6 +771,7 @@ impl BuckdServer {
                                     soft_error_category: Some(buck2_data::SoftError {
                                         category: "paging_heap_indexed_under_two_keys".to_owned(),
                                         is_quiet: false,
+                                        is_deprecation: false,
                                     }),
                                     ..Default::default()
                                 });
