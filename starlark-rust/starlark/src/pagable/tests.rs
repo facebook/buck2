@@ -1864,6 +1864,118 @@ fn test_frozen_record_type_round_trip() -> crate::Result<()> {
 }
 
 #[test]
+fn test_frozen_record_round_trip() -> crate::Result<()> {
+    use std::sync::Arc;
+
+    use starlark_map::small_map::SmallMap;
+
+    use crate::eval::ParametersSpec;
+    use crate::eval::ParametersSpecParam;
+    use crate::typing::Ty;
+    use crate::values::layout::avalue::TrailingValues;
+    use crate::values::record::Record;
+    use crate::values::record::field::Field;
+    use crate::values::record::record_type::FrozenRecordType;
+    use crate::values::record::record_type::RecordVariantFrozen;
+    use crate::values::record::ty_record_type::TyRecordData;
+    use crate::values::types::type_instance_id::TypeInstanceId;
+    use crate::values::typing::type_compiled::compiled::TypeCompiled;
+
+    let heap = ErasingHeap::new();
+
+    let id = TypeInstanceId::for_test(&"frozen_record_instance_type");
+    let record_type_fv = heap.with(|heap| {
+        let mut fields: SmallMap<String, Field> = SmallMap::new();
+        for name in ["x", "y"] {
+            fields.insert(
+                name.to_owned(),
+                Field {
+                    typ: TypeCompiled::any(),
+                    default: None,
+                },
+            );
+        }
+        erase(
+            heap.alloc_simple(FrozenRecordType {
+                id,
+                ty_record_data: RecordVariantFrozen {
+                    ty: Some(Arc::new(TyRecordData {
+                        name: "Point".to_owned(),
+                        ty_record: Ty::any(),
+                        ty_record_type: Ty::any(),
+                        parameter_spec_prototype: ParametersSpec::<()>::new_named_only(
+                            "Point",
+                            [
+                                ("x", ParametersSpecParam::Required),
+                                ("y", ParametersSpecParam::Required),
+                            ],
+                        )
+                        .prototype(),
+                    })),
+                },
+                fields,
+            }),
+        )
+    });
+    let x = heap.alloc_simple(SimpleData {
+        flag: true,
+        count: 7,
+    });
+    let y = heap.alloc_str("seven");
+    // Two instances of one type, so the type must round-trip as a single value.
+    let (first, second) = heap.with(|heap| {
+        let typ = ErasingHeap::restore_one(heap, record_type_fv);
+        let values = ErasingHeap::restore(heap, &[x, y]);
+        (
+            erase(heap.alloc_record(typ, &values)),
+            erase(heap.alloc_record(typ, &values[..1].repeat(2))),
+        )
+    });
+    let root = heap.alloc_tuple(&[first, second]);
+
+    let heap_ref = heap.into_ref_named(TestHeapName::heap_name("test_frozen_record"));
+    // SAFETY: heap_ref owns the arena hosting root.
+    let owned = unsafe { OwnedFrozen::from_erased(heap_ref, root) };
+    let restored = round_trip_owned_pagable_ser_de_impl(owned)?;
+
+    let tuple: &crate::values::types::tuple::value::Tuple = restored
+        .as_ref()
+        .value()
+        .downcast_ref::<crate::values::types::tuple::value::Tuple>()
+        .unwrap();
+    let content = tuple.content();
+    let first = Record::from_value(content[0]).expect("first element is a record");
+    let second = Record::from_value(content[1]).expect("second element is a record");
+
+    assert_eq!(first.record_type_id(), id);
+    assert!(
+        first.typ.ptr_eq(second.typ),
+        "both instances should share the single restored record type"
+    );
+    let typ: &FrozenRecordType = first.typ.downcast_ref::<FrozenRecordType>().unwrap();
+    assert_eq!(
+        typ.fields.keys().map(String::as_str).collect::<Vec<_>>(),
+        vec!["x", "y"]
+    );
+
+    assert_eq!(first.content().len(), 2);
+    let first_x: &SimpleData = first.content()[0].downcast_ref::<SimpleData>().unwrap();
+    assert_eq!(first_x.count, 7);
+    assert_eq!(first.content()[1].unpack_str(), Some("seven"));
+
+    let fields: Vec<(&str, Value)> = second.iter().collect();
+    assert_eq!(fields.len(), 2);
+    assert_eq!(fields[0].0, "x");
+    assert_eq!(fields[1].0, "y");
+    assert!(
+        fields[0].1.ptr_eq(fields[1].1),
+        "a value stored twice in one record should round-trip as one allocation"
+    );
+
+    Ok(())
+}
+
+#[test]
 fn test_static_frozen_value_round_trip() -> crate::Result<()> {
     let heap = ErasingHeap::new();
 

@@ -18,6 +18,7 @@
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
+use std::mem;
 
 use allocative::Allocative;
 use display_container::fmt_keyed_container;
@@ -30,23 +31,22 @@ use crate::any::ProvidesStaticType;
 use crate::collections::Hashed;
 use crate::collections::SmallMap;
 use crate::collections::StarlarkHasher;
-use crate::starlark_complex_value;
+use crate::private::Private;
 use crate::typing::Ty;
-use crate::values::Freeze;
 use crate::values::Heap;
-use crate::values::StarlarkPagable;
 use crate::values::StarlarkValue;
-use crate::values::Trace;
 use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueTyped;
 use crate::values::comparison::equals_slice;
+use crate::values::layout::avalue::TrailingValues;
 use crate::values::record::field::Field;
 use crate::values::record::record_type::AnyRecordType;
 use crate::values::record::record_type::RecordTypeError;
 use crate::values::record::record_type::RecordTypeGen;
 use crate::values::record::record_type::RecordVariant;
 use crate::values::record::record_type::record_fields;
+use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::type_instance_id::TypeInstanceId;
 
 #[derive(Debug, thiserror::Error)]
@@ -56,19 +56,18 @@ enum RecordError {
 }
 
 /// An actual record.
-#[derive(
-    Clone,
-    Debug,
-    Trace,
-    Freeze,
-    ProvidesStaticType,
-    Allocative,
-    StarlarkPagable
-)]
+///
+/// The field values are stored inline after the fixed part, so a record is a
+/// single heap allocation; it is created with [`Record::alloc`], never by value.
 #[repr(C)]
+#[derive(ProvidesStaticType, Allocative)]
 pub struct Record<'v> {
     pub(crate) typ: Value<'v>, // Must be RecordType
-    pub(crate) values: Box<[Value<'v>]>,
+    /// Number of field values, which must be derivable from the payload alone:
+    /// the heap sizes allocations without following `typ`.
+    len: usize,
+    /// The field values, in field declaration order.
+    content: [Value<'v>; 0],
 }
 
 impl<'v> Display for Record<'v> {
@@ -78,13 +77,44 @@ impl<'v> Display for Record<'v> {
     }
 }
 
-starlark_complex_value!(pub Record);
+impl<'v> Debug for Record<'v> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Record")
+            .field("typ", &self.typ)
+            .field("content", &self.content())
+            .finish()
+    }
+}
 
 impl<'v> Record<'v> {
     /// `type(x)` for records.
     pub const TYPE: &'static str = "record";
 
-    /// Creates a new record of type `typ`.
+    /// The fixed part of a record whose `len` values follow it in memory.
+    ///
+    /// # Safety
+    ///
+    /// The caller must place `len` initialised values immediately after this
+    /// struct before the record is used.
+    pub(crate) const unsafe fn new_header(typ: Value<'v>, len: usize) -> Record<'v> {
+        Record {
+            typ,
+            len,
+            content: [],
+        }
+    }
+
+    pub(crate) fn offset_of_content() -> usize {
+        mem::offset_of!(Self, content)
+    }
+
+    /// Downcast the value.
+    #[inline]
+    pub fn from_value(x: Value<'v>) -> Option<&'v Self> {
+        x.downcast_ref::<Record<'v>>()
+    }
+
+    /// Allocates a record of type `typ` on `heap`.
     ///
     /// `typ` must already have a name assigned, which happens when the record type
     /// is exported: assigned to a global variable in Starlark, or passed to
@@ -92,10 +122,11 @@ impl<'v> Record<'v> {
     /// `values` must contain one value per field of `typ`, in field declaration
     /// order; defaults are not applied. Each value is checked against its
     /// field's type.
-    pub fn new<V: RecordVariant>(
+    pub fn alloc<V: RecordVariant>(
+        heap: Heap<'v>,
         typ: ValueTyped<'v, RecordTypeGen<'v, V>>,
-        values: Box<[Value<'v>]>,
-    ) -> crate::Result<Self> {
+        values: &[Value<'v>],
+    ) -> crate::Result<Value<'v>> {
         if typ.as_ref().ty_record_data.get_ty().is_none() {
             return Err(crate::Error::new_other(
                 RecordTypeError::RecordTypeNotAssigned,
@@ -108,13 +139,10 @@ impl<'v> Record<'v> {
                 values: values.len(),
             }));
         }
-        for ((name, field), value) in fields.iter().zip(&values) {
+        for ((name, field), value) in fields.iter().zip(values) {
             field.typ.check_type(*value, Some(name))?;
         }
-        Ok(Self {
-            typ: typ.to_value(),
-            values,
-        })
+        Ok(heap.alloc_record(typ.to_value(), values))
     }
 
     fn get_record_type(&self) -> AnyRecordType<'v> {
@@ -148,16 +176,56 @@ impl<'v> Record<'v> {
         self.get_record_fields()
             .keys()
             .map(String::as_str)
-            .zip(self.values.iter().copied())
+            .zip(self.content().iter().copied())
+    }
+}
+
+// SAFETY: every record allocation writes `len` elements after `content`.
+unsafe impl<'v> TrailingValues<'v> for Record<'v> {
+    fn len(&self) -> usize {
+        self.len
+    }
+
+    fn content_ptr(&self) -> *const Value<'v> {
+        self.content.as_ptr()
+    }
+
+    fn content_mut_ptr(&mut self) -> *mut Value<'v> {
+        self.content.as_mut_ptr()
+    }
+}
+
+impl<'v> StarlarkTypeRepr for &'v Record<'v> {
+    type Canonical = Record<'v>;
+
+    #[inline]
+    fn starlark_type_repr() -> Ty {
+        <Record as StarlarkValue>::get_type_starlark_repr()
+    }
+}
+
+impl<'v> UnpackValue<'v> for &'v Record<'v> {
+    type Error = std::convert::Infallible;
+
+    #[inline]
+    fn unpack_value_impl(x: Value<'v>) -> Result<Option<&'v Record<'v>>, Self::Error> {
+        Ok(Record::from_value(x))
     }
 }
 
 #[starlark_value(type = Record::TYPE)]
 impl<'v> StarlarkValue<'v> for Record<'v> {
+    fn is_special(_: Private) -> bool
+    where
+        Self: Sized,
+    {
+        true
+    }
+
     fn equals(&self, other: Value<'v>) -> crate::Result<bool> {
         match Record::from_value(other) {
             Some(other) if self.typ.equals(other.typ)? => {
-                equals_slice(&self.values, &other.values, |x, y| x.equals(*y))
+                equals_slice(self.content(), other.content(), |x, y| x.equals(*y))
             }
             _ => Ok(false),
         }
@@ -169,12 +237,12 @@ impl<'v> StarlarkValue<'v> for Record<'v> {
 
     fn get_attr_hashed(&self, attribute: Hashed<&str>, _heap: Heap<'v>) -> Option<Value<'v>> {
         let i = self.get_record_fields().get_index_of_hashed(attribute)?;
-        Some(self.values[i].to_value())
+        Some(self.content()[i].to_value())
     }
 
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> crate::Result<()> {
         self.typ.write_hash(hasher)?;
-        for v in &*self.values {
+        for v in self.content() {
             v.write_hash(hasher)?;
         }
         Ok(())
@@ -205,8 +273,12 @@ impl<'v> Serialize for Record<'v> {
 mod tests {
     use starlark_map::small_map::SmallMap;
 
+    use crate::assert;
+    use crate::environment::Globals;
     use crate::environment::Module;
     use crate::eval::Evaluator;
+    use crate::syntax::AstModule;
+    use crate::syntax::Dialect;
     use crate::typing::Ty;
     use crate::values::Heap;
     use crate::values::ValueTyped;
@@ -245,17 +317,15 @@ mod tests {
     }
 
     #[test]
-    fn test_new_creates_record() {
+    fn test_alloc_creates_record() {
         Module::with_temp_heap(|module| {
             let heap = module.heap();
             let typ = ip_address_record_type(&module);
             assert_eq!(2, typ.as_ref().len(), "`IpAddress` has two fields");
             assert!(!typ.as_ref().is_empty(), "`IpAddress` has fields");
 
-            let record = heap.alloc(
-                Record::new(typ, Box::new([heap.alloc("localhost"), heap.alloc(80)]))
-                    .expect("values match the field types"),
-            );
+            let record = Record::alloc(heap, typ, &[heap.alloc("localhost"), heap.alloc(80)])
+                .expect("values match the field types");
             assert_eq!(
                 Some("localhost"),
                 record
@@ -276,46 +346,46 @@ mod tests {
     }
 
     #[test]
-    fn test_new_rejects_wrong_number_of_values() {
+    fn test_alloc_rejects_wrong_number_of_values() {
         Module::with_temp_heap(|module| {
             let heap = module.heap();
             let typ = ip_address_record_type(&module);
 
             assert!(
-                Record::new(typ, Box::new([heap.alloc("localhost")])).is_err(),
+                Record::alloc(heap, typ, &[heap.alloc("localhost")]).is_err(),
                 "one value for two fields should be rejected"
             );
         });
     }
 
     #[test]
-    fn test_new_rejects_ill_typed_values() {
+    fn test_alloc_rejects_ill_typed_values() {
         Module::with_temp_heap(|module| {
             let heap = module.heap();
             let typ = ip_address_record_type(&module);
 
             assert!(
-                Record::new(typ, Box::new([heap.alloc(1), heap.alloc(80)])).is_err(),
+                Record::alloc(heap, typ, &[heap.alloc(1), heap.alloc(80)]).is_err(),
                 "an int is not a valid `host`"
             );
         });
     }
 
     #[test]
-    fn test_new_rejects_unnamed_record_type() {
+    fn test_alloc_rejects_unnamed_record_type() {
         Module::with_temp_heap(|module| {
             let heap = module.heap();
             let typ = unnamed_ip_address_record_type(heap);
 
             assert!(
-                Record::new(typ, Box::new([heap.alloc("localhost"), heap.alloc(80)])).is_err(),
+                Record::alloc(heap, typ, &[heap.alloc("localhost"), heap.alloc(80)]).is_err(),
                 "records of a type that was never assigned a name cannot be created"
             );
         });
     }
 
     #[test]
-    fn test_new_with_frozen_record_type() {
+    fn test_alloc_with_frozen_record_type() {
         let frozen_module = Module::with_temp_heap(|module| {
             let typ = ip_address_record_type(&module);
             module.set("IpAddress", typ.to_value());
@@ -334,10 +404,8 @@ mod tests {
             let typ = ValueTyped::<FrozenRecordType>::new_err(typ)
                 .expect("the frozen module symbol is a frozen record type");
 
-            let record = heap.alloc(
-                Record::new(typ, Box::new([heap.alloc("localhost"), heap.alloc(80)]))
-                    .expect("values match the field types"),
-            );
+            let record = Record::alloc(heap, typ, &[heap.alloc("localhost"), heap.alloc(80)])
+                .expect("values match the field types");
             assert_eq!(
                 Some(80),
                 record
@@ -351,7 +419,7 @@ mod tests {
     }
 
     #[test]
-    fn test_new_requires_values_for_defaulted_fields() {
+    fn test_alloc_requires_values_for_defaulted_fields() {
         Module::with_temp_heap(|module| {
             let heap = module.heap();
             let mut fields = SmallMap::new();
@@ -377,13 +445,102 @@ mod tests {
                 .expect("assigning a name to a record type does not fail");
 
             assert!(
-                Record::new(typ, Box::new([heap.alloc("localhost")])).is_err(),
+                Record::alloc(heap, typ, &[heap.alloc("localhost")]).is_err(),
                 "defaults are not applied, so a value for `port` is still required"
             );
             assert!(
-                Record::new(typ, Box::new([heap.alloc("localhost"), heap.alloc(8080)])).is_ok(),
+                Record::alloc(heap, typ, &[heap.alloc("localhost"), heap.alloc(8080)]).is_ok(),
                 "explicitly passing a value for the defaulted field works"
             );
+        });
+    }
+
+    #[test]
+    fn test_empty_record() {
+        assert::pass(
+            r#"
+Empty = record()
+e = Empty()
+assert_eq(dir(e), [])
+assert_eq(e, Empty())
+garbage_collect()
+assert_eq(str(e), "record[Empty]()")
+"#,
+        );
+    }
+
+    /// A record type can reach an instance of itself through a mutable field
+    /// default, so copying the type and copying the instance recurse into each
+    /// other. Both the collector and the freezer must terminate on that cycle.
+    const SELF_REFERENTIAL_DEFAULT: &str = r#"
+_shared = []
+Node = record(children = field(list, _shared), label = field(str, "root"))
+_shared.append(Node(children = [], label = "leaf"))
+root = Node()
+other = Node(children = [root], label = "other")
+"#;
+
+    const SELF_REFERENTIAL_DEFAULT_CHECKS: &str = r#"
+def check(cond, what):
+    if not cond:
+        fail("unexpected value for " + what)
+
+check(root.label == "root", "root.label")
+check(len(root.children) == 1, "len(root.children)")
+check(root.children[0].label == "leaf", "root.children[0].label")
+check(root.children[0].children == [], "root.children[0].children")
+check(other.children[0] == root, "other.children[0]")
+check(other.children[0].children[0] == root.children[0], "other.children[0].children[0]")
+"#;
+
+    #[test]
+    fn test_gc_with_self_referential_default() {
+        assert::pass(&format!(
+            "{SELF_REFERENTIAL_DEFAULT}\ngarbage_collect()\n{SELF_REFERENTIAL_DEFAULT_CHECKS}"
+        ));
+    }
+
+    #[test]
+    fn test_freeze_with_self_referential_default() {
+        let frozen = Module::with_temp_heap(|module| {
+            {
+                let mut eval = Evaluator::new(&module);
+                eval.eval_module(
+                    AstModule::parse(
+                        "records.star",
+                        SELF_REFERENTIAL_DEFAULT.to_owned(),
+                        &Dialect::AllOptionsInternal,
+                    )
+                    .expect("the module parses"),
+                    &Globals::extended_internal(),
+                )
+                .expect("the module evaluates");
+            }
+            module
+                .freeze_named(StarlarkTestHeapName::frozen_heap_name())
+                .expect("freezing a record type cycle through a default terminates")
+        });
+
+        Module::with_temp_heap(|module| {
+            for name in ["Node", "root", "other"] {
+                let value = frozen
+                    .get_option(name)
+                    .expect("symbol lookup does not fail")
+                    .expect("the symbol was exported")
+                    .add_to_heap(module.heap());
+                module.set(name, value);
+            }
+            let mut eval = Evaluator::new(&module);
+            eval.eval_module(
+                AstModule::parse(
+                    "checks.star",
+                    SELF_REFERENTIAL_DEFAULT_CHECKS.to_owned(),
+                    &Dialect::AllOptionsInternal,
+                )
+                .expect("the checks parse"),
+                &Globals::extended_internal(),
+            )
+            .expect("the frozen records read back correctly");
         });
     }
 }
