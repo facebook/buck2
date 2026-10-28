@@ -12,6 +12,8 @@
 Generate a __manifest__.py module containing build metadata for a Python package.
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import re
