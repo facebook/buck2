@@ -10,7 +10,7 @@
 
 use std::iter;
 
-use buck2_core::soft_error;
+use buck2_core::soft_error_or_panic;
 use buck2_data::VersionControlRevision;
 use buck2_error::ErrorTag;
 use buck2_events::dispatch::EventDispatcher;
@@ -50,11 +50,10 @@ pub(crate) fn spawn_version_control_collector(
             if let Some(error) = &event.command_error
                 && error != NOT_A_REPOSITORY
             {
-                soft_error!(
+                soft_error_or_panic!(
                     "spawn_version_control_collector_failed",
                     buck2_error::buck2_error!(buck2_error::ErrorTag::Input, "{}", error)
-                )
-                .ok();
+                );
             }
 
             dispatch.instant_event(event);

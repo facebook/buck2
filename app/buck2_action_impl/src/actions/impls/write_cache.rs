@@ -43,6 +43,7 @@ use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::rollout_percentage::RolloutFraction;
 use buck2_core::soft_error;
+use buck2_core::soft_error_or_panic;
 use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
 use buck2_error::buck2_error;
@@ -198,7 +199,7 @@ impl<'a> WriteCache<'a> {
             }
             Err(e) => {
                 WriteActionCacheStats::bump(&WRITE_ACTION_CACHE_STATS.lookup_failures);
-                let _ignored = soft_error!(
+                soft_error_or_panic!(
                     "write_action_cache_lookup_failed",
                     e.context(
                         "Action cache lookup for a write's content failed; producing it instead"
@@ -221,7 +222,7 @@ impl<'a> WriteCache<'a> {
         let (digest, ttl) = match digest {
             Ok(digest) => digest,
             Err(e) => {
-                let _ignored = soft_error!(
+                soft_error_or_panic!(
                     "write_action_cache_bad_entry",
                     e.context(format!(
                         "Action cache entry `{}` for a write is malformed; producing the content instead",
@@ -386,7 +387,7 @@ pub(crate) async fn declare_miss(
             Err(e) => {
                 // Writing locally is the right fallback, but a CAS that refuses uploads would
                 // silently turn every busy write into a local one, which should be visible.
-                let _ignored = soft_error!(
+                soft_error!(
                     "write_action_cache_upload_failed",
                     e.context("Uploading a write's content failed; writing it locally instead")
                 );

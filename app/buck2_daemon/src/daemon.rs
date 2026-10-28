@@ -27,7 +27,7 @@ use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::memory;
 use buck2_core::buck2_env;
 use buck2_core::logging::LogConfigurationReloadHandle;
-use buck2_core::soft_error;
+use buck2_core::soft_error_or_panic;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use buck2_error::buck2_error;
@@ -180,7 +180,7 @@ fn recorded_start_time() -> u64 {
     match process_start_time(None) {
         Some(start_time) => start_time,
         None => {
-            let _ignored = soft_error!(
+            soft_error_or_panic!(
                 "daemon_pid_start_time_unavailable",
                 buck2_error!(
                     ErrorTag::DaemonStartupFailed,
@@ -615,7 +615,7 @@ impl DaemonCommand {
                 );
                 let _ignored = buck2_client_ctx::eprintln!("{}", msg);
 
-                let _ignored = soft_error!(
+                soft_error_or_panic!(
                     "daemon_project_root_unavailable",
                     buck2_error!(
                         ErrorTag::MissingProjectRoot,
@@ -736,7 +736,7 @@ impl DaemonCommand {
         ) {
             Ok(()) => tracing::info!("Exited BPFJailer jail"),
             Err(e) => {
-                let _ignored = soft_error!(
+                soft_error_or_panic!(
                     "failed_to_exit_bpfjailer",
                     buck2_error::internal_error!("Failed to exit BPFJailer jail: {}", e)
                 );

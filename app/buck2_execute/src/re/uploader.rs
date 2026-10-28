@@ -248,7 +248,7 @@ impl Uploader {
                                         ),
                                         daemon_in_memory_state_is_corrupted: true,
                                         action_cache_is_corrupted: info.origin.guaranteed_by_action_cache()
-                                    )?;
+                                    );
 
                                     return Err(buck2_error::buck2_error!(
                                         buck2_error::ErrorTag::ReCasArtifactExpired,
@@ -270,7 +270,7 @@ impl Uploader {
                                         file.digest.expires()?,
                                         err
                                     )
-                                )?;
+                                );
 
                                 // Materialize the file locally from CAS and add it to
                                 // the upload list. Silently skipping this file (the old

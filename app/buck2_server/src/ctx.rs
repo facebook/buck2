@@ -567,7 +567,7 @@ impl<'a> ServerCommandContext<'a> {
             if elapsed > SLOW_DEP_FILE_FLUSH
                 && !SLOW_DEP_FILE_FLUSH_REPORTED.swap(true, Ordering::Relaxed)
             {
-                let _unused = soft_error!(
+                soft_error!(
                     "slow_dep_file_flush",
                     buck2_error::buck2_error!(
                         buck2_error::ErrorTag::Tier0,

@@ -290,7 +290,7 @@ impl EdenFsFileWatcher {
                                 bytes_to_string_or_unknown(&renamed.from),
                                 bytes_to_string_or_unknown(&renamed.to)
                             )
-                        )?;
+                        );
                     } else {
                         let kind = dtype_into_file_watcher_kind(renamed.fileType);
                         self.process_file_watcher_event(
@@ -373,7 +373,7 @@ impl EdenFsFileWatcher {
                              EdenFS Thrift API has changed and the buck2 code needs to be updated.",
                             small_change
                         )
-                    )?;
+                    );
                     ProcessChangeStatus::LargeOrUnknown
                 }
             },
@@ -424,7 +424,7 @@ impl EdenFsFileWatcher {
                              EdenFS Thrift API has changed and the buck2 code needs to be updated.",
                             large_change
                         )
-                    )?;
+                    );
                     ProcessChangeStatus::LargeOrUnknown
                 }
             },
@@ -441,7 +441,7 @@ impl EdenFsFileWatcher {
                          EdenFS Thrift API has changed and the buck2 code needs to be updated.",
                         change
                     )
-                )?;
+                );
                 ProcessChangeStatus::LargeOrUnknown
             }
         };

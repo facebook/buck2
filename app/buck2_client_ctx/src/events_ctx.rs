@@ -427,7 +427,7 @@ impl<'a> DaemonEventsCtx<'a> {
 // impl<'a> Drop for DaemonEventsCtx<'a> {
 //     fn drop(&mut self) {
 //         if self.tailers.stream.is_some() {
-//             let _unused = soft_error!(
+//             soft_error!(
 //                 "daemon_tailers_not_flushed",
 //                 internal_error!("DaemonEventsCtx should have been flushed before being dropped"),
 //             );

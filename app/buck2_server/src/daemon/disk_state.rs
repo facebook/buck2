@@ -229,7 +229,7 @@ pub(crate) async fn maybe_initialize_dep_file_sqlite_db(
             })
             .await;
         if let Err(e) = removed {
-            let _unused = soft_error!(
+            soft_error!(
                 "dep_file_state_db_remove",
                 buck2_error::buck2_error!(
                     buck2_error::ErrorTag::Tier0,
@@ -291,7 +291,7 @@ pub(crate) async fn maybe_initialize_dep_file_sqlite_db(
     {
         Ok(db) => db,
         Err(e) => {
-            let _unused = soft_error!(
+            soft_error!(
                 "dep_file_state_db_init",
                 buck2_error::buck2_error!(
                     buck2_error::ErrorTag::Tier0,

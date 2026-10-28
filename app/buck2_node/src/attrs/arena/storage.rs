@@ -546,7 +546,7 @@ impl CoercedAttrArena {
         // monotone, so the threshold is crossed exactly once.
         const CAPACITY_WARN: usize = CAPACITY / 2;
         if off < CAPACITY_WARN && end >= CAPACITY_WARN {
-            let _unused = soft_error!(
+            soft_error!(
                 "attr_arena_near_capacity",
                 buck2_error!(
                     buck2_error::ErrorTag::Environment,

@@ -269,8 +269,7 @@ impl CasArtifactAction {
                     e.context(format!(
                         "Could not check `{}` under use case `{canonical}`; serving it from `{own}`",
                         self.inner.digest
-                    )))
-                .ok();
+                    )));
                 return Ok(Served {
                     use_case: own,
                     canonical_expiration: None,
@@ -319,8 +318,7 @@ impl CasArtifactAction {
                     e.context(format!(
                         "Could not copy `{}` from use case `{own}` into `{canonical}`; serving it from `{own}`",
                         self.inner.digest
-                    )))
-                .ok();
+                    )));
                 Ok(Served {
                     use_case: own,
                     canonical_expiration: None,
@@ -573,7 +571,7 @@ impl Action for CasArtifactAction {
                 updated_expiration: new_expiration,
             }
             .into();
-            soft_error!("cas_artifact_invalid_expiration", error).ok();
+            soft_error!("cas_artifact_invalid_expiration", error);
             expiration = new_expiration;
         }
 

@@ -141,7 +141,7 @@ async fn daemon_unsandboxed_wrapper(
         Err(_) => false,
     };
     if !wrapper_is_setuid {
-        let _unused = warn_user!(
+        warn_user!(
             "buck_unsandbox_daemon_wrapper_not_setuid",
             buck2_error!(
                 ErrorTag::Environment,
@@ -154,7 +154,7 @@ async fn daemon_unsandboxed_wrapper(
     }
 
     let Some(release) = BuckWrapperRelease::create(UNSANDBOX_DAEMON_WRAPPER).await else {
-        let _unused = warn_user!(
+        warn_user!(
             "buck_unsandbox_daemon_wrapper_release_unavailable",
             buck2_error!(
                 ErrorTag::Environment,
@@ -167,7 +167,7 @@ async fn daemon_unsandboxed_wrapper(
     };
 
     if !release.is_at_least(&MIN_UNSANDBOX_DAEMON_WRAPPER_RELEASE) {
-        let _unused = warn_user!(
+        warn_user!(
             "buck_unsandbox_daemon_wrapper_release_too_old",
             buck2_error!(
                 ErrorTag::Environment,
@@ -194,7 +194,7 @@ async fn daemon_unsandboxed_wrapper(
             .file_name()
             .map(|filename| filename.to_string_lossy())
             .unwrap_or(Cow::Borrowed("<none>"));
-        let _unused = warn_user!(
+        warn_user!(
             "buck_unsandbox_daemon_unsupported_daemon_filename",
             buck2_error!(
                 ErrorTag::Environment,

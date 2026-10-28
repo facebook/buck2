@@ -8,7 +8,7 @@
  * above-listed licenses.
  */
 
-use buck2_core::soft_error;
+use buck2_core::soft_error_or_panic;
 use starlark::eval::SoftErrorHandler;
 pub struct Buck2StarlarkSoftErrorHandler;
 
@@ -17,7 +17,7 @@ pub struct Buck2StarlarkSoftErrorHandler;
 impl SoftErrorHandler for Buck2StarlarkSoftErrorHandler {
     fn soft_error(&self, category: &str, error: starlark::Error) -> Result<(), starlark::Error> {
         let error = buck2_error::Error::from(error);
-        soft_error!(&format!("starlark_rust_{category}"), error)?;
+        soft_error_or_panic!(&format!("starlark_rust_{category}"), error);
         Ok(())
     }
 }

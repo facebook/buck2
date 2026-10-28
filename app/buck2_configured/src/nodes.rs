@@ -418,7 +418,7 @@ fn check_dep_visibility(
             err.into(),
             owner: "dust",
             low_cardinality_key_for_additional_logview_samples: Some(Box::new(dep.label().pkg())),
-        )?;
+        );
         return Ok(());
     }
     Err(err.into())
@@ -1673,7 +1673,7 @@ impl ConfiguredTargetNodeCalculationImpl for ConfiguredTargetNodeCalculationInst
                             owner: "scottcao",
                             // Log at least one sample per unique package.
                             low_cardinality_key_for_additional_logview_samples: Some(Box::new(target.unconfigured().pkg())),
-                        )?;
+                        );
                         if let Some(custom_soft_errors) = get_dep_only_incompatible_custom_soft_error(
                             ctx,
                             target.unconfigured_label(),
@@ -1686,7 +1686,7 @@ impl ConfiguredTargetNodeCalculationImpl for ConfiguredTargetNodeCalculationInst
                                     reason.to_soft_err(),
                                     owner: "scottcao",
                                     task: false,
-                                )?;
+                                );
                             }
                         }
                     }

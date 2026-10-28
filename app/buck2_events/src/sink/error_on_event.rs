@@ -8,7 +8,7 @@
  * above-listed licenses.
  */
 
-use buck2_core::soft_error;
+use buck2_core::soft_error_or_panic;
 use buck2_error::buck2_error;
 
 use crate::Event;
@@ -26,7 +26,7 @@ impl EventSink for ErrorOnEventSink {
         // Report via soft_error so the missing dispatcher is logged in
         // production and caught as a hard failure in tests with
         // soft_error enforcement.
-        let _ignored = soft_error!(
+        soft_error_or_panic!(
             "event_dispatched_without_dispatcher",
             buck2_error!(
                 buck2_error::ErrorTag::InternalError,

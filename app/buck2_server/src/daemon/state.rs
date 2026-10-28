@@ -47,7 +47,7 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::is_open_source;
 use buck2_core::rollout_percentage::RolloutPercentage;
-use buck2_core::soft_error;
+use buck2_core::soft_error_or_panic;
 use buck2_core::tag_result;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
@@ -589,7 +589,7 @@ impl TenantState {
                     })
                 }
                 Err(e) => {
-                    let _unused = soft_error!(
+                    soft_error_or_panic!(
                         "dep_file_store_init",
                         buck2_error::buck2_error!(
                             buck2_error::ErrorTag::Tier0,
@@ -1607,7 +1607,7 @@ impl DaemonState {
                      This will likely lead to failed or slow builds. \
                      To remediate, run `eden redirect fixup`."
                 )
-            )?;
+            );
         }
         #[cfg(not(fbcode_build))]
         {

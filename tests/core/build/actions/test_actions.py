@@ -273,7 +273,9 @@ class ActionsTest(BuckTestCase):
             stderr_regex="Attr type `attrs.plugin_dep\\(\\)` is not supported for anon rules",
         )
 
-    @buck_test(data_dir="actions")
+    # The missing use case is served from the fallback, which is the
+    # `cas_artifact_canonical_check_failed` soft error.
+    @buck_test(data_dir="actions", allow_soft_errors=True)
     async def test_cas_artifact(self, buck: Buck) -> None:
         # The digests in `//cas_artifact:` require the buckconfig.
         # NB: cannot use `extra_buck_config` attrib of `@buck_test()``

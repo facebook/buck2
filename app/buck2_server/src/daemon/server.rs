@@ -2237,7 +2237,7 @@ pub(crate) mod eden_health {
     use std::time::Duration;
 
     use buck2_core::fs::project::ProjectRoot;
-    use buck2_core::soft_error;
+    use buck2_core::soft_error_or_panic;
     use buck2_eden::connection::EdenConnectionManager;
     use buck2_eden::connection::EdenDaemonIdentity;
     use buck2_eden::error::EdenDaemonRestarted;
@@ -2280,7 +2280,7 @@ pub(crate) mod eden_health {
                                 let identity = EdenDaemonIdentity::from_daemon_info(&info);
                                 if let Some(last) = &last_identity {
                                     if !last.is_same_daemon(&identity) {
-                                        soft_error!(
+                                        soft_error_or_panic!(
                                             "eden_restart_detected",
                                             EdenDaemonRestarted {
                                                 old_pid: last.pid(),
@@ -2289,8 +2289,7 @@ pub(crate) mod eden_health {
                                                 new_start_time: identity.start_time(),
                                             }
                                             .into()
-                                        )
-                                        .ok();
+                                        );
                                     }
                                 }
                                 last_identity = Some(identity);
@@ -2300,15 +2299,14 @@ pub(crate) mod eden_health {
                                     "check hit an EdenFS error caused by a hanging mount: {:#}",
                                     e
                                 );
-                                soft_error!(
+                                soft_error_or_panic!(
                                     "eden_thrift_health_check_failed",
                                     buck2_error!(
                                         buck2_error::ErrorTag::Input,
                                         "check failed with: {:#}",
                                         e
                                     )
-                                )
-                                .ok();
+                                );
                             }
                             Err(e) => {
                                 tracing::debug!("check failed with a non-hanging error: {:#}", e);
@@ -2324,15 +2322,14 @@ pub(crate) mod eden_health {
                     // This _could_ signal a hanging mount, so we'll report a possible hang.
                     Err(e) => {
                         tracing::error!("check failed to create an EdenFS client: {:#}", e);
-                        soft_error!(
+                        soft_error_or_panic!(
                             "eden_thrift_client_creation_failed",
                             buck2_error!(
                                 buck2_error::ErrorTag::Input,
                                 "client creation failed with: {:#}",
                                 e
                             )
-                        )
-                        .ok();
+                        );
                     }
                 }
             }

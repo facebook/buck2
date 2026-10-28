@@ -125,9 +125,12 @@ the report is for, and that decides everything else, so pick by audience:
   anyone. Once the count is zero the call site becomes a hard error. A deprecation nobody is
   driving gets deleted and replaced with a `FIXME`.
 
-Under `BUCK2_HARD_ERROR=true`, which buck2's integration tests set, both return `Err` so that
-the condition fails the test; a test that expects the condition opts out with
-`allow_soft_errors=True`. Open source builds report nothing and fail nothing.
+Under `BUCK2_HARD_ERROR=true`, which buck2's integration tests set, a report fails the command:
+the macro returns the error from the enclosing function, the way `?` would, so the condition
+fails the test. A call site with nowhere to return an error to uses the `_or_panic` form of the
+macro (`soft_error_or_panic!` and so on), and the report panics there instead. A test that
+expects the condition opts out with `allow_soft_errors=True`. Open source builds report nothing
+and fail nothing.
 
 ## Worked example
 

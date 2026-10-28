@@ -15,7 +15,7 @@ use allocative::Visitor;
 use allocative::ident_key;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_core::soft_error;
+use buck2_core::soft_error_or_panic;
 use buck2_directory::directory::directory::Directory;
 use buck2_directory::directory::directory_iterator::DirectoryIterator;
 use buck2_directory::directory::directory_ref::DirectoryRef;
@@ -513,7 +513,7 @@ impl ArtifactTree {
             }
             Err(e) => {
                 // NOTE: This shouldn't normally happen?
-                let _unused = soft_error!("cleanup_finished_vacant", e);
+                soft_error_or_panic!("cleanup_finished_vacant", e);
             }
         }
     }

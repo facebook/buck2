@@ -89,7 +89,7 @@ pub(crate) fn check_user_allowed() -> buck2_error::Result<()> {
             let home_dir_metadata =
                 fs_util::metadata(home_dir).categorize_tagged(ErrorTag::MissingHomeDir)?;
             if home_dir_metadata.uid() != 0 {
-                warn_user!("root_not_allowed", RootError.into())?;
+                warn_user!("root_not_allowed", RootError.into());
             }
         }
     }

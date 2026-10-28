@@ -403,14 +403,11 @@ impl Drop for WriteLease {
             .collect::<Vec<_>>()
             .join(", ");
         // A bug in the holder: whatever it left there may be named by a value and is tracked by
-        // nothing. Under the hard-error policy buck2's own tests run with there is no caller to
-        // hand the error to, so there it is a panic.
-        if let Err(e) = buck2_core::soft_error!(
+        // nothing.
+        buck2_core::soft_error_or_panic!(
             "write_lease_released_unsettled",
             internal_error!("A write lease was released with nothing reported at [{pending}]")
-        ) {
-            panic!("{e:#}");
-        }
+        );
     }
 }
 

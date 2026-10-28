@@ -51,52 +51,54 @@ fn test_init() -> MutexGuard<'static, ()> {
 }
 
 #[test]
-fn test_soft_error() {
+fn test_soft_error() -> buck2_error::Result<()> {
     let _guard = test_init();
 
     let before_error_line = line!();
-    let _ignore_hard_error = soft_error!(
+    soft_error!(
         "test_logged_soft_error",
         buck2_error!(buck2_error::ErrorTag::Input, "Should be logged").into(),
     );
     assert_eq!(
         Some(&format!(
-            "({:?}, {}, 30), : Should be logged : test_logged_soft_error : false : SoftError",
+            "({:?}, {}, 5), : Should be logged : test_logged_soft_error : false : SoftError",
             file!(),
             before_error_line + 1,
         )),
         RESULT.lock().unwrap().first()
     );
+    Ok(())
 }
 
 #[test]
-fn test_deprecation() {
+fn test_deprecation() -> buck2_error::Result<()> {
     let _guard = test_init();
 
     let before_error_line = line!();
-    let _ignore_hard_error = deprecation!(
+    deprecation!(
         "test_logged_deprecation",
         buck2_error!(buck2_error::ErrorTag::Input, "Still used").into(),
         owner: "jakobdegen",
     );
     assert_eq!(
         Some(&format!(
-            "({:?}, {}, 30), : Still used : test_logged_deprecation : false : Deprecation {{ owner: Some(\"jakobdegen\") }}",
+            "({:?}, {}, 5), : Still used : test_logged_deprecation : false : Deprecation {{ owner: Some(\"jakobdegen\") }}",
             file!(),
             before_error_line + 1,
         )),
         RESULT.lock().unwrap().first()
     );
+    Ok(())
 }
 
 #[test]
-fn test_counter_limit() {
+fn test_counter_limit() -> buck2_error::Result<()> {
     let _guard = test_init();
 
     assert_eq!(0, RESULT.lock().unwrap().len(), "Sanity check");
 
     for _ in 0..100 {
-        let _ignore = soft_error!(
+        soft_error!(
             "test_counter_limit",
             buck2_error!(buck2_error::ErrorTag::Input, "Message").into()
         );
@@ -107,4 +109,5 @@ fn test_counter_limit() {
         RESULT.lock().unwrap().len(),
         "Should be logged 10 times"
     );
+    Ok(())
 }

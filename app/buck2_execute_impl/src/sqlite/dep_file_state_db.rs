@@ -24,7 +24,7 @@ use buck2_common::sqlite::sqlite_db::SqliteTables;
 use buck2_core::error::SoftErrorContext;
 use buck2_core::error::capture_soft_error_context;
 use buck2_core::error::with_soft_error_context;
-use buck2_core::soft_error;
+use buck2_core::soft_error_or_panic;
 use buck2_error::BuckErrorContext;
 use buck2_execute::dep_file_state::DepFileDbSize;
 use buck2_execute::dep_file_state::DepFileReadStats;
@@ -216,7 +216,7 @@ fn apply_write(db: &DepFileStateSqliteDb, write: DepFileWriteOperation) -> Optio
         }
     };
     if let Err(e) = result {
-        let _unused = soft_error!(
+        soft_error_or_panic!(
             category,
             buck2_error::buck2_error!(
                 buck2_error::ErrorTag::Tier0,
@@ -231,7 +231,7 @@ fn apply_write(db: &DepFileStateSqliteDb, write: DepFileWriteOperation) -> Optio
 }
 
 fn report_read_failure(e: buck2_error::Error) {
-    let _unused = soft_error!(
+    soft_error_or_panic!(
         "read_from_dep_file_db",
         buck2_error::buck2_error!(
             buck2_error::ErrorTag::Tier0,
@@ -438,7 +438,7 @@ impl PersistedDepFileStore {
             return;
         }
         if !self.writer_gone.swap(true, Ordering::Relaxed) {
-            let _unused = soft_error!(
+            soft_error_or_panic!(
                 "dep_file_db_writer_gone",
                 buck2_error::buck2_error!(
                     buck2_error::ErrorTag::Tier0,

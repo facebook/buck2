@@ -15,7 +15,7 @@ use std::process::Stdio;
 use std::sync::LazyLock;
 
 use allocative::Allocative;
-use buck2_core::warn_user;
+use buck2_core::warn_user_or_panic;
 use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
 use buck2_error::ErrorTag;
@@ -209,14 +209,13 @@ pub(crate) async fn get_mergebase<D: AsRef<Path>, C: AsRef<str>, M: AsRef<str>>(
         }
         .into());
     } else if !output.stderr.is_empty() {
-        warn_user!(
+        warn_user_or_panic!(
             "sapling_mergebase_warning",
             SaplingError::MergebaseWarning {
                 stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
             }
             .into()
-        )
-        .ok();
+        );
     }
 
     parse_log_output(output.stdout)

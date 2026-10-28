@@ -108,42 +108,41 @@ static HARD_ERROR_PANIC_ALLOWLIST: LazyLock<BuckFixedSortedSet<String>> = LazyLo
 /// Reports are counted per category in Logview
 /// ([internal link](https://www.internalfb.com/logview/overview/buck2)), where the buck2 oncall
 /// watches them, so a category should name one specific thing going wrong. The user does not see
-/// the report; an error the person running the command can act on is a [`warn_user!`]. Under
-/// `BUCK2_HARD_ERROR`, which buck2's own tests set, the error is returned as `Err` instead, so a
-/// call site uses `?` where failing is acceptable and discards the result where it is not.
+/// the report; an error the person running the command can act on is a [`warn_user!`], and a use
+/// of something that is being removed is a [`deprecation!`].
 ///
-/// Returns the error as `Ok` when it was only reported, for callers that propagate it anyway.
-///
-/// Uses of something that is being removed are not soft errors; see [`deprecation!`].
+/// Under `BUCK2_HARD_ERROR`, which buck2's own tests set, the report fails the command instead:
+/// the macro returns the error from the enclosing function, the way `?` would. A call site with
+/// nowhere to return an error to uses [`soft_error_or_panic!`]. A report on an error path that is
+/// being returned anyway is a [`tag_error!`] or [`tag_result!`].
 ///
 /// The macro lives in this crate so it is available everywhere; the binary installs the handler
 /// that does the reporting through [`initialize`].
 ///
-/// Example (see [`StructuredErrorOptions`] for the options):
+/// Examples (see [`StructuredErrorOptions`] for the options):
 /// ```ignore
-/// soft_error!(
-///     "cas_missing",
-///     buck2_error::buck2_error!(buck2_error::ErrorTag::Tier0, "`{}` is missing", digest),
-/// )?;
+/// soft_error!("cas_missing", err);
+/// soft_error!("dep_only_incompatible_custom", err, task: false);
 /// ```
-pub macro soft_error {
-    ($category:expr, $err:expr) => {
-        $crate::soft_error::soft_error!($category, $err,)
-    },
-    ($category:expr, $err:expr, $($k:ident : $v:expr),+) => {
-        $crate::soft_error::soft_error!($category, $err, $($k: $v,)*)
-    },
-    ($category:expr, $err:expr, $($k:ident : $v:expr ,)*) => { {
-        $crate::soft_error::handle_soft_error(
-            $category,
-            $err,
-            (file!(), line!(), column!()),
-            $crate::soft_error::StructuredErrorOptions {
-                $($k: $v,)*
-                ..Default::default()
-            }
-        )
-    } },
+pub macro soft_error($category:expr, $err:expr $(, $k:ident : $v:expr)* $(,)?) {
+    {
+        let _reported = $crate::soft_error::report!($category, $err $(, $k: $v)*)?;
+    }
+}
+
+/// [`soft_error!`] for a call site with nowhere to return an error to: a `Drop` impl, a thread,
+/// an event sink, a closure that hands back a plain value. Under `BUCK2_HARD_ERROR` the report
+/// panics there.
+///
+/// ```ignore
+/// soft_error_or_panic!("write_lease_released_unsettled", err);
+/// ```
+pub macro soft_error_or_panic($category:expr, $err:expr $(, $k:ident : $v:expr)* $(,)?) {
+    $crate::soft_error::panic_on_hard_error($crate::soft_error::report!(
+        $category,
+        $err
+        $(, $k: $v)*
+    ))
 }
 
 /// Reports a use of something that is being removed.
@@ -153,33 +152,38 @@ pub macro soft_error {
 /// is not. Once nothing uses the thing any more, the call site becomes a hard error. A
 /// deprecation nobody is driving should be deleted and replaced with a `FIXME`.
 ///
-/// Under `BUCK2_HARD_ERROR` the error is returned as `Err`, as for [`soft_error!`].
+/// Under `BUCK2_HARD_ERROR` the report fails the command, as for [`soft_error!`];
+/// [`deprecation_or_panic!`] is for a call site with nowhere to return an error to.
 ///
 /// ```ignore
-/// deprecation!("platform_flavor", err, owner: "drollman")?;
+/// deprecation!("platform_flavor", err, owner: "drollman");
 /// ```
-pub macro deprecation {
-    ($category:expr, $err:expr, owner: $owner:expr) => {
-        $crate::soft_error::deprecation!($category, $err, owner: $owner,)
-    },
-    ($category:expr, $err:expr, owner: $owner:expr, $($k:ident : $v:expr),+) => {
-        $crate::soft_error::deprecation!($category, $err, owner: $owner, $($k: $v,)*)
-    },
-    ($category:expr, $err:expr, owner: $owner:expr, $($k:ident : $v:expr ,)*) => { {
-        $crate::soft_error::handle_soft_error(
+pub macro deprecation($category:expr, $err:expr, owner: $owner:expr $(, $k:ident : $v:expr)* $(,)?) {
+    {
+        let _reported = $crate::soft_error::report!(
             $category,
             $err,
-            (file!(), line!(), column!()),
-            $crate::soft_error::StructuredErrorOptions {
-                kind: $crate::soft_error::SoftErrorKind::Deprecation {
-                    owner: Some(::std::borrow::Cow::Borrowed($owner)),
-                },
-                user_facing: false,
-                $($k: $v,)*
-                ..Default::default()
-            }
-        )
-    } },
+            kind: $crate::soft_error::SoftErrorKind::Deprecation {
+                owner: Some(::std::borrow::Cow::Borrowed($owner)),
+            },
+            user_facing: false
+            $(, $k: $v)*
+        )?;
+    }
+}
+
+/// [`deprecation!`] for a call site with nowhere to return an error to, as
+/// [`soft_error_or_panic!`].
+pub macro deprecation_or_panic($category:expr, $err:expr, owner: $owner:expr $(, $k:ident : $v:expr)* $(,)?) {
+    $crate::soft_error::panic_on_hard_error($crate::soft_error::report!(
+        $category,
+        $err,
+        kind: $crate::soft_error::SoftErrorKind::Deprecation {
+            owner: Some(::std::borrow::Cow::Borrowed($owner)),
+        },
+        user_facing: false
+        $(, $k: $v)*
+    ))
 }
 
 /// Reports a non-fatal error that the person running the command can act on, and tells them.
@@ -187,59 +191,64 @@ pub macro deprecation {
 /// This is the only report buck2 prints, so the bar is that the message is addressed to the
 /// person who sees it: something wrong with their checkout, their environment, their invocation.
 /// Anything addressed to whoever wrote the build files, the rule, or buck2 itself is a
-/// [`soft_error!`] or a [`deprecation!`]. Otherwise identical to [`soft_error!`].
+/// [`soft_error!`] or a [`deprecation!`]. Otherwise identical to [`soft_error!`];
+/// [`warn_user_or_panic!`] is for a call site with nowhere to return an error to.
 ///
 /// ```ignore
-/// warn_user!("eden_buck_out", err)?;
+/// warn_user!("eden_buck_out", err);
 /// ```
-pub macro warn_user {
-    ($category:expr, $err:expr) => {
-        $crate::soft_error::warn_user!($category, $err,)
-    },
-    ($category:expr, $err:expr, $($k:ident : $v:expr),+) => {
-        $crate::soft_error::warn_user!($category, $err, $($k: $v,)*)
-    },
-    ($category:expr, $err:expr, $($k:ident : $v:expr ,)*) => { {
-        $crate::soft_error::handle_soft_error(
-            $category,
-            $err,
-            (file!(), line!(), column!()),
-            $crate::soft_error::StructuredErrorOptions {
-                user_facing: true,
-                $($k: $v,)*
-                ..Default::default()
-            }
-        )
-    } },
+pub macro warn_user($category:expr, $err:expr $(, $k:ident : $v:expr)* $(,)?) {
+    {
+        let _reported =
+            $crate::soft_error::report!($category, $err, user_facing: true $(, $k: $v)*)?;
+    }
 }
 
-/// Tag and report this error. Return said error.
-pub macro tag_error {
-    ($category:expr, $err:expr) => {
-        $crate::soft_error::tag_error!($category, $err,)
-    },
-    ($category:expr, $err:expr, $($k:ident : $v:expr),+) => {
-        $crate::soft_error::tag_error!($category, $err, $($k: $v,)*)
-    },
-    ($category:expr, $err:expr, $($k:ident : $v:expr ,)*) => {
-        match $crate::soft_error::soft_error!($category, $err, $($k: $v,)*) {
-            Ok(err) => err,
-            Err(err) => err,
-        }
-    },
+/// [`warn_user!`] for a call site with nowhere to return an error to, as
+/// [`soft_error_or_panic!`].
+pub macro warn_user_or_panic($category:expr, $err:expr $(, $k:ident : $v:expr)* $(,)?) {
+    $crate::soft_error::panic_on_hard_error($crate::soft_error::report!(
+        $category,
+        $err,
+        user_facing: true
+        $(, $k: $v)*
+    ))
 }
 
-/// If this result is an error, tag it, then return the result.
-pub macro tag_result {
-    ($category:expr, $res:expr) => {
-        $crate::soft_error::tag_result($category, $res,)
-    },
-    ($category:expr, $err:expr, $($k:ident : $v:expr),+) => {
-        $crate::soft_error::tag_result!($category, $err, $($k: $v,)*)
-    },
-    ($category:expr, $res:expr, $($k:ident : $v:expr ,)*) => {
-        $res.map_err(|err| $crate::soft_error::tag_error!($category, err, $($k: $v,)*))
-    },
+/// Reports the error and hands it back, for an error path that returns it anyway.
+pub macro tag_error($category:expr, $err:expr $(, $k:ident : $v:expr)* $(,)?) {
+    match $crate::soft_error::report!($category, $err $(, $k: $v)*) {
+        Ok(err) => err,
+        Err(err) => err,
+    }
+}
+
+/// [`tag_error!`] for the error of a `Result`, which is then returned unchanged.
+pub macro tag_result($category:expr, $res:expr $(, $k:ident : $v:expr)* $(,)?) {
+    $res.map_err(|err| $crate::soft_error::tag_error!($category, err $(, $k: $v)*))
+}
+
+/// The report behind the macros above, which exist to record the call site. A reporter with a
+/// location of its own calls [`handle_soft_error`].
+#[doc(hidden)]
+pub macro report($category:expr, $err:expr $(, $k:ident : $v:expr)* $(,)?) {
+    $crate::soft_error::handle_soft_error(
+        $category,
+        $err,
+        (file!(), line!(), column!()),
+        $crate::soft_error::StructuredErrorOptions {
+            $($k: $v,)*
+            ..Default::default()
+        },
+    )
+}
+
+/// What an `_or_panic` call site does with the hard-error policy: the error has nowhere to go,
+/// so it is a panic.
+pub fn panic_on_hard_error(reported: Result<buck2_error::Error, buck2_error::Error>) {
+    if let Err(e) = reported {
+        panic!("{e:#}");
+    }
 }
 
 /// Who a report is for.

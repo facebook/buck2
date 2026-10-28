@@ -17,7 +17,7 @@ use buck2_common::sqlite::sqlite_db::SqliteTables;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_core::soft_error;
+use buck2_core::soft_error_or_panic;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -70,7 +70,7 @@ impl IncrementalDbState {
 
                 self.state.insert(key.to_owned(), value.clone().into());
                 if let Err(e) = db.incremental_state_table().insert(key.to_owned(), value) {
-                    soft_error!(
+                    soft_error_or_panic!(
                         "insert_to_incremental_db",
                         buck2_error::buck2_error!(
                             buck2_error::ErrorTag::Tier0,
@@ -78,8 +78,7 @@ impl IncrementalDbState {
                             key,
                             e
                         )
-                    )
-                    .unwrap();
+                    );
                 };
             }
             None => {
@@ -94,15 +93,14 @@ impl IncrementalDbState {
         {
             // This should be converted into a real error later, marking as a soft error for now as the row not existing
             // might show up as an error but doesn't actually matter in reality.
-            soft_error!(
+            soft_error_or_panic!(
                 "delete_from_incremental_db",
                 buck2_error::buck2_error!(
                     buck2_error::ErrorTag::Tier0,
                     "Failed to remove incremental path map from sqlite db. {}",
                     e
                 )
-            )
-            .unwrap();
+            );
         }
 
         self.state.remove(key);

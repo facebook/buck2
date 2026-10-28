@@ -33,7 +33,7 @@ use buck2_common::liveliness_observer::LivelinessGuard;
 use buck2_common::liveliness_observer::LivelinessObserverSync;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_core::soft_error;
+use buck2_core::soft_error_or_panic;
 use buck2_core::tag_error;
 use buck2_data::CleanStaleResultKind;
 use buck2_data::CleanStaleStats;
@@ -408,7 +408,7 @@ impl<T: IoHandler> Cleaner<T> {
                         adaptive.outcome
                     }
                     Err(e) => {
-                        let _unused = soft_error!("disk_space_stats", e);
+                        soft_error_or_panic!("disk_space_stats", e);
                         AdaptiveOutcome::DiskStatFailure
                     }
                 },

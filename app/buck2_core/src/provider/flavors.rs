@@ -322,13 +322,13 @@ pub fn map_flavors(flavors: &str, full_target: &str) -> buck2_error::Result<Prov
             err,
             owner: "drollman",
             low_cardinality_key_for_additional_logview_samples: Some(Box::new(key))
-        )?,
+        ),
         FlavorCategory::Subtarget | FlavorCategory::Unrecognized => deprecation!(
             category.name(),
             err,
             owner: "drollman",
             low_cardinality_key_for_additional_logview_samples: Some(Box::new(key))
-        )?,
+        ),
     };
 
     Ok(providers)

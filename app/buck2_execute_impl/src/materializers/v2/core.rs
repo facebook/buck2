@@ -265,7 +265,7 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
         if !refused.is_empty() {
             // Rows that nest come from a table neither core wrote; they are dropped rather than
             // crash every start, and the paths they named are materialized again when asked.
-            let _ignored = buck2_core::soft_error!(
+            buck2_core::soft_error!(
                 "disk_state_materializer_nested_rows",
                 internal_error!(
                     "{} rows of the materializer state nest with others and are dropped, the first: `{}`",
@@ -585,7 +585,7 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
     async fn stash(&self, root: &Root) {
         let files = files_to_insert(self.io.fs(), &root.path, &root.entry, Origin::BuckOut);
         if let Err(e) = self.store.insert_files(files).await {
-            let _ignored = buck2_core::soft_error!(
+            buck2_core::soft_error_or_panic!(
                 "blob_store_insert_failed",
                 e.context(format!("Putting `{}` into the store", root.path))
             );
@@ -1388,7 +1388,7 @@ fn download_task<T: IoHandler>(
                                     Ok(()) => copied.push(wanted.path),
                                     // A miss: the CAS is asked.
                                     Err(e) => {
-                                        let _ignored = buck2_core::soft_error!(
+                                        buck2_core::soft_error_or_panic!(
                                             "disk_state_materializer_copy_failed",
                                             e.context(format!(
                                                 "Copying `{source}` to `{}`",
@@ -2094,7 +2094,7 @@ async fn remove_freed_root<T: IoHandler>(
     let config = io.digest_config().cas_digest_config();
     for digest in entry.tracked_digests(config) {
         if digest.stash().is_none() && store.cas_expiry(digest.data()).is_none() {
-            let _ignored = buck2_core::soft_error!(
+            buck2_core::soft_error_or_panic!(
                 "disk_state_materializer_unrecoverable_root",
                 internal_error!(
                     "`{path}` holds `{digest}`, which neither the stash nor the CAS is known to have"
@@ -2122,7 +2122,7 @@ async fn remove_freed_root<T: IoHandler>(
         .execute_io_inline(move || cleanup_path(&fs, &removed))
         .await
     {
-        let _ignored = buck2_core::soft_error!(
+        buck2_core::soft_error_or_panic!(
             "disk_state_materializer_strict_remove_failed",
             e.context(format!("Removing `{path}` on its release"))
         );
@@ -2389,7 +2389,7 @@ impl Processor {
     /// Ends the mirroring after a failure: the rows go as far as they can be made to, so that
     /// no later start trusts them.
     fn abandon_mirror(&mut self, e: buck2_error::Error) {
-        let _ignored = buck2_core::soft_error!(
+        buck2_core::soft_error_or_panic!(
             "disk_state_materializer_persist",
             e.context("the mirror is abandoned")
         );

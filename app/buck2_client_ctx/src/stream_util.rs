@@ -11,7 +11,7 @@
 use std::pin::Pin;
 use std::time::Duration;
 
-use buck2_core::soft_error;
+use buck2_core::soft_error_or_panic;
 use futures::future::Either;
 use futures::future::Future;
 use futures::stream::Stream;
@@ -107,7 +107,7 @@ impl<'a, T> ForwardingState<'a, T> {
                             Err(..) => ForwardingStateTransition::RxClosed,
                         },
                         _ = tokio::time::sleep(Duration::from_secs(90)) => {
-                            let _ignored = soft_error!(
+                            soft_error_or_panic!(
                                 "stream_util_buffered_item_waiting_for_permit",
                                 buck2_error::buck2_error!(
                                     buck2_error::ErrorTag::Tier0,

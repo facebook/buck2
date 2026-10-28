@@ -22,7 +22,7 @@ use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_core::soft_error;
+use buck2_core::soft_error_or_panic;
 use buck2_core::tag_error;
 use buck2_data::CleanStaleResultKind;
 use buck2_data::CleanStaleStats;
@@ -284,7 +284,7 @@ pub(crate) fn resolve_clean_stale_params(
             let disk_stats = match disk_space_stats(root_abs_path) {
                 Ok(stats) => stats,
                 Err(e) => {
-                    let _unused = soft_error!("disk_space_stats", e);
+                    soft_error_or_panic!("disk_space_stats", e);
                     return (default_ttl, None);
                 }
             };
@@ -781,7 +781,7 @@ impl CleanStaleArtifactsCommand {
                         adaptive.outcome
                     }
                     Err(e) => {
-                        let _unused = soft_error!("disk_space_stats", e);
+                        soft_error_or_panic!("disk_space_stats", e);
                         AdaptiveOutcome::DiskStatFailure
                     }
                 },

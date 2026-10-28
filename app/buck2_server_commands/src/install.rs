@@ -907,7 +907,7 @@ async fn handle_install_request(
                 url
             }
             Err(err) => {
-                let _unused = soft_error!("installer_log_upload_failed", err.clone());
+                soft_error!("installer_log_upload_failed", err.clone());
                 log_path.to_string()
             }
         }

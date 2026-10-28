@@ -65,7 +65,7 @@ impl QueryAttrTypeExt for QueryAttrType {
                         "query_literal_subtarget",
                         QueryError::SubtargetInQueryLiteral(pattern.to_owned()).into(),
                         owner: "jtbraun",
-                    )?;
+                    );
                 }
                 self.literals.insert(pattern, label);
                 Ok(())

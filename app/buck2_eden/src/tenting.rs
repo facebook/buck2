@@ -86,8 +86,7 @@ impl TentingAclProvider for EdenTentingAclProvider {
                         path,
                         e
                     )
-                )
-                .ok();
+                );
                 return Ok(TentingStatus::Unknown);
             }
         };
@@ -104,8 +103,7 @@ impl TentingAclProvider for EdenTentingAclProvider {
                             path,
                             e
                         )
-                    )
-                    .ok();
+                    );
                     return Ok(TentingStatus::Unknown);
                 }
             },
@@ -117,8 +115,7 @@ impl TentingAclProvider for EdenTentingAclProvider {
                         "get_tenting_acl_names({}): empty response from EdenFS",
                         path
                     )
-                )
-                .ok();
+                );
                 return Ok(TentingStatus::Unknown);
             }
         };
@@ -145,8 +142,7 @@ impl TentingAclProvider for EdenTentingAclProvider {
                             "get_tenting_acl_names({}): underAcl=true but no ACL names returned",
                             path
                         )
-                    )
-                    .ok();
+                    );
                     return Ok(TentingStatus::Unknown);
                 }
                 Ok(TentingStatus::Tented(Arc::from(acls)))

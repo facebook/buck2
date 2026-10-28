@@ -12,7 +12,7 @@ use std::process;
 use std::thread;
 use std::time::Duration;
 
-use buck2_core::warn_user;
+use buck2_core::warn_user_or_panic;
 use buck2_util::process_stats::process_cpu_time_us;
 use buck2_util::threads::thread_spawn;
 
@@ -62,7 +62,7 @@ pub(crate) fn maybe_schedule_termination() -> buck2_error::Result<()> {
             } else {
                 format!("Buck is exiting after {duration:?} elapsed")
             };
-            let _unused = warn_user!(
+            warn_user_or_panic!(
                 "schedule_termination_exit",
                 buck2_error::buck2_error!(
                     buck2_error::ErrorTag::Environment,

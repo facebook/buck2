@@ -181,8 +181,7 @@ impl HasDetailedAggregatedMetrics for DiceComputations<'_> {
                 {
                     Ok(sketches) => Ok((spec.label.dupe(), sketches)),
                     Err(e) => {
-                        let _ignored =
-                            buck2_core::soft_error!("artifact_path_sketch_computation_error", e);
+                        buck2_core::soft_error!("artifact_path_sketch_computation_error", e);
                         Ok((spec.label.dupe(), ArtifactPathSketches::empty()))
                     }
                 }

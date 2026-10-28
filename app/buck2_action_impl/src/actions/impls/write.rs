@@ -309,7 +309,7 @@ impl WriteAction {
                     WriteActionCacheStats::bump(&WRITE_ACTION_CACHE_STATS.populate_failures);
                     // Producing the write anyway is the right fallback, but a cache that
                     // cannot be populated would silently stay empty, which should be visible.
-                    let _ignored = soft_error!(
+                    soft_error!(
                         "write_action_cache_populate_failed",
                         e.context("Recording a write's content in the action cache failed")
                     );
@@ -337,7 +337,7 @@ impl WriteAction {
             WriteActionCacheStats::bump(&WRITE_ACTION_CACHE_STATS.verified);
             if cached.digest != rendered {
                 WriteActionCacheStats::bump(&WRITE_ACTION_CACHE_STATS.mismatches);
-                let _ignored = soft_error!(
+                soft_error!(
                     "write_action_cache_mismatch",
                     buck2_error!(
                         buck2_error::ErrorTag::Tier0,

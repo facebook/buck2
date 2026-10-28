@@ -1808,7 +1808,7 @@ impl ConcurrencyHandler {
                 "nested_invocation_same_dice_state",
                 ConcurrencyHandlerError::NestedInvocationWithSameStates(running, display_command)
                     .into(),
-            )?;
+            );
         }
 
         transaction_observer

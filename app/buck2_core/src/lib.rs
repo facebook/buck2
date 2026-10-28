@@ -56,13 +56,19 @@ pub use buck2_env::env::buck2_env_name;
 #[doc(inline)]
 pub use buck2_env::soft_error::deprecation;
 #[doc(inline)]
+pub use buck2_env::soft_error::deprecation_or_panic;
+#[doc(inline)]
 pub use buck2_env::soft_error::soft_error;
+#[doc(inline)]
+pub use buck2_env::soft_error::soft_error_or_panic;
 #[doc(inline)]
 pub use buck2_env::soft_error::tag_error;
 #[doc(inline)]
 pub use buck2_env::soft_error::tag_result;
 #[doc(inline)]
 pub use buck2_env::soft_error::warn_user;
+#[doc(inline)]
+pub use buck2_env::soft_error::warn_user_or_panic;
 
 /// Marker for things that are only sensible to use inside Facebook,
 /// not intended to be complete, but intended to be useful to audit

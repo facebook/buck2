@@ -27,6 +27,7 @@ use buck2_common::convert::ProstDurationExt;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_core::buck2_env;
 use buck2_core::soft_error;
+use buck2_core::soft_error_or_panic;
 use buck2_data::ErrorReport;
 use buck2_data::FileWatcherProvider;
 use buck2_data::FileWatcherStart;
@@ -624,7 +625,7 @@ impl InvocationRecorder {
         let build_count = paths.and_then(|p| match BuildCountManager::new(p.build_count_dir()) {
             Ok(manager) => Some(manager),
             Err(e) => {
-                let _unused = soft_error!("build_count_init_failed", e);
+                soft_error_or_panic!("build_count_init_failed", e);
                 None
             }
         });
@@ -1530,7 +1531,7 @@ impl InvocationRecorder {
                     Ok(Some(build_count)) => build_count,
                     Ok(None) => Default::default(),
                     Err(e) => {
-                        let _ignored = soft_error!("build_count_error", e);
+                        soft_error!("build_count_error", e);
                         Default::default()
                     }
                 }

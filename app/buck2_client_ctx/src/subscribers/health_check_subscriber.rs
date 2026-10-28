@@ -14,7 +14,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_common::invocation_paths::InvocationPaths;
-use buck2_core::soft_error;
+use buck2_core::soft_error_or_panic;
 use buck2_data::buck_event::Data::*;
 use buck2_error::BuckErrorOptionContext;
 use buck2_events::BuckEvent;
@@ -219,7 +219,7 @@ impl HealthCheckSubscriber {
     pub fn close_client_connection_with_error_report(&mut self, error: &str) {
         self.event_sender.take();
         self.health_check_client.take();
-        let _ignored = soft_error!(
+        soft_error_or_panic!(
             "health_check_subscriber_error",
             buck2_error::buck2_error!(buck2_error::ErrorTag::HealthCheck, "{}", error)
         );

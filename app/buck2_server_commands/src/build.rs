@@ -170,7 +170,7 @@ async fn build(
             "run_args_without_separator",
             RunArgsMissingSeparator.into(),
             owner: "mattpayne",
-        )?;
+        );
     }
 
     let cwd = server_ctx.working_dir();

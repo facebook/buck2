@@ -137,7 +137,7 @@ impl DetailedAggregatedMetricsHandle {
             return;
         }
         if self.analysis_nodes_not_recorded.load(Ordering::Relaxed) {
-            let _ignored = buck2_core::soft_error!(
+            buck2_core::soft_error_or_panic!(
                 "detailed_aggregated_metrics_enabled_after_analysis",
                 buck2_error!(
                     ErrorTag::Tier0,

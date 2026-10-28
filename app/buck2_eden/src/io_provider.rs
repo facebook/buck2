@@ -412,8 +412,7 @@ impl EdenIoProvider {
                                     Set env var `BUCK2_DISABLE_EDEN_THRIFT_READ=true` if this is constantly an issue: {:#}",
                                     error
                                 ),
-                            )
-                            .ok();
+                            );
 
                             return self.fs.read_file_if_exists_impl(path).await;
                         }

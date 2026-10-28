@@ -14,7 +14,7 @@ use std::sync::Arc;
 
 use buck2_core::buck2_env;
 use buck2_core::fs::project::ProjectRoot;
-use buck2_core::warn_user;
+use buck2_core::warn_user_or_panic;
 use buck2_error::BuckErrorContext;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_path::AbsPath;
@@ -280,7 +280,7 @@ fn rollout_layer(home_dir: Option<&AbsPath>) -> Option<SettingsLayer> {
         }
         Ok(None) => None,
         Err(error) => {
-            let _ignored = warn_user!(
+            warn_user_or_panic!(
                 "buck_settings_rollout_ignored",
                 error.context("Error parsing settings rollout file")
             );

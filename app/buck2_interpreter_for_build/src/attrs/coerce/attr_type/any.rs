@@ -65,7 +65,7 @@ fn to_literal<'v>(
             "coerce_to_any",
             AnyError::CannotCoerce(value.get_type(), value.to_repr()).into(),
             owner: "jtbraun"
-        )?;
+        );
         ctx.attr_arena().encode_string(&value.to_str())
     }
 }

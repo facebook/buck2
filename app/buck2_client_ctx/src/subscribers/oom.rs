@@ -17,6 +17,7 @@ use std::time::Duration;
 use std::time::Instant;
 
 use buck2_core::soft_error;
+use buck2_core::soft_error_or_panic;
 use derive_more::Display;
 use regex::Regex;
 
@@ -65,7 +66,7 @@ pub(crate) async fn find_daemon_oom_evidence(
         cgroup_path_of_buck2_daemon.and_then(|path| match path.strip_prefix("/sys/fs/cgroup/") {
             Some(rel) => Some(rel),
             None => {
-                let _unused = soft_error!(
+                soft_error_or_panic!(
                     "oom_cgroup_path_unexpected_prefix",
                     buck2_error::buck2_error!(
                         buck2_error::ErrorTag::Environment,
@@ -80,7 +81,7 @@ pub(crate) async fn find_daemon_oom_evidence(
     let lower_bound = match dmesg_lower_bound(daemon_start_instant) {
         Ok(lower_bound) => lower_bound,
         Err(e) => {
-            let _unused = soft_error!("dmesg_monotonic_clock_failed", e);
+            soft_error!("dmesg_monotonic_clock_failed", e);
             return Ok(None);
         }
     };
@@ -96,7 +97,7 @@ pub(crate) async fn find_daemon_oom_evidence(
     {
         Ok(c) => c,
         Err(e) => {
-            let _unused = soft_error!(
+            soft_error!(
                 "dmesg_oom_detection_failed",
                 buck2_error::buck2_error!(
                     buck2_error::ErrorTag::Environment,
@@ -112,7 +113,7 @@ pub(crate) async fn find_daemon_oom_evidence(
     {
         Ok(Ok(output)) => output,
         Ok(Err(e)) => {
-            let _unused = soft_error!(
+            soft_error!(
                 "dmesg_timeout",
                 buck2_error::buck2_error!(
                     buck2_error::ErrorTag::Environment,
@@ -123,7 +124,7 @@ pub(crate) async fn find_daemon_oom_evidence(
             return Ok(None);
         }
         Err(_elapsed) => {
-            let _unused = soft_error!(
+            soft_error!(
                 "dmesg_oom_detection_failed",
                 buck2_error::buck2_error!(
                     buck2_error::ErrorTag::Environment,

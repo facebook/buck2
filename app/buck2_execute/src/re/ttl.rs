@@ -12,7 +12,7 @@
 
 use std::fmt::Display;
 
-use buck2_core::soft_error;
+use buck2_core::soft_error_or_panic;
 use jiff::SignedDuration;
 use jiff::Timestamp;
 
@@ -42,7 +42,7 @@ fn expiration_from_ttl(now: Timestamp, ttl_seconds: i64) -> (Timestamp, Clamped)
 pub fn re_expiration_from_ttl(now: Timestamp, ttl_seconds: i64, what: &dyn Display) -> Timestamp {
     let (expiration, clamped) = expiration_from_ttl(now, ttl_seconds);
     if clamped != Clamped::No {
-        let _ignored = soft_error!(
+        soft_error_or_panic!(
             "re_digest_ttl_out_of_bounds",
             buck2_error::buck2_error!(
                 buck2_error::ErrorTag::ReInvalidGetCasResponse,

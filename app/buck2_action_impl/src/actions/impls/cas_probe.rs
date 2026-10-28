@@ -54,7 +54,7 @@ pub(crate) async fn probe(
         Err(e) => {
             // Producing the content is the right fallback, but a CAS that cannot answer would
             // silently turn every probe into a miss, which should be visible.
-            let _ignored = buck2_core::soft_error!(
+            buck2_core::soft_error_or_panic!(
                 "write_cas_probe_failed",
                 e.context("CAS lookup for content an action produces failed; producing it instead")
             );
