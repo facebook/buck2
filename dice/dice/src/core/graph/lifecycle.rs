@@ -50,6 +50,9 @@ pub(crate) enum RowCommitted {
 pub(crate) struct BackedValue {
     pub(crate) value: DiceValidValue,
     pub(crate) data_key: DataKey,
+    /// Size of the row's top-level serialized blob, excluding nested `PagableArc` sub-values;
+    /// zero when the value became backed without its row being read or written.
+    pub(crate) serialized_bytes: u64,
 }
 
 mini_vec::size_assert::words_of_type!(PagableValue, 3);
@@ -112,37 +115,52 @@ impl PagableValue {
     }
 
     /// Makes a paged-out value resident again with `value`, which was read back from its
-    /// `DataKey` or has just been proven equal to it. Under [`PageOutPolicy::OncePerValue`] the
-    /// row keeps backing it.
-    pub(crate) fn make_resident(&mut self, value: DiceValidValue, policy: PageOutPolicy) {
+    /// `DataKey` (a row of `serialized_bytes`) or has just been proven equal to it (pass zero).
+    /// Under [`PageOutPolicy::OncePerValue`] the row keeps backing it.
+    pub(crate) fn make_resident(
+        &mut self,
+        value: DiceValidValue,
+        serialized_bytes: u64,
+        policy: PageOutPolicy,
+    ) {
         if let PagableValue::PagedOut(data_key) = *self {
             *self = match policy {
                 PageOutPolicy::OncePerKey => PagableValue::Recomputed(value),
-                PageOutPolicy::OncePerValue => {
-                    PagableValue::Backed(Box::new(BackedValue { value, data_key }))
-                }
+                PageOutPolicy::OncePerValue => PagableValue::Backed(Box::new(BackedValue {
+                    value,
+                    data_key,
+                    serialized_bytes,
+                })),
             };
         }
     }
 
-    /// The row at `data_key` now holds this value. A value never paged out is evicted under
-    /// [`EvictionPolicy::OnIdle`]; otherwise it, like a recomputed one, stays resident, backed
-    /// by the row.
+    /// The row at `data_key`, of `serialized_bytes`, now holds this value. A value never paged
+    /// out is evicted under [`EvictionPolicy::OnIdle`]; otherwise it, like a recomputed one,
+    /// stays resident, backed by the row.
     pub(crate) fn row_committed(
         &mut self,
         data_key: DataKey,
+        serialized_bytes: u64,
         policy: EvictionPolicy,
     ) -> RowCommitted {
+        let backed = |value| {
+            PagableValue::Backed(Box::new(BackedValue {
+                value,
+                data_key,
+                serialized_bytes,
+            }))
+        };
         match std::mem::replace(self, PagableValue::PagedOut(data_key)) {
             PagableValue::NeverPagedOut(value) => match policy {
                 EvictionPolicy::OnIdle => RowCommitted::Evicted,
                 EvictionPolicy::OnMemoryPressure => {
-                    *self = PagableValue::Backed(Box::new(BackedValue { value, data_key }));
+                    *self = backed(value);
                     RowCommitted::Backed
                 }
             },
             PagableValue::Recomputed(value) => {
-                *self = PagableValue::Backed(Box::new(BackedValue { value, data_key }));
+                *self = backed(value);
                 RowCommitted::Backed
             }
             other => {

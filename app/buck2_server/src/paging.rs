@@ -51,6 +51,7 @@ use buck2_hash::IntentionallyStdHashMap;
 use buck2_server_ctx::concurrency::ConcurrencyHandler;
 use buck2_util::process_stats::process_stats;
 use dice::Dice;
+use dice::EvictionSnapshot;
 use dice::PagableNodeCounts;
 use dice::PageOutCancel;
 use dice::StorageIoSnapshot;
@@ -78,6 +79,8 @@ pub(crate) struct PagingManager {
     page_in_baseline: IntentionallyStdHashMap<String, buck2_data::DicePageInKeyTypeStats>,
     /// `None` when pagable storage is not configured.
     data_key_io_baseline: Option<StorageIoSnapshot>,
+    /// `None` when pagable storage is not configured.
+    eviction_baseline: Option<EvictionSnapshot>,
 }
 
 impl PagingManager {
@@ -87,13 +90,16 @@ impl PagingManager {
         total_disk_space_bytes: Option<u64>,
     ) -> PagingManager {
         let page_in_baseline = page_in_proto_map(&tenant);
-        let data_key_io_baseline = tenant.dice_manager.unsafe_dice().storage_io_metrics();
+        let dice = tenant.dice_manager.unsafe_dice();
+        let data_key_io_baseline = dice.storage_io_metrics();
+        let eviction_baseline = dice.eviction_metrics();
         PagingManager {
             tenant,
             page_out_on_idle,
             total_disk_space_bytes,
             page_in_baseline,
             data_key_io_baseline,
+            eviction_baseline,
         }
     }
 
@@ -108,6 +114,9 @@ impl PagingManager {
         let cumulative = dice.storage_io_metrics();
         let memory = dice.paging_memory_metrics();
         let delta = cumulative.map(|c| c.since(self.data_key_io_baseline.unwrap_or(c)));
+        let evictions = dice
+            .eviction_metrics()
+            .map(|e| e.since(self.eviction_baseline.unwrap_or(e)));
         buck2_data::PagingSummary {
             dice_page_in_by_key_type: compute_page_in_delta(
                 &self.page_in_baseline,
@@ -132,6 +141,10 @@ impl PagingManager {
                 .pagable_storage_handle()
                 .map(|h| h.arc_cache_entries() as u64),
             starlark_partial_deser: starlark_partial_deser_proto(),
+            paging_evictions: evictions.map(|e| e.evictions),
+            paging_evicted_count: evictions.map(|e| e.values_evicted),
+            paging_evicted_bytes: evictions.and_then(|e| e.bytes_evicted),
+            paging_evictable_bytes: Some(counts.backed_bytes),
         }
     }
 
@@ -499,6 +512,7 @@ pub(crate) async fn page_out_measured(
     let io_before = dice.storage_io_metrics();
     let memory_before = dice.paging_memory_metrics();
     let nodes_before = dice.paged_out_node_total();
+    let evictions_before = dice.eviction_metrics();
     let start = Instant::now();
     let result = page_out(dice, cancelled).await;
     let duration_ms = (Instant::now() - start).as_millis() as u64;
@@ -515,6 +529,14 @@ pub(crate) async fn page_out_measured(
         .map(|(after, before)| after.since(before));
     let memory_delta = memory
         .zip(memory_before)
+        .map(|(after, before)| after.since(before));
+    let evictable_bytes = dice
+        .pagable_storage_handle()
+        .is_some()
+        .then_some(dice.pagable_node_counts().await.backed_bytes);
+    let evictions = dice.eviction_metrics();
+    let evictions_delta = evictions
+        .zip(evictions_before)
         .map(|(after, before)| after.since(before));
     let error = match &result {
         Ok(()) => None,
@@ -556,6 +578,12 @@ pub(crate) async fn page_out_measured(
         daemon_arc_cache_entries: dice
             .pagable_storage_handle()
             .map(|h| h.arc_cache_entries() as u64),
+        evicted_count: evictions_delta.map(|d| d.values_evicted),
+        evicted_bytes: evictions_delta.and_then(|d| d.bytes_evicted),
+        daemon_evictions: evictions.map(|e| e.evictions),
+        daemon_evicted_count: evictions.map(|e| e.values_evicted),
+        daemon_evicted_bytes: evictions.and_then(|e| e.bytes_evicted),
+        evictable_bytes,
     };
     (result, summary)
 }

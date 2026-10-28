@@ -261,10 +261,11 @@ impl TransactionData {
         let start = Instant::now();
         let key_dyn = self.dice.key_index.get(key);
         let outcome = match storage.hydrate(key_dyn, paged_out.data_key).await {
-            Ok(resident) => {
+            Ok(hydrated) => {
+                let resident = hydrated.value.dupe();
                 self.dice
                     .state_handle
-                    .rehydrate(key, paged_out.data_key, resident.dupe());
+                    .rehydrate(key, paged_out.data_key, hydrated);
                 if let Some(tracker) = self.user_data.activation_tracker.as_ref() {
                     tracker.key_paged_in(
                         DynKey::ref_cast(key_dyn),

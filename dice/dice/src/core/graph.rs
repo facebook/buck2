@@ -127,7 +127,7 @@ impl KeyValues {
     ) -> DiceValidValue {
         match self.entry_mut(revision) {
             Some(stored) => {
-                stored.make_resident(value, policy);
+                stored.make_resident(value, 0, policy);
                 stored.as_hydrated().expect("made resident above").dupe()
             }
             None => {
@@ -183,7 +183,7 @@ impl KeyValues {
         match self.entry_mut(revision) {
             Some(stored) => {
                 if let MaybeResident::Resident(value) = value {
-                    stored.make_resident(value, policy);
+                    stored.make_resident(value, 0, policy);
                 }
                 stored.as_maybe_resident()
             }
@@ -213,9 +213,10 @@ impl KeyValues {
                         c.candidates += 1;
                     }
                 }
-                PagableValue::Backed(_) => {
+                PagableValue::Backed(backed) => {
                     c.resident += 1;
                     c.backed += 1;
+                    c.backed_bytes += backed.serialized_bytes;
                 }
                 PagableValue::NonPageable(_) => c.resident += 1,
             }
@@ -231,6 +232,7 @@ struct Contribution {
     paged_out: usize,
     candidates: usize,
     backed: usize,
+    backed_bytes: u64,
 }
 
 /// The page-out candidate and backed-value indexes and the resident / paged-out tallies, kept
@@ -243,6 +245,7 @@ struct PagableIndex {
     /// Keys with at least one backed value, by `DiceKey::index`.
     backed: BitSet,
     backed_count: usize,
+    backed_bytes: u64,
     resident_count: usize,
     paged_out_count: usize,
 }
@@ -256,6 +259,7 @@ impl PagableIndex {
         self.paged_out_count = self.paged_out_count + after.paged_out - before.paged_out;
         self.candidate_count = self.candidate_count + after.candidates - before.candidates;
         self.backed_count = self.backed_count + after.backed - before.backed;
+        self.backed_bytes = self.backed_bytes + after.backed_bytes - before.backed_bytes;
         Self::track(
             &mut self.candidates,
             key,
@@ -674,6 +678,7 @@ impl VersionedGraph {
             paged_out: self.index.paged_out_count,
             candidates: self.index.candidate_count,
             backed: self.index.backed_count,
+            backed_bytes: self.index.backed_bytes,
         }
     }
 
@@ -692,6 +697,7 @@ impl VersionedGraph {
             PageOutResult {
                 serialized_value,
                 data_key,
+                serialized_bytes,
             },
         ) in keys
         {
@@ -701,7 +707,9 @@ impl VersionedGraph {
                         .as_hydrated()
                         .is_some_and(|current| current.ptr_eq(&serialized_value))
                     {
-                        if value.row_committed(data_key, eviction_policy) == RowCommitted::Evicted {
+                        if value.row_committed(data_key, serialized_bytes, eviction_policy)
+                            == RowCommitted::Evicted
+                        {
                             evicted += 1;
                         }
                     }
@@ -754,9 +762,15 @@ impl VersionedGraph {
         }
     }
 
-    /// Makes the value paged out at `data_key` resident again. No-op if no such value is
-    /// retained any more.
-    pub(crate) fn rehydrate(&mut self, key: DiceKey, data_key: DataKey, value: DiceValidValue) {
+    /// Makes the value paged out at `data_key`, read back from a row of `serialized_bytes`,
+    /// resident again. No-op if no such value is retained any more.
+    pub(crate) fn rehydrate(
+        &mut self,
+        key: DiceKey,
+        data_key: DataKey,
+        value: DiceValidValue,
+        serialized_bytes: u64,
+    ) {
         let policy = self.page_out_policy;
         self.with_values(key, |kv| {
             if let Some((_, stored)) = kv
@@ -764,7 +778,7 @@ impl VersionedGraph {
                 .iter_mut()
                 .find(|(_, v)| v.data_key() == Some(data_key))
             {
-                stored.make_resident(value, policy);
+                stored.make_resident(value, serialized_bytes, policy);
             }
         });
     }
@@ -785,6 +799,7 @@ impl VersionedGraph {
             total.paged_out += c.paged_out;
             total.candidates += c.candidates;
             total.backed += c.backed;
+            total.backed_bytes += c.backed_bytes;
             if c.candidates > 0 {
                 candidates.push(key.index as usize);
             }
@@ -811,6 +826,7 @@ impl VersionedGraph {
         assert_eq!(self.index.candidate_count, total.candidates);
         assert_eq!(self.index.backed.iter().collect::<Vec<_>>(), backed);
         assert_eq!(self.index.backed_count, total.backed);
+        assert_eq!(self.index.backed_bytes, total.backed_bytes);
         assert_eq!(self.index.resident_count, total.resident);
         assert_eq!(self.index.paged_out_count, total.paged_out);
     }

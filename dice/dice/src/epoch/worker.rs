@@ -334,7 +334,8 @@ impl DiceTaskWorker {
             .expect("paged-out lookup result requires DiceStorage to be configured");
         let key_dyn = self.eval.dice.key_index.get(self.k);
         let hydrate_start = Instant::now();
-        let value = storage.hydrate(key_dyn, data_key).await?;
+        let hydrated = storage.hydrate(key_dyn, data_key).await?;
+        let value = hydrated.value.dupe();
         // Forward the phase so consumers can place hydration relative to dependency and compute
         // work.
         if let Some(activation_tracker) = self.eval.user_data.activation_tracker.as_ref() {
@@ -345,7 +346,7 @@ impl DiceTaskWorker {
                 phase,
             );
         }
-        state_handle.rehydrate(self.k, data_key, value.dupe());
+        state_handle.rehydrate(self.k, data_key, hydrated);
         Ok(value)
     }
 }

@@ -58,10 +58,12 @@ use crate::key::DiceKey;
 use crate::key::DiceKeyErased;
 use crate::key_index::DiceKeyIndex;
 use crate::metrics::AllocWindow;
+use crate::metrics::EvictionSnapshot;
 use crate::metrics::PageInKeyTypeMetrics;
 use crate::metrics::PagingMemoryMetrics;
 use crate::metrics::PagingMemorySnapshot;
 use crate::value::DiceValidValue;
+use crate::value::HydratedValue;
 use crate::value::PageOutResult;
 
 /// On-disk backend for pagable DICE storage, from `buck2_hydration.pagable_storage_backend`.
@@ -475,6 +477,7 @@ impl DiceStorage {
         // `OncePerValue` each value one reads back is backed again by the next batch; evicting
         // those would be evicting what is in use, and would never end while anything runs. They
         // are left for the next eviction.
+        self.paging_memory.record_eviction();
         let target = state_handle.pagable_node_counts().await.backed as u64;
         let mut evicted = 0;
         while evicted < target {
@@ -512,12 +515,15 @@ impl DiceStorage {
             if cancelled() {
                 break;
             }
-            if let Some((data_key, ticket)) = self.page_out_value(&key_dyn, &value, finished)? {
+            if let Some((data_key, serialized_bytes, ticket)) =
+                self.page_out_value(&key_dyn, &value, finished)?
+            {
                 pending.push(
                     dice_key,
                     PageOutResult {
                         serialized_value: value,
                         data_key,
+                        serialized_bytes,
                     },
                     ticket,
                 );
@@ -541,7 +547,7 @@ impl DiceStorage {
         key_dyn: &DiceKeyErased,
         value: &DiceValidValue,
         finished: &ArcSerCache,
-    ) -> anyhow::Result<Option<(DataKey, WriteTicket)>> {
+    ) -> anyhow::Result<Option<(DataKey, u64, WriteTicket)>> {
         let storage_context = self.storage.storage_context();
         let mut serializer = SerializerForPaging::new(storage_context);
         let serialize_result = match key_dyn {
@@ -561,11 +567,12 @@ impl DiceStorage {
             Some(Err(e)) => Err(e),
             Some(Ok(())) => {
                 let (data, arcs) = serializer.finish();
+                let serialized_bytes = data.len() as u64;
                 match self
                     .storage
                     .page_out_item_ticketed(data, arcs, finished, storage_context)
                 {
-                    Ok(key_and_ticket) => Ok(Some(key_and_ticket)),
+                    Ok((data_key, ticket)) => Ok(Some((data_key, serialized_bytes, ticket))),
                     Err(PageOutError::Failed(e)) => Err(e),
                     Err(PageOutError::AlreadyFailed) => Ok(None),
                 }
@@ -598,8 +605,8 @@ impl DiceStorage {
                     .collect();
                 tokio::spawn(async move {
                     for (dice_key, key_dyn, data_key) in &items {
-                        let value = storage.hydrate(key_dyn, *data_key).await?;
-                        state_handle.rehydrate(*dice_key, *data_key, value);
+                        let hydrated = storage.hydrate(key_dyn, *data_key).await?;
+                        state_handle.rehydrate(*dice_key, *data_key, hydrated);
                     }
                     Ok::<_, anyhow::Error>(())
                 })
@@ -617,13 +624,17 @@ impl DiceStorage {
         self.paging_memory.nodes_paged_out()
     }
 
+    pub(crate) fn eviction_snapshot(&self) -> EvictionSnapshot {
+        self.paging_memory.eviction_snapshot()
+    }
+
     /// Deserialize the value at `data_key` back into a `DiceValidValue` via `key_dyn`'s
     /// `ValueSerialize`.
     pub(crate) async fn hydrate(
         &self,
         key_dyn: &DiceKeyErased,
         data_key: DataKey,
-    ) -> anyhow::Result<DiceValidValue> {
+    ) -> anyhow::Result<HydratedValue> {
         let fetch_start = Instant::now();
         let data = self.storage.fetch_data(&data_key).await?;
         let fetch_us = fetch_start.elapsed().as_micros() as u64;
@@ -670,7 +681,10 @@ impl DiceStorage {
             },
         );
 
-        Ok(DiceValidValue::from_arc(arc))
+        Ok(HydratedValue {
+            value: DiceValidValue::from_arc(arc),
+            serialized_bytes: bytes,
+        })
     }
 }
 

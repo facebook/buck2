@@ -2361,6 +2361,45 @@ async fn evict_backed_drops_read_back_values_without_a_write() -> anyhow::Result
     Ok(())
 }
 
+/// Eviction metrics count `evict_backed` passes and the values they drop, not what a page-out
+/// evicts.
+#[tokio::test]
+async fn eviction_metrics_count_only_evict_backed() -> anyhow::Result<()> {
+    let counter = ComputeCounter::new();
+    let tmp = tempdir()?;
+    let (dice, root) = make_dice_under(
+        DiceStorage::open(tmp.path(), PagableStorageBackend::Sqlite)?,
+        PageOutPolicy::OncePerValue,
+    )
+    .await;
+
+    compute_counted(&dice, root, &counter).await?;
+    let baseline = dice
+        .eviction_metrics()
+        .expect("pagable storage is configured");
+    assert_eq!((baseline.evictions, baseline.values_evicted), (0, 0));
+
+    dice.page_out().await?;
+    assert_eq!(dice.pagable_node_counts().await.paged_out, 1);
+    let after_page_out = dice.eviction_metrics().unwrap().since(baseline);
+    assert_eq!(
+        (after_page_out.evictions, after_page_out.values_evicted),
+        (0, 0),
+        "a page-out's evictions are not memory-pressure evictions"
+    );
+
+    compute_counted(&dice, root, &counter).await?;
+    assert_eq!(dice.evict_backed().await, 1);
+    assert_eq!(dice.evict_backed().await, 0, "nothing is left backed");
+    let delta = dice.eviction_metrics().unwrap().since(baseline);
+    assert_eq!(
+        (delta.evictions, delta.values_evicted),
+        (2, 1),
+        "both passes count, including the one that found nothing to evict"
+    );
+    Ok(())
+}
+
 /// A recomputed value is written by the next page-out but stays resident; only an eviction on
 /// demand drops it, after which it reads back.
 #[tokio::test]

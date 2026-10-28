@@ -1424,6 +1424,22 @@ impl InvocationRecorder {
                 .paging_summary
                 .as_ref()
                 .and_then(|s| s.paging_arc_cache_entries),
+            paging_evictions: self
+                .paging_summary
+                .as_ref()
+                .and_then(|s| s.paging_evictions),
+            paging_evicted_count: self
+                .paging_summary
+                .as_ref()
+                .and_then(|s| s.paging_evicted_count),
+            paging_evicted_bytes: self
+                .paging_summary
+                .as_ref()
+                .and_then(|s| s.paging_evicted_bytes),
+            paging_evictable_bytes: self
+                .paging_summary
+                .as_ref()
+                .and_then(|s| s.paging_evictable_bytes),
             starlark_partial_deser: self
                 .paging_summary
                 .as_ref()

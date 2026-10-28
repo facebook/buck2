@@ -145,6 +145,11 @@ pub(crate) struct PagingMemoryMetrics {
     /// Not part of [`PagingMemorySnapshot`]: that is `None` when the allocator
     /// counters are unreadable, and this count does not depend on them.
     nodes_paged_out: AtomicU64,
+    /// Calls to `evict_backed`, and the values they dropped and memory that freed. A subset of
+    /// `nodes_paged_out` and `bytes_offloaded`, which also count what page-out evicts.
+    evictions: AtomicU64,
+    values_evicted: AtomicU64,
+    bytes_evicted: AtomicI64,
 }
 
 impl PagingMemoryMetrics {
@@ -160,9 +165,27 @@ impl PagingMemoryMetrics {
         self.nodes_paged_out.fetch_add(nodes, Ordering::Relaxed);
     }
 
+    pub(crate) fn record_eviction(&self) {
+        self.evictions.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(crate) fn record_evicted(&self, values: u64, bytes: i64) {
+        self.values_evicted.fetch_add(values, Ordering::Relaxed);
+        self.bytes_evicted.fetch_add(bytes, Ordering::Relaxed);
+    }
+
     /// Cumulative graph nodes evicted since daemon start.
     pub(crate) fn nodes_paged_out(&self) -> u64 {
         self.nodes_paged_out.load(Ordering::Relaxed)
+    }
+
+    pub(crate) fn eviction_snapshot(&self) -> EvictionSnapshot {
+        EvictionSnapshot {
+            evictions: self.evictions.load(Ordering::Relaxed),
+            values_evicted: self.values_evicted.load(Ordering::Relaxed),
+            bytes_evicted: thread_alloc_counters_available()
+                .then(|| self.bytes_evicted.load(Ordering::Relaxed)),
+        }
     }
 
     /// `None` when the allocator counters cannot be read. The totals would be
@@ -201,6 +224,32 @@ impl PagingMemorySnapshot {
         PagingMemorySnapshot {
             bytes_offloaded: self.bytes_offloaded.saturating_sub(earlier.bytes_offloaded),
             bytes_restored: self.bytes_restored.saturating_sub(earlier.bytes_restored),
+        }
+    }
+}
+
+/// Cumulative evictions of backed values (see `Dice::evict_backed`) since daemon start.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EvictionSnapshot {
+    /// Eviction passes, counted when they start, including ones that found nothing to evict.
+    pub evictions: u64,
+    pub values_evicted: u64,
+    /// Memory the evictions freed, measured from the allocator like
+    /// [`PagingMemorySnapshot::bytes_offloaded`] and signed for the same reason. `None` when the
+    /// allocator counters cannot be read.
+    pub bytes_evicted: Option<i64>,
+}
+
+impl EvictionSnapshot {
+    /// The evictions between `earlier` and this snapshot.
+    pub fn since(self, earlier: EvictionSnapshot) -> EvictionSnapshot {
+        EvictionSnapshot {
+            evictions: self.evictions.saturating_sub(earlier.evictions),
+            values_evicted: self.values_evicted.saturating_sub(earlier.values_evicted),
+            bytes_evicted: self
+                .bytes_evicted
+                .zip(earlier.bytes_evicted)
+                .map(|(now, then)| now.saturating_sub(then)),
         }
     }
 }

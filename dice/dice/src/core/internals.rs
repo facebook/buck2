@@ -34,6 +34,7 @@ use crate::storage::EvictionPolicy;
 use crate::storage::PagingSetup;
 use crate::updater::ChangeType;
 use crate::value::DiceValidValue;
+use crate::value::HydratedValue;
 use crate::value::MaybeResidentComputedValue;
 use crate::value::PageOutResult;
 use crate::value::ResidentComputedValue;
@@ -189,8 +190,10 @@ impl ActorState {
         let window = AllocWindow::open();
         let evicted = self.graph.evict_backed(limit);
         if let Some(metrics) = &self.paging_memory {
+            let freed = window.net_freed();
             metrics.record_nodes_paged_out(evicted);
-            metrics.record_offloaded(window.net_freed());
+            metrics.record_offloaded(freed);
+            metrics.record_evicted(evicted, freed);
         }
         evicted
     }
@@ -237,8 +240,9 @@ impl ActorState {
 
     /// Replaces the value of `key` paged out at `data_key` with its hydrated form. No-op if no
     /// such value is retained any more.
-    pub(super) fn rehydrate(&mut self, key: DiceKey, data_key: DataKey, value: DiceValidValue) {
-        self.graph.rehydrate(key, data_key, value);
+    pub(super) fn rehydrate(&mut self, key: DiceKey, data_key: DataKey, hydrated: HydratedValue) {
+        self.graph
+            .rehydrate(key, data_key, hydrated.value, hydrated.serialized_bytes);
     }
 
     /// Returns some metrics about the current state of DICE. Don't do expensive things here.

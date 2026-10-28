@@ -32,6 +32,7 @@ use crate::core::state::init_state;
 use crate::introspection::graph::GraphIntrospectable;
 use crate::key::DiceKey;
 use crate::key_index::DiceKeyIndex;
+use crate::metrics::EvictionSnapshot;
 use crate::metrics::Metrics;
 use crate::metrics::PageInKeyTypeMetrics;
 use crate::metrics::PagingMemorySnapshot;
@@ -308,6 +309,14 @@ impl Dice {
         self.pagable_storage
             .as_ref()
             .map(|storage| storage.paged_out_node_total())
+    }
+
+    /// Cumulative evictions by [`Dice::evict_backed`] since daemon start, or `None` if pagable
+    /// storage is not configured.
+    pub fn eviction_metrics(&self) -> Option<EvictionSnapshot> {
+        self.pagable_storage
+            .as_ref()
+            .map(|storage| storage.eviction_snapshot())
     }
 
     /// Last measured on-disk size in bytes of the pagable store, or `None` if
@@ -618,6 +627,11 @@ pub struct PagableNodeCounts {
     pub paged_out: usize,
     pub candidates: usize,
     pub backed: usize,
+    /// Serialized size of the rows holding the `backed` values: what [`Dice::evict_backed`]
+    /// would drop, in serialized rather than in-memory bytes, excluding nested `PagableArc`
+    /// sub-values. A lower bound: a value that became backed by being proven equal to a
+    /// paged-out one, rather than read back, counts as zero.
+    pub backed_bytes: u64,
 }
 
 /// Summary of how many DICE node values are resident in memory vs paged out to

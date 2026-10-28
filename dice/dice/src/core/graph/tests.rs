@@ -221,6 +221,7 @@ fn page_out_under(graph: &mut VersionedGraph, k: DiceKey, data_key: u128, policy
                 crate::value::PageOutResult {
                     serialized_value: v,
                     data_key: pagable::DataKey::testing_new(data_key),
+                    serialized_bytes: PAGED_OUT_BYTES,
                 },
             )
         })
@@ -438,6 +439,7 @@ fn dependency_validated_paged_out_value_stays_paged_out() {
             paged_out: 1,
             candidates: 0,
             backed: 0,
+            backed_bytes: 0,
         }
     );
 }
@@ -469,21 +471,33 @@ fn a_dirtied_key_offers_a_stale_candidate() {
     );
 }
 
+/// The row size every test page-out commits.
+const PAGED_OUT_BYTES: u64 = 100;
+/// The row size every test page-in reads back.
+const READ_BACK_BYTES: u64 = 40;
+
 fn counts(resident: usize, paged_out: usize, candidates: usize) -> PagableNodeCounts {
     PagableNodeCounts {
         resident,
         paged_out,
         candidates,
         backed: 0,
+        backed_bytes: 0,
     }
 }
 
-fn backed_counts(resident: usize, paged_out: usize, backed: usize) -> PagableNodeCounts {
+fn backed_counts(
+    resident: usize,
+    paged_out: usize,
+    backed: usize,
+    backed_bytes: u64,
+) -> PagableNodeCounts {
     PagableNodeCounts {
         resident,
         paged_out,
         candidates: 0,
         backed,
+        backed_bytes,
     }
 }
 
@@ -516,7 +530,7 @@ fn once_per_key_keeps_recomputed_and_read_back_values_resident() {
 
     compute(&mut graph, key(2), v3, value(9));
     page_out(&mut graph, key(2), 0x2);
-    graph.rehydrate(key(2), DataKey::testing_new(0x2), value(9));
+    graph.rehydrate(key(2), DataKey::testing_new(0x2), value(9), READ_BACK_BYTES);
     graph.assert_consistent();
     assert_eq!(graph.pagable_node_counts(), counts(2, 0, 0));
     assert!(stored_data_key(&graph, key(2), v3).is_none());
@@ -530,7 +544,10 @@ fn on_memory_pressure_page_out_keeps_the_values_it_writes_resident() {
     let v2 = graph.head(root);
     compute(&mut graph, key(1), v2, value(7));
     page_out_under(&mut graph, key(1), 0x1, EvictionPolicy::OnMemoryPressure);
-    assert_eq!(graph.pagable_node_counts(), backed_counts(1, 0, 1));
+    assert_eq!(
+        graph.pagable_node_counts(),
+        backed_counts(1, 0, 1, PAGED_OUT_BYTES)
+    );
     assert!(graph.keys_to_page_out().is_empty());
     assert_eq!(evict_backed(&mut graph), 1);
     assert_eq!(graph.pagable_node_counts(), counts(0, 1, 0));
@@ -553,7 +570,10 @@ fn recomputed_value_is_written_and_kept_resident() {
     assert_eq!(graph.pagable_node_counts(), counts(1, 0, 1));
 
     page_out(&mut graph, key(1), 0x2);
-    assert_eq!(graph.pagable_node_counts(), backed_counts(1, 0, 1));
+    assert_eq!(
+        graph.pagable_node_counts(),
+        backed_counts(1, 0, 1, PAGED_OUT_BYTES)
+    );
     assert!(stored_data_key(&graph, key(1), v3).is_none());
     assert!(graph.keys_to_page_out().is_empty());
 
@@ -572,9 +592,17 @@ fn rehydrated_value_is_backed_by_its_row() {
     let v2 = graph.head(root);
     compute(&mut graph, key(1), v2, value(7));
     page_out(&mut graph, key(1), 0x1234);
-    graph.rehydrate(key(1), DataKey::testing_new(0x1234), value(7));
+    graph.rehydrate(
+        key(1),
+        DataKey::testing_new(0x1234),
+        value(7),
+        READ_BACK_BYTES,
+    );
     graph.assert_consistent();
-    assert_eq!(graph.pagable_node_counts(), backed_counts(1, 0, 1));
+    assert_eq!(
+        graph.pagable_node_counts(),
+        backed_counts(1, 0, 1, READ_BACK_BYTES)
+    );
     assert!(graph.keys_to_page_out().is_empty());
     assert!(stored_data_key(&graph, key(1), v2).is_none());
 
@@ -614,9 +642,17 @@ fn asserted_values_of_computed_keys_page_out() {
             .paged_out_data_key(),
         Some(pagable::DataKey::testing_new(7))
     );
-    graph.rehydrate(key(1), pagable::DataKey::testing_new(7), value(1));
+    graph.rehydrate(
+        key(1),
+        pagable::DataKey::testing_new(7),
+        value(1),
+        READ_BACK_BYTES,
+    );
     graph.assert_consistent();
-    assert_eq!(graph.pagable_node_counts(), backed_counts(1, 0, 1));
+    assert_eq!(
+        graph.pagable_node_counts(),
+        backed_counts(1, 0, 1, READ_BACK_BYTES)
+    );
 }
 
 #[test]
@@ -631,7 +667,12 @@ fn page_out_index_tracks_the_values() {
     page_out(&mut graph, key(1), 1);
     assert_eq!(graph.pagable_node_counts(), counts(1, 1, 1));
     assert_eq!(graph.paged_out_keys().len(), 1);
-    graph.rehydrate(key(1), pagable::DataKey::testing_new(1), value(1));
+    graph.rehydrate(
+        key(1),
+        pagable::DataKey::testing_new(1),
+        value(1),
+        READ_BACK_BYTES,
+    );
     graph.assert_consistent();
     assert_eq!(
         graph.pagable_node_counts(),
@@ -640,17 +681,21 @@ fn page_out_index_tracks_the_values() {
             paged_out: 0,
             candidates: 1,
             backed: 1,
+            backed_bytes: READ_BACK_BYTES,
         }
     );
     // A stale page-in for a data key no value holds is ignored.
-    graph.rehydrate(key(1), pagable::DataKey::testing_new(99), value(1));
+    graph.rehydrate(key(1), pagable::DataKey::testing_new(99), value(1), 7);
     graph.assert_consistent();
     let k2_result = graph.get(VersionedGraphKey::new(v2, key(2)));
     let k2_value = k2_result.unpack_match().unwrap();
     let k2_value = k2_value.testing_resident_value().testing_value().dupe();
     graph.mark_non_pageable(vec![(key(2), DiceValidValue::from_arc(k2_value))]);
     graph.assert_consistent();
-    assert_eq!(graph.pagable_node_counts(), backed_counts(2, 0, 1));
+    assert_eq!(
+        graph.pagable_node_counts(),
+        backed_counts(2, 0, 1, READ_BACK_BYTES)
+    );
     assert!(graph.keys_to_page_out().is_empty());
     // Deleting the branch releases the values, and the index with them.
     graph.delete_branch(root);

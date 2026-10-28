@@ -47,6 +47,7 @@ use crate::storage::PagingSetup;
 use crate::updater::ActiveTransactionGuard;
 use crate::updater::ChangeType;
 use crate::value::DiceValidValue;
+use crate::value::HydratedValue;
 use crate::value::MaybeResidentComputedValue;
 use crate::value::PageOutResult;
 use crate::value::ResidentComputedValue;
@@ -384,11 +385,11 @@ impl CoreStateHandle {
     /// Replace the value paged out at `data_key` with `value`, its hydrated form.
     /// Fire-and-forget; any subsequent state requests for `key` are guaranteed to see the
     /// hydrated value because state requests are processed FIFO.
-    pub(crate) fn rehydrate(&self, key: DiceKey, data_key: DataKey, value: DiceValidValue) {
+    pub(crate) fn rehydrate(&self, key: DiceKey, data_key: DataKey, hydrated: HydratedValue) {
         self.request(StateRequest::Rehydrate {
             key,
             data_key,
-            value,
+            hydrated,
         })
     }
 
@@ -597,7 +598,7 @@ pub(super) enum StateRequest {
     Rehydrate {
         key: DiceKey,
         data_key: DataKey,
-        value: DiceValidValue,
+        hydrated: HydratedValue,
     },
     /// Collect metrics
     Metrics { resp: Sender<Metrics> },

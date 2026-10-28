@@ -264,6 +264,24 @@ message PageOutSummary {
   optional int64 memory_restored_bytes = 25;
   /// Entries in the deserialized-arc cache after this page-out's sweep.
   optional uint64 daemon_arc_cache_entries = 28;
+  /// Backed values dropped by memory-pressure eviction (not by this page-out)
+  /// while this page-out ran, and the memory that freed, measured from the
+  /// allocator like `memory_offloaded_bytes`. Absent if pagable storage is not
+  /// configured; the bytes also when the allocator counters are unreadable.
+  optional uint64 evicted_count = 29;
+  optional int64 evicted_bytes = 30;
+  /// Daemon-lifetime memory-pressure evictions as of this page-out finishing:
+  /// eviction passes, the values they dropped and the memory that freed.
+  /// Difference consecutive rows of a daemon to see what pressure reclaimed
+  /// between its page-outs.
+  optional uint64 daemon_evictions = 31;
+  optional uint64 daemon_evicted_count = 32;
+  optional int64 daemon_evicted_bytes = 33;
+  /// Serialized size of the rows backing resident values after this page-out:
+  /// what the next memory-pressure eviction would drop, in serialized rather
+  /// than in-memory bytes, excluding nested PagableArc sub-values. A lower
+  /// bound; see `PagableNodeCounts::backed_bytes`.
+  optional uint64 evictable_bytes = 34;
 }
 
 // An event that represents a single point in time.
@@ -719,6 +737,17 @@ message PagingSummary {
   optional uint64 paging_arc_cache_entries = 20;
   // Daemon-lifetime totals, not a per-command delta.
   optional StarlarkPartialDeserStats starlark_partial_deser = 17;
+  // Memory-pressure eviction during this command (delta vs the command-start
+  // baseline): eviction passes, the backed values they dropped, and the memory
+  // that freed, measured from the allocator. Absent if pagable storage is not
+  // configured; the bytes also when the allocator counters are unreadable.
+  optional uint64 paging_evictions = 21;
+  optional uint64 paging_evicted_count = 22;
+  optional int64 paging_evicted_bytes = 23;
+  // Serialized size of the rows backing resident values at command end: what
+  // the next memory-pressure eviction would drop, in serialized rather than
+  // in-memory bytes, excluding nested PagableArc sub-values. A lower bound.
+  optional uint64 paging_evictable_bytes = 24;
 }
 
 // What paging in a Starlark value costs at heap granularity versus value
@@ -3837,6 +3866,17 @@ message InvocationRecord {
   optional int64 paging_memory_restored_bytes = 462;
   // Entries in the deserialized-arc cache at command end.
   optional uint64 paging_arc_cache_entries = 768;
+  // Memory-pressure eviction during this command: eviction passes, the backed
+  // values they dropped, and the memory that freed, measured from the
+  // allocator. Each pass drops every backed value, which the command then pages
+  // back in as it reads them.
+  optional uint64 paging_evictions = 771;
+  optional uint64 paging_evicted_count = 772;
+  optional int64 paging_evicted_bytes = 773;
+  // Serialized size of the rows backing resident values at command end: what
+  // the next eviction would drop, in serialized rather than in-memory bytes,
+  // excluding nested PagableArc sub-values. A lower bound.
+  optional uint64 paging_evictable_bytes = 774;
 
   // Time from the start of the daemon command span (the same origin as
   // `command_duration`) to the end of the build phase. Absent for commands

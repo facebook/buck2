@@ -174,9 +174,9 @@ impl StateProcessor {
             StateRequest::Rehydrate {
                 key,
                 data_key,
-                value,
+                hydrated,
             } => {
-                self.state.rehydrate(key, data_key, value);
+                self.state.rehydrate(key, data_key, hydrated);
             }
             StateRequest::Metrics { resp } => {
                 let _ignored = resp.send(self.state.metrics());
