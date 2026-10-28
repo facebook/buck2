@@ -320,13 +320,13 @@ impl FileWatcher for NotifyFileWatcher {
 
 #[cfg(test)]
 mod tests {
+    use buck2_common::ignores::ignore_set::IgnoreSet;
     use buck2_core::cells::CellResolver;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::name::CellName;
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use buck2_fs::fs_util::uncategorized as fs_util;
     use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
-    use buck2_hash::BuckMutMap;
     use notify::event::CreateKind;
     use notify::event::Flag;
 
@@ -341,11 +341,10 @@ mod tests {
         let root_path =
             fs_util::canonicalize(AbsNormPathBuf::new(tempdir.path().to_owned()).unwrap()).unwrap();
         let root = ProjectRoot::new(root_path).unwrap();
-        (
-            root,
-            FileWatcherIgnores::new(cells, BuckMutMap::default()),
-            tempdir,
-        )
+        let ignores = Arc::new(
+            IgnoreSet::testing_new_single_cell(CellName::testing_new("root"), "", true).unwrap(),
+        );
+        (root, FileWatcherIgnores::new(cells, ignores), tempdir)
     }
 
     /// The kernel-overflow signal can arrive as a rescan-flagged event with no paths attached

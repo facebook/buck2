@@ -25,6 +25,7 @@ use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use buck2_common::cas_digest::DigestAlgorithm;
 use buck2_common::cas_digest::DigestAlgorithmFamily;
 use buck2_common::ignores::ignore_set::IgnoreSet;
+use buck2_common::ignores::ignore_set::compute_ignore_set;
 use buck2_common::init::DaemonStartupConfig;
 use buck2_common::init::SystemWarningConfig;
 use buck2_common::init::Timeout;
@@ -185,6 +186,9 @@ pub struct RepoState {
 
     /// Settled every time we run a command.
     pub io: Arc<dyn IoProvider>,
+
+    /// Built from every cell's `project.ignore` when the daemon started, and not again.
+    pub(crate) ignore_set: Arc<IgnoreSet>,
 
     /// Most materializations go through the materializer, providing a single point
     /// where the most expensive network and fs IO operations are performed. It
@@ -423,23 +427,13 @@ impl TenantState {
             root_config,
         )?);
 
-        let mut ignore_specs: BuckMutMap<CellName, IgnoreSet> = BuckMutMap::default();
+        let mut cell_configs: BuckMutMap<CellName, _> = BuckMutMap::default();
         for (cell, _) in cells.cells() {
             let config = legacy_cells.parse_single_cell(cell, &fs).await?;
-            ignore_specs.insert(
-                cell,
-                IgnoreSet::from_ignore_spec(
-                    config
-                        .get(BuckconfigKeyRef {
-                            section: "project",
-                            property: "ignore",
-                        })
-                        .unwrap_or(""),
-                    cells.is_root_cell(cell),
-                )?,
-            );
+            cell_configs.insert(cell, config);
         }
-        let file_watcher_ignores = FileWatcherIgnores::new(cells.dupe(), ignore_specs);
+        let ignore_set = Arc::new(compute_ignore_set(cells.dupe(), &cell_configs)?);
+        let file_watcher_ignores = FileWatcherIgnores::new(cells.dupe(), ignore_set.dupe());
 
         let disk_state_options = DiskStateOptions::new(root_config)?;
         let blocking_executor = shared.blocking_executor_factory.for_project(fs.dupe());
@@ -676,6 +670,7 @@ impl TenantState {
             .construct_dice(
                 io.dupe(),
                 digest_config,
+                ignore_set.dupe(),
                 root_config,
                 tenting_acl_provider,
                 paths.dice_state_path().as_ref(),
@@ -798,6 +793,7 @@ impl TenantState {
             paths,
             file_watcher,
             io,
+            ignore_set,
             materializer,
             use_network_action_output_cache,
             restart_daemon_on_error: root_config

@@ -16,8 +16,7 @@ use dice::DiceComputations;
 
 use crate::dice::cells::HasCellResolver;
 use crate::ignores::file_ignores::CellFileIgnores;
-use crate::legacy_configs::dice::HasLegacyConfigs;
-use crate::legacy_configs::key::BuckconfigKeyRef;
+use crate::ignores::ignore_set::HasIgnoreSet;
 
 #[async_trait]
 pub(crate) trait HasCellFileIgnores {
@@ -35,22 +34,10 @@ impl HasCellFileIgnores for DiceComputations<'_> {
     ) -> buck2_error::Result<Arc<CellFileIgnores>> {
         let cells = self.get_cell_resolver().await?;
         let instance = cells.get(cell_name)?;
-        let config = self.get_legacy_config_on_dice(cell_name).await?;
+        let ignores = self.global_data().get_ignore_set();
 
-        let ignore_spec = config.lookup(
-            self,
-            BuckconfigKeyRef {
-                section: "project",
-                property: "ignore",
-            },
-        )?;
-        let ignore_spec = ignore_spec.as_ref().map_or("", |s| &**s);
-
-        let cell_ignores = CellFileIgnores::new_for_interpreter(
-            ignore_spec,
-            instance.nested_cells().clone(),
-            cells.is_root_cell(cell_name),
-        )?;
+        let cell_ignores =
+            CellFileIgnores::new(ignores, instance.nested_cells().clone(), cell_name);
 
         Ok(Arc::new(cell_ignores))
     }

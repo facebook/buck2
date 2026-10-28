@@ -8,6 +8,8 @@
  * above-listed licenses.
  */
 
+use std::sync::Arc;
+
 use allocative::Allocative;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::nested::NestedCells;
@@ -78,29 +80,22 @@ impl FileIgnoreResult {
 /// Ignores files based on configured ignore patterns and cell paths.
 #[derive(PartialEq, Eq, Allocative, Debug, Pagable)]
 pub struct CellFileIgnores {
-    ignores: IgnoreSet,
+    ignores: Arc<IgnoreSet>,
     cell_ignores: NestedCells,
+    cell: CellName,
 }
 
 impl CellFileIgnores {
-    /// Creates a new FileIgnores intended for use by the interpreter.
-    ///
-    /// This will ignore files/dirs in the ignore spec and those in other cells.
-    pub fn new_for_interpreter(
-        ignore_spec: &str,
-        nested_cells: NestedCells,
-        root_cell: bool,
-    ) -> buck2_error::Result<CellFileIgnores> {
-        Ok(CellFileIgnores {
-            ignores: IgnoreSet::from_ignore_spec(ignore_spec, root_cell)?,
+    pub fn new(ignores: Arc<IgnoreSet>, nested_cells: NestedCells, cell: CellName) -> Self {
+        CellFileIgnores {
+            ignores,
             cell_ignores: nested_cells,
-        })
+            cell,
+        }
     }
 
     pub(crate) fn check(&self, path: &CellRelativePath) -> FileIgnoreResult {
-        let candidate = globset::Candidate::new(path.as_str());
-
-        if let Some(pattern) = self.ignores.matches_candidate(&candidate) {
+        if let Some(pattern) = self.ignores.matches_candidate(self.cell, path) {
             return FileIgnoreResult::Ignored(FileIgnoreReason::IgnoredByPattern {
                 path: path.as_str().to_owned(),
                 pattern: pattern.to_owned(),
@@ -120,6 +115,8 @@ impl CellFileIgnores {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use buck2_core::cells::cell_root_path::CellRootPath;
     use buck2_core::cells::name::CellName;
     use buck2_core::cells::nested::NestedCells;
@@ -127,6 +124,7 @@ mod tests {
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
 
     use crate::ignores::file_ignores::CellFileIgnores;
+    use crate::ignores::ignore_set::IgnoreSet;
 
     #[test]
     fn file_ignores() -> buck2_error::Result<()> {
@@ -145,11 +143,13 @@ mod tests {
             ),
         ];
         let nested_cells = NestedCells::from_cell_roots(cells, CellRootPath::testing_new("root"));
-        let ignores = CellFileIgnores::new_for_interpreter(
+        let root_cell = CellName::testing_new("root");
+        let ignore_set = Arc::new(IgnoreSet::testing_new_single_cell(
+            root_cell,
             "**/*.java , some/dir/**, one/*, \n    recursive, trailing_slash/",
-            nested_cells,
             true,
-        )?;
+        )?);
+        let ignores = CellFileIgnores::new(ignore_set, nested_cells, root_cell);
 
         assert!(
             ignores

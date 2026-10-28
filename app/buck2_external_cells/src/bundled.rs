@@ -669,7 +669,7 @@ mod tests {
         let dir_metadata = ops.read_path_metadata_if_exists(dir).unwrap().unwrap();
         assert_matches!(dir_metadata, RawPathMetadata::Directory);
         let dir_entries = ops.read_dir(dir).await.unwrap();
-        assert_eq!(dir_entries.len(), 5);
+        assert_eq!(dir_entries.len(), 4);
     }
 
     #[test]

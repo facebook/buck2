@@ -49,6 +49,7 @@ use buck2_cli_proto::common_build_options::ExecutionStrategy;
 use buck2_cli_proto::config_override::ConfigType;
 use buck2_common::file_ops::io::initialize_read_dir_cache;
 use buck2_common::http::SetHttpClient;
+use buck2_common::ignores::ignore_set::IgnoreSet;
 use buck2_common::io::trace::TracingIoProvider;
 use buck2_common::legacy_configs::agent_context::AgentContextSchema;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
@@ -59,6 +60,7 @@ use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::settings::BuckSettings;
 use buck2_common::settings::InvocationBuckSettings;
 use buck2_core::buck2_env;
+use buck2_core::cells::name::CellName;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::facebook_only;
@@ -636,6 +638,48 @@ impl<'a> ServerCommandContext<'a> {
     }
 }
 
+#[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
+enum ProjectIgnoreError {
+    #[error(
+        "`project.ignore` cannot be set with `--config` (`{0}`): buck2 reads it from the `.buckconfig` files when the daemon starts"
+    )]
+    Override(String),
+    #[error(
+        "`project.ignore` of cell `{0}` differs from what the daemon read when it started, which is the only time buck2 reads it. Run `buck2 kill` to pick up a change to the `.buckconfig` files; `--config-file` cannot set it"
+    )]
+    Changed(CellName),
+}
+
+/// `project.ignore` is read when the daemon starts (`RepoState::ignore_set`). A command that
+/// would run with another one is refused, rather than run with the daemon's as if nothing were
+/// amiss. Only the root cell is checked, by parsing its `.buckconfig` as the daemon did when it
+/// started; the other cells' `project.ignore` is on its way into the root one.
+async fn check_project_ignore(
+    ignore_set: &IgnoreSet,
+    overrides: &[ConfigOverride],
+    configs: &BuckConfigBasedCells,
+    project_root: &ProjectRoot,
+) -> buck2_error::Result<()> {
+    for o in overrides {
+        if ConfigType::try_from(o.config_type) == Ok(ConfigType::Value)
+            && o.config_override
+                .split_once('=')
+                .is_some_and(|(key, _)| key.trim() == "project.ignore")
+        {
+            return Err(ProjectIgnoreError::Override(o.config_override.clone()).into());
+        }
+    }
+    // `configs.root_config` is parsed without following `<file:...>` includes, which the
+    // `project.ignore` of some repos sits behind.
+    let root = configs.cell_resolver.root_cell();
+    let root_config = configs.parse_single_cell(root, project_root).await?;
+    if !ignore_set.built_from(root, &root_config, true)? {
+        return Err(ProjectIgnoreError::Changed(root).into());
+    }
+    Ok(())
+}
+
 impl ServerCommandContext<'_> {
     async fn load_new_configs(
         &self,
@@ -644,6 +688,13 @@ impl ServerCommandContext<'_> {
         let new_configs = BuckConfigBasedCells::parse_with_config_args(
             self.base_context.repo().paths.project_root(),
             &self.config_overrides,
+        )
+        .await?;
+        check_project_ignore(
+            &self.base_context.repo().ignore_set,
+            &self.config_overrides,
+            &new_configs,
+            self.base_context.repo().paths.project_root(),
         )
         .await?;
 

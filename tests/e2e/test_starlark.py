@@ -16,13 +16,9 @@ from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 class StarlarkTest(BuckTestCase):
     @buck_test(inplace=True)
     async def test_lint_buck2(self, buck: Buck) -> None:
-        # FIXME(JakobDegen): Reusing `project.ignore` for this is bad, `starlark
-        # lint` should have `-I` and `-X` flags like sapling
+        # The test data is wrong on purpose
         await buck.starlark(
-            "lint",
-            "buck2",
-            "-c",
-            "project.ignore=buck2/tests/e2e,buck2/tests/core",
+            "lint", "buck2", "-X", "buck2/tests/core", "-X", "buck2/tests/e2e"
         )
 
     @buck_test(inplace=True)

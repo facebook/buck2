@@ -14,6 +14,8 @@ use std::sync::Arc;
 
 use buck2_common::dice::cells::SetCellResolver;
 use buck2_common::dice::data::SetIoProvider;
+use buck2_common::ignores::ignore_set::IgnoreSet;
+use buck2_common::ignores::ignore_set::SetIgnoreSet;
 use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::dice::SetLegacyConfigs;
@@ -124,6 +126,7 @@ impl DiceEngineConfiguration {
 pub struct DiceRootConfiguration<'a> {
     pub io: Arc<dyn IoProvider>,
     pub digest_config: DigestConfig,
+    pub ignore_set: Arc<IgnoreSet>,
     pub root_config: Option<&'a LegacyBuckConfig>,
     pub tenting_acl_provider: Option<Arc<dyn TentingAclProvider>>,
     pub buck_settings: DaemonBuckSettings,
@@ -136,6 +139,7 @@ pub fn configure_dice_data_for_buck(
     let DiceRootConfiguration {
         io,
         digest_config,
+        ignore_set,
         root_config,
         tenting_acl_provider,
         buck_settings,
@@ -143,6 +147,7 @@ pub fn configure_dice_data_for_buck(
     let mut data = DiceData::new();
     data.set_io_provider(io);
     data.set_digest_config(digest_config);
+    data.set_ignore_set(ignore_set);
     data.set_buck_settings(buck_settings);
     data.set_tenting_acl_provider(tenting_acl_provider);
     let invalidation_tracking_enabled = match root_config {
@@ -165,6 +170,7 @@ pub fn configure_dice_data_for_buck(
 pub async fn configure_dice_for_buck(
     io: Arc<dyn IoProvider>,
     digest_config: DigestConfig,
+    ignore_set: Arc<IgnoreSet>,
     root_config: Option<&LegacyBuckConfig>,
     tenting_acl_provider: Option<Arc<dyn TentingAclProvider>>,
     buck_settings: DaemonBuckSettings,
@@ -189,6 +195,7 @@ pub async fn configure_dice_for_buck(
     let data = configure_dice_data_for_buck(DiceRootConfiguration {
         io,
         digest_config,
+        ignore_set,
         root_config,
         tenting_acl_provider,
         buck_settings,

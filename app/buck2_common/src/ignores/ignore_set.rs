@@ -8,21 +8,121 @@
  * above-listed licenses.
  */
 
+use std::sync::Arc;
 use std::sync::LazyLock;
 
 use allocative::Allocative;
+use buck2_core::cells::CellResolver;
+use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_error::internal_error;
-use globset::Candidate;
+use buck2_hash::BuckMutMap;
+use dice::DiceData;
+use dice::DiceDataBuilder;
+use dupe::Dupe;
 use globset::GlobSetBuilder;
 use pagable::PagableDeserialize;
 use pagable::PagableDeserializer;
 use pagable::PagableSerialize;
 use pagable::PagableSerializer;
+use pagable::PagableUnsupported;
 use regex::Regex;
 
-#[derive(Debug, Clone, Allocative)]
+use crate::legacy_configs::configs::LegacyBuckConfig;
+use crate::legacy_configs::key::BuckconfigKeyRef;
+
+pub fn compute_ignore_set(
+    cells: CellResolver,
+    configs: &BuckMutMap<CellName, LegacyBuckConfig>,
+) -> buck2_error::Result<IgnoreSet> {
+    let by_cell = configs
+        .iter()
+        .map(|(cell_name, config)| {
+            buck2_error::Ok((
+                *cell_name,
+                PerCellIgnoreSet::from_config(config, cells.is_root_cell(*cell_name))?,
+            ))
+        })
+        .collect::<buck2_error::Result<_>>()?;
+
+    Ok(IgnoreSet { by_cell })
+}
+
+#[derive(Debug, Allocative, PagableUnsupported, PartialEq, Eq)]
 pub struct IgnoreSet {
+    by_cell: BuckMutMap<CellName, PerCellIgnoreSet>,
+}
+
+impl IgnoreSet {
+    /// Returns a pattern that matches the candidate if there is one.
+    pub(crate) fn matches_candidate<'a>(
+        &'a self,
+        cell: CellName,
+        path: &CellRelativePath,
+    ) -> Option<&'a str> {
+        self.by_cell
+            .get(&cell)
+            .and_then(|ignore_set| ignore_set.matches_candidate(path))
+    }
+
+    /// Returns whether any pattern matches.
+    pub fn is_match(&self, cell: CellName, path: &CellRelativePath) -> bool {
+        self.by_cell
+            .get(&cell)
+            .is_some_and(|ignore_set| ignore_set.is_match(path))
+    }
+
+    /// Whether the `project.ignore` of `config` is the one this set was built from for `cell`.
+    pub fn built_from(
+        &self,
+        cell: CellName,
+        config: &LegacyBuckConfig,
+        root_cell: bool,
+    ) -> buck2_error::Result<bool> {
+        Ok(self.by_cell.get(&cell) == Some(&PerCellIgnoreSet::from_config(config, root_cell)?))
+    }
+
+    pub fn testing_new_single_cell(
+        cell: CellName,
+        spec: &str,
+        root_cell: bool,
+    ) -> buck2_error::Result<Self> {
+        let mut by_cell = BuckMutMap::default();
+        by_cell.insert(cell, PerCellIgnoreSet::from_ignore_spec(spec, root_cell)?);
+        Ok(Self { by_cell })
+    }
+}
+
+pub trait HasIgnoreSet {
+    fn get_ignore_set(&self) -> Arc<IgnoreSet>;
+}
+
+pub trait SetIgnoreSet {
+    fn set_ignore_set(&mut self, ignore_set: Arc<IgnoreSet>);
+}
+
+impl HasIgnoreSet for DiceData {
+    fn get_ignore_set(&self) -> Arc<IgnoreSet> {
+        self.get::<Arc<IgnoreSet>>()
+            .expect("ignore set should be set")
+            .dupe()
+    }
+}
+
+impl SetIgnoreSet for DiceDataBuilder {
+    fn set_ignore_set(&mut self, ignore_set: Arc<IgnoreSet>) {
+        self.set(ignore_set)
+    }
+}
+
+impl SetIgnoreSet for DiceData {
+    fn set_ignore_set(&mut self, ignore_set: Arc<IgnoreSet>) {
+        self.set(ignore_set)
+    }
+}
+
+#[derive(Debug, Clone, Allocative)]
+struct PerCellIgnoreSet {
     #[allocative(skip)]
     globset: globset::GlobSet,
     // Patterns that were added to the globset. Storing this seprately to support ser/de and
@@ -31,13 +131,13 @@ pub struct IgnoreSet {
     patterns: Vec<String>,
 }
 
-impl PagableSerialize for IgnoreSet {
+impl PagableSerialize for PerCellIgnoreSet {
     fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
         self.patterns.pagable_serialize(serializer)
     }
 }
 
-impl<'de> PagableDeserialize<'de> for IgnoreSet {
+impl<'de> PagableDeserialize<'de> for PerCellIgnoreSet {
     fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> pagable::Result<Self> {
@@ -48,16 +148,26 @@ impl<'de> PagableDeserialize<'de> for IgnoreSet {
     }
 }
 
-impl PartialEq for IgnoreSet {
+impl PartialEq for PerCellIgnoreSet {
     fn eq(&self, other: &Self) -> bool {
         // Only compare patterns because globset is derived from patterns.
         self.patterns == other.patterns
     }
 }
 
-impl Eq for IgnoreSet {}
+impl Eq for PerCellIgnoreSet {}
 
-impl IgnoreSet {
+impl PerCellIgnoreSet {
+    fn from_config(config: &LegacyBuckConfig, root_cell: bool) -> buck2_error::Result<Self> {
+        let spec = config
+            .get(BuckconfigKeyRef {
+                section: "project",
+                property: "ignore",
+            })
+            .unwrap_or_default();
+        Self::from_ignore_spec(spec, root_cell)
+    }
+
     /// Creates an IgnoreSet from an "ignore spec".
     ///
     /// This is modeled after buck1's parsing of project.ignores.
@@ -71,7 +181,7 @@ impl IgnoreSet {
     /// a '/**'.
     ///
     /// Always ignores `buck-out` if it is a `root_cell`.
-    pub fn from_ignore_spec(spec: &str, root_cell: bool) -> buck2_error::Result<Self> {
+    fn from_ignore_spec(spec: &str, root_cell: bool) -> buck2_error::Result<Self> {
         // TODO(cjhopman): There's opportunity to greatly improve the performance of IgnoreSet by
         // constructing special cases for a couple of common patterns we see in ignore specs. We
         // know that these can get large wins in some places where we've done this same ignore (watchman, buck1's ignores).
@@ -119,15 +229,19 @@ impl IgnoreSet {
     }
 
     /// Returns a pattern that matches the candidate if there is one.
-    pub(crate) fn matches_candidate(&self, candidate: &Candidate) -> Option<&str> {
-        match self.globset.matches_candidate(candidate).as_slice() {
+    pub(crate) fn matches_candidate(&self, candidate: &CellRelativePath) -> Option<&str> {
+        match self
+            .globset
+            .matches_candidate(&globset::Candidate::new(candidate.as_str()))
+            .as_slice()
+        {
             [] => None,
             [v, ..] => Some(&self.patterns[*v]),
         }
     }
 
     /// Returns whether any pattern matches.
-    pub fn is_match(&self, path: &CellRelativePath) -> bool {
+    fn is_match(&self, path: &CellRelativePath) -> bool {
         self.globset.is_match(path.as_str())
     }
 }
@@ -138,7 +252,7 @@ mod tests {
 
     #[test]
     fn test_ignore_set_defaults() {
-        let set = IgnoreSet::from_ignore_spec("", true).unwrap();
+        let set = PerCellIgnoreSet::from_ignore_spec("", true).unwrap();
         assert!(set.is_match(CellRelativePath::testing_new("buck-out/gen/src/file.txt")));
         assert!(set.is_match(CellRelativePath::testing_new("buck-out/art/src/file.txt")));
         assert!(!set.is_match(CellRelativePath::testing_new("src/file.txt")));

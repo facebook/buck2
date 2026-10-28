@@ -37,6 +37,7 @@ use buck2_cli_proto::daemon_api_server::*;
 use buck2_cli_proto::*;
 use buck2_common::buckd_connection::BUCK_AUTH_TOKEN_HEADER;
 use buck2_common::events::HasEvents;
+use buck2_common::ignores::ignore_set::IgnoreSet;
 use buck2_common::init::DaemonStartupConfig;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::IoProvider;
@@ -277,6 +278,7 @@ impl TenantStateInitPreferences {
         &self,
         io: Arc<dyn IoProvider>,
         digest_config: DigestConfig,
+        ignore_set: Arc<IgnoreSet>,
         root_config: &LegacyBuckConfig,
         tenting_acl_provider: Option<Arc<dyn TentingAclProvider>>,
         dice_state_path: &Path,
@@ -291,6 +293,7 @@ impl TenantStateInitPreferences {
         configure_dice_for_buck(
             io,
             digest_config,
+            ignore_set,
             Some(root_config),
             tenting_acl_provider,
             self.daemon_startup_config.daemon_buck_settings().dupe(),
