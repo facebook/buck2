@@ -143,7 +143,6 @@ impl WatchmanQueryProcessor {
         if ignore {
             stats.add_ignored(1);
         } else {
-            let cell_path_str = cell_path.to_string();
             let log_kind;
             let log_event;
 
@@ -209,7 +208,7 @@ impl WatchmanQueryProcessor {
                 }
             };
 
-            stats.add(cell_path_str, log_event, log_kind);
+            stats.add(path, log_event, log_kind);
         }
 
         Ok(())

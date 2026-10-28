@@ -208,10 +208,10 @@ class EdenfsTest(BuckTestCase):
 
         required = [
             FileWatcherEvent(
-                FileWatcherEventType.CREATE, FileWatcherKind.FILE, "root//files/ghi"
+                FileWatcherEventType.CREATE, FileWatcherKind.FILE, "files/ghi"
             ),
             FileWatcherEvent(
-                FileWatcherEventType.CREATE, FileWatcherKind.FILE, "root//files/jkl"
+                FileWatcherEventType.CREATE, FileWatcherKind.FILE, "files/jkl"
             ),
         ]
 
@@ -243,7 +243,7 @@ class EdenfsTest(BuckTestCase):
             FileWatcherEvent(
                 FileWatcherEventType.CREATE,
                 FileWatcherKind.FILE,
-                "cell//abc",
+                "abc",
             ),
         ]
         verify_results(results, required)
@@ -275,7 +275,7 @@ class EdenfsTest(BuckTestCase):
             FileWatcherEvent(
                 FileWatcherEventType.CREATE,
                 FileWatcherKind.FILE,
-                "cell//abc",
+                "abc",
             ),
         ]
         verify_results(results, required)
@@ -304,13 +304,13 @@ class EdenfsTest(BuckTestCase):
         is_fresh_instance, results = await get_file_watcher_events(buck)
         required = [
             FileWatcherEvent(
-                FileWatcherEventType.DELETE, FileWatcherKind.FILE, "root//files/d2/f2"
+                FileWatcherEventType.DELETE, FileWatcherKind.FILE, "files/d2/f2"
             ),
             FileWatcherEvent(
-                FileWatcherEventType.DELETE, FileWatcherKind.DIRECTORY, "root//files/d2"
+                FileWatcherEventType.DELETE, FileWatcherKind.DIRECTORY, "files/d2"
             ),
             FileWatcherEvent(
-                FileWatcherEventType.MODIFY, FileWatcherKind.DIRECTORY, "root//files"
+                FileWatcherEventType.MODIFY, FileWatcherKind.DIRECTORY, "files"
             ),
         ]
         assert not is_fresh_instance
@@ -320,12 +320,12 @@ class EdenfsTest(BuckTestCase):
     async def test_edenfs_directory_rename(self, buck: Buck) -> None:
         (buck.cwd / "d1").mkdir()
         (buck.cwd / "d1" / "TARGETS.fixture").touch()
-        await buck.targets("root//d1:")
+        await buck.targets("d1:")
 
         (buck.cwd / "d1").rename(buck.cwd / "d2")
         # FIXME(JakobDegen): Bug: This directory doesn't exist.
         # Note: Also repros with watchman
-        await buck.targets("root//d1:")
+        await buck.targets("d1:")
 
     # Dir replace is not supported on Windows
     @buck_test(setup_eden=True, skip_for_os=["windows"])
@@ -341,10 +341,10 @@ class EdenfsTest(BuckTestCase):
         # and `delete` for the oldname
         required = [
             FileWatcherEvent(
-                FileWatcherEventType.CREATE, FileWatcherKind.DIRECTORY, "root//d2"
+                FileWatcherEventType.CREATE, FileWatcherKind.DIRECTORY, "d2"
             ),
             FileWatcherEvent(
-                FileWatcherEventType.DELETE, FileWatcherKind.DIRECTORY, "root//d1"
+                FileWatcherEventType.DELETE, FileWatcherKind.DIRECTORY, "d1"
             ),
         ]
 
@@ -368,10 +368,10 @@ class EdenfsTest(BuckTestCase):
         # eden watcher doesn't report duplicates
         assert results == [
             FileWatcherEvent(
-                FileWatcherEventType.MODIFY, FileWatcherKind.FILE, "root//files/abc"
+                FileWatcherEventType.MODIFY, FileWatcherKind.FILE, "files/abc"
             ),
             FileWatcherEvent(
-                FileWatcherEventType.CREATE, FileWatcherKind.FILE, "root//files/bcd"
+                FileWatcherEventType.CREATE, FileWatcherKind.FILE, "files/bcd"
             ),
         ]
 
@@ -387,7 +387,7 @@ class EdenfsTest(BuckTestCase):
             FileWatcherEvent(
                 FileWatcherEventType.MODIFY,
                 FileWatcherKind.FILE,
-                "root//files/abc",
+                "files/abc",
             ),
         ]
         verify_results(results, required)
@@ -404,7 +404,7 @@ class EdenfsTest(BuckTestCase):
                 FileWatcherEvent(
                     FileWatcherEventType.MODIFY,
                     FileWatcherKind.FILE,
-                    "root//files/abc",
+                    "files/abc",
                 )
             )
 

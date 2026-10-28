@@ -238,7 +238,7 @@ impl FsSnapshot {
                 continue;
             }
 
-            stats.add(event.cell_path.to_string(), event.event, event.kind);
+            stats.add(event.path, event.event, event.kind);
             match (event.event, event.kind) {
                 (
                     FileWatcherEventType::Create,

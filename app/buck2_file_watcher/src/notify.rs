@@ -20,7 +20,6 @@ use buck2_common::file_ops::io::FileChangeTracker;
 use buck2_common::ignores::ignore_set::IgnoreSet;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_core::cells::CellResolver;
-use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::name::CellName;
 use buck2_core::fs::i_project_rel_path::IProjectRelativePath;
 use buck2_core::fs::project::ProjectRoot;
@@ -64,7 +63,7 @@ fn ignore_event_kind(event_kind: EventKind) -> bool {
 struct NotifyFileData {
     ignored: u64,
     #[allocative(skip)]
-    events: BuckMutInsertionSet<(IProjectRelativePath, CellPath, EventKind)>,
+    events: BuckMutInsertionSet<(IProjectRelativePath, EventKind)>,
     /// Whether file system changes were missed
     missed_events: bool,
 }
@@ -126,7 +125,7 @@ impl NotifyFileData {
             if ignore || ignore_event_kind(event.kind) {
                 self.ignored += 1;
             } else {
-                self.events.insert((path, cell_path, event.kind));
+                self.events.insert((path, event.kind));
             }
         }
         Ok(())
@@ -156,105 +155,77 @@ impl NotifyFileData {
         let mut stats = FileWatcherStats::new(base, self.events.len());
         stats.add_ignored(self.ignored);
 
-        for (path, cell_path, event_kind) in self.events {
-            let cell_path_str = cell_path.to_string();
+        for (path, event_kind) in self.events {
             match event_kind {
                 EventKind::Create(create_kind) => match create_kind {
                     CreateKind::File => {
+                        stats.add(path, FileWatcherEventType::Create, FileWatcherKind::File);
                         changed.file_added_or_removed(path);
-                        stats.add(
-                            cell_path_str,
-                            FileWatcherEventType::Create,
-                            FileWatcherKind::File,
-                        );
                     }
                     CreateKind::Folder => {
-                        changed.dir_added_or_removed(path);
                         stats.add(
-                            cell_path_str,
+                            path,
                             FileWatcherEventType::Create,
                             FileWatcherKind::Directory,
                         );
+                        changed.dir_added_or_removed(path);
                     }
                     CreateKind::Any | CreateKind::Other => {
+                        stats.add(path, FileWatcherEventType::Create, FileWatcherKind::File);
                         changed.file_added_or_removed(path);
+
                         stats.add(
-                            cell_path_str.clone(),
-                            FileWatcherEventType::Create,
-                            FileWatcherKind::File,
-                        );
-                        changed.dir_added_or_removed(path);
-                        stats.add(
-                            cell_path_str,
+                            path,
                             FileWatcherEventType::Create,
                             FileWatcherKind::Directory,
                         );
+                        changed.dir_added_or_removed(path);
                     }
                 },
                 EventKind::Modify(modify_kind) => match modify_kind {
                     ModifyKind::Data(_) | ModifyKind::Metadata(_) => {
+                        stats.add(path, FileWatcherEventType::Modify, FileWatcherKind::File);
                         changed.file_contents_changed(path);
-                        stats.add(
-                            cell_path_str,
-                            FileWatcherEventType::Modify,
-                            FileWatcherKind::File,
-                        );
                     }
                     ModifyKind::Name(_) | ModifyKind::Any | ModifyKind::Other => {
+                        stats.add(path, FileWatcherEventType::Create, FileWatcherKind::File);
+                        stats.add(path, FileWatcherEventType::Delete, FileWatcherKind::File);
                         changed.file_added_or_removed(path);
                         stats.add(
-                            cell_path_str.clone(),
+                            path,
                             FileWatcherEventType::Create,
-                            FileWatcherKind::File,
+                            FileWatcherKind::Directory,
                         );
                         stats.add(
-                            cell_path_str.clone(),
+                            path,
                             FileWatcherEventType::Delete,
-                            FileWatcherKind::File,
+                            FileWatcherKind::Directory,
                         );
                         changed.dir_added_or_removed(path);
-                        stats.add(
-                            cell_path_str.clone(),
-                            FileWatcherEventType::Create,
-                            FileWatcherKind::Directory,
-                        );
-                        stats.add(
-                            cell_path_str.clone(),
-                            FileWatcherEventType::Delete,
-                            FileWatcherKind::Directory,
-                        );
                     }
                 },
                 EventKind::Remove(remove_kind) => match remove_kind {
                     RemoveKind::File => {
+                        stats.add(path, FileWatcherEventType::Delete, FileWatcherKind::File);
                         changed.file_added_or_removed(path);
-                        stats.add(
-                            cell_path_str,
-                            FileWatcherEventType::Delete,
-                            FileWatcherKind::File,
-                        );
                     }
                     RemoveKind::Folder => {
-                        changed.dir_added_or_removed(path);
                         stats.add(
-                            cell_path_str,
+                            path,
                             FileWatcherEventType::Delete,
                             FileWatcherKind::Directory,
                         );
+                        changed.dir_added_or_removed(path);
                     }
                     RemoveKind::Any | RemoveKind::Other => {
+                        stats.add(path, FileWatcherEventType::Delete, FileWatcherKind::File);
                         changed.file_added_or_removed(path);
                         stats.add(
-                            cell_path_str.clone(),
-                            FileWatcherEventType::Delete,
-                            FileWatcherKind::File,
-                        );
-                        changed.dir_added_or_removed(path);
-                        stats.add(
-                            cell_path_str,
+                            path,
                             FileWatcherEventType::Delete,
                             FileWatcherKind::Directory,
                         );
+                        changed.dir_added_or_removed(path);
                     }
                 },
                 _ => {}

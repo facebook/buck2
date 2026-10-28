@@ -532,7 +532,7 @@ impl EdenFsFileWatcher {
             event_kind: kind,
             path: cell_path.to_string(),
         }) {
-            stats.add(cell_path.to_string(), event, kind);
+            stats.add(project_rel_path, event, kind);
 
             match (event, kind) {
                 (Type::Create, Kind::Directory) => tracker.dir_added_or_removed(project_rel_path),

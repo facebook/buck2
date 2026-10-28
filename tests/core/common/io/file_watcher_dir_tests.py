@@ -40,7 +40,7 @@ async def run_create_directory_test(
         FileWatcherEvent(
             FileWatcherEventType.CREATE,
             FileWatcherKind.DIRECTORY,
-            "root//files/def",
+            "files/def",
         )
     ]
 
@@ -65,7 +65,7 @@ async def run_remove_directory_test(
         # Watchman on EdenFS reports a delete *file* event for removing a directory
         required = [
             FileWatcherEvent(
-                FileWatcherEventType.DELETE, FileWatcherKind.FILE, "root//files/d"
+                FileWatcherEventType.DELETE, FileWatcherKind.FILE, "files/d"
             ),
         ]
     else:
@@ -73,7 +73,7 @@ async def run_remove_directory_test(
             FileWatcherEvent(
                 FileWatcherEventType.DELETE,
                 FileWatcherKind.DIRECTORY,
-                "root//files/d",
+                "files/d",
             ),
         ]
 
@@ -96,7 +96,7 @@ async def run_rename_directory_test(
         FileWatcherEvent(
             FileWatcherEventType.CREATE,
             FileWatcherKind.DIRECTORY,
-            "root//files/def",
+            "files/def",
         ),
         # Watchman on EdenFS reports a delete file event for the fromPath directory
         FileWatcherEvent(
@@ -105,7 +105,7 @@ async def run_rename_directory_test(
             if file_watcher_provider is FileWatcherProvider.WATCHMAN
             and file_system_type is FileSystemType.EDEN_FS
             else FileWatcherKind.DIRECTORY,
-            "root//files/d",
+            "files/d",
         ),
     ]
 

@@ -53,7 +53,7 @@ async def run_create_symlink_test(
         FileWatcherEvent(
             FileWatcherEventType.CREATE,
             symlink_file_type(file_watcher_provider),
-            "root//files/def",
+            "files/def",
         ),
     ]
 
@@ -83,19 +83,19 @@ async def run_replace_file_with_symlink_test(
         #     FileWatcherEvent(
         #         FileWatcherEventType.MODIFY | FileWatcherEventType.CREATE,
         #         FileWatcherKind.SYMLINK,
-        #         "root//files/def",
+        #         "files/def",
         #     ),
         # ]
         required = []
     else:
         required = [
             FileWatcherEvent(
-                FileWatcherEventType.DELETE, FileWatcherKind.FILE, "root//files/def"
+                FileWatcherEventType.DELETE, FileWatcherKind.FILE, "files/def"
             ),
             FileWatcherEvent(
                 FileWatcherEventType.CREATE,
                 symlink_file_type(file_watcher_provider),
-                "root//files/def",
+                "files/def",
             ),
         ]
 
@@ -127,7 +127,7 @@ async def run_change_symlink_target_test(
             # FIXME(JakobDegen): Bug. Watchman non-deterministically flip-flops between reporting
             # create and modify events
             # FileWatcherEvent(
-            #     FileWatcherEventType.CREATE, FileWatcherKind.SYMLINK, "root//files/def"
+            #     FileWatcherEventType.CREATE, FileWatcherKind.SYMLINK, "files/def"
             # ),
         ]
     else:
@@ -135,12 +135,12 @@ async def run_change_symlink_target_test(
             FileWatcherEvent(
                 FileWatcherEventType.DELETE,
                 symlink_file_type(file_watcher_provider),
-                "root//files/def",
+                "files/def",
             ),
             FileWatcherEvent(
                 FileWatcherEventType.CREATE,
                 symlink_file_type(file_watcher_provider),
-                "root//files/def",
+                "files/def",
             ),
         ]
 

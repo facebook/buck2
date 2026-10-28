@@ -210,10 +210,10 @@ class WatchmanTest(BuckTestCase):
 
         required = [
             FileWatcherEvent(
-                FileWatcherEventType.CREATE, FileWatcherKind.FILE, "root//files/ghi"
+                FileWatcherEventType.CREATE, FileWatcherKind.FILE, "files/ghi"
             ),
             FileWatcherEvent(
-                FileWatcherEventType.CREATE, FileWatcherKind.FILE, "root//files/jkl"
+                FileWatcherEventType.CREATE, FileWatcherKind.FILE, "files/jkl"
             ),
         ]
 
