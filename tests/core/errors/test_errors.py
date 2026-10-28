@@ -41,6 +41,29 @@ class ErrorsTest(BuckTestCase):
         log = await buck.log("show")
         assert "Traceback" not in log.stdout
 
+    @buck_test()
+    async def test_deprecation(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.targets("deprecation:"),
+            stderr_regex="starlark_deprecation_example.*Going away",
+        )
+
+    @buck_test()
+    @env("BUCK2_HARD_ERROR", "false")
+    async def test_deprecation_is_silent(self, buck: Buck) -> None:
+        res = await buck.targets("deprecation:")
+        assert "starlark_deprecation_example" not in res.stderr
+        log = await buck.log("show")
+        assert "starlark_deprecation_example" in log.stdout
+
+    @buck_test()
+    @env("BUCK2_HARD_ERROR", "false")
+    async def test_deprecation_start_must_be_a_day(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.targets("deprecation_bad_start:"),
+            stderr_regex="yesterday",
+        )
+
     @buck_test(
         # windows errors are slightly different, just skip for now
         skip_for_os=["windows"],
