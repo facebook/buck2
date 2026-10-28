@@ -9,13 +9,13 @@
  */
 
 use allocative::Allocative;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use pagable::Pagable;
 
 use crate::cells::cell_root_path::CellRootPath;
 use crate::cells::name::CellName;
 use crate::cells::paths::CellRelativePath;
 use crate::cells::paths::CellRelativePathBuf;
-use crate::cells::unchecked_cell_rel_path::UncheckedCellRelativePath;
 
 /// Paths to cells which reside inside current cell.
 ///
@@ -67,14 +67,10 @@ impl NestedCells {
 
     pub fn matches<'a, 'b>(
         &'a self,
-        path: &'b UncheckedCellRelativePath,
-    ) -> Option<(
-        &'a CellRelativePath,
-        CellName,
-        &'b UncheckedCellRelativePath,
-    )> {
+        path: &'b CellRelativePath,
+    ) -> Option<(&'a CellRelativePath, CellName, &'b ForwardRelativePath)> {
         for (cell_path, cell_name) in &self.paths {
-            if let Some(rem) = path.remove_prefix(cell_path) {
+            if let Some(rem) = path.strip_prefix_opt(cell_path) {
                 return Some((cell_path, *cell_name, rem));
             }
         }

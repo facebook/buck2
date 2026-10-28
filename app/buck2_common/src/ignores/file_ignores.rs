@@ -11,7 +11,7 @@
 use allocative::Allocative;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::nested::NestedCells;
-use buck2_core::cells::unchecked_cell_rel_path::UncheckedCellRelativePath;
+use buck2_core::cells::paths::CellRelativePath;
 use pagable::Pagable;
 
 use crate::ignores::ignore_set::IgnoreSet;
@@ -97,7 +97,7 @@ impl CellFileIgnores {
         })
     }
 
-    pub(crate) fn check(&self, path: &UncheckedCellRelativePath) -> FileIgnoreResult {
+    pub(crate) fn check(&self, path: &CellRelativePath) -> FileIgnoreResult {
         let candidate = globset::Candidate::new(path.as_str());
 
         if let Some(pattern) = self.ignores.matches_candidate(&candidate) {
@@ -123,7 +123,7 @@ mod tests {
     use buck2_core::cells::cell_root_path::CellRootPath;
     use buck2_core::cells::name::CellName;
     use buck2_core::cells::nested::NestedCells;
-    use buck2_core::cells::unchecked_cell_rel_path::UncheckedCellRelativePath;
+    use buck2_core::cells::paths::CellRelativePath;
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
 
     use crate::ignores::file_ignores::CellFileIgnores;
@@ -153,51 +153,43 @@ mod tests {
 
         assert!(
             ignores
-                .check(UncheckedCellRelativePath::unchecked_new(
-                    "some/long/path/Class.java"
-                ))
+                .check(CellRelativePath::unchecked_new("some/long/path/Class.java"))
                 .is_ignored()
         );
 
         assert!(
             ignores
-                .check(UncheckedCellRelativePath::unchecked_new("other_cell"))
+                .check(CellRelativePath::unchecked_new("other_cell"))
                 .is_ignored()
         );
 
         assert!(
             ignores
-                .check(UncheckedCellRelativePath::unchecked_new(
-                    "other_cell/some/lib"
-                ))
+                .check(CellRelativePath::unchecked_new("other_cell/some/lib"))
                 .is_ignored()
         );
 
         assert!(
             !ignores
-                .check(UncheckedCellRelativePath::unchecked_new("third"))
+                .check(CellRelativePath::unchecked_new("third"))
                 .is_ignored()
         );
 
         assert!(
             !ignores
-                .check(UncheckedCellRelativePath::unchecked_new("one/two/three"))
+                .check(CellRelativePath::unchecked_new("one/two/three"))
                 .is_ignored()
         );
 
         assert!(
             ignores
-                .check(UncheckedCellRelativePath::unchecked_new(
-                    "recursive/two/three"
-                ))
+                .check(CellRelativePath::unchecked_new("recursive/two/three"))
                 .is_ignored()
         );
 
         assert!(
             ignores
-                .check(UncheckedCellRelativePath::unchecked_new(
-                    "trailing_slash/BUCK"
-                ))
+                .check(CellRelativePath::unchecked_new("trailing_slash/BUCK"))
                 .is_ignored()
         );
 

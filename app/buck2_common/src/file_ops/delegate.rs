@@ -15,7 +15,6 @@ use async_trait::async_trait;
 use buck2_core::cells::i_cell_relative_path::ICellRelativePath;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
-use buck2_core::cells::unchecked_cell_rel_path::UncheckedCellRelativePath;
 use buck2_fs::paths::file_name::FileName;
 use buck2_util::arc_str::PackedStringSlice;
 use buck2_util::arc_str::PackedStringSliceBuilder;
@@ -192,7 +191,7 @@ impl FileOpsDelegateWithIgnores {
 }
 
 impl FileOpsDelegateWithIgnores {
-    fn check_ignores(&self, path: &UncheckedCellRelativePath) -> FileIgnoreResult {
+    fn check_ignores(&self, path: &CellRelativePath) -> FileIgnoreResult {
         match self.ignores.as_ref() {
             Some(ignores) => ignores.check(path),
             None => FileIgnoreResult::Ok,
@@ -214,8 +213,7 @@ impl FileOpsDelegateWithIgnores {
         path: ICellRelativePath,
     ) -> buck2_error::Result<ReadDirOutput> {
         // TODO(cjhopman): This should also probably verify that the parent chain is not ignored.
-        self.check_ignores(UncheckedCellRelativePath::new(path.as_ref()))
-            .into_result()?;
+        self.check_ignores(path.as_ref()).into_result()?;
 
         let entries = self.delegate.read_dir(ctx, path).await?;
 
@@ -232,7 +230,7 @@ impl FileOpsDelegateWithIgnores {
                 &cell_relative_path_buf
             };
 
-            let cell_relative_path = UncheckedCellRelativePath::unchecked_new(cell_relative_path);
+            let cell_relative_path = CellRelativePath::unchecked_new(cell_relative_path);
             let is_ignored = self.check_ignores(cell_relative_path).is_ignored();
             buck2_error::Ok(is_ignored)
         };
@@ -269,10 +267,7 @@ impl FileOpsDelegateWithIgnores {
         path: ICellRelativePath,
         dice: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<bool> {
-        if self
-            .check_ignores(UncheckedCellRelativePath::new(path.as_ref()))
-            .is_ignored()
-        {
+        if self.check_ignores(path.as_ref()).is_ignored() {
             return Ok(false);
         }
 
@@ -291,7 +286,7 @@ impl FileOpsDelegateWithIgnores {
         &self,
         path: &CellRelativePath,
     ) -> buck2_error::Result<FileIgnoreResult> {
-        Ok(self.check_ignores(UncheckedCellRelativePath::new(path)))
+        Ok(self.check_ignores(path))
     }
 }
 

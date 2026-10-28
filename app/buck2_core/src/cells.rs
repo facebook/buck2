@@ -88,7 +88,6 @@ pub mod name;
 pub mod nested;
 pub mod paths;
 pub(crate) mod sequence_trie_allocative;
-pub mod unchecked_cell_rel_path;
 
 use std::collections::hash_map;
 use std::fmt::Debug;
