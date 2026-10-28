@@ -270,49 +270,6 @@ impl Key for IoPathMetadataKey {
     }
 }
 
-#[derive(Clone, Display, Allocative, Debug, Eq, Hash, PartialEq, Pagable)]
-#[pagable_typetag(dice::DiceKeyDyn)]
-#[display("{}", _0)]
-struct IoExistsMatchingExactCaseKey(IProjectRelativePath);
-
-#[async_trait]
-impl Key for IoExistsMatchingExactCaseKey {
-    type Value = buck2_error::Result<bool>;
-
-    async fn compute(
-        &self,
-        ctx: &mut DiceComputations,
-        _cancellations: &CancellationContext,
-    ) -> Self::Value {
-        ctx.get_file_system_baseline().await?;
-        let Some(dir) = self.0.parent() else {
-            // FIXME(JakobDegen): Blindly assuming that cell roots exist isn't quite right, I'll fix
-            // this later in the stack
-            return Ok(true);
-        };
-        // FIXME(JakobDegen): Unwrap is ok because a parent exists, but there should be a better API
-        // for this
-        let entry = self.0.file_name().unwrap();
-        let dir = read_dir_cached(ctx, dir).await?;
-        Ok(dir.contains(entry))
-    }
-
-    fn equality_behavior() -> EqualityBehavior<Self::Value> {
-        EqualityBehavior::Compare(|x, y| match (x, y) {
-            (Ok(x), Ok(y)) => x == y,
-            _ => false,
-        })
-    }
-
-    fn validity(x: &Self::Value) -> bool {
-        x.is_ok()
-    }
-
-    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
-        OkPagableValueSerialize::<Self::Value>::new()
-    }
-}
-
 pub(super) async fn read_file_if_exists(
     ctx: &mut DiceComputations<'_>,
     path: IProjectRelativePath,
@@ -341,13 +298,22 @@ pub(super) async fn read_path_metadata_if_exists(
     ctx.compute(&IoPathMetadataKey(path)).await?.dupe()
 }
 
+/// Whether something is at the path, spelled exactly like that and not under an ignored prefix.
 pub(super) async fn exists_matching_exact_case(
     ctx: &mut DiceComputations<'_>,
     path: IProjectRelativePath,
 ) -> buck2_error::Result<bool> {
-    ctx.compute(&IoExistsMatchingExactCaseKey(path))
-        .await?
-        .dupe()
+    match check_path(ctx, path).await? {
+        PathCheck::Present(_) => Ok(true),
+        check @ PathCheck::ParentSymlink { .. } => {
+            read_through_symlink(ctx, path, check, ReadKind::File)?;
+            let Some((parent, name)) = path.split_last() else {
+                return Ok(true);
+            };
+            Ok(read_dir_cached(ctx, parent).await?.lookup(name).is_some())
+        }
+        _ => Ok(false),
+    }
 }
 
 struct ReadDirCache(BuckDashMap<IProjectRelativePath, PackedStringSlice<FileName, FileType>>);
@@ -361,7 +327,6 @@ pub struct FileChangeTracker {
     files_to_dirty: BuckMutSet<IoReadFileKey>,
     dirs_to_dirty: BuckMutSet<IoReadDirKey>,
     paths_to_dirty: BuckMutSet<IoPathMetadataKey>,
-    exists_matching_exact_case_to_dirty: BuckMutSet<IoExistsMatchingExactCaseKey>,
     checks_to_dirty: BuckMutSet<PathCheckKey>,
 
     maybe_modified_dirs: BuckMutSet<IProjectRelativePath>,
@@ -374,7 +339,6 @@ impl FileChangeTracker {
             dirs_to_dirty: Default::default(),
             paths_to_dirty: Default::default(),
             maybe_modified_dirs: Default::default(),
-            exists_matching_exact_case_to_dirty: Default::default(),
             checks_to_dirty: Default::default(),
         }
     }
@@ -392,7 +356,6 @@ impl FileChangeTracker {
         ctx.changed(self.files_to_dirty)?;
         ctx.changed(self.dirs_to_dirty)?;
         ctx.changed(self.paths_to_dirty)?;
-        ctx.changed(self.exists_matching_exact_case_to_dirty)?;
         ctx.changed(self.checks_to_dirty)?;
 
         Ok(())
@@ -400,8 +363,6 @@ impl FileChangeTracker {
 
     fn entry_added_or_removed(&mut self, path: IProjectRelativePath) {
         self.paths_to_dirty.insert(IoPathMetadataKey(path));
-        self.exists_matching_exact_case_to_dirty
-            .insert(IoExistsMatchingExactCaseKey(path));
         self.checks_to_dirty.insert(PathCheckKey(path));
         let parent = path.parent();
         if let Some(parent) = parent {

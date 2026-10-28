@@ -645,4 +645,36 @@ mod tests {
         );
         Ok(())
     }
+
+    #[tokio::test]
+    async fn exists_matching_exact_case() -> buck2_error::Result<()> {
+        let f = Fixture::with_cells("ign", &[("root", ""), ("sub", "sub")]).await?;
+        f.fs.write_file("a/b/f", "");
+        f.fs.write_file("ign/f", "");
+        f.fs.write_file("sub/f", "");
+        f.symlink("l", "a");
+        let ctx = f.transaction(FileChangeTracker::new()).await?;
+
+        let exists = async |path: &str| {
+            DiceFileComputations::exists_matching_exact_case(
+                &mut ctx.ctx(),
+                CellPath::testing_new(path),
+            )
+            .await
+            .unwrap()
+        };
+        assert!(exists("root//a/b/f").await);
+        assert!(exists("root//a/b").await);
+        assert!(exists("root//l").await);
+        assert!(exists("sub//f").await);
+        assert!(!exists("root//a/B/f").await);
+        assert!(!exists("root//a/b/F").await);
+        // Read through, with a soft error, until `read_through_symlink` is retired.
+        assert!(exists("root//l/b").await);
+        assert!(!exists("root//l/nope").await);
+        assert!(!exists("root//ign/f").await);
+        assert!(!exists("root//missing/f").await);
+        assert!(!exists("root//sub/f").await);
+        Ok(())
+    }
 }

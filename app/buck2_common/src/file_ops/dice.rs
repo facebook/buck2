@@ -67,19 +67,19 @@ impl DiceFileComputations {
         })
     }
 
-    /// Returns if a directory or file exists at the given path, but checks for an exact,
-    /// case-sensitive match.
-    ///
-    /// Note that case-sensitive match is only done on the last element of the path, not any of the
-    /// elements before.
+    /// Whether a file, directory or symlink exists at the path, spelled exactly like that in
+    /// every component, with no symlink above it, nothing ignored on the way, and inside this
+    /// cell rather than a cell nested in it.
     pub async fn exists_matching_exact_case(
         ctx: &mut DiceComputations<'_>,
         path: CellPath,
     ) -> buck2_error::Result<bool> {
         let cells = ctx.get_cell_resolver().await?;
-        if cell_ignores(ctx, cells, path.cell())?
-            .check(path.path())
-            .is_ignored()
+        if cells
+            .get(path.cell())?
+            .nested_cells()
+            .matches(path.path())
+            .is_some()
         {
             return Ok(false);
         }
