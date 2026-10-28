@@ -6,10 +6,17 @@ source_listing()
 
 prelude = native
 
+prelude.python_bootstrap_library(
+    name = "class_to_source_map_lib",
+    srcs = ["class_to_source_map.py"],
+    visibility = ["prelude//java/tools/..."],
+)
+
 prelude.python_bootstrap_binary(
     name = "gen_class_to_source_map",
     main = "gen_class_to_source_map.py",
     visibility = ["PUBLIC"],
+    deps = [":class_to_source_map_lib"],
 )
 
 prelude.python_bootstrap_binary(
@@ -77,6 +84,7 @@ prelude.python_library(
 prelude.python_library(
     name = "scripts-typing",
     srcs = [
+        "class_to_source_map.py",
         "compile_and_package.py",
         "fat_jar.py",
         "gen_class_to_source_map.py",
@@ -101,6 +109,7 @@ prelude.python_test(
 prelude.python_test(
     name = "test_gen_class_to_source_map",
     srcs = [
+        "class_to_source_map.py",
         "gen_class_to_source_map.py",
         "tests/test_gen_class_to_source_map.py",
     ],
