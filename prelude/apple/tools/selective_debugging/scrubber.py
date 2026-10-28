@@ -178,6 +178,28 @@ def _scrub(
     return results
 
 
+def make_scrub_handler(
+    persisted_targets_file: Optional[str],
+    targets_file: Optional[str] = None,
+    spec_file: Optional[str] = None,
+) -> Callable[[str], bool]:
+    """
+    Returns a function which tells whether the debug file path of an `N_OSO`
+    entry should be scrubbed, i.e. whether its debug info should be excluded.
+    """
+    additional_labels = load_focused_targets_output_paths(persisted_targets_file)
+    if targets_file and spec_file:
+        raise Exception(
+            "Only one of a targets file or spec file is supported, not both!"
+        )
+    elif targets_file:
+        return _should_scrub_with_targets_file(targets_file, additional_labels)
+    elif spec_file:
+        return _should_scrub_with_spec_file(spec_file, additional_labels)
+    else:
+        return _always_scrub
+
+
 def load_debug_file_paths(f: BinaryIO) -> list[DebugFilePath] | None:
     """
     Returns the debug file paths of the `N_OSO` entries of a Mach-O file, with
@@ -234,17 +256,7 @@ def scrub(
     spec_file: Optional[str] = None,
     adhoc_codesign_tool: Optional[str] = None,
 ) -> list[tuple[str, str]]:
-    additional_labels = load_focused_targets_output_paths(persisted_targets_file)
-    if targets_file and spec_file:
-        raise Exception(
-            "Only one of a targets file or spec file is supported, not both!"
-        )
-    elif targets_file:
-        scrub_handler = _should_scrub_with_targets_file(targets_file, additional_labels)
-    elif spec_file:
-        scrub_handler = _should_scrub_with_spec_file(spec_file, additional_labels)
-    else:
-        scrub_handler = _always_scrub
+    scrub_handler = make_scrub_handler(persisted_targets_file, targets_file, spec_file)
 
     shutil.copy2(input_file, output_file)
     # Make it RE-compatible
