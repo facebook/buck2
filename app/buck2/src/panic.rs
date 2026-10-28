@@ -203,8 +203,19 @@ mod imp {
                 true
             }
             None => {
+                // The client has no event stream of its own: the record picks the report up
+                // directly, and a user-facing one goes to stderr right here.
                 #[cfg(client_only)]
-                let warn = options.user_facing;
+                let warn = {
+                    if let Some(soft_error) = event.soft_error_category.clone() {
+                        buck2_client_ctx::subscribers::recorder::note_client_soft_error(soft_error);
+                    }
+                    if options.user_facing {
+                        let _ignored =
+                            buck2_client_ctx::eprintln!("Warning \"{}\": {:#}", category, err);
+                    }
+                    false
+                };
                 #[cfg(not(client_only))]
                 let (warn, sent) = {
                     let sent = if context.is_command_scoped() {

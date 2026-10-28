@@ -13,6 +13,7 @@ use std::cmp::min;
 use std::io::Write;
 use std::ops::Sub;
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
@@ -107,6 +108,14 @@ const MEMORY_PRESSURE_TAG: &str = "memory_pressure_warning";
 
 const SYSTEM_LOAD1_WINDOW: Duration = Duration::from_secs(60);
 const SYSTEM_LOAD5_WINDOW: Duration = Duration::from_secs(5 * 60);
+
+/// Soft errors the client itself reports, before or outside of any event stream. The daemon's
+/// arrive as events; these are added to the record when it is written.
+static CLIENT_SOFT_ERRORS: Mutex<Vec<SoftError>> = Mutex::new(Vec::new());
+
+pub fn note_client_soft_error(soft_error: SoftError) {
+    CLIENT_SOFT_ERRORS.lock().unwrap().push(soft_error);
+}
 
 pub struct InvocationRecorder {
     write_to_path: Option<AbsPathBuf>,
@@ -760,6 +769,8 @@ impl InvocationRecorder {
     }
 
     fn create_record_event(&mut self) -> BuckEvent {
+        self.soft_error_categories
+            .extend(std::mem::take(&mut *CLIENT_SOFT_ERRORS.lock().unwrap()));
         let mut sink_success_count = None;
         let mut sink_failure_count = None;
         let mut sink_dropped_count = None;
