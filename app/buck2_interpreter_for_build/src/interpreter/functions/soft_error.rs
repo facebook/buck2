@@ -8,8 +8,10 @@
  * above-listed licenses.
  */
 
+use buck2_core::error::SoftErrorKind;
+use buck2_core::error::StructuredErrorOptions;
+use buck2_core::error::handle_soft_error;
 use buck2_core::error::validate_logview_category;
-use buck2_core::soft_error;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
@@ -46,13 +48,13 @@ fn validate_category(category: &str) -> starlark::Result<()> {
 
 #[starlark_module]
 pub(crate) fn register_soft_error(builder: &mut GlobalsBuilder) {
-    /// Produce an error that will become a hard error at some point in the future, but
-    /// for now is a warning which is logged to the server.
+    /// Records a use of something that is being removed, so that whoever is removing it can see
+    /// what is left. Nothing is shown to the user. Once nothing triggers it any more, the call
+    /// site should `fail` instead.
     ///
-    /// Called passing a stable key (must be `snake_case` and start with `starlark_`,
-    /// used for consistent reporting) and an arbitrary message (used for debugging).
-    ///
-    /// As an example:
+    /// The category must be `snake_case`, start with `starlark_`, and stay stable, since it is
+    /// what the uses are counted under; the message is free text for whoever reads them. `stack`
+    /// includes the Starlark call stack in the message.
     ///
     /// ```python
     /// soft_error(
@@ -63,11 +65,14 @@ pub(crate) fn register_soft_error(builder: &mut GlobalsBuilder) {
     fn soft_error<'v>(
         #[starlark(require = pos)] category: &str,
         #[starlark(require = pos)] message: String,
-        #[starlark(require = named)] quiet: Option<bool>,
         #[starlark(require = named)] stack: Option<bool>,
+        #[starlark(require = named)] quiet: Option<bool>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<NoneType> {
         validate_category(category)?;
+        // A deprecation is never shown, so `quiet` has nothing to say; it stays accepted until
+        // the callers in the repo have dropped it, since they and buck2 do not release together.
+        let _ = quiet;
 
         let err = if stack.unwrap_or(true) {
             SoftErrorError::StarlarkSoftError {
@@ -84,7 +89,15 @@ pub(crate) fn register_soft_error(builder: &mut GlobalsBuilder) {
             .into()
         };
 
-        soft_error!(category, err, quiet: quiet.unwrap_or_default())?;
+        handle_soft_error(
+            category,
+            err,
+            (file!(), line!(), column!()),
+            StructuredErrorOptions {
+                kind: SoftErrorKind::Deprecation { owner: None },
+                ..Default::default()
+            },
+        )?;
         Ok(NoneType)
     }
 

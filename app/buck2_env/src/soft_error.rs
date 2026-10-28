@@ -254,8 +254,8 @@ impl Default for StructuredErrorOptions {
     }
 }
 
-// Hidden because an implementation detail of `soft_error!`.
-#[doc(hidden)]
+/// What [`soft_error!`] and [`deprecation!`] expand to. Only for reporters whose kind or owner is
+/// known at run time, such as deprecations declared in buckconfig or Starlark.
 pub fn handle_soft_error(
     category: &str,
     err: buck2_error::Error,
