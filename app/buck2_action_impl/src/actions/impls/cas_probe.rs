@@ -22,7 +22,9 @@ use buck2_directory::directory::directory_iterator::DirectoryIterator;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_directory::directory::walk::unordered_entry_walk;
 use buck2_execute::artifact_value::ArtifactValue;
+use buck2_execute::directory::ActionDirectoryEntry;
 use buck2_execute::directory::ActionDirectoryMember;
+use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::re::presence::NegativeCache;
@@ -101,9 +103,35 @@ pub(crate) async fn declare_if_in_cas(
     Ok(true)
 }
 
+/// Asks the CAS about `digests` so that the ones it holds carry an expiration, and says whether it
+/// held every one of them. Nothing is declared: the caller declares as it would have, and content
+/// whose digest carries an expiration is left out of the stash when the declaration offers it, so
+/// a probe here is what keeps the CAS's share of a copied directory from being copied into the
+/// store. Asks nothing when the probe is disabled or there is nothing to ask, and answers `false`
+/// then, as for a CAS that could not answer.
+pub(crate) async fn stamp_if_in_cas(
+    ctx: &dyn ActionExecutionCtx,
+    digests: Vec<TrackedFileDigest>,
+) -> bool {
+    if digests.is_empty() || !enabled(ctx) {
+        return false;
+    }
+    match probe(ctx, digests).await {
+        Some((_, in_cas)) => in_cas.iter().all(|&in_cas| in_cas),
+        None => false,
+    }
+}
+
 fn file_digests(value: &ArtifactValue) -> Vec<TrackedFileDigest> {
+    file_digests_of(value.entry())
+}
+
+/// The digests of the files in `entry`, in walk order.
+pub(crate) fn file_digests_of(
+    entry: &ActionDirectoryEntry<ActionSharedDirectory>,
+) -> Vec<TrackedFileDigest> {
     let mut digests = Vec::new();
-    let mut walk = unordered_entry_walk(value.entry().as_ref().map_dir(Directory::as_ref));
+    let mut walk = unordered_entry_walk(entry.as_ref().map_dir(Directory::as_ref));
     while let Some((_, entry)) = walk.next() {
         if let DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) = entry {
             digests.push(file.digest.dupe());
