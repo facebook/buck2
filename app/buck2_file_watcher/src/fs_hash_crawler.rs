@@ -27,6 +27,7 @@ use buck2_common::invocation_paths::InvocationPaths;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::name::CellName;
+use buck2_core::fs::i_project_rel_path::IProjectRelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_data::FileWatcherEventType;
@@ -123,6 +124,7 @@ impl FileWatcher for FsHashCrawler {
 
 #[derive(Ord, PartialOrd, Eq, PartialEq, Debug)]
 struct FsEvent {
+    path: IProjectRelativePath,
     cell_path: CellPath,
     event: FileWatcherEventType,
     kind: FileWatcherKind,
@@ -147,7 +149,7 @@ impl EntryInfo {
 }
 
 #[derive(Allocative)]
-struct FsSnapshot(BuckMutMap<CellPath, EntryInfo>);
+struct FsSnapshot(BuckMutMap<IProjectRelativePath, (CellPath, EntryInfo)>);
 
 impl FsSnapshot {
     fn build(root: &ProjectRoot, cells: &CellResolver) -> buck2_error::Result<Self> {
@@ -156,18 +158,19 @@ impl FsSnapshot {
         Ok(snapshot)
     }
 
-    fn add_entry(&mut self, cell: CellPath, info: EntryInfo) {
-        self.0.insert(cell, info);
+    fn add_entry(&mut self, path: IProjectRelativePath, cell: CellPath, info: EntryInfo) {
+        self.0.insert(path, (cell, info));
     }
 
     fn get_updates(&self, new_snapshot: &FsSnapshot) -> buck2_error::Result<Vec<FsEvent>> {
         let mut events = Vec::new();
-        for (cell_path, prev_info) in self.0.iter() {
-            if let Some(current_info) = new_snapshot.0.get(cell_path) {
+        for (path, (cell_path, prev_info)) in self.0.iter() {
+            if let Some((_, current_info)) = new_snapshot.0.get(path) {
                 match (current_info, prev_info) {
                     (EntryInfo::File(cur), EntryInfo::File(prev)) => {
                         if cur != prev {
                             events.push(FsEvent {
+                                path: *path,
                                 cell_path: cell_path.to_owned(),
                                 event: FileWatcherEventType::Modify,
                                 kind: prev_info.to_file_watcher_kind(),
@@ -179,11 +182,13 @@ impl FsSnapshot {
                     (EntryInfo::Symlink, EntryInfo::Symlink) => (),
                     (current_info, prev_info) => {
                         events.push(FsEvent {
+                            path: *path,
                             cell_path: cell_path.to_owned(),
                             event: FileWatcherEventType::Delete,
                             kind: prev_info.to_file_watcher_kind(),
                         });
                         events.push(FsEvent {
+                            path: *path,
                             cell_path: cell_path.to_owned(),
                             event: FileWatcherEventType::Create,
                             kind: current_info.to_file_watcher_kind(),
@@ -192,6 +197,7 @@ impl FsSnapshot {
                 }
             } else {
                 events.push(FsEvent {
+                    path: *path,
                     cell_path: cell_path.to_owned(),
                     event: FileWatcherEventType::Delete,
                     kind: prev_info.to_file_watcher_kind(),
@@ -202,8 +208,9 @@ impl FsSnapshot {
             .0
             .iter()
             .filter(|(path, _)| !self.0.contains_key(*path));
-        for (cell_path, info) in new_entries {
+        for (path, (cell_path, info)) in new_entries {
             events.push(FsEvent {
+                path: *path,
                 cell_path: cell_path.to_owned(),
                 event: FileWatcherEventType::Create,
                 kind: info.to_file_watcher_kind(),
@@ -237,29 +244,29 @@ impl FsSnapshot {
                     FileWatcherEventType::Create,
                     FileWatcherKind::File | FileWatcherKind::Symlink,
                 ) => {
-                    changed.file_added_or_removed(event.cell_path);
+                    changed.file_added_or_removed(event.path);
                 }
                 (FileWatcherEventType::Create, FileWatcherKind::Directory) => {
-                    changed.dir_added_or_removed(event.cell_path);
+                    changed.dir_added_or_removed(event.path);
                 }
                 (
                     FileWatcherEventType::Modify,
                     FileWatcherKind::File | FileWatcherKind::Symlink,
                 ) => {
-                    changed.file_contents_changed(event.cell_path);
+                    changed.file_contents_changed(event.path);
                 }
                 (FileWatcherEventType::Modify, FileWatcherKind::Directory) => {
                     // FIXME(JakobDegen): This should not be needed
-                    changed.dir_entries_changed_force_invalidate(event.cell_path);
+                    changed.dir_entries_changed_force_invalidate(event.path);
                 }
                 (
                     FileWatcherEventType::Delete,
                     FileWatcherKind::File | FileWatcherKind::Symlink,
                 ) => {
-                    changed.file_added_or_removed(event.cell_path);
+                    changed.file_added_or_removed(event.path);
                 }
                 (FileWatcherEventType::Delete, FileWatcherKind::Directory) => {
-                    changed.dir_added_or_removed(event.cell_path);
+                    changed.dir_added_or_removed(event.path);
                 }
             }
         }
@@ -285,6 +292,7 @@ impl FsSnapshot {
 
             let disk_path = disk_path.join(filename);
             let rel_path = root.relativize(&disk_path)?;
+            let path = IProjectRelativePath::intern_directly(rel_path.as_ref());
             let cell_path = cells.get_cell_path(&rel_path);
 
             // We ignore buck-out and .hg dirs, as those are uninteresting events caused by us.
@@ -298,14 +306,14 @@ impl FsSnapshot {
             match filetype {
                 FileType::File => {
                     let hash = file_hash(disk_path.as_maybe_relativized())?;
-                    self.add_entry(cell_path, EntryInfo::File(hash));
+                    self.add_entry(path, cell_path, EntryInfo::File(hash));
                 }
                 FileType::Directory => {
                     self.build_fs_snapshot(root, cells, &disk_path)?;
-                    self.add_entry(cell_path, EntryInfo::Directory);
+                    self.add_entry(path, cell_path, EntryInfo::Directory);
                 }
                 FileType::Symlink => {
-                    self.add_entry(cell_path, EntryInfo::Symlink);
+                    self.add_entry(path, cell_path, EntryInfo::Symlink);
                 }
                 FileType::Unknown => (),
             }
@@ -338,6 +346,7 @@ mod tests {
     use buck2_core::cells::cell_path::CellPath;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::name::CellName;
+    use buck2_core::fs::i_project_rel_path::IProjectRelativePath;
     use buck2_core::fs::project::ProjectRoot;
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use buck2_data::FileWatcherEventType;
@@ -359,16 +368,17 @@ mod tests {
         let root_path = fs_util::canonicalize(AbsNormPathBuf::new(tempdir.path().to_owned())?)?;
         let proj_root = ProjectRoot::new(root_path)?;
 
-        let get_path = |path| -> buck2_error::Result<(AbsPathBuf, CellPath)> {
-            let path = ProjectRelativePath::new(path).unwrap();
-            let cell_path = cell_resolver.get_cell_path(path);
-            Ok((proj_root.resolve(path).into_abs_path_buf(), cell_path))
+        let get_path = |path| -> buck2_error::Result<(AbsPathBuf, IProjectRelativePath, CellPath)> {
+            let path =
+                IProjectRelativePath::intern_directly(ProjectRelativePath::new(path).unwrap());
+            let cell_path = cell_resolver.get_cell_path(&path);
+            Ok((proj_root.resolve(path).into_abs_path_buf(), path, cell_path))
         };
         let dir1 = proj_root.resolve(ProjectRelativePath::new("dir1")?);
-        let (file1, file1_cell) = get_path("dir1/file1")?;
-        let (dir2, dir2_cell) = get_path("dir2")?;
-        let (file2, file2_cell) = get_path("dir2/file2")?;
-        let (file3, file3_cell) = get_path("dir1/file3")?;
+        let (file1, file1_project, file1_cell) = get_path("dir1/file1")?;
+        let (dir2, dir2_project, dir2_cell) = get_path("dir2")?;
+        let (file2, file2_project, file2_cell) = get_path("dir2/file2")?;
+        let (file3, file3_project, file3_cell) = get_path("dir1/file3")?;
         fs_util::create_dir_all(dir1)?;
         fs_util::write(&file1, "old content")?;
         fs_util::create_dir_all(&dir2)?;
@@ -383,21 +393,25 @@ mod tests {
 
         let expected = [
             FsEvent {
+                path: file1_project,
                 cell_path: file1_cell,
                 event: FileWatcherEventType::Modify,
                 kind: FileWatcherKind::File,
             },
             FsEvent {
+                path: file3_project,
                 cell_path: file3_cell,
                 event: FileWatcherEventType::Create,
                 kind: FileWatcherKind::File,
             },
             FsEvent {
+                path: dir2_project,
                 cell_path: dir2_cell,
                 event: FileWatcherEventType::Delete,
                 kind: FileWatcherKind::Directory,
             },
             FsEvent {
+                path: file2_project,
                 cell_path: file2_cell,
                 event: FileWatcherEventType::Delete,
                 kind: FileWatcherKind::File,

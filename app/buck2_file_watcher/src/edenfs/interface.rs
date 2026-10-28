@@ -22,6 +22,7 @@ use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::name::CellName;
+use buck2_core::fs::i_project_rel_path::IProjectRelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::soft_error;
@@ -504,14 +505,15 @@ impl EdenFsFileWatcher {
             // we ignore any changes that are not relative to the project root
             Err(_) => return Ok(()),
         };
+        let project_rel_path = IProjectRelativePath::intern_directly(project_rel_path);
 
         // Watchman cookie files are synchronization markers, not real source changes.
-        if crate::is_watchman_cookie(project_rel_path) {
+        if crate::is_watchman_cookie(&project_rel_path) {
             stats.add_ignored(1);
             return Ok(());
         }
 
-        let cell_path = self.cells.get_cell_path(project_rel_path);
+        let cell_path = self.cells.get_cell_path(&project_rel_path);
 
         let ignore = self
             .ignore_specs
@@ -533,7 +535,7 @@ impl EdenFsFileWatcher {
             stats.add(cell_path.to_string(), event, kind);
 
             match (event, kind) {
-                (Type::Create, Kind::Directory) => tracker.dir_added_or_removed(cell_path),
+                (Type::Create, Kind::Directory) => tracker.dir_added_or_removed(project_rel_path),
                 (Type::Create, _) => {
                     if kind == Kind::Symlink {
                         debug!(
@@ -541,15 +543,15 @@ impl EdenFsFileWatcher {
                             cell_path
                         );
                     }
-                    tracker.file_added_or_removed(cell_path)
+                    tracker.file_added_or_removed(project_rel_path)
                 }
                 (Type::Modify, Kind::Directory) => {
                     // FIXME(JakobDegen): This should not be needed
-                    tracker.dir_entries_changed_force_invalidate(cell_path)
+                    tracker.dir_entries_changed_force_invalidate(project_rel_path)
                 }
-                (Type::Modify, _) => tracker.file_contents_changed(cell_path),
-                (Type::Delete, Kind::Directory) => tracker.dir_added_or_removed(cell_path),
-                (Type::Delete, _) => tracker.file_added_or_removed(cell_path),
+                (Type::Modify, _) => tracker.file_contents_changed(project_rel_path),
+                (Type::Delete, Kind::Directory) => tracker.dir_added_or_removed(project_rel_path),
+                (Type::Delete, _) => tracker.file_added_or_removed(project_rel_path),
             };
         }
 

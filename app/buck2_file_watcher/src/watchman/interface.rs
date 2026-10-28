@@ -20,6 +20,7 @@ use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::name::CellName;
+use buck2_core::fs::i_project_rel_path::IProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_error::internal_error;
@@ -29,7 +30,6 @@ use buck2_hash::BuckFixedSortedMap;
 use buck2_util::process::async_background_command;
 use dice::DiceTransactionUpdater;
 use dupe::Dupe;
-use tracing::debug;
 use tracing::info;
 use watchman_client::expr::Expr;
 use watchman_client::prelude::Connector;
@@ -127,7 +127,8 @@ impl WatchmanQueryProcessor {
             return Ok(());
         }
 
-        let cell_path = self.cells.get_cell_path(path);
+        let path = IProjectRelativePath::intern_directly(&path);
+        let cell_path = self.cells.get_cell_path(&path);
 
         let ignore = self
             .ignore_specs
@@ -152,15 +153,15 @@ impl WatchmanQueryProcessor {
                         log_kind = buck2_data::FileWatcherKind::File;
                         match typ {
                             WatchmanEventType::Modify => {
-                                handler.file_contents_changed(cell_path);
+                                handler.file_contents_changed(path);
                                 log_event = buck2_data::FileWatcherEventType::Modify;
                             }
                             WatchmanEventType::Create => {
-                                handler.file_added_or_removed(cell_path);
+                                handler.file_added_or_removed(path);
                                 log_event = buck2_data::FileWatcherEventType::Create;
                             }
                             WatchmanEventType::Delete => {
-                                handler.file_added_or_removed(cell_path);
+                                handler.file_added_or_removed(path);
                                 log_event = buck2_data::FileWatcherEventType::Delete;
                             }
                         }
@@ -169,15 +170,15 @@ impl WatchmanQueryProcessor {
                         log_kind = buck2_data::FileWatcherKind::Directory;
                         match typ {
                             WatchmanEventType::Modify => {
-                                handler.dir_entries_changed_for_watchman_bug(cell_path);
+                                handler.dir_entries_changed_for_watchman_bug(path);
                                 log_event = buck2_data::FileWatcherEventType::Modify;
                             }
                             WatchmanEventType::Create => {
-                                handler.dir_added_or_removed(cell_path);
+                                handler.dir_added_or_removed(path);
                                 log_event = buck2_data::FileWatcherEventType::Create;
                             }
                             WatchmanEventType::Delete => {
-                                handler.dir_added_or_removed(cell_path);
+                                handler.dir_added_or_removed(path);
                                 log_event = buck2_data::FileWatcherEventType::Delete;
                             }
                         }
@@ -186,19 +187,15 @@ impl WatchmanQueryProcessor {
                         log_kind = buck2_data::FileWatcherKind::Symlink;
                         match typ {
                             WatchmanEventType::Modify => {
-                                handler.file_contents_changed(cell_path);
+                                handler.file_contents_changed(path);
                                 log_event = buck2_data::FileWatcherEventType::Modify;
                             }
                             WatchmanEventType::Create => {
-                                debug!(
-                                    "New symlink detected (source symlinks are not supported): {}",
-                                    cell_path
-                                );
-                                handler.file_added_or_removed(cell_path);
+                                handler.file_added_or_removed(path);
                                 log_event = buck2_data::FileWatcherEventType::Create;
                             }
                             WatchmanEventType::Delete => {
-                                handler.file_added_or_removed(cell_path);
+                                handler.file_added_or_removed(path);
                                 log_event = buck2_data::FileWatcherEventType::Delete;
                             }
                         }
@@ -208,7 +205,7 @@ impl WatchmanQueryProcessor {
                     log_kind = buck2_data::FileWatcherKind::Directory;
                     log_event = buck2_data::FileWatcherEventType::Modify;
                     // FIXME(JakobDegen): Add comment explaining why this is needed.
-                    handler.dir_entries_changed_force_invalidate(cell_path);
+                    handler.dir_entries_changed_force_invalidate(path);
                 }
             };
 

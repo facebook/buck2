@@ -100,6 +100,11 @@ impl IProjectRelativePath {
     pub fn is_empty(self) -> bool {
         self.path.is_empty()
     }
+
+    #[inline]
+    pub fn parent(self) -> Option<Self> {
+        self.path.parent().map(|p| Self { path: p })
+    }
 }
 
 impl Deref for IProjectRelativePath {

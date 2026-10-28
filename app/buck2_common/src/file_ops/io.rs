@@ -38,7 +38,6 @@ use dupe::ResultDupedErrExt;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 
-use crate::dice::cells::HasCellResolver;
 use crate::dice::data::HasIoProvider;
 use crate::file_ops::baseline::HasFileSystemBaseline;
 use crate::file_ops::delegate::FileOpsDelegate;
@@ -62,7 +61,7 @@ pub(super) struct IoFileOpsDelegate {
 /// so that nothing read under one baseline is reused under another.
 #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
 #[pagable_typetag(dice::DiceKeyDyn)]
-struct IoReadFileKey(CellPath);
+struct IoReadFileKey(IProjectRelativePath);
 
 #[async_trait]
 impl Key for IoReadFileKey {
@@ -94,7 +93,7 @@ impl Key for IoReadFileKey {
 
 #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
 #[pagable_typetag(dice::DiceKeyDyn)]
-struct IoReadDirKey(CellPath);
+struct IoReadDirKey(IProjectRelativePath);
 
 #[async_trait]
 impl Key for IoReadDirKey {
@@ -127,23 +126,22 @@ impl Key for IoReadDirKey {
 
 async fn io_read_dir_key_impl(
     ctx: &mut DiceComputations<'_>,
-    path: CellPath,
+    path: IProjectRelativePath,
 ) -> buck2_error::Result<PackedStringSlice<FileName, FileType>> {
-    let project_path = ctx.get_cell_resolver().await?.resolve_ipath(path)?;
     let read_dir_cache = ctx
         .per_transaction_data()
         .data
         .get::<ReadDirCache>()
         .expect("ReadDirCache is expected to be set.");
-    if let Some(cached) = read_dir_cache.0.get(&project_path) {
+    if let Some(cached) = read_dir_cache.0.get(&path) {
         return Ok(cached.dupe());
     };
     let entries = ctx
         .global_data()
         .get_io_provider()
-        .read_dir(project_path)
+        .read_dir(path)
         .await
-        .with_buck_error_context(|| format!("Error listing dir `{}`", project_path))?
+        .with_buck_error_context(|| format!("Error listing dir `{}`", path))?
         .into_entries();
 
     // Pack into a sorted compact representation. `read_dir` is not guaranteed
@@ -154,39 +152,36 @@ async fn io_read_dir_key_impl(
         builder.push(&e.file_name, e.file_type);
     }
     let entries = builder.sort_and_build();
-    read_dir_cache.0.insert(project_path, entries.dupe());
+    read_dir_cache.0.insert(path, entries.dupe());
 
     Ok(entries)
 }
 
 #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
 #[pagable_typetag(dice::DiceKeyDyn)]
-struct IoPathMetadataKey(CellPath);
+struct IoPathMetadataKey(IProjectRelativePath);
 
 #[async_trait]
 impl Key for IoPathMetadataKey {
-    type Value = buck2_error::Result<Option<RawPathMetadata>>;
+    type Value = buck2_error::Result<Option<RawPathMetadata<IProjectRelativePath>>>;
     async fn compute(
         &self,
         ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
         ctx.get_file_system_baseline().await?;
-        let project_path = ctx.get_cell_resolver().await?.resolve_ipath(self.0)?;
-
         let Some(meta) = ctx
             .global_data()
             .get_io_provider()
-            .read_path_metadata_if_exists(project_path)
+            .read_path_metadata_if_exists(self.0)
             .await
             .with_buck_error_context(|| {
-                format!("Error accessing metadata for path `{project_path}`")
+                format!("Error accessing metadata for path `{p}`", p = self.0)
             })?
         else {
             return Ok(None);
         };
-        let resolver = ctx.get_cell_resolver().await?;
-        let meta = meta.map(|path| resolver.get_cell_path(&path));
+        let meta = meta.map(|path| IProjectRelativePath::intern_directly(&path));
 
         match meta {
             RawPathMetadata::Symlink { at, to: _ } => {
@@ -224,7 +219,7 @@ impl Key for IoPathMetadataKey {
 #[derive(Clone, Display, Allocative, Debug, Eq, Hash, PartialEq, Pagable)]
 #[pagable_typetag(dice::DiceKeyDyn)]
 #[display("{}", _0)]
-struct IoExistsMatchingExactCaseKey(CellPath);
+struct IoExistsMatchingExactCaseKey(IProjectRelativePath);
 
 #[async_trait]
 impl Key for IoExistsMatchingExactCaseKey {
@@ -243,7 +238,7 @@ impl Key for IoExistsMatchingExactCaseKey {
         };
         // FIXME(JakobDegen): Unwrap is ok because a parent exists, but there should be a better API
         // for this
-        let entry = self.0.path().file_name().unwrap();
+        let entry = self.0.file_name().unwrap();
         let dir = io_read_dir_key_impl(ctx, dir).await?;
         Ok(dir.contains(entry))
     }
@@ -272,14 +267,13 @@ impl FileOpsDelegate for IoFileOpsDelegate {
         ctx: &mut DiceComputations<'_>,
         path: ICellRelativePath,
     ) -> buck2_error::Result<Option<String>> {
-        let path = CellPath::new_i(self.cell, path);
+        let path = self.cells.resolve_ipath(CellPath::new_i(self.cell, path))?;
         ctx.compute(&IoReadFileKey(path))
             .await?
             .as_ref()
             .duped_err()?;
-        let project_path = self.cells.resolve_ipath(path)?;
         let io = ctx.global_data().get_io_provider();
-        io.read_file_if_exists(project_path).await
+        io.read_file_if_exists(path).await
     }
 
     async fn read_dir(
@@ -287,7 +281,7 @@ impl FileOpsDelegate for IoFileOpsDelegate {
         ctx: &mut DiceComputations<'_>,
         path: ICellRelativePath,
     ) -> buck2_error::Result<PackedStringSlice<FileName, FileType>> {
-        let path = CellPath::new_i(self.cell, path);
+        let path = self.cells.resolve_ipath(CellPath::new_i(self.cell, path))?;
         ctx.compute(&IoReadDirKey(path)).await?.dupe()
     }
 
@@ -296,8 +290,12 @@ impl FileOpsDelegate for IoFileOpsDelegate {
         ctx: &mut DiceComputations<'_>,
         path: ICellRelativePath,
     ) -> buck2_error::Result<Option<RawPathMetadata>> {
-        let path = CellPath::new_i(self.cell, path);
-        ctx.compute(&IoPathMetadataKey(path)).await?.dupe()
+        let path = self.cells.resolve_ipath(CellPath::new_i(self.cell, path))?;
+        Ok(ctx
+            .compute(&IoPathMetadataKey(path))
+            .await?
+            .dupe()?
+            .map(|meta| meta.map(|p| self.cells.get_cell_path(&p))))
     }
 
     async fn exists_matching_exact_case(
@@ -305,7 +303,7 @@ impl FileOpsDelegate for IoFileOpsDelegate {
         ctx: &mut DiceComputations<'_>,
         path: ICellRelativePath,
     ) -> buck2_error::Result<bool> {
-        let path = CellPath::new_i(self.cell, path);
+        let path = self.cells.resolve_ipath(CellPath::new_i(self.cell, path))?;
         ctx.compute(&IoExistsMatchingExactCaseKey(path))
             .await?
             .dupe()
@@ -329,7 +327,7 @@ pub struct FileChangeTracker {
     paths_to_dirty: BuckMutSet<IoPathMetadataKey>,
     exists_matching_exact_case_to_dirty: BuckMutSet<IoExistsMatchingExactCaseKey>,
 
-    maybe_modified_dirs: BuckMutSet<CellPath>,
+    maybe_modified_dirs: BuckMutSet<IProjectRelativePath>,
 }
 
 impl FileChangeTracker {
@@ -347,7 +345,7 @@ impl FileChangeTracker {
         // See comment on `dir_entries_changed_for_watchman_bug`
         for p in self.paths_to_dirty.clone() {
             if let Some(dir) = p.0.parent() {
-                if self.maybe_modified_dirs.contains(&dir.to_owned()) {
+                if self.maybe_modified_dirs.contains(&dir) {
                     self.entry_added_or_removed(p.0);
                 }
             }
@@ -361,34 +359,31 @@ impl FileChangeTracker {
         Ok(())
     }
 
-    fn entry_added_or_removed(&mut self, path: CellPath) {
+    fn entry_added_or_removed(&mut self, path: IProjectRelativePath) {
         self.paths_to_dirty.insert(IoPathMetadataKey(path));
         self.exists_matching_exact_case_to_dirty
             .insert(IoExistsMatchingExactCaseKey(path));
         let parent = path.parent();
         if let Some(parent) = parent {
-            // The above can be None (validly!) if we have a cell we either create or delete.
-            // That never happens in established repos, but if you are setting one up, it's not uncommon.
-            // Since we don't include paths in different cells, the fact we don't dirty the parent
-            // (which is in an enclosing cell) doesn't matter.
+            // `None` only for the project root itself, which has no parent listing to dirty.
             self.insert_dir_keys(parent.to_owned());
         }
     }
 
-    fn insert_dir_keys(&mut self, path: CellPath) {
+    fn insert_dir_keys(&mut self, path: IProjectRelativePath) {
         self.dirs_to_dirty.insert(IoReadDirKey(path));
     }
 
-    pub fn file_added_or_removed(&mut self, path: CellPath) {
+    pub fn file_added_or_removed(&mut self, path: IProjectRelativePath) {
         self.file_contents_changed(path);
         self.entry_added_or_removed(path);
     }
 
-    pub fn dir_added_or_removed(&mut self, path: CellPath) {
+    pub fn dir_added_or_removed(&mut self, path: IProjectRelativePath) {
         self.entry_added_or_removed(path);
     }
 
-    pub fn file_contents_changed(&mut self, path: CellPath) {
+    pub fn file_contents_changed(&mut self, path: IProjectRelativePath) {
         self.files_to_dirty.insert(IoReadFileKey(path));
         self.paths_to_dirty.insert(IoPathMetadataKey(path));
     }
@@ -396,7 +391,7 @@ impl FileChangeTracker {
     /// Normally, buck does not need the file watcher to tell it that a directory's entries have
     /// changed. However, in some cases file watcher want to force-invalidate directory listings,
     /// and so this exists. It should not normally be used.
-    pub fn dir_entries_changed_force_invalidate(&mut self, path: CellPath) {
+    pub fn dir_entries_changed_force_invalidate(&mut self, path: IProjectRelativePath) {
         self.insert_dir_keys(path);
     }
 
@@ -409,7 +404,7 @@ impl FileChangeTracker {
     ///
     /// We cannot unconditionally respect directory modification events from the file watcher, as it
     /// is not aware of our ignore rules.
-    pub fn dir_entries_changed_for_watchman_bug(&mut self, path: CellPath) {
+    pub fn dir_entries_changed_for_watchman_bug(&mut self, path: IProjectRelativePath) {
         self.maybe_modified_dirs.insert(path);
     }
 }
