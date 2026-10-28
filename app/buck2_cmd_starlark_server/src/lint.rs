@@ -120,6 +120,7 @@ impl StarlarkServerSubcommand for StarlarkLintCommand {
                 let files = starlark_files(
                     &mut ctx.ctx(),
                     &self.paths,
+                    &self.exclude,
                     server_ctx,
                     cell_resolver,
                     &**io,

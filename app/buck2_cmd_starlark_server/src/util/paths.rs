@@ -45,10 +45,14 @@ async fn starlark_file(
     // None = this file was given explicitly
     // Some = it was a directory traversal (and we know its type)
     recursive: Option<FileType>,
+    exclude: &[IProjectRelativePath],
     cell_resolver: &CellResolver,
     io: &dyn IoProvider,
     files: &mut Vec<OwnedStarlarkPath>,
 ) -> buck2_error::Result<()> {
+    if exclude.iter().any(|e| proj_path.starts_with(e)) {
+        return Ok(());
+    }
     let cell_path = cell_resolver.get_cell_path(&proj_path);
     if recursive.is_some()
         && DiceFileComputations::is_ignored(ctx, cell_path)
@@ -84,7 +88,16 @@ async fn starlark_file(
                     continue;
                 };
                 let child_path = proj_path.join(file_name.as_forward_rel_path());
-                starlark_file(ctx, child_path, Some(x.file_type), cell_resolver, io, files).await?;
+                starlark_file(
+                    ctx,
+                    child_path,
+                    Some(x.file_type),
+                    exclude,
+                    cell_resolver,
+                    io,
+                    files,
+                )
+                .await?;
             }
         }
         FileType::File => {
@@ -127,17 +140,33 @@ async fn starlark_file(
 pub(crate) async fn starlark_files(
     ctx: &mut DiceComputations<'_>,
     paths: &[PathArg],
+    exclude: &[PathArg],
     context: &dyn ServerCommandContextTrait,
     cell_resolver: &CellResolver,
     io: &dyn IoProvider,
 ) -> buck2_error::Result<Vec<OwnedStarlarkPath>> {
-    let mut files = Vec::new();
-
-    for path in paths {
+    let resolve = |path: &PathArg| -> buck2_error::Result<IProjectRelativePath> {
         let path = path.resolve(context.working_dir_abs());
         let cell_path = cell_resolver.get_cell_path_from_abs_path(&path, context.project_root())?;
-        let proj_path = cell_resolver.resolve_ipath(cell_path)?;
-        starlark_file(ctx, proj_path, None, cell_resolver, io, &mut files).await?;
+        cell_resolver.resolve_ipath(cell_path)
+    };
+    let exclude = exclude
+        .iter()
+        .map(|path| resolve(path))
+        .collect::<buck2_error::Result<Vec<_>>>()?;
+
+    let mut files = Vec::new();
+    for path in paths {
+        starlark_file(
+            ctx,
+            resolve(path)?,
+            None,
+            &exclude,
+            cell_resolver,
+            io,
+            &mut files,
+        )
+        .await?;
     }
     Ok(files)
 }

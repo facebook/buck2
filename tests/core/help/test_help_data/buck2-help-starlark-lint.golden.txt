@@ -172,6 +172,9 @@ Event Log Options:
           Write the command report to this path. A command report is always written to
           `buck-out/v2/<uuid>/command_report` even without this flag
 
+  -X, --exclude <PATH>
+          Skip this path and everything under it. May be repeated
+
   <PATH>...
 
 

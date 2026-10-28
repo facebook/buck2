@@ -158,6 +158,7 @@ impl StarlarkServerSubcommand for StarlarkTypecheckCommand {
                 let files = starlark_files(
                     &mut dice.ctx(),
                     &self.paths,
+                    &[],
                     server_ctx,
                     cell_resolver,
                     &**io,

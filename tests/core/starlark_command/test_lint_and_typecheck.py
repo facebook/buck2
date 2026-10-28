@@ -9,6 +9,8 @@
 # pyre-strict
 
 
+import shutil
+
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
@@ -20,6 +22,19 @@ class LintAndTypecheckTest(BuckTestCase):
         await expect_failure(
             buck.starlark("lint", "bad_warning.bzl"),
             stderr_regex="Found 3 lints",
+        )
+
+    @buck_test()
+    async def test_exclude(self, buck: Buck) -> None:
+        for d in ["dir/keep", "dir/skip"]:
+            (buck.cwd / d).mkdir(parents=True)
+            shutil.copy(buck.cwd / "bad_warning.bzl", buck.cwd / d)
+        await expect_failure(buck.starlark("lint", "dir"), stderr_regex="Found 6 lints")
+        await expect_failure(
+            buck.starlark("lint", "dir", "-X", "dir/skip"), stderr_regex="Found 3 lints"
+        )
+        await buck.starlark(
+            "lint", "dir", "-X", "dir/skip", "-X", "dir/keep/bad_warning.bzl"
         )
 
     @buck_test()
