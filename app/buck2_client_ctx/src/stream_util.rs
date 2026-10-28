@@ -112,9 +112,7 @@ impl<'a, T> ForwardingState<'a, T> {
                                 buck2_error::buck2_error!(
                                     buck2_error::ErrorTag::Tier0,
                                     "Buffered stdin item has been waiting 90 seconds for request-stream capacity"
-                                ),
-                                quiet: true
-                            );
+                                ));
                             ForwardingStateTransition::Next(ForwardingState::HaveItem {
                                 item,
                                 logged_wait: true,

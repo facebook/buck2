@@ -190,7 +190,7 @@ mod imp {
             &options,
             Some(buck2_data::SoftError {
                 category: category.to_owned(),
-                is_quiet: options.quiet,
+                is_quiet: !options.user_facing,
                 is_deprecation: matches!(&options.kind, SoftErrorKind::Deprecation { .. }),
             }),
         );
@@ -204,7 +204,7 @@ mod imp {
             }
             None => {
                 #[cfg(client_only)]
-                let warn = !options.quiet;
+                let warn = options.user_facing;
                 #[cfg(not(client_only))]
                 let warn = {
                     let sent = if context.is_command_scoped() {
@@ -214,7 +214,7 @@ mod imp {
                     } else {
                         buck2_server::active_commands::broadcast_instant_event(&event)
                     };
-                    !sent && !options.quiet
+                    !sent && options.user_facing
                 };
                 if warn {
                     tracing::warn!("Warning \"{}\": {:#}", category, err);
@@ -238,7 +238,7 @@ mod imp {
             payload: message,
             metadata,
             backtrace,
-            quiet: options.quiet,
+            quiet: !options.user_facing,
             task: Some(options.task),
             soft_error_category: soft_error_category
                 .map(|arg0: buck2_data::SoftError| ToOwned::to_owned(&arg0)),

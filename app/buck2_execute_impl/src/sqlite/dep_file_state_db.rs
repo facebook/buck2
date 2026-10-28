@@ -222,8 +222,7 @@ fn apply_write(db: &DepFileStateSqliteDb, write: DepFileWriteOperation) -> Optio
                 buck2_error::ErrorTag::Tier0,
                 "Failed to write to dep-file sqlite db. {}",
                 e
-            ),
-            quiet: true
+            )
         );
     }
     // A failed write still took time and still happened; the soft error above is what says it did
@@ -238,8 +237,7 @@ fn report_read_failure(e: buck2_error::Error) {
             buck2_error::ErrorTag::Tier0,
             "Failed to read from dep-file sqlite db. {}",
             e
-        ),
-        quiet: true
+        )
     );
 }
 
@@ -446,8 +444,7 @@ impl PersistedDepFileStore {
                     buck2_error::ErrorTag::Tier0,
                     "The dep-file sqlite writer thread is gone; persistence is disabled for the \
                      rest of this daemon's life"
-                ),
-                quiet: true
+                )
             );
         }
     }

@@ -2302,8 +2302,11 @@ pub(crate) mod eden_health {
                                 );
                                 soft_error!(
                                     "eden_thrift_health_check_failed",
-                                    buck2_error!(buck2_error::ErrorTag::Input, "check failed with: {:#}", e),
-                                    quiet: true
+                                    buck2_error!(
+                                        buck2_error::ErrorTag::Input,
+                                        "check failed with: {:#}",
+                                        e
+                                    )
                                 )
                                 .ok();
                             }
@@ -2323,8 +2326,11 @@ pub(crate) mod eden_health {
                         tracing::error!("check failed to create an EdenFS client: {:#}", e);
                         soft_error!(
                             "eden_thrift_client_creation_failed",
-                            buck2_error!(buck2_error::ErrorTag::Input, "client creation failed with: {:#}", e),
-                            quiet: true
+                            buck2_error!(
+                                buck2_error::ErrorTag::Input,
+                                "client creation failed with: {:#}",
+                                e
+                            )
                         )
                         .ok();
                     }

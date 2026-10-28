@@ -804,11 +804,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     .materializer_state_table()
                     .update_access_times(buffer.iter().collect::<Vec<_>>())
                 {
-                    let _unused = soft_error!(
-                        "materializer_materialize_error",
-                        e,
-                        quiet: true
-                    );
+                    let _unused = soft_error!("materializer_materialize_error", e);
                     return "Found error while updating access times in sqlite db".to_owned();
                 }
             }
@@ -890,11 +886,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 .materializer_state_table()
                 .update_classifications(&materialized_roots, ArtifactClassification::FinalOutput)
         {
-            let _unused = soft_error!(
-                "materializer_update_classification_error",
-                error,
-                quiet: true
-            );
+            let _unused = soft_error!("materializer_update_classification_error", error);
         }
     }
 
@@ -924,11 +916,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             self.sqlite_db.as_mut(),
             &self.stats,
         ) {
-            let _unused = soft_error!(
-                "materializer_declare_existing_invalidation_error",
-                error,
-                quiet: true
-            );
+            let _unused = soft_error!("materializer_declare_existing_invalidation_error", error);
         }
         on_materialization(
             self.sqlite_db.as_mut(),
@@ -1128,7 +1116,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         .materializer_state_table()
                         .update_access_times(vec![&path])
                     {
-                        let _unused = soft_error!("match_artifact_update_time", e, quiet: true);
+                        let _unused = soft_error!("match_artifact_update_time", e);
                     }
                 }
             }
@@ -1165,7 +1153,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         .materializer_state_table()
                         .update_access_times(vec![&path])
                     {
-                        let _unused = soft_error!("has_artifact_update_time", e, quiet: true);
+                        let _unused = soft_error!("has_artifact_update_time", e);
                     }
                 }
             }
@@ -1617,7 +1605,7 @@ fn on_materialization(
                 .materializer_state_table()
                 .insert(path, metadata, timestamp, classification)
         {
-            let _unused = soft_error!(error_name, e, quiet: true);
+            let _unused = soft_error!(error_name, e);
         }
     }
 }

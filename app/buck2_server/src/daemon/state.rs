@@ -596,8 +596,7 @@ impl TenantState {
                             "Failed to start the persisted dep-file cache; continuing without \
                              it. {}",
                             e
-                        ),
-                        quiet: true
+                        )
                     );
                     None
                 }
@@ -1491,7 +1490,6 @@ impl DaemonState {
         tag_result!(
             "eden_not_connected",
             check_working_dir::check_working_dir(),
-            quiet: true,
             daemon_in_memory_state_is_corrupted: true,
             task: false
         )?;
@@ -1556,7 +1554,6 @@ impl DaemonState {
         tag_result!(
             "stale_cwd",
             res,
-            quiet: true,
             daemon_in_memory_state_is_corrupted: true,
             task: false
         )?;
@@ -1567,7 +1564,7 @@ impl DaemonState {
     pub fn validate_buck_out_mount(&self, repo: &RepoState) -> buck2_error::Result<()> {
         #[cfg(fbcode_build)]
         {
-            use buck2_core::soft_error;
+            use buck2_core::warn_user;
             use buck2_fs::error::IoResultExt;
             use buck2_fs::fs_util;
 
@@ -1602,15 +1599,14 @@ impl DaemonState {
                 }
             }
 
-            soft_error!(
+            warn_user!(
                 "eden_buck_out",
                 buck2_error::buck2_error!(
                     buck2_error::ErrorTag::Environment,
                     "Buck is running in an Eden repository, but `buck-out` is not redirected. \
                      This will likely lead to failed or slow builds. \
                      To remediate, run `eden redirect fixup`."
-                ),
-                quiet:false
+                )
             )?;
         }
         #[cfg(not(fbcode_build))]

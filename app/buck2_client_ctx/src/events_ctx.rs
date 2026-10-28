@@ -430,7 +430,6 @@ impl<'a> DaemonEventsCtx<'a> {
 //             let _unused = soft_error!(
 //                 "daemon_tailers_not_flushed",
 //                 internal_error!("DaemonEventsCtx should have been flushed before being dropped"),
-//                 quiet: true,
 //             );
 //         }
 //     }

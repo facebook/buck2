@@ -271,8 +271,7 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
                     "{} rows of the materializer state nest with others and are dropped, the first: `{}`",
                     refused.len(),
                     refused[0]
-                ),
-                quiet: true
+                )
             );
             if let Some(db) = &mut sqlite_db {
                 let _ignored = db.materializer_state_table().delete(refused);
@@ -588,8 +587,7 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
         if let Err(e) = self.store.insert_files(files).await {
             let _ignored = buck2_core::soft_error!(
                 "blob_store_insert_failed",
-                e.context(format!("Putting `{}` into the store", root.path)),
-                quiet: true
+                e.context(format!("Putting `{}` into the store", root.path))
             );
         }
     }
@@ -1395,8 +1393,7 @@ fn download_task<T: IoHandler>(
                                             e.context(format!(
                                                 "Copying `{source}` to `{}`",
                                                 wanted.path
-                                            )),
-                                            quiet: true
+                                            ))
                                         );
                                     }
                                 }
@@ -2101,8 +2098,7 @@ async fn remove_freed_root<T: IoHandler>(
                 "disk_state_materializer_unrecoverable_root",
                 internal_error!(
                     "`{path}` holds `{digest}`, which neither the stash nor the CAS is known to have"
-                ),
-                quiet: true
+                )
             );
             return;
         }
@@ -2128,8 +2124,7 @@ async fn remove_freed_root<T: IoHandler>(
     {
         let _ignored = buck2_core::soft_error!(
             "disk_state_materializer_strict_remove_failed",
-            e.context(format!("Removing `{path}` on its release")),
-            quiet: true
+            e.context(format!("Removing `{path}` on its release"))
         );
     }
     drop(held);
@@ -2396,8 +2391,7 @@ impl Processor {
     fn abandon_mirror(&mut self, e: buck2_error::Error) {
         let _ignored = buck2_core::soft_error!(
             "disk_state_materializer_persist",
-            e.context("the mirror is abandoned"),
-            quiet: true
+            e.context("the mirror is abandoned")
         );
         if let Some(db) = &mut self.sqlite_db {
             let all: Vec<ProjectRelativePathBuf> =

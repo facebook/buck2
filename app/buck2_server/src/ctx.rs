@@ -574,8 +574,7 @@ impl<'a> ServerCommandContext<'a> {
                         "Draining {} queued dep-file cache writes at command end took {:?}",
                         queued,
                         elapsed
-                    ),
-                    quiet: true
+                    )
                 );
             }
         }

@@ -46,8 +46,7 @@ pub(crate) fn spawn_version_control_collector(
             if let Some(error) = &event.command_error {
                 soft_error!(
                     "spawn_version_control_collector_failed",
-                    buck2_error::buck2_error!(buck2_error::ErrorTag::Input, "{}", error),
-                    quiet: true
+                    buck2_error::buck2_error!(buck2_error::ErrorTag::Input, "{}", error)
                 )
                 .ok();
             }

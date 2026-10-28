@@ -61,6 +61,8 @@ pub use buck2_env::soft_error::soft_error;
 pub use buck2_env::soft_error::tag_error;
 #[doc(inline)]
 pub use buck2_env::soft_error::tag_result;
+#[doc(inline)]
+pub use buck2_env::soft_error::warn_user;
 
 /// Marker for things that are only sensible to use inside Facebook,
 /// not intended to be complete, but intended to be useful to audit

@@ -1319,8 +1319,7 @@ pub(crate) async fn match_if_identical_action(
                     buck2_error::ErrorTag::Tier0,
                     "Dropping malformed persisted dep-file entry. {}",
                     e
-                ),
-                quiet: true
+                )
             );
             store.delete(logical_key.clone(), config_key);
         };

@@ -336,8 +336,7 @@ impl CfgModifiers {
         for (what, text) in self.unresolvable() {
             let _unused = soft_error!(
                 "cfg_modifier_unresolvable",
-                buck2_error!(buck2_error::ErrorTag::Input, "{what}: `{text}`"),
-                quiet: true
+                buck2_error!(buck2_error::ErrorTag::Input, "{what}: `{text}`")
             );
         }
     }

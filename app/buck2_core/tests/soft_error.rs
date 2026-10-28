@@ -30,7 +30,7 @@ fn mock_handler(
 ) {
     RESULT.lock().unwrap().push(format!(
         "{:?}, : {} : {} : {} : {:?}",
-        loc, err, category, options.quiet, options.kind
+        loc, err, category, options.user_facing, options.kind
     ));
 }
 
@@ -61,7 +61,7 @@ fn test_soft_error() {
     );
     assert_eq!(
         Some(&format!(
-            "({:?}, {}, 30), : Should be logged : test_logged_soft_error : true : SoftError",
+            "({:?}, {}, 30), : Should be logged : test_logged_soft_error : false : SoftError",
             file!(),
             before_error_line + 1,
         )),
@@ -81,7 +81,7 @@ fn test_deprecation() {
     );
     assert_eq!(
         Some(&format!(
-            "({:?}, {}, 30), : Still used : test_logged_deprecation : true : Deprecation {{ owner: Some(\"jakobdegen\") }}",
+            "({:?}, {}, 30), : Still used : test_logged_deprecation : false : Deprecation {{ owner: Some(\"jakobdegen\") }}",
             file!(),
             before_error_line + 1,
         )),

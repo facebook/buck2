@@ -29,8 +29,7 @@ pub fn create_tenting_acl_provider(
                         buck2_error::ErrorTag::Input,
                         "Failed to create TentingAclProvider: {:#}",
                         e
-                    ),
-                    quiet: true
+                    )
                 )
                 .ok();
                 None

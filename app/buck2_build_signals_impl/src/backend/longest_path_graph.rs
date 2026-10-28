@@ -96,7 +96,7 @@ impl BuildListenerBackend for LongestPathGraphBackend {
         let res = res.or_else(|err| match err {
             PushError::Overflow => Err(CriticalPathError::GraphBuildOverflow),
             e @ PushError::DuplicateKey { .. } => {
-                drop(soft_error!("critical_path_duplicate_key", e.into(), quiet: true));
+                drop(soft_error!("critical_path_duplicate_key", e.into()));
                 Ok(())
             }
         });

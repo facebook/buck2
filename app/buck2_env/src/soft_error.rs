@@ -108,7 +108,7 @@ static HARD_ERROR_PANIC_ALLOWLIST: LazyLock<BuckFixedSortedSet<String>> = LazyLo
 /// Reports are counted per category in Logview
 /// ([internal link](https://www.internalfb.com/logview/overview/buck2)), where the buck2 oncall
 /// watches them, so a category should name one specific thing going wrong. The user does not see
-/// the report unless `quiet: false` is passed, which is for errors the user can act on. Under
+/// the report; an error the person running the command can act on is a [`warn_user!`]. Under
 /// `BUCK2_HARD_ERROR`, which buck2's own tests set, the error is returned as `Err` instead, so a
 /// call site uses `?` where failing is acceptable and discards the result where it is not.
 ///
@@ -124,7 +124,6 @@ static HARD_ERROR_PANIC_ALLOWLIST: LazyLock<BuckFixedSortedSet<String>> = LazyLo
 /// soft_error!(
 ///     "cas_missing",
 ///     buck2_error::buck2_error!(buck2_error::ErrorTag::Tier0, "`{}` is missing", digest),
-///     quiet: true,
 /// )?;
 /// ```
 pub macro soft_error {
@@ -175,7 +174,38 @@ pub macro deprecation {
                 kind: $crate::soft_error::SoftErrorKind::Deprecation {
                     owner: Some(::std::borrow::Cow::Borrowed($owner)),
                 },
-                quiet: true,
+                user_facing: false,
+                $($k: $v,)*
+                ..Default::default()
+            }
+        )
+    } },
+}
+
+/// Reports a non-fatal error that the person running the command can act on, and tells them.
+///
+/// This is the only report buck2 prints, so the bar is that the message is addressed to the
+/// person who sees it: something wrong with their checkout, their environment, their invocation.
+/// Anything addressed to whoever wrote the build files, the rule, or buck2 itself is a
+/// [`soft_error!`] or a [`deprecation!`]. Otherwise identical to [`soft_error!`].
+///
+/// ```ignore
+/// warn_user!("eden_buck_out", err)?;
+/// ```
+pub macro warn_user {
+    ($category:expr, $err:expr) => {
+        $crate::soft_error::warn_user!($category, $err,)
+    },
+    ($category:expr, $err:expr, $($k:ident : $v:expr),+) => {
+        $crate::soft_error::warn_user!($category, $err, $($k: $v,)*)
+    },
+    ($category:expr, $err:expr, $($k:ident : $v:expr ,)*) => { {
+        $crate::soft_error::handle_soft_error(
+            $category,
+            $err,
+            (file!(), line!(), column!()),
+            $crate::soft_error::StructuredErrorOptions {
+                user_facing: true,
                 $($k: $v,)*
                 ..Default::default()
             }
@@ -225,8 +255,8 @@ pub enum SoftErrorKind {
 
 pub struct StructuredErrorOptions {
     pub kind: SoftErrorKind,
-    /// Log this error (to our event log and possibly to a task), but do not print it to stderr.
-    pub quiet: bool,
+    /// Also print the error to the console. Set by [`warn_user!`], which says who that is for.
+    pub user_facing: bool,
     /// Create a task for this error.
     pub task: bool,
     pub daemon_in_memory_state_is_corrupted: bool,
@@ -244,7 +274,7 @@ impl Default for StructuredErrorOptions {
     fn default() -> Self {
         Self {
             kind: SoftErrorKind::SoftError,
-            quiet: true,
+            user_facing: false,
             task: true,
             daemon_in_memory_state_is_corrupted: false,
             daemon_materializer_state_is_corrupted: false,
@@ -267,8 +297,8 @@ pub fn handle_soft_error(
     let context = soft_error_context()?;
 
     let mut options = options;
-    if options.quiet && context.show_soft_error_config.should_show(category) {
-        options.quiet = false;
+    if context.show_soft_error_config.should_show(category) {
+        options.user_facing = true;
     }
 
     // We want to limit each error to appearing at most 10 times in a build (no point spamming people)

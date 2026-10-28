@@ -838,11 +838,7 @@ impl CleanStaleArtifactsCommand {
                     stats,
                 };
                 // The error is also returned, so report it quietly.
-                let error = tag_error!(
-                    "clean_stale_error",
-                    state_error.into(),
-                    quiet: true
-                );
+                let error = tag_error!("clean_stale_error", state_error.into());
                 return Err(CleanFailure::new(
                     CleanFailurePhase::StateValidation,
                     stats,

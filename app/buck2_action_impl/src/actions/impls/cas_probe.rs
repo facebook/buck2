@@ -56,8 +56,7 @@ pub(crate) async fn probe(
             // silently turn every probe into a miss, which should be visible.
             let _ignored = buck2_core::soft_error!(
                 "write_cas_probe_failed",
-                e.context("CAS lookup for content an action produces failed; producing it instead"),
-                quiet: true
+                e.context("CAS lookup for content an action produces failed; producing it instead")
             );
             return None;
         }

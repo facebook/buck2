@@ -551,8 +551,7 @@ impl CoercedAttrArena {
                 buck2_error!(
                     buck2_error::ErrorTag::Environment,
                     "Attr arena buffer past 50% of its 2GiB capacity ({end} bytes)"
-                ),
-                quiet: true
+                )
             );
         }
         self.bytes

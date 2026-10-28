@@ -235,8 +235,7 @@ pub(crate) async fn maybe_initialize_dep_file_sqlite_db(
                     buck2_error::ErrorTag::Tier0,
                     "Failed to delete the disabled dep-file state db. {}",
                     e
-                ),
-                quiet: true
+                )
             );
         }
         return Ok(None);
@@ -298,8 +297,7 @@ pub(crate) async fn maybe_initialize_dep_file_sqlite_db(
                     buck2_error::ErrorTag::Tier0,
                     "Failed to open the dep-file state db; continuing without persistence. {}",
                     e
-                ),
-                quiet: true
+                )
             );
             return Ok(None);
         }

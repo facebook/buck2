@@ -59,8 +59,7 @@ fn with_retries<T>(mut func: impl FnMut() -> io::Result<T>) -> io::Result<T> {
                     // Solely for logging, we don't want to error if the value wasn't "thrown"
                     soft_error!(
                         "fs_io_succeeded_after_retry",
-                        buck2_error!(buck2_error::ErrorTag::Input, "{}", err.to_string()),
-                        quiet: true
+                        buck2_error!(buck2_error::ErrorTag::Input, "{}", err.to_string())
                     )
                     .ok();
                 }

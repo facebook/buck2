@@ -186,7 +186,6 @@ fn recorded_start_time() -> u64 {
                     ErrorTag::DaemonStartupFailed,
                     "Could not read this daemon's process start time; recording 0 in buckd.info"
                 ),
-                quiet: true,
                 task: false,
             );
             0
@@ -624,7 +623,6 @@ impl DaemonCommand {
                         project_root.display(),
                         e
                     ),
-                    quiet: true,
                     task: false,
                 );
 

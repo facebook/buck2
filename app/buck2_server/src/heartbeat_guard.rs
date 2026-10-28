@@ -48,7 +48,7 @@ fn check_slow_snapshot(elapsed: Duration, consecutive_slow: &mut u32) {
                     elapsed.as_secs_f64(),
                     RAGE_HINT
                 ),
-                quiet: false
+                user_facing: true
             )
             .ok();
         }
@@ -69,7 +69,7 @@ fn report_stalled_snapshot() {
             STALL_THRESHOLD.as_secs(),
             RAGE_HINT
         ),
-        quiet: false
+        user_facing: true
     )
     .ok();
 }

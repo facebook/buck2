@@ -75,9 +75,9 @@ impl IncrementalDbState {
                         buck2_error::buck2_error!(
                             buck2_error::ErrorTag::Tier0,
                             "Failed to insert {} into sqlite db. {}",
-                            key, e
-                        ),
-                        quiet: true
+                            key,
+                            e
+                        )
                     )
                     .unwrap();
                 };
@@ -100,8 +100,7 @@ impl IncrementalDbState {
                     buck2_error::ErrorTag::Tier0,
                     "Failed to remove incremental path map from sqlite db. {}",
                     e
-                ),
-                quiet: true
+                )
             )
             .unwrap();
         }

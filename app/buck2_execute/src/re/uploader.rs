@@ -269,8 +269,7 @@ impl Uploader {
                                         file.digest,
                                         file.digest.expires()?,
                                         err
-                                    ),
-                                    quiet: true
+                                    )
                                 )?;
 
                                 // Materialize the file locally from CAS and add it to

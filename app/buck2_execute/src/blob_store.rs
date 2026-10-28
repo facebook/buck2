@@ -403,8 +403,7 @@ impl BlobStore {
                                         "Putting {} out of the stash at {}",
                                         file.digest.data(),
                                         file.dest
-                                    )),
-                                    quiet: true
+                                    ))
                                 );
                                 let _ignored = fs_util::remove_all(&file.dest);
                                 Ok(false)
@@ -505,8 +504,7 @@ async fn collect(
                             Err(e) => {
                                 let _ignored = buck2_core::soft_error!(
                                     "blob_store_unlink_failed",
-                                    e.context(format!("Removing {digest} from the stash")),
-                                    quiet: true
+                                    e.context(format!("Removing {digest} from the stash"))
                                 );
                             }
                         }
@@ -515,7 +513,7 @@ async fn collect(
                 })
                 .await;
             if let Err(e) = unlinked {
-                let _ignored = buck2_core::soft_error!("blob_store_unlink_failed", e, quiet: true);
+                let _ignored = buck2_core::soft_error!("blob_store_unlink_failed", e);
             }
         }
         for done in flushes {
@@ -559,8 +557,7 @@ pub fn discard_stash(root: &AbsNormPath, blocking: Arc<dyn BlockingExecutor>) {
                 if let Err(e) = removed {
                     let _ignored = buck2_core::soft_error!(
                         "blob_store_stash_removal_failed",
-                        e.context("Removing a previous daemon's stash"),
-                        quiet: true
+                        e.context("Removing a previous daemon's stash")
                     );
                 }
             });
@@ -568,8 +565,7 @@ pub fn discard_stash(root: &AbsNormPath, blocking: Arc<dyn BlockingExecutor>) {
         Err(e) => {
             let _ignored = buck2_core::soft_error!(
                 "blob_store_stash_removal_failed",
-                e.context("Discarding a previous daemon's stash"),
-                quiet: true
+                e.context("Discarding a previous daemon's stash")
             );
         }
     }

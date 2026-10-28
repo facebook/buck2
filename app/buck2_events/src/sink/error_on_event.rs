@@ -34,8 +34,7 @@ impl EventSink for ErrorOnEventSink {
                  An EventDispatcher needs to be threaded through from the caller. \
                  Event: {:?}",
                 event
-            ),
-            quiet: true
+            )
         );
     }
 }

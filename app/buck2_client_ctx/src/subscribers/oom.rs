@@ -71,8 +71,7 @@ pub(crate) async fn find_daemon_oom_evidence(
                         buck2_error::ErrorTag::Environment,
                         "cgroup path does not start with /sys/fs/cgroup/: {}",
                         path
-                    ),
-                    quiet: true
+                    )
                 );
                 None
             }
@@ -81,7 +80,7 @@ pub(crate) async fn find_daemon_oom_evidence(
     let lower_bound = match dmesg_lower_bound(daemon_start_instant) {
         Ok(lower_bound) => lower_bound,
         Err(e) => {
-            let _unused = soft_error!("dmesg_monotonic_clock_failed", e, quiet: true);
+            let _unused = soft_error!("dmesg_monotonic_clock_failed", e);
             return Ok(None);
         }
     };
@@ -103,8 +102,7 @@ pub(crate) async fn find_daemon_oom_evidence(
                     buck2_error::ErrorTag::Environment,
                     "Failed to run dmesg for OOM detection: {}",
                     e
-                ),
-                quiet: true
+                )
             );
             return Ok(None);
         }
@@ -120,8 +118,7 @@ pub(crate) async fn find_daemon_oom_evidence(
                     buck2_error::ErrorTag::Environment,
                     "Failed to wait on dmesg for OOM detection: {}",
                     e
-                ),
-                quiet: true
+                )
             );
             return Ok(None);
         }
@@ -131,8 +128,7 @@ pub(crate) async fn find_daemon_oom_evidence(
                 buck2_error::buck2_error!(
                     buck2_error::ErrorTag::Environment,
                     "dmesg timed out after 5 seconds for OOM detection"
-                ),
-                quiet: true
+                )
             );
             return Ok(None);
         }

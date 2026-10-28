@@ -1445,7 +1445,6 @@ pub async fn materialize_inputs(
             return Err(tag_error!(
                 "cas_missing_fatal",
                 MaterializationError::NotFound { source }.into(),
-                quiet: true,
                 task: false,
                 daemon_in_memory_state_is_corrupted: true,
                 action_cache_is_corrupted: corrupted
@@ -1516,7 +1515,6 @@ async fn check_inputs(
                                 let _ignored = tag_result!(
                                     "missing_local_inputs",
                                     metadata.categorize_internal().buck_error_context("Missing input"),
-                                    quiet: true,
                                     task: false,
                                     daemon_materializer_state_is_corrupted: true
                                 );

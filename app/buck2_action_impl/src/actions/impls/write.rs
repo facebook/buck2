@@ -311,8 +311,7 @@ impl WriteAction {
                     // cannot be populated would silently stay empty, which should be visible.
                     let _ignored = soft_error!(
                         "write_action_cache_populate_failed",
-                        e.context("Recording a write's content in the action cache failed"),
-                        quiet: true
+                        e.context("Recording a write's content in the action cache failed")
                     );
                 }
             }

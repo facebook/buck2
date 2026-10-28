@@ -49,8 +49,7 @@ pub fn re_expiration_from_ttl(now: Timestamp, ttl_seconds: i64, what: &dyn Displ
                 "RE returned a TTL outside the supported range; clamping the expiration of `{}`. TTL seconds: `{}`",
                 what,
                 ttl_seconds
-            ),
-            quiet: true
+            )
         );
     }
     expiration

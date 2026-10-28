@@ -455,8 +455,7 @@ impl<T: IoHandler> Cleaner<T> {
                     db_size: index.iter().len(),
                     stats,
                 }
-                .into(),
-                quiet: true
+                .into()
             );
             return Err(CleanFailure::new(
                 CleanFailurePhase::StateValidation,

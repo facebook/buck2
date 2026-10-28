@@ -17,7 +17,7 @@ pub struct Buck2StarlarkSoftErrorHandler;
 impl SoftErrorHandler for Buck2StarlarkSoftErrorHandler {
     fn soft_error(&self, category: &str, error: starlark::Error) -> Result<(), starlark::Error> {
         let error = buck2_error::Error::from(error);
-        soft_error!(&format!("starlark_rust_{category}"), error, quiet: true)?;
+        soft_error!(&format!("starlark_rust_{category}"), error)?;
         Ok(())
     }
 }

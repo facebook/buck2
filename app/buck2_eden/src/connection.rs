@@ -264,7 +264,7 @@ impl EdenConnectionManager {
         let current = match self.fetch_identity().await {
             Ok(current) => current,
             Err(e) => {
-                soft_error!("eden_identity_fetch_failed", e, quiet: true).ok();
+                soft_error!("eden_identity_fetch_failed", e).ok();
                 return Ok(());
             }
         };
@@ -352,9 +352,13 @@ impl EdenConnectionManager {
                     if retries > 0 {
                         soft_error!(
                             "eden_io_succeeded_after_retry",
-                            buck2_error!(buck2_error::ErrorTag::Input, "Eden IO retried {} times", retries),
-                            quiet: true
-                        ).ok();
+                            buck2_error!(
+                                buck2_error::ErrorTag::Input,
+                                "Eden IO retried {} times",
+                                retries
+                            )
+                        )
+                        .ok();
                     }
                     break Ok(res);
                 }

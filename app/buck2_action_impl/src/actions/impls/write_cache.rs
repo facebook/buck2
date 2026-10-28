@@ -200,8 +200,9 @@ impl<'a> WriteCache<'a> {
                 WriteActionCacheStats::bump(&WRITE_ACTION_CACHE_STATS.lookup_failures);
                 let _ignored = soft_error!(
                     "write_action_cache_lookup_failed",
-                    e.context("Action cache lookup for a write's content failed; producing it instead"),
-                    quiet: true
+                    e.context(
+                        "Action cache lookup for a write's content failed; producing it instead"
+                    )
                 );
                 return None;
             }
@@ -225,9 +226,7 @@ impl<'a> WriteCache<'a> {
                     e.context(format!(
                         "Action cache entry `{}` for a write is malformed; producing the content instead",
                         action.action
-                    )),
-                    quiet: true
-                );
+                    )));
                 return None;
             }
         };
@@ -389,8 +388,7 @@ pub(crate) async fn declare_miss(
                 // silently turn every busy write into a local one, which should be visible.
                 let _ignored = soft_error!(
                     "write_action_cache_upload_failed",
-                    e.context("Uploading a write's content failed; writing it locally instead"),
-                    quiet: true
+                    e.context("Uploading a write's content failed; writing it locally instead")
                 );
             }
         }

@@ -236,11 +236,7 @@ impl DetailedAggregatedMetricsStateTracker {
                     Ok((_complete, sketch)) if !sketch.is_empty() => (label, Some(sketch)),
                     Ok(_) => (label, None),
                     Err(e) => {
-                        let _ignored = soft_error!(
-                            "action_graph_sketch_computation_error",
-                            e,
-                            quiet: true
-                        );
+                        let _ignored = soft_error!("action_graph_sketch_computation_error", e);
                         (label, None)
                     }
                 }

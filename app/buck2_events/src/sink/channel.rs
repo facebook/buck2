@@ -38,7 +38,10 @@ impl EventSink for ChannelEventSink {
             if should_panic {
                 // TODO iguridi: this panic was here before. We probably should just ignore these errors
                 // but first, let's check how often this happens.
-                let _res = soft_error!("event_sink_send_panic", from_any_with_tag(e.clone(), buck2_error::ErrorTag::Tier0), quiet: true);
+                let _res = soft_error!(
+                    "event_sink_send_panic",
+                    from_any_with_tag(e.clone(), buck2_error::ErrorTag::Tier0)
+                );
                 panic!("failed to send control event to ChannelEventSink: {e}");
             }
         }

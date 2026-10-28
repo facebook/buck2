@@ -337,8 +337,7 @@ impl DepFileStateSqliteTable {
                     "Opened {} of {} dep-file db read connections; reads will contend",
                     read_connections.len(),
                     requested
-                ),
-                quiet: true
+                )
             );
         }
         Self {
@@ -357,8 +356,7 @@ impl DepFileStateSqliteTable {
                             "Failed to open the dep-file db connection used for size metrics; \
                              they will be absent for this daemon. {}",
                             e
-                        ),
-                        quiet: true
+                        )
                     );
                     None
                 }

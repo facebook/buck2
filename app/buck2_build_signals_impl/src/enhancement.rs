@@ -214,8 +214,7 @@ impl CriticalPathProtoEnhancer {
                     self.entries.last(),
                     entry
                 )
-                .into(),
-                quiet: true
+                .into()
             );
         }
 
