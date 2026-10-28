@@ -582,21 +582,30 @@ mod tests {
             let home_dir = home.path().root().as_abs_path();
 
             let settings = parse_settings_with_home(repo_root, Some(home_dir), None, &[])?;
-            assert_eq!(settings.log_download.log_url(), Some("https://rollout/"));
+            assert_eq!(
+                settings.daemon.log_download.log_url(),
+                Some("https://rollout/")
+            );
 
             home.write_file(
                 DOT_BUCKSETTINGS_LOCAL,
                 "[log_download]\nlog_url = \"https://home-local/\"\n",
             );
             let settings = parse_settings_with_home(repo_root, Some(home_dir), None, &[])?;
-            assert_eq!(settings.log_download.log_url(), Some("https://home-local/"));
+            assert_eq!(
+                settings.daemon.log_download.log_url(),
+                Some("https://home-local/")
+            );
 
             repo.write_file(
                 DOT_BUCKSETTINGS_LOCAL,
                 "[log_download]\nlog_url = \"https://repo-local/\"\n",
             );
             let settings = parse_settings_with_home(repo_root, Some(home_dir), None, &[])?;
-            assert_eq!(settings.log_download.log_url(), Some("https://repo-local/"));
+            assert_eq!(
+                settings.daemon.log_download.log_url(),
+                Some("https://repo-local/")
+            );
 
             let override_dir = ProjectRootTemp::new()?;
             override_dir.write_file(
@@ -610,7 +619,10 @@ mod tests {
                 .join("override.toml");
             let settings =
                 parse_settings_with_home(repo_root, Some(home_dir), Some(&override_file), &[])?;
-            assert_eq!(settings.log_download.log_url(), Some("https://override/"));
+            assert_eq!(
+                settings.daemon.log_download.log_url(),
+                Some("https://override/")
+            );
 
             let settings_args = [table("[log_download]\nlog_url = \"https://command-line/\"")];
             let settings = parse_settings_with_home(
@@ -620,7 +632,7 @@ mod tests {
                 &settings_args,
             )?;
             assert_eq!(
-                settings.log_download.log_url(),
+                settings.daemon.log_download.log_url(),
                 Some("https://command-line/")
             );
 
@@ -654,7 +666,7 @@ mod tests {
             for (label, content) in cases {
                 let settings = settings_with_rollout(Some(&content))?;
                 assert_eq!(
-                    settings.log_download.log_url(),
+                    settings.daemon.log_download.log_url(),
                     Some(REPO_URL),
                     "{label} must not affect other settings"
                 );
@@ -679,7 +691,7 @@ mod tests {
                 None,
                 &[],
             )?;
-            assert_eq!(settings.log_download.log_url(), Some(REPO_URL));
+            assert_eq!(settings.daemon.log_download.log_url(), Some(REPO_URL));
             Ok(())
         }
 
@@ -704,18 +716,14 @@ mod tests {
                 &[],
             )?;
             let config = parse_legacy_config(&[("config", "")], "config")?;
-            DaemonStartupConfig::new(&config, &settings, false)
+            DaemonStartupConfig::new(&config, &settings.daemon, false)
         }
 
         #[test]
         fn rollout_value_changes_startup_config() -> buck2_error::Result<()> {
             let before = startup_config_for(Some(&rollout_toml("log_url = \"https://before/\"")))?;
             let after = startup_config_for(Some(&rollout_toml("log_url = \"https://after/\"")))?;
-            assert!(
-                !before
-                    .buck_settings
-                    .is_daemon_compatible(&after.buck_settings)
-            );
+            assert!(!before.buck_settings_changes_from(&after).is_empty());
             Ok(())
         }
 
@@ -725,7 +733,10 @@ mod tests {
                 "enable_paging = true\npage_out_on_idle = true\npage_out_on_idle_isolation_dir_scope = \"non_default\"",
             )))?;
             assert_eq!(
-                startup_config.buck_settings.hydration.enable_paging(),
+                startup_config
+                    .daemon_buck_settings()
+                    .hydration
+                    .enable_paging(),
                 Some(true)
             );
             assert_eq!(
@@ -746,7 +757,7 @@ mod tests {
         #[test]
         fn old_agent_interactive_rollout_does_not_enable_guards() -> buck2_error::Result<()> {
             let settings = settings_with_rollout(Some(b"[agent_interactive.0]\nenabled = true"))?;
-            assert!(!settings.agent_interactive.enabled());
+            assert!(!settings.invocation.agent_interactive.enabled());
             Ok(())
         }
     }
@@ -766,7 +777,7 @@ mod tests {
             None,
             &[],
         )?;
-        assert_eq!(settings.log_download.log_url(), None);
+        assert_eq!(settings.daemon.log_download.log_url(), None);
         Ok(())
     }
 
@@ -1001,13 +1012,13 @@ mod tests {
     #[test]
     fn test_migrate_legacy_log_download_keys_before_merging_layers() -> buck2_error::Result<()> {
         let settings = resolve_setting_flags(vec![table("log_use_manifold = false")])?;
-        assert_eq!(settings.log_download.log_use_manifold(), Some(false));
+        assert_eq!(settings.daemon.log_download.log_use_manifold(), Some(false));
 
         let settings = resolve_setting_flags(vec![
             table("[log_download]\nlog_use_manifold = true"),
             table("log_use_manifold = false"),
         ])?;
-        assert_eq!(settings.log_download.log_use_manifold(), Some(false));
+        assert_eq!(settings.daemon.log_download.log_use_manifold(), Some(false));
         Ok(())
     }
 

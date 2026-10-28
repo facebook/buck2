@@ -201,17 +201,11 @@ impl DaemonConstraintsRequest {
             return Err(ConstraintUnsatisfiedReason::StartupConfig);
         };
 
-        if !self
+        let changes = self
             .daemon_startup_config
-            .buck_settings
-            .is_daemon_compatible(&server_config.buck_settings)
-        {
-            return Err(ConstraintUnsatisfiedReason::BuckSettings {
-                changes: self
-                    .daemon_startup_config
-                    .buck_settings
-                    .changes_from(&server_config.buck_settings),
-            });
+            .buck_settings_changes_from(&server_config);
+        if !changes.is_empty() {
+            return Err(ConstraintUnsatisfiedReason::BuckSettings { changes });
         }
 
         if self.daemon_startup_config.startup_options != server_config.startup_options {
@@ -1502,6 +1496,7 @@ fn is_nested_invocation(
 
 #[cfg(test)]
 mod tests {
+    use buck2_common::settings::BuckSettings;
     use buck2_error::internal_error;
 
     use super::*;
@@ -1533,6 +1528,15 @@ mod tests {
         }
     }
 
+    fn request_with_settings(settings: &str) -> DaemonConstraintsRequest {
+        let mut req = request(DesiredTraceIoState::Existing);
+        let mut startup = serde_json::to_value(&req.daemon_startup_config).unwrap();
+        let settings: BuckSettings = serde_json::from_str(settings).unwrap();
+        startup["buck_settings"] = serde_json::to_value(settings.daemon).unwrap();
+        req.daemon_startup_config = serde_json::from_value(startup).unwrap();
+        req
+    }
+
     #[test]
     fn test_constraints_equal_for_same_constraints() {
         let req = request(DesiredTraceIoState::Enabled);
@@ -1543,18 +1547,13 @@ mod tests {
     #[test]
     fn test_buck_settings_mismatch() {
         for settings in [
-            r#"{"agent_materialization":{"enabled":true}}"#,
-            r#"{"agent_materialization":{"enabled":false}}"#,
-            r#"{"agent_interactive":{"enabled":true,"killall_enabled":true,"clean_enabled":true,"new_isolation_dir_enabled":true}}"#,
-            r#"{"agent_interactive":{"enabled":false}}"#,
             r#"{"analysis":{"record_requested_anon_targets":false}}"#,
             r#"{"hydration":{"enable_paging":true}}"#,
             r#"{"log_download":{"log_url":"https://example.com/"}}"#,
             r#"{"package_visibility":{"default_intersection":"enforce"}}"#,
         ] {
-            let mut req = request(DesiredTraceIoState::Existing);
+            let req = request_with_settings(settings);
             let daemon = constraints(false);
-            req.daemon_startup_config.buck_settings = serde_json::from_str(settings).unwrap();
 
             let reason = req.satisfied(&daemon).unwrap_err();
             assert!(matches!(
@@ -1570,17 +1569,35 @@ mod tests {
 
     #[test]
     fn test_buck_settings_details_survive_error_chain() {
-        let mut req = request(DesiredTraceIoState::Existing);
+        let req = request_with_settings(
+            r#"{"hydration":{"enable_paging":true},"agent_materialization":{"enabled":true}}"#,
+        );
         let daemon = constraints(false);
-        req.daemon_startup_config.buck_settings =
-            serde_json::from_str(r#"{"agent_materialization":{"enabled":true}}"#).unwrap();
 
         let reason = req.satisfied(&daemon).unwrap_err();
-        let expected = "Buck settings changed (agent_materialization.enabled: null -> true)";
+        let expected = "Buck settings changed (hydration.enable_paging: null -> true)";
         assert_eq!(reason.to_string(), expected);
         let error: buck2_error::Error =
             BuckdConnectError::NestedConstraintMismatch { reason }.into();
         assert!(format!("{error:#}").contains(expected));
+    }
+
+    #[test]
+    fn test_invocation_sections_reuse_daemon() {
+        for settings in [
+            r#"{"agent_materialization":{"enabled":true}}"#,
+            r#"{"agent_materialization":{"enabled":false}}"#,
+            r#"{"agent_interactive":{"enabled":true,"killall_enabled":true,"clean_enabled":true,"new_isolation_dir_enabled":true}}"#,
+            r#"{"agent_interactive":{"enabled":false}}"#,
+        ] {
+            let req = request_with_settings(settings);
+            let mut daemon = constraints(false);
+            assert!(req.satisfied(&daemon).is_ok(), "{settings}");
+
+            daemon.daemon_startup_config = Some(req.daemon_startup_config.serialize().unwrap());
+            let req = request(DesiredTraceIoState::Existing);
+            assert!(req.satisfied(&daemon).is_ok(), "{settings}");
+        }
     }
 
     #[test]

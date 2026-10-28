@@ -38,6 +38,7 @@ pub(crate) static ALL_SECTION_METADATA: &[SectionMetadata] = &[
     PackageVisibilitySection::METADATA,
 ];
 
+// Keep the file format flat and reject unknown sections before grouping by scope.
 #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Allocative)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct BuckSettingsData {
@@ -55,20 +56,68 @@ pub(crate) struct BuckSettingsData {
     package_visibility: PackageVisibilitySectionData,
 }
 
-#[derive(Clone, Dupe, Debug, Serialize, Deserialize, PartialEq, Eq, Allocative)]
-#[serde(deny_unknown_fields)]
+/// Settings for a client invocation or server command. Shared daemon state must
+/// retain only `DaemonBuckSettings`, since invocation values can change on every request.
+#[derive(
+    Clone,
+    Dupe,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    Allocative
+)]
+#[serde(from = "BuckSettingsData")]
 pub struct BuckSettings {
-    #[serde(default)]
+    #[serde(flatten)]
+    pub daemon: DaemonBuckSettings,
+    #[serde(flatten)]
+    pub invocation: InvocationBuckSettings,
+}
+
+/// Sections whose values belong to one invocation, on either the client or daemon.
+#[derive(
+    Clone,
+    Dupe,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    Allocative
+)]
+#[serde(default, deny_unknown_fields)]
+pub struct InvocationBuckSettings {
     pub agent_interactive: AgentInteractiveSettings,
-    #[serde(default)]
     pub agent_materialization: AgentMaterializationSettings,
-    #[serde(default)]
+}
+
+/// Sections whose values are fixed for the daemon's lifetime. Every section in
+/// this struct participates in restart checks and may be retained in global state.
+///
+/// ```compile_fail
+/// use buck2_common::settings::DaemonBuckSettings;
+/// DaemonBuckSettings::default().agent_materialization.enabled();
+/// ```
+#[derive(
+    Clone,
+    Dupe,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    Allocative
+)]
+#[serde(default, deny_unknown_fields)]
+pub struct DaemonBuckSettings {
     pub analysis: AnalysisSection,
-    #[serde(default)]
     pub hydration: HydrationSection,
-    #[serde(default)]
     pub log_download: LogDownloadSection,
-    #[serde(default)]
     pub package_visibility: PackageVisibilitySection,
 }
 
@@ -85,19 +134,17 @@ pub struct BuckSettingChange {
 impl From<BuckSettingsData> for BuckSettings {
     fn from(data: BuckSettingsData) -> Self {
         Self {
-            agent_interactive: data.agent_interactive,
-            agent_materialization: data.agent_materialization,
-            analysis: AnalysisSection(Arc::new(data.analysis)),
-            hydration: HydrationSection(Arc::new(data.hydration)),
-            log_download: LogDownloadSection(Arc::new(data.log_download)),
-            package_visibility: PackageVisibilitySection(Arc::new(data.package_visibility)),
+            daemon: DaemonBuckSettings {
+                analysis: AnalysisSection(Arc::new(data.analysis)),
+                hydration: HydrationSection(Arc::new(data.hydration)),
+                log_download: LogDownloadSection(Arc::new(data.log_download)),
+                package_visibility: PackageVisibilitySection(Arc::new(data.package_visibility)),
+            },
+            invocation: InvocationBuckSettings {
+                agent_interactive: data.agent_interactive,
+                agent_materialization: data.agent_materialization,
+            },
         }
-    }
-}
-
-impl Default for BuckSettings {
-    fn default() -> Self {
-        BuckSettingsData::default().into()
     }
 }
 
@@ -105,31 +152,37 @@ impl BuckSettings {
     pub fn empty() -> Self {
         Self::default()
     }
+}
 
-    /// Whether settings captured by an existing daemon can serve this invocation.
-    /// Any settings difference currently requires a daemon restart.
-    pub fn is_daemon_compatible(&self, other: &Self) -> bool {
-        self == other
+impl DaemonBuckSettings {
+    /// Changes that require a daemon restart, from its snapshot to this invocation's settings.
+    /// Stored values preserve unset overrides, and names are sorted for deterministic diagnostics.
+    pub fn changes_from(&self, previous: &Self) -> Vec<BuckSettingChange> {
+        if self == previous {
+            return Vec::new();
+        }
+        self.collect_daemon_changes(previous)
     }
 
-    /// Changed stored values, ordered by setting name for deterministic diagnostics.
     #[cold]
-    pub fn changes_from(&self, previous: &Self) -> Vec<BuckSettingChange> {
+    fn collect_daemon_changes(&self, previous: &Self) -> Vec<BuckSettingChange> {
         let previous = serde_json::to_value(previous)
             .expect("Buck Settings contain only JSON-compatible values");
         let current =
             serde_json::to_value(self).expect("Buck Settings contain only JSON-compatible values");
-        let mut changes: Vec<_> = ALL_SECTION_METADATA
+        let mut changes: Vec<_> = current
+            .as_object()
+            .expect("Daemon Buck Settings serialize as sections")
             .iter()
-            .flat_map(|section| {
-                section
-                    .settings
+            .flat_map(|(section, values)| {
+                values
+                    .as_object()
+                    .expect("Buck Settings sections serialize as objects")
                     .iter()
-                    .map(move |setting| (section.section_name, setting.name))
+                    .map(move |(name, value)| (section, name, value))
             })
-            .filter_map(|(section, name)| {
+            .filter_map(|(section, name, new_value)| {
                 let old_value = &previous[section][name];
-                let new_value = &current[section][name];
                 (old_value != new_value).then(|| BuckSettingChange {
                     key: format!("{section}.{name}"),
                     old_value: old_value.clone(),
@@ -167,27 +220,27 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_changed_setting_values() {
+    fn test_daemon_setting_changes() {
         let previous: BuckSettings = serde_json::from_str(
-            r#"{"agent_interactive":{"enabled":true},"log_download":{"log_url":"old\nvalue","log_use_manifold":true}}"#,
+            r#"{"agent_interactive":{"enabled":true},"hydration":{"enable_paging":true},"log_download":{"log_url":"old\nvalue","log_use_manifold":true}}"#,
         ).unwrap();
         let current: BuckSettings = serde_json::from_str(
-            r#"{"agent_materialization":{"enabled":false},"log_download":{"log_url":"new\"value","log_use_manifold":true}}"#,
+            r#"{"agent_materialization":{"enabled":false},"analysis":{"record_requested_anon_targets":false},"log_download":{"log_url":"new\"value","log_use_manifold":true}}"#,
         ).unwrap();
 
-        let changes = current.changes_from(&previous);
+        let changes = current.daemon.changes_from(&previous.daemon);
         assert_eq!(
             changes,
             vec![
                 BuckSettingChange {
-                    key: "agent_interactive.enabled".to_owned(),
-                    old_value: Value::Bool(true),
-                    new_value: Value::Null,
-                },
-                BuckSettingChange {
-                    key: "agent_materialization.enabled".to_owned(),
+                    key: "analysis.record_requested_anon_targets".to_owned(),
                     old_value: Value::Null,
                     new_value: Value::Bool(false),
+                },
+                BuckSettingChange {
+                    key: "hydration.enable_paging".to_owned(),
+                    old_value: Value::Bool(true),
+                    new_value: Value::Null,
                 },
                 BuckSettingChange {
                     key: "log_download.log_url".to_owned(),
@@ -200,7 +253,60 @@ mod tests {
             changes[2].to_string(),
             r#"log_download.log_url: "old\nvalue" -> "new\"value""#,
         );
-        assert!(current.changes_from(&current).is_empty());
+        assert!(current.daemon.changes_from(&current.daemon).is_empty());
+    }
+
+    #[test]
+    fn test_flat_settings_roundtrip() -> buck2_error::Result<()> {
+        let settings: BuckSettings = serde_json::from_str(
+            r#"{"agent_materialization":{"enabled":true},"analysis":{"record_requested_anon_targets":false},"log_download":{"log_url":"https://example.com/"}}"#,
+        )?;
+        assert!(settings.invocation.agent_materialization.enabled());
+        assert!(!settings.daemon.analysis.record_requested_anon_targets());
+        assert_eq!(
+            settings.daemon.log_download.log_url(),
+            Some("https://example.com/")
+        );
+        let serialized = serde_json::to_value(&settings)?;
+        assert!(serialized.get("daemon").is_none());
+        assert!(serialized.get("invocation").is_none());
+        assert_eq!(serialized["agent_materialization"]["enabled"], true);
+        assert_eq!(
+            serde_json::from_value::<BuckSettings>(serialized)?,
+            settings
+        );
+        assert!(serde_json::from_str::<BuckSettings>(r#"{"unknown_section":{}}"#).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn test_sections_have_one_scope() -> buck2_error::Result<()> {
+        let settings = BuckSettings::default();
+        let daemon = serde_json::to_value(&settings.daemon)?;
+        let invocation = serde_json::to_value(&settings.invocation)?;
+        let daemon = daemon.as_object().unwrap();
+        let invocation = invocation.as_object().unwrap();
+        assert!(daemon.keys().all(|name| !invocation.contains_key(name)));
+        let combined: serde_json::Map<_, _> = daemon
+            .clone()
+            .into_iter()
+            .chain(invocation.clone())
+            .collect();
+        assert_eq!(
+            Value::Object(combined),
+            serde_json::to_value(BuckSettingsData::default())?
+        );
+        assert_eq!(
+            serde_json::to_value(&settings)?,
+            serde_json::to_value(BuckSettingsData::default())?
+        );
+        assert!(
+            serde_json::from_str::<DaemonBuckSettings>(
+                r#"{"agent_materialization":{"enabled":true}}"#,
+            )
+            .is_err()
+        );
+        Ok(())
     }
 
     #[test]

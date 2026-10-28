@@ -293,13 +293,13 @@ impl TenantStateInitPreferences {
             digest_config,
             Some(root_config),
             tenting_acl_provider,
-            self.daemon_startup_config.buck_settings.dupe(),
+            self.daemon_startup_config.daemon_buck_settings().dupe(),
             hydration.map(|_| dice_state_path),
             hydration.map_or_else(Default::default, |h| h.pagable_storage_backend),
             hydration.map_or_else(Default::default, |h| h.page_out_policy),
             hydration.map_or_else(Default::default, |h| h.eviction_policy),
             self.daemon_startup_config
-                .buck_settings
+                .daemon_buck_settings()
                 .hydration
                 .defer_field_reads(),
         )

@@ -201,7 +201,7 @@ mod tests {
 
     #[test]
     fn test_default_hydration_settings() {
-        let hydration = BuckSettings::empty().hydration;
+        let hydration = BuckSettings::empty().daemon.hydration;
         assert_eq!(hydration.enable_paging(), None);
         assert!(!hydration.defer_field_reads());
         assert_eq!(hydration.page_out_on_idle(), None);
@@ -226,16 +226,20 @@ mod tests {
         let settings = resolve_setting_flags(vec![table(
             "[hydration]\nenable_paging = true\ndefer_field_reads = true\npage_out_on_idle = false\npage_out_on_idle_isolation_dir_scope = \"non_default\"\npage_out_policy = \"once_per_key\"\neviction_policy = \"on_idle\"",
         )])?;
-        assert_eq!(settings.hydration.enable_paging(), Some(true));
-        assert!(settings.hydration.defer_field_reads());
-        assert_eq!(settings.hydration.page_out_on_idle(), Some(false));
+        assert_eq!(settings.daemon.hydration.enable_paging(), Some(true));
+        assert!(settings.daemon.hydration.defer_field_reads());
+        assert_eq!(settings.daemon.hydration.page_out_on_idle(), Some(false));
         assert_eq!(
-            settings.hydration.page_out_policy(),
+            settings.daemon.hydration.page_out_policy(),
             PageOutPolicy::OncePerKey
         );
-        assert_eq!(settings.hydration.eviction_policy(), EvictionPolicy::OnIdle);
+        assert_eq!(
+            settings.daemon.hydration.eviction_policy(),
+            EvictionPolicy::OnIdle
+        );
         assert!(
             !settings
+                .daemon
                 .hydration
                 .page_out_on_idle_applies_to_isolation_dir(
                     FileName::new(DEFAULT_ISOLATION_DIR)
@@ -244,6 +248,7 @@ mod tests {
         );
         assert!(
             settings
+                .daemon
                 .hydration
                 .page_out_on_idle_applies_to_isolation_dir(
                     FileName::new("custom").expect("The test isolation dir should be valid")

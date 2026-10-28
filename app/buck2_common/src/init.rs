@@ -28,7 +28,8 @@ use serde::Serialize;
 
 use crate::legacy_configs::configs::LegacyBuckConfig;
 use crate::legacy_configs::key::BuckconfigKeyRef;
-use crate::settings::BuckSettings;
+use crate::settings::BuckSettingChange;
+use crate::settings::DaemonBuckSettings;
 
 pub const DEFAULT_RETAINED_EVENT_LOGS: usize = 12;
 
@@ -568,7 +569,7 @@ impl HydrationConfig {
     /// enable paging.
     fn from_config(
         config: &LegacyBuckConfig,
-        settings: &BuckSettings,
+        settings: &DaemonBuckSettings,
     ) -> buck2_error::Result<Option<Self>> {
         fn resolve_bool(
             setting: Option<bool>,
@@ -587,14 +588,12 @@ impl HydrationConfig {
                 .unwrap_or(false))
         }
 
-        let page_out_on_idle = resolve_bool(
-            settings.hydration.page_out_on_idle(),
-            config,
-            "page_out_on_idle",
-        )?;
+        let hydration = &settings.hydration;
+        let page_out_on_idle =
+            resolve_bool(hydration.page_out_on_idle(), config, "page_out_on_idle")?;
         // `page_out_on_idle` implies pagable storage, so it enables it too.
-        let enabled = page_out_on_idle
-            || resolve_bool(settings.hydration.enable_paging(), config, "enable_paging")?;
+        let enabled =
+            page_out_on_idle || resolve_bool(hydration.enable_paging(), config, "enable_paging")?;
         if !enabled {
             return Ok(None);
         }
@@ -612,8 +611,8 @@ impl HydrationConfig {
                     property: "page_out_min_free_disk_gb",
                 })?
                 .unwrap_or(100),
-            page_out_policy: settings.hydration.page_out_policy(),
-            eviction_policy: settings.hydration.eviction_policy(),
+            page_out_policy: hydration.page_out_policy(),
+            eviction_policy: hydration.eviction_policy(),
         }))
     }
 }
@@ -630,7 +629,7 @@ impl HydrationConfig {
 /// before parsing DaemonStartupConfig).
 #[derive(Allocative, Clone, Debug, Serialize, Deserialize)]
 pub struct DaemonStartupConfig {
-    pub buck_settings: BuckSettings,
+    buck_settings: DaemonBuckSettings,
     // Keep the fields exposed by `buck2 status` at their existing JSON paths.
     #[serde(flatten)]
     pub startup_options: DaemonStartupOptions,
@@ -661,18 +660,26 @@ pub struct DaemonStartupOptions {
 }
 
 impl DaemonStartupConfig {
+    pub fn daemon_buck_settings(&self) -> &DaemonBuckSettings {
+        &self.buck_settings
+    }
+
+    pub fn buck_settings_changes_from(&self, previous: &Self) -> Vec<BuckSettingChange> {
+        self.buck_settings.changes_from(&previous.buck_settings)
+    }
+
     pub fn new(
         config: &LegacyBuckConfig,
-        settings: &BuckSettings,
+        settings: &DaemonBuckSettings,
         paranoid: bool,
     ) -> buck2_error::Result<Self> {
         // Intepreted client side because we need the value here.
 
         let log_download_method = {
+            let log_download = &settings.log_download;
             // Determine the log download method to use. Only default to
             // manifold in fbcode contexts, or when specifically asked.
-            let use_manifold = settings
-                .log_download
+            let use_manifold = log_download
                 .log_use_manifold()
                 .map(Ok::<_, buck2_error::Error>)
                 .unwrap_or_else(|| {
@@ -687,7 +694,7 @@ impl DaemonStartupConfig {
             if use_manifold {
                 Ok(LogDownloadMethod::Manifold)
             } else {
-                let log_url = settings.log_download.log_url().or_else(|| {
+                let log_url = log_download.log_url().or_else(|| {
                     config.get(BuckconfigKeyRef {
                         section: "buck2",
                         property: "log_url",
@@ -832,7 +839,7 @@ impl DaemonStartupConfig {
             hydration: None,
         };
         Self {
-            buck_settings: BuckSettings::empty(),
+            buck_settings: DaemonBuckSettings::default(),
             startup_options,
         }
     }
@@ -849,30 +856,35 @@ mod tests {
 
     #[test]
     fn test_startup_config_serialization() -> buck2_error::Result<()> {
-        let mut config = DaemonStartupConfig::testing_empty();
+        let settings = resolve_setting_flags(vec![table(
+            "[agent_materialization]\nenabled = true\n[analysis]\nrecord_requested_anon_targets = false",
+        )])?;
+        let mut config =
+            DaemonStartupConfig::new(&LegacyBuckConfig::empty(), &settings.daemon, false)?;
         config.startup_options.daemon_buster = Some("test".to_owned());
-        config.buck_settings =
-            resolve_setting_flags(vec![table("[agent_materialization]\nenabled = true")])?;
 
         let serialized = config.serialize()?;
-        let json: serde_json::Value = serde_json::from_str(&serialized).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&serialized)?;
         assert_eq!(json["daemon_buster"], "test");
         assert_eq!(
-            json["buck_settings"]["agent_materialization"]["enabled"],
-            true
+            json["buck_settings"]["analysis"]["record_requested_anon_targets"],
+            false
         );
+        assert!(json["buck_settings"].get("agent_materialization").is_none());
+        assert!(json["buck_settings"].get("agent_interactive").is_none());
         assert!(json.get("startup_options").is_none());
 
         let deserialized = DaemonStartupConfig::deserialize(&serialized)?;
         assert_eq!(deserialized.startup_options, config.startup_options);
-        assert_eq!(deserialized.buck_settings, config.buck_settings);
+        assert_eq!(deserialized.daemon_buck_settings(), &settings.daemon);
         Ok(())
     }
 
     #[test]
     fn test_daemon_idle_timeout_s_default() -> buck2_error::Result<()> {
         let config = parse(&[("config", indoc!(r#""#))], "config")?;
-        let startup_config = DaemonStartupConfig::new(&config, &BuckSettings::empty(), false)?;
+        let startup_config =
+            DaemonStartupConfig::new(&config, &DaemonBuckSettings::default(), false)?;
         assert_eq!(startup_config.startup_options.daemon_idle_timeout_s, None);
         Ok(())
     }
@@ -891,7 +903,8 @@ mod tests {
             )],
             "config",
         )?;
-        let startup_config = DaemonStartupConfig::new(&config, &BuckSettings::empty(), false)?;
+        let startup_config =
+            DaemonStartupConfig::new(&config, &DaemonBuckSettings::default(), false)?;
         assert_eq!(
             startup_config.startup_options.daemon_idle_timeout_s,
             Some(10800)
@@ -904,7 +917,7 @@ mod tests {
         let config = parse(&[("config", "")], "config")?;
         let settings = resolve_setting_flags(vec![table("[hydration]\npage_out_on_idle = true")])?;
 
-        let startup_config = DaemonStartupConfig::new(&config, &settings, false)?;
+        let startup_config = DaemonStartupConfig::new(&config, &settings.daemon, false)?;
         let hydration = startup_config
             .idle_page_out_config_for_isolation_dir(
                 FileName::new("v2").expect("The default isolation dir should be valid"),
@@ -921,7 +934,7 @@ mod tests {
             "[hydration]\nenable_paging = true\npage_out_policy = \"once_per_key\"\neviction_policy = \"on_idle\"",
         )])?;
 
-        let startup_config = DaemonStartupConfig::new(&config, &settings, false)?;
+        let startup_config = DaemonStartupConfig::new(&config, &settings.daemon, false)?;
         let hydration = startup_config
             .startup_options
             .hydration
@@ -946,7 +959,8 @@ mod tests {
             "config",
         )?;
 
-        let startup_config = DaemonStartupConfig::new(&config, &BuckSettings::empty(), false)?;
+        let startup_config =
+            DaemonStartupConfig::new(&config, &DaemonBuckSettings::default(), false)?;
         let hydration = startup_config
             .startup_options
             .hydration
@@ -974,7 +988,7 @@ mod tests {
             "[hydration]\nenable_paging = true\npage_out_on_idle = false",
         )])?;
 
-        let startup_config = DaemonStartupConfig::new(&config, &settings, false)?;
+        let startup_config = DaemonStartupConfig::new(&config, &settings.daemon, false)?;
         let hydration = startup_config
             .startup_options
             .hydration
@@ -1002,7 +1016,7 @@ mod tests {
             "[hydration]\nenable_paging = false\npage_out_on_idle = false",
         )])?;
 
-        let startup_config = DaemonStartupConfig::new(&config, &settings, false)?;
+        let startup_config = DaemonStartupConfig::new(&config, &settings.daemon, false)?;
         assert_eq!(startup_config.startup_options.hydration, None);
         Ok(())
     }
@@ -1024,7 +1038,7 @@ mod tests {
         let settings = resolve_setting_flags(vec![table(
             "[hydration]\npage_out_on_idle_isolation_dir_scope = \"non_default\"",
         )])?;
-        let startup_config = DaemonStartupConfig::new(&config, &settings, false)?;
+        let startup_config = DaemonStartupConfig::new(&config, &settings.daemon, false)?;
 
         assert!(
             startup_config.startup_options.hydration.is_some(),

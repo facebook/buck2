@@ -247,7 +247,11 @@ impl StreamingCommand for BuildCommand {
         let skip_materialization_for_agent = self.materializations.is_none()
             && !return_outputs
             && ctx.agent_context().is_direct_call()
-            && ctx.buck_settings()?.agent_materialization.enabled();
+            && ctx
+                .buck_settings()?
+                .invocation
+                .agent_materialization
+                .enabled();
         let materializations = if skip_materialization_for_agent {
             Materializations::Skip
         } else {

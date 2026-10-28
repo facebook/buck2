@@ -8,6 +8,8 @@
 
 from __future__ import annotations
 
+import json
+
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
@@ -106,6 +108,10 @@ class BuildOutputTest(BuckTestCase):
         (buck.cwd / "TARGETS.fixture").write_text(
             "\n".join(f'trivial_build(name="{name}")' for name, _, _ in cases)
         )
+        await buck.audit_config()
+        daemon_id = json.loads((await buck.status()).stdout)["daemon_constraints"][
+            "daemon_id"
+        ]
         for name, args, materialized in cases:
             target = f"root//:{name}"
             result = await buck.build(
@@ -119,6 +125,12 @@ class BuildOutputTest(BuckTestCase):
                 1 if name == "direct" else 0
             ), name
             assert MATERIALIZATION_NOTICE not in result.stdout
+            assert (
+                json.loads((await buck.status()).stdout)["daemon_constraints"][
+                    "daemon_id"
+                ]
+                == daemon_id
+            ), name
             if name == "direct":
                 for option in (
                     "--out <path>",

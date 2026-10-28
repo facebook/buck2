@@ -109,6 +109,8 @@ class LogDownloadMethodTest(BuckTestCase):
             "log_download.log_use_manifold=false",
             "--setting",
             "log_download.log_url=args",
+            "--setting",
+            "agent_materialization.enabled=true",
         )
         assert (
             'Buck settings changed (log_download.log_url: "repo_local" -> "args"; '

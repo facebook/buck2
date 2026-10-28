@@ -47,7 +47,7 @@ pub struct AgentMaterializationSettings {
 
 impl AgentMaterializationSettings {
     /// Bump when the section's settings schema or semantics change.
-    pub(super) const METADATA: SectionMetadata = SectionMetadata {
+    pub(crate) const METADATA: SectionMetadata = SectionMetadata {
         section_name: "agent_materialization",
         section_version: 0,
         settings: &[ENABLED.metadata],

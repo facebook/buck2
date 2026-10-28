@@ -151,7 +151,7 @@ impl<'a> ImmediateConfigContext<'a> {
                     }
                 };
 
-                DaemonStartupConfig::new(&data.root_config, buck_settings, paranoid)
+                DaemonStartupConfig::new(&data.root_config, &buck_settings.daemon, paranoid)
                     .buck_error_context("Error loading daemon startup config")
             })
             .buck_error_context("Error creating daemon startup config")
@@ -318,7 +318,11 @@ mod tests {
         )?])?;
 
         assert_eq!(
-            context.buck_settings(&project_root)?.log_download.log_url(),
+            context
+                .buck_settings(&project_root)?
+                .daemon
+                .log_download
+                .log_url(),
             Some("https://command-line/")
         );
         assert!(

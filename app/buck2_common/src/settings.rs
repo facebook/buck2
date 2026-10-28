@@ -27,5 +27,7 @@ pub mod settings;
 
 pub use settings::BuckSettingChange;
 pub use settings::BuckSettings;
+pub use settings::DaemonBuckSettings;
+pub use settings::InvocationBuckSettings;
 pub use settings::PackageVisibilityDefaultIntersection;
 pub use settings::PackageVisibilitySection;

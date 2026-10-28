@@ -1134,7 +1134,7 @@ pub struct DaemonStateData {
     pub named_semaphores_for_run_actions: Arc<NamedSemaphores>,
 
     /// Effective `package_visibility.default_intersection`, fixed for the daemon's
-    /// lifetime (sourced from `DaemonStartupConfig.buck_settings`).
+    /// lifetime (sourced from the daemon's Buck Settings).
     pub(crate) package_visibility_default_intersection: PackageVisibilityDefaultIntersection,
 
     /// Counters of the TTL refresher that walks the file digest interner. The refresher itself
@@ -1435,7 +1435,7 @@ impl DaemonState {
             let package_visibility_default_intersection = tenant_state_factory
                 .init_ctx
                 .daemon_startup_config
-                .buck_settings
+                .daemon_buck_settings()
                 .package_visibility
                 .default_intersection();
             let tenants = TenantStateRegistry::new(tenant).await?;
@@ -1721,7 +1721,7 @@ mod tests {
 
     use buck2_cli_proto::TenantIdentity;
     use buck2_common::legacy_configs::configs::testing::parse;
-    use buck2_common::settings::BuckSettings;
+    use buck2_common::settings::DaemonBuckSettings;
     use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_fs::paths::file_name::FileNameBuf;
     use indoc::indoc;
@@ -1884,7 +1884,8 @@ mod tests {
             )],
             "config",
         )?;
-        let startup_config = DaemonStartupConfig::new(&config, &BuckSettings::empty(), false)?;
+        let startup_config =
+            DaemonStartupConfig::new(&config, &DaemonBuckSettings::default(), false)?;
         let builder = http_client_from_startup_config(&startup_config).await?;
         assert_eq!(5, builder.max_redirects().unwrap());
         assert_eq!(Some(Duration::from_millis(10)), builder.connect_timeout());
@@ -1912,7 +1913,8 @@ mod tests {
             )],
             "config",
         )?;
-        let startup_config = DaemonStartupConfig::new(&config, &BuckSettings::empty(), false)?;
+        let startup_config =
+            DaemonStartupConfig::new(&config, &DaemonBuckSettings::default(), false)?;
         let builder = http_client_from_startup_config(&startup_config).await?;
         assert_eq!(None, builder.connect_timeout());
         assert_eq!(

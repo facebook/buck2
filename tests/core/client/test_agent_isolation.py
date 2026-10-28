@@ -25,6 +25,21 @@ DIRECT = "--agent-context=direct_call=true"
 
 
 class AgentIsolationTest(BuckTestCase):
+    @buck_test()
+    async def test_client_settings_reuse_existing_daemon(self, buck: Buck) -> None:
+        await buck.audit_config()
+        daemon_id = json.loads((await buck.status()).stdout)["daemon_constraints"][
+            "daemon_id"
+        ]
+        for args in [(*ENABLED, DIRECT), (DIRECT,)]:
+            await buck.audit_config(*args)
+            assert (
+                json.loads((await buck.status()).stdout)["daemon_constraints"][
+                    "daemon_id"
+                ]
+                == daemon_id
+            )
+
     @buck_test(write_invocation_record=True)
     async def test_new_isolation_is_blocked_until_acknowledged(
         self, buck: Buck
