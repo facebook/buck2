@@ -12,6 +12,7 @@ use std::fmt;
 use std::ops::Deref;
 
 use allocative::Allocative;
+use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::intern_forward_rel_path::IForwardRelativePath;
 use dupe::Dupe;
@@ -104,6 +105,19 @@ impl IProjectRelativePath {
     #[inline]
     pub fn parent(self) -> Option<Self> {
         self.path.parent().map(|p| Self { path: p })
+    }
+
+    #[inline]
+    pub fn file_name(self) -> Option<&'static FileName> {
+        self.path.file_name()
+    }
+
+    /// The parent and the final component, unless the path is empty.
+    #[inline]
+    pub fn split_last(self) -> Option<(Self, &'static FileName)> {
+        self.path
+            .split_last()
+            .map(|(parent, name)| (Self { path: parent }, name))
     }
 }
 

@@ -43,6 +43,7 @@ use crate::file_ops::baseline::HasFileSystemBaseline;
 use crate::file_ops::delegate::FileOpsDelegate;
 use crate::file_ops::metadata::FileType;
 use crate::file_ops::metadata::RawPathMetadata;
+use crate::file_ops::path_check::PathCheckKey;
 
 /// A `FileOpsDelegate` implementation that calls out to the `IoProvider` to read files.
 ///
@@ -105,7 +106,7 @@ impl Key for IoReadDirKey {
         _cancellations: &CancellationContext,
     ) -> Self::Value {
         ctx.get_file_system_baseline().await?;
-        io_read_dir_key_impl(ctx, self.0).await
+        read_dir_cached(ctx, self.0).await
     }
 
     fn equality_behavior() -> EqualityBehavior<Self::Value> {
@@ -124,7 +125,11 @@ impl Key for IoReadDirKey {
     }
 }
 
-async fn io_read_dir_key_impl(
+/// Lists a directory, at most once per transaction.
+///
+/// Reading through this rather than `IoReadDirKey` records no dependency on the listing; callers
+/// that use it must be invalidated by the file watcher themselves.
+pub(super) async fn read_dir_cached(
     ctx: &mut DiceComputations<'_>,
     path: IProjectRelativePath,
 ) -> buck2_error::Result<PackedStringSlice<FileName, FileType>> {
@@ -239,7 +244,7 @@ impl Key for IoExistsMatchingExactCaseKey {
         // FIXME(JakobDegen): Unwrap is ok because a parent exists, but there should be a better API
         // for this
         let entry = self.0.file_name().unwrap();
-        let dir = io_read_dir_key_impl(ctx, dir).await?;
+        let dir = read_dir_cached(ctx, dir).await?;
         Ok(dir.contains(entry))
     }
 
@@ -326,6 +331,7 @@ pub struct FileChangeTracker {
     dirs_to_dirty: BuckMutSet<IoReadDirKey>,
     paths_to_dirty: BuckMutSet<IoPathMetadataKey>,
     exists_matching_exact_case_to_dirty: BuckMutSet<IoExistsMatchingExactCaseKey>,
+    checks_to_dirty: BuckMutSet<PathCheckKey>,
 
     maybe_modified_dirs: BuckMutSet<IProjectRelativePath>,
 }
@@ -338,6 +344,7 @@ impl FileChangeTracker {
             paths_to_dirty: Default::default(),
             maybe_modified_dirs: Default::default(),
             exists_matching_exact_case_to_dirty: Default::default(),
+            checks_to_dirty: Default::default(),
         }
     }
 
@@ -355,6 +362,7 @@ impl FileChangeTracker {
         ctx.changed(self.dirs_to_dirty)?;
         ctx.changed(self.paths_to_dirty)?;
         ctx.changed(self.exists_matching_exact_case_to_dirty)?;
+        ctx.changed(self.checks_to_dirty)?;
 
         Ok(())
     }
@@ -363,6 +371,7 @@ impl FileChangeTracker {
         self.paths_to_dirty.insert(IoPathMetadataKey(path));
         self.exists_matching_exact_case_to_dirty
             .insert(IoExistsMatchingExactCaseKey(path));
+        self.checks_to_dirty.insert(PathCheckKey(path));
         let parent = path.parent();
         if let Some(parent) = parent {
             // `None` only for the project root itself, which has no parent listing to dirty.
@@ -383,9 +392,12 @@ impl FileChangeTracker {
         self.entry_added_or_removed(path);
     }
 
+    /// Also covers the file having been replaced by something of another type, which watchers do
+    /// not reliably distinguish from a modification.
     pub fn file_contents_changed(&mut self, path: IProjectRelativePath) {
         self.files_to_dirty.insert(IoReadFileKey(path));
         self.paths_to_dirty.insert(IoPathMetadataKey(path));
+        self.checks_to_dirty.insert(PathCheckKey(path));
     }
 
     /// Normally, buck does not need the file watcher to tell it that a directory's entries have

@@ -171,7 +171,7 @@ impl<T: ?Sized + StringInside, Tag: PackedTag> PackedStringSlice<T, Tag> {
     }
 
     #[inline]
-    fn get_tag(&self, i: usize) -> Tag {
+    pub fn get_tag(&self, i: usize) -> Tag {
         self.meta[i].tag
     }
 
@@ -205,6 +205,11 @@ impl<T: ?Sized + StringInside, Tag: PackedTag> PackedStringSlice<T, Tag> {
 
     pub fn contains(&self, key: &T) -> bool {
         self.binary_search(key).is_ok()
+    }
+
+    /// The tag of the entry equal to `key`, if there is one. Entries must be sorted.
+    pub fn lookup(&self, key: &T) -> Option<Tag> {
+        self.binary_search(key).ok().map(|i| self.get_tag(i))
     }
 
     /// Range of indices whose string starts with `prefix`. Empty range if no
