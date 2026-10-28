@@ -18,9 +18,16 @@
 use std::cmp;
 use std::marker::PhantomData;
 use std::mem;
+use std::mem::MaybeUninit;
+use std::ptr;
+use std::slice;
 
 use allocative::Visitor;
+use pagable::PagableDeserialize;
+use pagable::PagableSerialize;
 
+use crate::collections::maybe_uninit_backport::maybe_uninit_write_slice;
+use crate::pagable::StarlarkSerialize;
 use crate::pagable::starlark_deserialize::StarlarkDeserializeContext;
 use crate::pagable::starlark_serialize::StarlarkSerializeContext;
 use crate::values::FreezeResult;
@@ -31,6 +38,7 @@ use crate::values::Tracer;
 use crate::values::Value;
 use crate::values::layout::aligned_size::AlignedSize;
 use crate::values::layout::heap::arena::MIN_ALLOC;
+use crate::values::layout::heap::repr::AValueForward;
 use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::layout::heap::send::HeapSyncable;
@@ -206,6 +214,159 @@ where
         trace(&mut x, tracer);
         r.fill(x)
     }
+}
+
+/// A value whose `Value` elements trail its fixed payload in the arena.
+///
+/// `len` must come from the fixed payload alone: the heap sizes allocations
+/// through it while walking arenas whose other values may already be forwarded
+/// or not yet resident, so it can never follow a pointer to another value.
+///
+/// # Safety
+///
+/// `len` initialised elements must follow `content_ptr` whenever the value is
+/// reachable.
+pub(crate) unsafe trait TrailingValues<'v> {
+    fn len(&self) -> usize;
+
+    fn content_ptr(&self) -> *const Value<'v>;
+
+    fn content_mut_ptr(&mut self) -> *mut Value<'v>;
+
+    fn content(&self) -> &[Value<'v>] {
+        unsafe { slice::from_raw_parts(self.content_ptr(), self.len()) }
+    }
+
+    fn content_mut(&mut self) -> &mut [Value<'v>] {
+        let len = self.len();
+        unsafe { slice::from_raw_parts_mut(self.content_mut_ptr(), len) }
+    }
+}
+
+/// Common `heap_copy` implementation for types with trailing `Value` elements.
+///
+/// `copy_header` receives the fixed payload once the forward is in place, so it
+/// may trace fixed fields; the trailing elements are traced and copied here.
+pub(super) unsafe fn heap_copy_with_extra<'v, A>(
+    me: *mut AValueRepr<A::StarlarkValue>,
+    tracer: &Tracer<'v>,
+    copy_header: impl FnOnce(A::StarlarkValue, &Tracer<'v>) -> A::StarlarkValue,
+) -> Value<'v>
+where
+    A: AValue<'v, ExtraElem = Value<'v>>,
+    A::StarlarkValue: TrailingValues<'v>,
+{
+    unsafe {
+        AValueForward::assert_does_not_overwrite_extra::<A>();
+        // The elements live past the fixed payload, where the forward never reaches.
+        let content = (*me).payload.content_mut();
+
+        let (r, extra) = tracer.reserve_with_extra::<A>(content.len());
+        let x = AValueHeader::overwrite_with_forward::<A::StarlarkValue>(me, r.forward_ptr());
+        debug_assert_eq!(content.len(), x.len());
+
+        // The forward is in place before anything is traced, so a cycle back to
+        // this value through its fixed fields terminates here.
+        let x = copy_header(x, tracer);
+        for elem in content.iter_mut() {
+            tracer.trace(elem);
+        }
+        let v = r.fill(x);
+        maybe_uninit_write_slice(&mut *extra, content);
+        v
+    }
+}
+
+/// Common `heap_freeze` implementation for types with trailing `Value` elements,
+/// freezing into the `F` representation.
+///
+/// `freeze_header` receives the fixed payload once the forward is in place and
+/// the element count, and returns the frozen fixed payload.
+pub(super) unsafe fn heap_freeze_with_extra<'v, 'fv, A, F>(
+    me: *mut AValueRepr<A::StarlarkValue>,
+    freezer: &Freezer<'v, 'fv>,
+    freeze_header: impl FnOnce(
+        A::StarlarkValue,
+        &Freezer<'v, 'fv>,
+        usize,
+    ) -> FreezeResult<F::StarlarkValue>,
+) -> FreezeResult<Value<'fv>>
+where
+    A: AValue<'v, ExtraElem = Value<'v>>,
+    A::StarlarkValue: TrailingValues<'v>,
+    F: AValue<'fv, ExtraElem = Value<'fv>>,
+    F::StarlarkValue: HeapSendable<'fv> + HeapSyncable<'fv>,
+{
+    unsafe {
+        AValueForward::assert_does_not_overwrite_extra::<A>();
+        let content = (*me).payload.content();
+
+        let (r, extra) = freezer.frozen_heap().reserve_with_extra::<F>(content.len());
+        let x = AValueHeader::overwrite_with_forward::<A::StarlarkValue>(me, r.forward_ptr());
+        let header = freeze_header(x, freezer, content.len())?;
+
+        let extra = &mut *extra;
+        assert_eq!(extra.len(), content.len());
+        for (elem_place, elem) in extra.iter_mut().zip(content) {
+            elem_place.write(freezer.freeze(*elem)?);
+        }
+        Ok(r.fill(header))
+    }
+}
+
+/// Common `starlark_serialize` implementation for frozen types with trailing
+/// `Value` elements: the element count, the fixed fields `serialize_header`
+/// writes, then the elements.
+pub(super) fn starlark_serialize_with_extra<'v, A>(
+    me: *const AValueRepr<A::StarlarkValue>,
+    ctx: &mut dyn StarlarkSerializeContext,
+    serialize_header: impl FnOnce(
+        &A::StarlarkValue,
+        &mut dyn StarlarkSerializeContext,
+    ) -> crate::Result<()>,
+) -> crate::Result<()>
+where
+    A: AValue<'v>,
+    A::StarlarkValue: TrailingValues<'v>,
+{
+    let value = unsafe { &(*me).payload };
+    let content = value.content();
+    content.len().pagable_serialize(ctx.pagable())?;
+    serialize_header(value, ctx)?;
+    for elem in content {
+        StarlarkSerialize::starlark_serialize(elem, ctx)?;
+    }
+    Ok(())
+}
+
+/// Counterpart of [`starlark_serialize_with_extra`].
+///
+/// `make_header` reads the fixed fields and builds the fixed payload from them
+/// and the element count. `H` is `A::StarlarkValue` at the brand `'fv` the heap
+/// is being deserialized at, which the heap types at `'v`: the brand erasure
+/// described on [`AValue::starlark_deserialize`].
+pub(super) unsafe fn starlark_deserialize_with_extra<'a, 'v, 'fv, A, H>(
+    me: *mut AValueRepr<A::StarlarkValue>,
+    ctx: &mut dyn StarlarkDeserializeContext<'a, 'fv>,
+    make_header: impl FnOnce(&mut dyn StarlarkDeserializeContext<'a, 'fv>, usize) -> crate::Result<H>,
+) -> crate::Result<()>
+where
+    A: AValue<'v, ExtraElem = Value<'v>>,
+{
+    debug_assert_eq!(mem::size_of::<H>(), mem::size_of::<A::StarlarkValue>());
+    debug_assert_eq!(mem::align_of::<H>(), mem::align_of::<A::StarlarkValue>());
+    let len = usize::pagable_deserialize(ctx.pagable())?;
+    let header = make_header(&mut *ctx, len)?;
+    unsafe {
+        let payload_offset = AValueRepr::<A::StarlarkValue>::offset_of_payload();
+        ptr::write((me as *mut u8).add(payload_offset) as *mut H, header);
+        let extra_ptr = (me as *mut u8).add(payload_offset + A::offset_of_extra())
+            as *mut MaybeUninit<Value<'fv>>;
+        for i in 0..len {
+            (*extra_ptr.add(i)).write(ctx.deserialize_value()?);
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
