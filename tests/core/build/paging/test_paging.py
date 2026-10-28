@@ -36,6 +36,7 @@ from buck2.tests.e2e_util.helper.utils import filter_events
 # `page_out_started` enum field as its integer value (see data.proto).
 _PAGE_OUT_STARTED_STARTED = 1
 _PAGE_OUT_STARTED_DISABLED = 2
+_PAGE_OUT_STARTED_COMMAND_OPTED_OUT = 7
 _PAGE_OUT_STARTED_DISABLED_AFTER_ERROR = 9
 
 
@@ -72,6 +73,13 @@ def _paged_in_count(result: BuildResult) -> int:
 def _paged_in_count_for_key_type(result: BuildResult, key_type: str) -> int:
     stats = result.invocation_record().get("page_in_by_key_type", {}).get(key_type)
     return int(stats["count"]) if stats is not None else 0
+
+
+async def _page_out_summaries(buck: Buck) -> list[dict[str, Any]]:
+    # The last command's `PageOutSummary` events, the rows `buck2_page_outs` gets.
+    return await filter_events(
+        buck, "Event", "data", "Instant", "data", "PageOutSummary"
+    )
 
 
 async def _action_rule_type_names(buck: Buck) -> list[str | None]:
@@ -300,11 +308,21 @@ class PagingTest(BuckTestCase):
 
         out = (await buck.debug("hydration", "evict")).stdout
         assert f"evicted {read_back} backed DICE values" in out, out
+        # A command that evicts gets a `buck2_page_outs` row even though it starts
+        # no idle page-out.
+        rows = await _page_out_summaries(buck)
+        assert len(rows) == 1, rows
+        assert rows[0]["page_out_started"] == _PAGE_OUT_STARTED_COMMAND_OPTED_OUT
+        assert int(rows[0]["command_evictions"]) == 1
+        assert int(rows[0]["command_evicted_count"]) == read_back
         assert await _backed_count(buck) == 0
         assert await _paged_out_count(buck) == paged_out
         result = await _build(buck)
         assert _output(result) == "content-0\n"
         assert _paged_in_count(result) == read_back, "evicted values are read back"
+        assert await _page_out_summaries(buck) == [], (
+            "a command that neither evicts nor pages out logs no row"
+        )
 
     @buck_test(
         data_dir="paging",

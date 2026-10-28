@@ -206,8 +206,10 @@ message StdoutStreamingOutput {
 /// Preemption of the running command was detected/allowed
 message CommandPreempted {}
 
-/// The result of a background idle page-out, once it finishes. Logged to the
-/// `buck2_page_outs` table (see the buck2_cleans pipeline).
+/// The result of a background idle page-out, once it finishes, or, for a
+/// command that evicted backed values without starting one, those evictions
+/// (`page_out_started` tells the two apart). Logged to the `buck2_page_outs`
+/// table (see the buck2_cleans pipeline).
 message PageOutSummary {
   map<string, string> metadata = 1;
   /// The command whose finalize triggered this idle page-out.
@@ -282,6 +284,16 @@ message PageOutSummary {
   /// than in-memory bytes, excluding nested PagableArc sub-values. A lower
   /// bound; see `PagableNodeCounts::backed_bytes`.
   optional uint64 evictable_bytes = 34;
+  /// `STARTED` on a row for an idle page-out. Any other value marks a row for a
+  /// command that evicted without starting one, and says why it did not; on
+  /// those rows the page-out fields are unset or zero (`paged_out_count`,
+  /// `duration_ms`, `cancelled`). Absent from manual page-outs.
+  optional PageOutStarted page_out_started = 35;
+  /// Memory-pressure evictions during the command that triggered this row:
+  /// eviction passes, the values they dropped and the memory that freed.
+  optional uint64 command_evictions = 36;
+  optional uint64 command_evicted_count = 37;
+  optional int64 command_evicted_bytes = 38;
 }
 
 // An event that represents a single point in time.
