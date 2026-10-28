@@ -6,7 +6,6 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//:is_buck2.bzl", "is_buck2") # @oss-enable
 load(
     "@prelude//platforms/apple:build_mode.bzl",
     "APPLE_BUILD_MODES",
