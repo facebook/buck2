@@ -1566,6 +1566,7 @@ apple_tools = prelude_rule(
         "make_vfsoverlay": attrs.exec_dep(providers = [RunInfo]),
         "provisioning_manifest": attrs.exec_dep(providers = [RunInfo]),
         "resolve_signing_context": attrs.exec_dep(providers = [RunInfo]),
+        "selective_debugging_dsym_allowlist_tool": attrs.exec_dep(providers = [RunInfo]),
         "selective_debugging_scrubber": attrs.exec_dep(providers = [RunInfo]),
         "signing_context_tree_postprocessor": attrs.exec_dep(providers = [RunInfo]),
         "signing_info": attrs.exec_dep(providers = [RunInfo]),

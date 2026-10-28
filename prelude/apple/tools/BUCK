@@ -22,6 +22,7 @@ apple_tools(
     make_vfsoverlay = ":make_vfsoverlay",
     provisioning_manifest = "prelude//apple/tools/bundling:provisioning_manifest",
     resolve_signing_context = "prelude//apple/tools/bundling:resolve_signing_context",
+    selective_debugging_dsym_allowlist_tool = "prelude//apple/tools/selective_debugging:dsym_allowlist_tool",
     selective_debugging_scrubber = apple_oso_scrubber_target(),
     signing_context_tree_postprocessor = "prelude//apple/tools/signing_context_tree_postprocessor:signing_context_tree_postprocessor",
     signing_info = "prelude//apple/tools/bundling:signing_info",

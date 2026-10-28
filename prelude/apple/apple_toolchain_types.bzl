@@ -66,6 +66,7 @@ AppleToolsInfo = provider(
         "dedupe_swift_module_map": provider_field(RunInfo),
         "signing_context_tree_postprocessor": provider_field(RunInfo),
         "selective_debugging_scrubber": provider_field(RunInfo),
+        "selective_debugging_dsym_allowlist_tool": provider_field(RunInfo),
         "info_plist_processor": provider_field(RunInfo),
         "ipa_package_maker": provider_field(RunInfo),
         "make_modulemap": provider_field(RunInfo),
