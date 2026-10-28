@@ -11,6 +11,7 @@
 package com.facebook.buck.jvm.kotlin.buildtools
 
 import com.facebook.buck.core.filesystems.AbsPath
+import com.facebook.buck.jvm.java.CompilerClassToSourceMap
 import com.facebook.buck.jvm.kotlin.buildtools.snapshot.ClasspathSnapshotGenerator
 import com.facebook.buck.jvm.kotlin.buildtools.snapshot.SnapshotGranularity
 import com.facebook.buck.jvm.kotlin.kotlinc.incremental.ClasspathChanges
@@ -465,6 +466,49 @@ internal class KotlinCompilationServiceTest {
     val postCompilationTimestamps = getClassModificationTimes()
 
     assertNotEquals(initialClassTimestamps["Bar.class"], postCompilationTimestamps["Bar.class"])
+  }
+
+  @Test
+  fun `failed compilation does not publish a source map`() {
+    val broken = KotlinSourceFile(sourcesDir.resolve("Broken.kt"), "class Broken {")
+    val output = temporaryFolder.root.resolve("class-to-source.json").path
+    fun compile(): CompilationResult =
+        kotlinCompilationService.compile(
+            ProjectId.ProjectUUID(UUID.randomUUID()),
+            createCompilerArgs(listOf(broken), classesDir),
+            KotlincMode.NonIncremental,
+            classToSourceMap = KotlinClassToSourceMap(output, classesDir.path, sourcesDir.path),
+        )
+    assertEquals(CompilationResult.COMPILATION_ERROR, compile())
+    assertEquals(false, Files.exists(output))
+
+    Files.writeString(output, "previous successful report")
+    assertEquals(CompilationResult.COMPILATION_ERROR, compile())
+    assertEquals("previous successful report", Files.readString(output))
+  }
+
+  @Test
+  fun `compiler maps bodyless data classes from a differently named file`() {
+    val models = KotlinSourceFile(
+        sourcesDir.resolve("Models.kt"),
+        "package example; data class Settings(val value: Int); data class Profile(val enabled: Boolean)",
+    )
+    val output = temporaryFolder.root.resolve("class-to-source.json").path
+    val result =
+        kotlinCompilationService.compile(
+            projectId = ProjectId.ProjectUUID(UUID.randomUUID()),
+            arguments = createCompilerArgs(listOf(models), classesDir),
+            mode = KotlincMode.NonIncremental,
+            classToSourceMap = KotlinClassToSourceMap(output, classesDir.path, sourcesDir.path),
+        )
+    assertEquals(CompilationResult.COMPILATION_SUCCESS, result)
+    assertEquals(
+        mapOf(
+            "example/Settings.class" to setOf("Models.kt"),
+            "example/Profile.class" to setOf("Models.kt"),
+        ),
+        CompilerClassToSourceMap.read(output).entries,
+    )
   }
 
   private fun createCompilerArgs(
