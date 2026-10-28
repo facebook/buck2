@@ -14,35 +14,36 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_core::cells::CellResolver;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_core::cells::i_cell_relative_path::ICellRelativePath;
 use buck2_core::cells::name::CellName;
+use buck2_core::fs::i_project_rel_path::IProjectRelativePath;
+use buck2_core::fs::project::ProjectRoot;
+use buck2_core::fs::project::ProjectRootTemp;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::file_name::FileNameBuf;
-use buck2_util::arc_str::PackedStringSlice;
 use buck2_util::arc_str::PackedStringSliceBuilder;
-use cmp_any::PartialEqAny;
-use dice::DiceComputations;
 use dice::testing::DiceBuilder;
 use dupe::Dupe;
 use pagable::Pagable;
-use pagable::pagable_typetag;
 
 use crate::cas_digest::CasDigestConfig;
+use crate::dice::data::SetIoProvider;
 use crate::external_symlink::ExternalSymlink;
-use crate::file_ops::delegate::FileOpsDelegate;
-use crate::file_ops::delegate::FileOpsDelegateWithIgnores;
-use crate::file_ops::delegate::testing::FileOpsKey;
-use crate::file_ops::delegate::testing::FileOpsValue;
-use crate::file_ops::dice::CheckIgnores;
 use crate::file_ops::metadata::FileMetadata;
 use crate::file_ops::metadata::FileType;
+use crate::file_ops::metadata::RawDirEntry;
 use crate::file_ops::metadata::RawPathMetadata;
 use crate::file_ops::metadata::RawSymlink;
 use crate::file_ops::metadata::ReadDirOutput;
 use crate::file_ops::metadata::TrackedFileDigest;
 use crate::file_ops::trait_::FileOps;
 use crate::ignores::file_ignores::FileIgnoreResult;
+use crate::ignores::ignore_set::IgnoreSet;
+use crate::ignores::ignore_set::SetIgnoreSet;
+use crate::io::IoProvider;
+use crate::io::ReadDirOutcome;
 
 #[derive(Pagable)]
 enum TestFileOpsEntry {
@@ -137,31 +138,21 @@ impl TestFileOps {
         )
     }
 
-    pub fn mock_in_cell(&self, cell: CellName, builder: DiceBuilder) -> DiceBuilder {
-        let data = Ok(FileOpsValue(FileOpsDelegateWithIgnores::new(
-            None,
-            Arc::new(TestCellFileOps(
-                cell,
-                Self {
-                    entries: Arc::clone(&self.entries),
-                },
-            )),
-        )));
-        builder
-            .mock_and_return(
-                FileOpsKey {
-                    cell,
-                    check_ignores: CheckIgnores::Yes,
-                },
-                data.dupe(),
-            )
-            .mock_and_return(
-                FileOpsKey {
-                    cell,
-                    check_ignores: CheckIgnores::No,
-                },
-                data,
-            )
+    /// Serves these files as the project's file system, with `cells` saying where in the project
+    /// each cell is. Reads then go through the same DICE keys as in production; the transaction
+    /// still needs a file system baseline, and a cell resolver if anything else wants one.
+    pub fn mock_in_dice(&self, cells: &CellResolver, builder: DiceBuilder) -> DiceBuilder {
+        let io = TestIoProvider {
+            ops: self.dupe(),
+            cells: cells.dupe(),
+            root: ProjectRootTemp::new().unwrap(),
+        };
+        let ignores =
+            IgnoreSet::testing_new_single_cell(cells.dupe(), cells.root_cell(), "").unwrap();
+        builder.set_data(|data| {
+            data.set_io_provider(Arc::new(io));
+            data.set_ignore_set(Arc::new(ignores));
+        })
     }
 }
 
@@ -214,11 +205,7 @@ impl FileOps for TestFileOps {
                     at: path,
                     to: RawSymlink::External(sym.dupe()),
                 }),
-                _ => Err(buck2_error::buck2_error!(
-                    buck2_error::ErrorTag::Tier0,
-                    "couldn't get metadata for {:?}",
-                    path
-                )),
+                TestFileOpsEntry::Directory(..) => Ok(RawPathMetadata::Directory),
             }
             .map(Some)
         })
@@ -233,41 +220,81 @@ impl FileOps for TestFileOps {
     }
 }
 
-#[derive(Pagable, Allocative)]
-pub struct TestCellFileOps(CellName, TestFileOps);
+/// `TestFileOps` as an `IoProvider`. The project root is an empty temporary directory that
+/// nothing reads; it only exists to be pointed at.
+#[derive(Allocative)]
+struct TestIoProvider {
+    ops: TestFileOps,
+    cells: CellResolver,
+    #[allocative(skip)]
+    root: ProjectRootTemp,
+}
 
-#[pagable_typetag]
+impl TestIoProvider {
+    fn cell_path(&self, path: IProjectRelativePath) -> CellPath {
+        self.cells.get_cell_path(path.as_project_relative_path())
+    }
+}
+
 #[async_trait]
-impl FileOpsDelegate for TestCellFileOps {
-    async fn read_file_if_exists(
+impl IoProvider for TestIoProvider {
+    async fn read_file_if_exists_impl(
         &self,
-        _ctx: &mut DiceComputations<'_>,
-        path: ICellRelativePath,
+        path: IProjectRelativePath,
     ) -> buck2_error::Result<Option<String>> {
-        let cell_path = CellPath::new_i(self.0, path);
-        FileOps::read_file_if_exists(&self.1, cell_path).await
+        FileOps::read_file_if_exists(&self.ops, self.cell_path(path)).await
     }
 
-    /// Return the list of file outputs, sorted.
-    async fn read_dir(
+    async fn read_dir_impl(
         &self,
-        _ctx: &mut DiceComputations<'_>,
-        path: ICellRelativePath,
-    ) -> buck2_error::Result<PackedStringSlice<FileName, FileType>> {
-        let path = CellPath::new_i(self.0, path);
-        Ok(FileOps::read_dir(&self.1, path).await?.included)
+        path: IProjectRelativePath,
+    ) -> buck2_error::Result<ReadDirOutcome> {
+        let listing = FileOps::read_dir(&self.ops, self.cell_path(path)).await?;
+        Ok(ReadDirOutcome::Entries(
+            listing
+                .included
+                .iter_with_tag()
+                .map(|(file_name, file_type)| RawDirEntry {
+                    file_name: file_name.to_owned(),
+                    file_type,
+                })
+                .collect(),
+        ))
     }
 
-    async fn read_path_metadata_if_exists(
+    async fn read_path_metadata_if_exists_impl(
         &self,
-        _ctx: &mut DiceComputations<'_>,
-        path: ICellRelativePath,
-    ) -> buck2_error::Result<Option<RawPathMetadata>> {
-        let path = CellPath::new_i(self.0, path);
-        FileOps::read_path_metadata_if_exists(&self.1, path).await
+        path: IProjectRelativePath,
+    ) -> buck2_error::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>> {
+        let Some(meta) =
+            FileOps::read_path_metadata_if_exists(&self.ops, self.cell_path(path)).await?
+        else {
+            return Ok(None);
+        };
+        Ok(Some(meta.try_map(|p| self.cells.resolve_path(p))?))
     }
 
-    fn eq_token(&self) -> PartialEqAny<'_> {
-        PartialEqAny::always_false()
+    async fn settle(&self) -> buck2_error::Result<()> {
+        Ok(())
+    }
+
+    fn name(&self) -> &'static str {
+        "test"
+    }
+
+    async fn eden_version(&self) -> buck2_error::Result<Option<String>> {
+        Ok(None)
+    }
+
+    fn project_root(&self) -> &ProjectRoot {
+        self.root.path()
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn is_eden_repo(&self) -> bool {
+        false
     }
 }

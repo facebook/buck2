@@ -464,6 +464,25 @@ async fn test_ensure_artifact_build_artifact() -> buck2_error::Result<()> {
     Ok(())
 }
 
+/// DICE over `file_ops`, with the `cell` cell at the project root.
+async fn dice_with_test_file_ops(file_ops: &TestFileOps) -> buck2_error::Result<DiceTransaction> {
+    let cells = CellResolver::testing_with_name_and_path(
+        CellName::testing_new("cell"),
+        CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("".into())),
+    );
+    let dice_builder = DiceBuilder::new().set_data(|data| {
+        data.set_digest_config(DigestConfig::testing_default());
+    });
+    let mut dice = file_ops
+        .mock_in_dice(&cells, dice_builder)
+        .build(UserComputationData::new())
+        .await
+        .unwrap();
+    dice.set_cell_resolver(cells)?;
+    dice.set_file_system_baseline(FileSystemBaseline::unique())?;
+    Ok(dice.commit().await)
+}
+
 #[tokio::test]
 async fn test_ensure_artifact_source_artifact() -> buck2_error::Result<()> {
     buck2_certs::certs::maybe_setup_cryptography();
@@ -476,17 +495,8 @@ async fn test_ensure_artifact_source_artifact() -> buck2_error::Result<()> {
         is_executable: true,
     };
 
-    let dice_builder = DiceBuilder::new().set_data(|data| {
-        data.set_digest_config(DigestConfig::testing_default());
-    });
     let file_ops = TestFileOps::new_with_files_metadata(btreemap![path => metadata.dupe()]);
-    let dice_computations = file_ops
-        .mock_in_cell(CellName::testing_new("cell"), dice_builder)
-        .build(UserComputationData::new())
-        .await
-        .unwrap()
-        .commit()
-        .await;
+    let dice_computations = dice_with_test_file_ops(&file_ops).await?;
 
     let source_artifact = Artifact::from(source_artifact);
     let input = ArtifactGroup::Artifact(source_artifact.dupe());
@@ -525,17 +535,8 @@ async fn test_ensure_artifact_external_symlink() -> buck2_error::Result<()> {
         .unwrap(),
     );
 
-    let dice_builder = DiceBuilder::new().set_data(|data| {
-        data.set_digest_config(DigestConfig::testing_default());
-    });
     let file_ops = TestFileOps::new_with_symlinks(btreemap![path => symlink.dupe()]);
-    let dice_computations = file_ops
-        .mock_in_cell(CellName::testing_new("cell"), dice_builder)
-        .build(UserComputationData::new())
-        .await
-        .unwrap()
-        .commit()
-        .await;
+    let dice_computations = dice_with_test_file_ops(&file_ops).await?;
 
     let source_artifact = Artifact::from(source_artifact);
     let input = ArtifactGroup::Artifact(source_artifact.dupe());

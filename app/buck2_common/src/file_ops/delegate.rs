@@ -289,8 +289,3 @@ impl FileOpsDelegateWithIgnores {
         Ok(self.check_ignores(path))
     }
 }
-
-pub(crate) mod testing {
-    pub(crate) use super::keys::FileOpsKey;
-    pub(crate) use super::keys::FileOpsValue;
-}

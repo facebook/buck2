@@ -26,7 +26,6 @@ use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSet;
 use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSetOrdering;
 use buck2_build_api::keep_going::HasKeepGoing;
 use buck2_common::dice::cells::SetCellResolver;
-use buck2_common::dice::data::testing::SetTestingIoProvider;
 use buck2_common::file_ops::baseline::FileSystemBaseline;
 use buck2_common::file_ops::baseline::SetFileSystemBaseline;
 use buck2_common::file_ops::metadata::FileMetadata;
@@ -41,7 +40,6 @@ use buck2_core::cells::name::CellName;
 use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::deferred::key::DeferredHolderKey;
-use buck2_core::fs::project::ProjectRootTemp;
 use buck2_core::package::source_path::SourcePath;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_execute::artifact_value::ArtifactValue;
@@ -179,14 +177,9 @@ async fn test_ensure_artifact_group() -> buck2_error::Result<()> {
         bar => bar_meta.dupe(),
     ]);
 
-    let fs = ProjectRootTemp::new()?;
-
-    let cell_root = CellName::testing_new("root");
     let cell_parent = CellName::testing_new("parent");
-    let dice_builder = files.mock_in_cell(cell_root, DiceBuilder::new());
-    let dice_builder = files.mock_in_cell(cell_parent, dice_builder);
+    let dice_builder = files.mock_in_dice(&cell_resolver, DiceBuilder::new());
     let mut dice_builder = dice_builder.set_data(|data| {
-        data.set_testing_io_provider(&fs);
         data.set_digest_config(DigestConfig::testing_default());
     });
 
