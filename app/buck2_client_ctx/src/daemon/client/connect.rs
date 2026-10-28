@@ -118,6 +118,8 @@ pub(crate) enum ConstraintUnsatisfiedReason {
     UserVersion,
     #[display("Startup config mismatch")]
     StartupConfig,
+    #[display("Buck settings changed")]
+    BuckSettings,
     #[display("Reject daemon id")]
     RejectDaemonId,
     #[display("Trace IO mismatch")]
@@ -135,7 +137,8 @@ impl ConstraintUnsatisfiedReason {
             ConstraintUnsatisfiedReason::UserVersion => {
                 buck2_data::DaemonWasStartedReason::ConstraintMismatchUserVersion
             }
-            ConstraintUnsatisfiedReason::StartupConfig => {
+            ConstraintUnsatisfiedReason::StartupConfig
+            | ConstraintUnsatisfiedReason::BuckSettings => {
                 buck2_data::DaemonWasStartedReason::ConstraintMismatchStartupConfig
             }
             ConstraintUnsatisfiedReason::RejectDaemonId => {
@@ -193,8 +196,20 @@ impl DaemonConstraintsRequest {
             server.ok()
         });
 
-        if Some(&self.daemon_startup_config) != server_daemon_startup_config.as_ref() {
+        let Some(server_config) = server_daemon_startup_config else {
             return Err(ConstraintUnsatisfiedReason::StartupConfig);
+        };
+
+        if self.daemon_startup_config.startup_options != server_config.startup_options {
+            return Err(ConstraintUnsatisfiedReason::StartupConfig);
+        }
+
+        if !self
+            .daemon_startup_config
+            .buck_settings
+            .is_daemon_compatible(&server_config.buck_settings)
+        {
+            return Err(ConstraintUnsatisfiedReason::BuckSettings);
         }
 
         if let Some(r) = &self.reject_daemon {
@@ -444,6 +459,7 @@ impl<'a> BuckdLifecycle<'a> {
         #[cfg(fbcode_build)]
         if !constraints
             .daemon_startup_config
+            .startup_options
             .http
             .proxy_env_allowlist
             .is_empty()
@@ -521,7 +537,7 @@ impl<'a> BuckdLifecycle<'a> {
         );
 
         let (cmd, resource_control_args) = create_daemon_spawn_command(
-            &daemon_startup_config.resource_control,
+            &daemon_startup_config.startup_options.resource_control,
             executable,
             unit_name,
             project_dir.root(),
@@ -884,7 +900,8 @@ async fn establish_connection_inner(
                         ) {
                             match reason {
                                 ConstraintUnsatisfiedReason::TraceIo
-                                | ConstraintUnsatisfiedReason::StartupConfig => {
+                                | ConstraintUnsatisfiedReason::StartupConfig
+                                | ConstraintUnsatisfiedReason::BuckSettings => {
                                     return Err(BuckdConnectError::NestedConstraintMismatch {
                                         reason,
                                     }
@@ -894,11 +911,15 @@ async fn establish_connection_inner(
                             }
                         }
 
-                        events_ctx
-                            .eprintln(&format!(
+                        let message = match reason {
+                            ConstraintUnsatisfiedReason::BuckSettings => {
+                                format!("{reason}; restarting daemon...")
+                            }
+                            _ => format!(
                                 "buck2 daemon constraint mismatch: {reason}; killing daemon..."
-                            ))
-                            .await?;
+                            ),
+                        };
+                        events_ctx.eprintln(&message).await?;
 
                         deadline
                             .run(
@@ -1514,6 +1535,44 @@ mod tests {
     }
 
     #[test]
+    fn test_buck_settings_mismatch() {
+        for settings in [
+            r#"{"agent_materialization":{"enabled":true}}"#,
+            r#"{"agent_materialization":{"enabled":false}}"#,
+            r#"{"agent_interactive":{"enabled":true,"killall_enabled":true,"clean_enabled":true,"new_isolation_dir_enabled":true}}"#,
+            r#"{"agent_interactive":{"enabled":false}}"#,
+            r#"{"analysis":{"record_requested_anon_targets":false}}"#,
+            r#"{"hydration":{"enable_paging":true}}"#,
+            r#"{"log_download":{"log_url":"https://example.com/"}}"#,
+            r#"{"package_visibility":{"default_intersection":"enforce"}}"#,
+        ] {
+            let mut req = request(DesiredTraceIoState::Existing);
+            let daemon = constraints(false);
+            req.daemon_startup_config.buck_settings = serde_json::from_str(settings).unwrap();
+
+            let reason = req.satisfied(&daemon).unwrap_err();
+            assert!(matches!(reason, ConstraintUnsatisfiedReason::BuckSettings));
+            assert_eq!(
+                reason.to_daemon_was_started_reason(),
+                DaemonWasStartedReason::ConstraintMismatchStartupConfig,
+            );
+        }
+    }
+
+    #[test]
+    fn test_missing_or_invalid_startup_config() {
+        let req = request(DesiredTraceIoState::Existing);
+        for config in [None, Some("{}"), Some("invalid json")] {
+            let mut daemon = constraints(false);
+            daemon.daemon_startup_config = config.map(str::to_owned);
+            assert!(matches!(
+                req.satisfied(&daemon),
+                Err(ConstraintUnsatisfiedReason::StartupConfig)
+            ));
+        }
+    }
+
+    #[test]
     fn test_constraints_equal_for_trace_io_existing() {
         let req = request(DesiredTraceIoState::Existing);
         let daemon = constraints(true);
@@ -1623,8 +1682,11 @@ mod tests {
         };
 
         assert!(req.satisfied(&daemon).is_ok());
-        req.daemon_startup_config.daemon_buster = Some("1".to_owned());
-        assert!(req.satisfied(&daemon).is_err());
+        req.daemon_startup_config.startup_options.daemon_buster = Some("1".to_owned());
+        assert!(matches!(
+            req.satisfied(&daemon),
+            Err(ConstraintUnsatisfiedReason::StartupConfig)
+        ));
     }
 
     #[cfg(not(windows))]

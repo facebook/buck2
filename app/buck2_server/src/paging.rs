@@ -363,7 +363,7 @@ impl Drop for PageOutGuard {
 }
 
 /// Resource thresholds gating idle page-out. GiB (not bytes) so
-/// `DaemonStartupConfig` stays `Eq` (no floats).
+/// `DaemonStartupOptions` stays `Eq` (no floats).
 #[derive(Clone, Copy, allocative::Allocative)]
 pub(crate) struct PageOutThresholds {
     /// Page out only when at least this many GiB of disk are free to write to.

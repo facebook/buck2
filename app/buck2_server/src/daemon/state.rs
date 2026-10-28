@@ -383,6 +383,7 @@ impl TenantState {
 
         let digest_algorithms = init_ctx
             .daemon_startup_config
+            .startup_options
             .digest_algorithms
             .as_ref()
             .map(|algos| {
@@ -400,6 +401,7 @@ impl TenantState {
 
         let preferred_source_algorithm = init_ctx
             .daemon_startup_config
+            .startup_options
             .source_digest_algorithm
             .as_deref()
             .map(|a| convert_algorithm_kind(a.parse()?))
@@ -440,7 +442,11 @@ impl TenantState {
         let cache_dir_path = paths.cache_dir_path();
         let valid_cache_dirs = paths.valid_cache_dirs();
 
-        let implementation = init_ctx.daemon_startup_config.materializer.as_deref();
+        let implementation = init_ctx
+            .daemon_startup_config
+            .startup_options
+            .materializer
+            .as_deref();
         let disk_state_core = implementation == Some(disk_state::CONFIG_VALUE);
         let deferred_materializer_configs = {
             let defer_write_actions = root_config
@@ -616,7 +622,7 @@ impl TenantState {
             static_metadata.dupe(),
             Some(paths.re_logs_dir()),
             paths.buck_out_path(),
-            init_ctx.daemon_startup_config.paranoid,
+            init_ctx.daemon_startup_config.startup_options.paranoid,
         ));
         // Used only to dispatch events to scribe that are not associated with a specific command
         // (ex. materializer clean up events).
@@ -705,7 +711,7 @@ impl TenantState {
             })?
             .unwrap_or(false);
 
-        let paranoid = if init_ctx.daemon_startup_config.paranoid {
+        let paranoid = if init_ctx.daemon_startup_config.startup_options.paranoid {
             Some(ParanoidDownloader::new(
                 fs.clone(),
                 blocking_executor.dupe(),
@@ -725,11 +731,13 @@ impl TenantState {
 
         let action_freezing_enabled = init_ctx
             .daemon_startup_config
+            .startup_options
             .resource_control
             .enable_suspension;
 
         let evicts_on_memory_pressure = init_ctx
             .daemon_startup_config
+            .startup_options
             .hydration
             .as_ref()
             .is_some_and(|hydration| hydration.eviction_policy == EvictionPolicy::OnMemoryPressure);
@@ -1372,7 +1380,10 @@ impl DaemonState {
             tracing::info!("Creating memory tracker...");
             let memory_tracker = memory_tracker::create_memory_tracker(
                 cgroup_tree,
-                &init_ctx.daemon_startup_config.resource_control,
+                &init_ctx
+                    .daemon_startup_config
+                    .startup_options
+                    .resource_control,
                 &daemon_id,
             )
             .await?;
@@ -1661,6 +1672,7 @@ const DEFAULT_READ_TIMEOUT_MS: u64 = 10000;
 async fn http_client_from_startup_config(
     config: &DaemonStartupConfig,
 ) -> buck2_error::Result<HttpClientBuilder> {
+    let http = &config.startup_options.http;
     let mut builder = if is_open_source() {
         HttpClientBuilder::oss().await?
     } else {
@@ -1668,13 +1680,13 @@ async fn http_client_from_startup_config(
     };
     #[cfg(fbcode_build)]
     builder
-        .with_internal_proxy_from_env(&config.http.proxy_env_allowlist)
+        .with_internal_proxy_from_env(&http.proxy_env_allowlist)
         .await?;
-    builder.with_max_redirects(config.http.max_redirects.unwrap_or(DEFAULT_MAX_REDIRECTS));
-    builder.with_http2(config.http.http2);
-    builder.with_max_concurrent_requests(config.http.max_concurrent_requests);
+    builder.with_max_redirects(http.max_redirects.unwrap_or(DEFAULT_MAX_REDIRECTS));
+    builder.with_http2(http.http2);
+    builder.with_max_concurrent_requests(http.max_concurrent_requests);
 
-    match config.http.connect_timeout() {
+    match http.connect_timeout() {
         Timeout::Value(d) => {
             builder.with_connect_timeout(Some(d));
         }
@@ -1683,7 +1695,7 @@ async fn http_client_from_startup_config(
         }
         _ => {}
     }
-    match config.http.read_timeout() {
+    match http.read_timeout() {
         Timeout::Value(d) => {
             builder.with_read_timeout(Some(d));
         }
@@ -1692,7 +1704,7 @@ async fn http_client_from_startup_config(
         }
         _ => {}
     }
-    match config.http.write_timeout() {
+    match http.write_timeout() {
         Timeout::Value(d) => {
             builder.with_write_timeout(Some(d));
         }

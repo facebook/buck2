@@ -618,8 +618,8 @@ impl HydrationConfig {
     }
 }
 
-/// Configurations that are used at startup by the daemon. Those are actually read by the client,
-/// and passed on to the daemon.
+/// Startup options and Buck Settings read by the client and passed to the daemon.
+/// Reusing a daemon requires equal startup options and daemon-compatible Buck Settings.
 ///
 /// The fields here are often raw String we get from the buckconfig, the daemon will do
 /// deserialization once it receives them. That said, this is not a requirement.
@@ -628,9 +628,18 @@ impl HydrationConfig {
 /// the DaemonStartupConfig provided by the daemon when it tries to connect, it will reject that
 /// daemon and restart (and in fact it will probably not get that far since a version check is done
 /// before parsing DaemonStartupConfig).
-#[derive(Allocative, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Allocative, Clone, Debug, Serialize, Deserialize)]
 pub struct DaemonStartupConfig {
     pub buck_settings: BuckSettings,
+    // Keep the fields exposed by `buck2 status` at their existing JSON paths.
+    #[serde(flatten)]
+    pub startup_options: DaemonStartupOptions,
+}
+
+/// Effective startup values derived from buckconfig and Buck Settings.
+/// Any difference requires a new daemon; Buck Settings have a separate compatibility check.
+#[derive(Allocative, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DaemonStartupOptions {
     pub num_tokio_workers: Option<usize>,
     pub daemon_buster: Option<String>,
     pub digest_algorithms: Option<String>,
@@ -699,8 +708,7 @@ impl DaemonStartupConfig {
             }
         }?;
 
-        Ok(Self {
-            buck_settings: settings.dupe(),
+        let startup_options = DaemonStartupOptions {
             num_tokio_workers: config
                 .parse(BuckconfigKeyRef {
                     section: "build",
@@ -770,6 +778,10 @@ impl DaemonStartupConfig {
                 property: "daemon_idle_timeout_s",
             })?,
             hydration: HydrationConfig::from_config(config, settings)?,
+        };
+        Ok(Self {
+            buck_settings: settings.dupe(),
+            startup_options,
         })
     }
 
@@ -779,7 +791,7 @@ impl DaemonStartupConfig {
         &self,
         isolation_dir: &FileName,
     ) -> Option<&HydrationConfig> {
-        self.hydration.as_ref().filter(|hydration| {
+        self.startup_options.hydration.as_ref().filter(|hydration| {
             hydration.page_out_on_idle
                 && self
                     .buck_settings
@@ -798,8 +810,7 @@ impl DaemonStartupConfig {
     }
 
     pub fn testing_empty() -> Self {
-        Self {
-            buck_settings: BuckSettings::empty(),
+        let startup_options = DaemonStartupOptions {
             num_tokio_workers: None,
             daemon_buster: None,
             digest_algorithms: None,
@@ -819,6 +830,10 @@ impl DaemonStartupConfig {
             macos_qos_class: None,
             daemon_idle_timeout_s: None,
             hydration: None,
+        };
+        Self {
+            buck_settings: BuckSettings::empty(),
+            startup_options,
         }
     }
 }
@@ -833,10 +848,32 @@ mod tests {
     use crate::settings::parser::table;
 
     #[test]
+    fn test_startup_config_serialization() -> buck2_error::Result<()> {
+        let mut config = DaemonStartupConfig::testing_empty();
+        config.startup_options.daemon_buster = Some("test".to_owned());
+        config.buck_settings =
+            resolve_setting_flags(vec![table("[agent_materialization]\nenabled = true")])?;
+
+        let serialized = config.serialize()?;
+        let json: serde_json::Value = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(json["daemon_buster"], "test");
+        assert_eq!(
+            json["buck_settings"]["agent_materialization"]["enabled"],
+            true
+        );
+        assert!(json.get("startup_options").is_none());
+
+        let deserialized = DaemonStartupConfig::deserialize(&serialized)?;
+        assert_eq!(deserialized.startup_options, config.startup_options);
+        assert_eq!(deserialized.buck_settings, config.buck_settings);
+        Ok(())
+    }
+
+    #[test]
     fn test_daemon_idle_timeout_s_default() -> buck2_error::Result<()> {
         let config = parse(&[("config", indoc!(r#""#))], "config")?;
         let startup_config = DaemonStartupConfig::new(&config, &BuckSettings::empty(), false)?;
-        assert_eq!(startup_config.daemon_idle_timeout_s, None);
+        assert_eq!(startup_config.startup_options.daemon_idle_timeout_s, None);
         Ok(())
     }
 
@@ -855,7 +892,10 @@ mod tests {
             "config",
         )?;
         let startup_config = DaemonStartupConfig::new(&config, &BuckSettings::empty(), false)?;
-        assert_eq!(startup_config.daemon_idle_timeout_s, Some(10800));
+        assert_eq!(
+            startup_config.startup_options.daemon_idle_timeout_s,
+            Some(10800)
+        );
         Ok(())
     }
 
@@ -883,6 +923,7 @@ mod tests {
 
         let startup_config = DaemonStartupConfig::new(&config, &settings, false)?;
         let hydration = startup_config
+            .startup_options
             .hydration
             .expect("enable_paging should enable pagable storage");
         assert_eq!(hydration.page_out_policy, PageOutPolicy::OncePerKey);
@@ -907,6 +948,7 @@ mod tests {
 
         let startup_config = DaemonStartupConfig::new(&config, &BuckSettings::empty(), false)?;
         let hydration = startup_config
+            .startup_options
             .hydration
             .expect("Legacy idle page-out config should enable hydration");
         assert!(hydration.page_out_on_idle);
@@ -934,6 +976,7 @@ mod tests {
 
         let startup_config = DaemonStartupConfig::new(&config, &settings, false)?;
         let hydration = startup_config
+            .startup_options
             .hydration
             .expect("Explicit Buck settings should keep hydration enabled");
         assert!(!hydration.page_out_on_idle);
@@ -960,7 +1003,7 @@ mod tests {
         )])?;
 
         let startup_config = DaemonStartupConfig::new(&config, &settings, false)?;
-        assert_eq!(startup_config.hydration, None);
+        assert_eq!(startup_config.startup_options.hydration, None);
         Ok(())
     }
 
@@ -984,7 +1027,7 @@ mod tests {
         let startup_config = DaemonStartupConfig::new(&config, &settings, false)?;
 
         assert!(
-            startup_config.hydration.is_some(),
+            startup_config.startup_options.hydration.is_some(),
             "The isolation scope must not disable pagable storage"
         );
         assert_eq!(

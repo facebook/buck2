@@ -283,7 +283,11 @@ impl TenantStateInitPreferences {
     ) -> buck2_error::Result<(Arc<Dice>, BranchId)> {
         // `hydration` is `Some` when paging is enabled (via `enable_paging` or
         // `page_out_on_idle`), which is what gates setting up on-disk storage.
-        let hydration = self.daemon_startup_config.hydration.as_ref();
+        let hydration = self
+            .daemon_startup_config
+            .startup_options
+            .hydration
+            .as_ref();
         configure_dice_for_buck(
             io,
             digest_config,
@@ -381,7 +385,11 @@ impl BuckdServer {
 
         let final_artifact_materialization =
             FinalArtifactMaterialization::try_new_from_config_value(
-                init_ctx.daemon_startup_config.materializations.as_deref(),
+                init_ctx
+                    .daemon_startup_config
+                    .startup_options
+                    .materializations
+                    .as_deref(),
             )?;
 
         let tenant_paths = paths.tenant_paths();
@@ -401,7 +409,10 @@ impl BuckdServer {
             Some(
                 BuckCgroupTree::set_up(
                     prepped_cgroups,
-                    &init_ctx.daemon_startup_config.resource_control,
+                    &init_ctx
+                        .daemon_startup_config
+                        .startup_options
+                        .resource_control,
                 )
                 .await?,
             )
@@ -413,7 +424,10 @@ impl BuckdServer {
         certs_validation_background_job(cert_state.dupe()).await;
 
         let inactivity_config = DaemonInactivityConfig::try_new(
-            init_ctx.daemon_startup_config.daemon_idle_timeout_s,
+            init_ctx
+                .daemon_startup_config
+                .startup_options
+                .daemon_idle_timeout_s,
             init_ctx.started_for_clean_stale,
         )?;
 

@@ -86,7 +86,7 @@ pub struct DaemonCommand {
     #[clap(long)]
     skip_macos_qos: bool,
     /// Early configs that the daemon needs at startup. Those are read by the client then passed to
-    /// the daemon. The client will restart the daemon if they mismatch.
+    /// the daemon. The client restarts it when startup options or daemon settings mismatch.
     #[clap(value_parser = buck_error_clap_parser(DaemonStartupConfig::deserialize))]
     daemon_startup_config: DaemonStartupConfig,
 
@@ -259,7 +259,10 @@ impl DaemonCommand {
 
         daemon_lower_priority(
             self.skip_macos_qos,
-            self.daemon_startup_config.macos_qos_class.as_deref(),
+            self.daemon_startup_config
+                .startup_options
+                .macos_qos_class
+                .as_deref(),
         )?;
 
         // TODO(nga): this breaks relative paths in `--no-buckd`.
@@ -425,6 +428,7 @@ impl DaemonCommand {
 
         if let Some(num_tokio_workers) = server_init_ctx
             .daemon_startup_config
+            .startup_options
             .num_tokio_workers
             .or(buck2_env!("BUCK2_RUNTIME_THREADS", type=usize)?)
         {

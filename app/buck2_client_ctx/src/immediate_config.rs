@@ -350,7 +350,10 @@ mod tests {
 
         context.set_setting_arg_layers(vec![setting_arg_layer])?;
         assert_eq!(
-            context.daemon_startup_config()?.log_download_method,
+            context
+                .daemon_startup_config()?
+                .startup_options
+                .log_download_method,
             LogDownloadMethod::Curl("setting_arg".to_owned())
         );
 

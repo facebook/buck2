@@ -709,9 +709,12 @@ mod tests {
 
         #[test]
         fn rollout_value_changes_startup_config() -> buck2_error::Result<()> {
-            assert_ne!(
-                startup_config_for(Some(&rollout_toml("log_url = \"https://before/\"")))?,
-                startup_config_for(Some(&rollout_toml("log_url = \"https://after/\"")))?
+            let before = startup_config_for(Some(&rollout_toml("log_url = \"https://before/\"")))?;
+            let after = startup_config_for(Some(&rollout_toml("log_url = \"https://after/\"")))?;
+            assert!(
+                !before
+                    .buck_settings
+                    .is_daemon_compatible(&after.buck_settings)
             );
             Ok(())
         }

@@ -351,6 +351,7 @@ impl<'a> ClientCommandContext<'a> {
         Ok(self
             .immediate_config
             .daemon_startup_config()?
+            .startup_options
             .log_download_method
             .clone())
     }

@@ -94,6 +94,12 @@ impl BuckSettings {
     pub fn empty() -> Self {
         Self::default()
     }
+
+    /// Whether settings captured by an existing daemon can serve this invocation.
+    /// Any settings difference currently requires a daemon restart.
+    pub fn is_daemon_compatible(&self, other: &Self) -> bool {
+        self == other
+    }
 }
 
 #[cfg(test)]
