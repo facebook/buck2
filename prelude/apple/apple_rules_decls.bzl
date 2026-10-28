@@ -44,7 +44,12 @@ load("@prelude//apple/user:apple_ipa_package.bzl", "apple_ipa_package_attribs", 
 load("@prelude//apple/user:apple_macos_bundle.bzl", "apple_macos_bundle_impl")
 load("@prelude//apple/user:apple_resource_bundle.bzl", "apple_resource_bundle_impl")
 load("@prelude//apple/user:apple_resource_transition.bzl", "apple_resource_transition")
-load("@prelude//apple/user:apple_selective_debugging.bzl", "SelectiveDebuggingJsonTypes", "apple_selective_debugging_impl")
+load(
+    "@prelude//apple/user:apple_selective_debugging.bzl",
+    "SelectiveDebuggingFilteringStrategies",
+    "SelectiveDebuggingJsonTypes",
+    "apple_selective_debugging_impl",
+)
 load("@prelude//apple/user:apple_spm_package.bzl", "apple_spm_package_impl")
 load("@prelude//apple/user:apple_watchos_bundle.bzl", "apple_watchos_bundle_impl")
 load("@prelude//apple/user:apple_xcframework.bzl", "apple_xcframework_impl", "framework_split_transition")
@@ -1714,6 +1719,20 @@ apple_selective_debugging = prelude_rule(
     attrs = {
         "exclude_build_target_patterns": attrs.list(attrs.string(), default = []),
         "exclude_regular_expressions": attrs.list(attrs.string(), default = []),
+        "filtering_strategy": attrs.enum(
+            SelectiveDebuggingFilteringStrategies,
+            default = "scrub_binary",
+            doc = """
+                How the debug info of non-selected targets is excluded:
+                - `scrub_binary`: the debug map (`N_OSO` entries) of the binaries of bundles is
+                  rewritten, so that the debug info of non-selected targets cannot be found.
+                - `dsym_allowlist`: binaries are left untouched, only the dSYMs are restricted
+                  to the selected targets, using `dsymutil --allow`. Requires a `dsymutil` which
+                  supports that option. Debuggers that use the binary's debug map instead of the
+                  dSYM can still load the debug info of non-selected targets. Bundle binaries
+                  without debug info to select from (no `AppleDebuggableInfo`) are still scrubbed.
+            """,
+        ),
         "include_build_target_patterns": attrs.list(attrs.string(), default = []),
         "include_regular_expressions": attrs.list(attrs.string(), default = []),
         "json_type": attrs.enum(SelectiveDebuggingJsonTypes),

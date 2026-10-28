@@ -62,6 +62,17 @@ SelectiveDebuggingJsonTypes = [
 
 _SelectiveDebuggingJsonType = enum(*SelectiveDebuggingJsonTypes)
 
+# How the debug info of non-selected targets is excluded.
+SelectiveDebuggingFilteringStrategies = [
+    # Rewrite the debug map (`N_OSO` entries) of linked binaries, so that the
+    # debug info of non-selected targets cannot be found.
+    "scrub_binary",
+    # Leave linked binaries untouched and only restrict which objects get
+    # linked into dSYMs, using `dsymutil --allow`. Requires a `dsymutil`
+    # which supports that option.
+    "dsym_allowlist",
+]
+
 _LOCAL_LINK_THRESHOLD = 0.2
 
 _OBJECT_FILE_EXTENSIONS = [
