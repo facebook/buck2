@@ -52,6 +52,9 @@ SUPPORTED_POOLS = ["EUREKA_POOL", "HOLLYWOOD_POOL", "STAGE_DELPHI_POOL", "PANTHE
 SUPPORTED_PLATFORMS = ["riot", "android-emulator", "rl-emulator"]
 SUPPORTED_USE_CASES = RIOT_USE_CASES + [DEFAULT_ANDROID_INSTRUMENTATION_TESTS_USE_CASE]
 
+_AOSP_REPLAY_OBI_BUILD = read_root_config("android_instrumentation", "aosp_replay_obi_build", None)
+_AOSP_REPLAY_OBI_BUILD_LABEL_PREFIX = "aosp_replay_obi_build="
+
 def android_instrumentation_test_impl(ctx: AnalysisContext):
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
 
@@ -189,9 +192,12 @@ def android_instrumentation_test_impl(ctx: AnalysisContext):
         ])
         env["TPX_LIST_TESTS_COMMAND"] = list_tests_command
 
-    labels = ctx.attrs.labels
+    labels = list(ctx.attrs.labels)
     if "tpx:supports-test-result-output-spec" not in labels:
         labels.append("tpx:supports-test-result-output-spec")
+    if _AOSP_REPLAY_OBI_BUILD:
+        labels = [label for label in labels if not label.startswith(_AOSP_REPLAY_OBI_BUILD_LABEL_PREFIX)]
+        labels.append(_AOSP_REPLAY_OBI_BUILD_LABEL_PREFIX + _AOSP_REPLAY_OBI_BUILD)
 
     test_info = ExternalRunnerTestInfo(
         type = "android_instrumentation",
