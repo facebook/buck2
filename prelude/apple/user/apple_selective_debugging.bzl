@@ -39,6 +39,8 @@ AppleSelectiveDebuggingInfo = provider(
         "scrub_binary": provider_field(typing.Callable),
         "filter": provider_field(typing.Callable),
         "scrub_selected_debug_paths_file": provider_field(typing.Callable),
+        # Set when using the `dsym_allowlist` filtering strategy, `None` otherwise.
+        "generate_dsym_allowlist": provider_field(typing.Callable | None, default = None),
     },
 )
 
@@ -73,6 +75,8 @@ SelectiveDebuggingFilteringStrategies = [
     "dsym_allowlist",
 ]
 
+_SelectiveDebuggingFilteringStrategy = enum(*SelectiveDebuggingFilteringStrategies)
+
 _LOCAL_LINK_THRESHOLD = 0.2
 
 _OBJECT_FILE_EXTENSIONS = [
@@ -106,6 +110,7 @@ def _generate_metadata_json_object(is_any_selected_target_linked: bool) -> dict[
 
 def apple_selective_debugging_impl(ctx: AnalysisContext) -> list[Provider]:
     json_type = _SelectiveDebuggingJsonType(ctx.attrs.json_type)
+    filtering_strategy = _SelectiveDebuggingFilteringStrategy(ctx.attrs.filtering_strategy)
 
     # process inputs and provide them up the graph with typing
     include_build_target_patterns = [parse_build_target_pattern(pattern) for pattern in ctx.attrs.include_build_target_patterns]
@@ -122,6 +127,7 @@ def apple_selective_debugging_impl(ctx: AnalysisContext) -> list[Provider]:
     ]
 
     scrubber = ctx.attrs._apple_tools[AppleToolsInfo].selective_debugging_scrubber
+    dsym_allowlist_tool = ctx.attrs._apple_tools[AppleToolsInfo].selective_debugging_dsym_allowlist_tool
 
     targets_json_file = None
     selection_args = cmd_args()
@@ -303,6 +309,27 @@ def apple_selective_debugging_impl(ctx: AnalysisContext) -> list[Provider]:
             metadata = metadata_output,
         )
 
+    def generate_dsym_allowlist(
+        inner_ctx,
+        executable: Artifact,
+        executable_link_execution_preference: LinkExecutionPreference,
+        focused_targets_labels: list[Label],
+    ) -> Artifact:
+        output = inner_ctx.actions.declare_output("selective_debugging/{}.dsym_allowlist.yaml".format(executable.short_path), has_content_based_path = False)
+        inner_cmd = cmd_args(dsym_allowlist_tool, selection_args, "--input", executable, "--output", output.as_output())
+        _add_persisted_targets_args(inner_ctx, inner_cmd, focused_targets_labels)
+        action_execution_properties = get_action_execution_attributes(executable_link_execution_preference)
+        inner_ctx.actions.run(
+            inner_cmd,
+            category = "selective_debugging_dsym_allowlist",
+            identifier = output.short_path,
+            prefer_local = action_execution_properties.prefer_local,
+            prefer_remote = action_execution_properties.prefer_remote,
+            local_only = action_execution_properties.local_only,
+            force_full_hybrid_if_capable = action_execution_properties.full_hybrid,
+        )
+        return output
+
     def preference_for_links(links: list[Label], deps_preferences: list[LinkExecutionPreferenceInfo]) -> LinkExecutionPreference:
         # If any dependent links were run locally, prefer that the current link is also performed locally,
         # to avoid needing to upload the previous link.
@@ -329,6 +356,7 @@ def apple_selective_debugging_impl(ctx: AnalysisContext) -> list[Provider]:
             scrub_binary = scrub_binary,
             filter = filter_debug_info,
             scrub_selected_debug_paths_file = scrub_selected_debug_paths_file,
+            generate_dsym_allowlist = generate_dsym_allowlist if filtering_strategy == _SelectiveDebuggingFilteringStrategy("dsym_allowlist") else None,
         ),
         LinkExecutionPreferenceDeterminatorInfo(preference_for_links = preference_for_links),
     ]
