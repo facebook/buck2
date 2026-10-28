@@ -416,7 +416,7 @@ fn check_dep_visibility(
         deprecation!(
             "package_visibility_audit_would_block",
             err.into(),
-            owner: "dust",
+            owner: "dust", started: "2026-10-02",
             low_cardinality_key_for_additional_logview_samples: Some(Box::new(dep.label().pkg())),
         );
         return Ok(());
@@ -1670,7 +1670,7 @@ impl ConfiguredTargetNodeCalculationImpl for ConfiguredTargetNodeCalculationInst
                         }
                         deprecation!(
                             "dep_only_incompatible_version_two", reason.to_soft_err(),
-                            owner: "scottcao",
+                            owner: "scottcao", started: "2024-06-20",
                             // Log at least one sample per unique package.
                             low_cardinality_key_for_additional_logview_samples: Some(Box::new(target.unconfigured().pkg())),
                         );
@@ -1684,7 +1684,7 @@ impl ConfiguredTargetNodeCalculationImpl for ConfiguredTargetNodeCalculationInst
                                 deprecation!(
                                     &custom_soft_error,
                                     reason.to_soft_err(),
-                                    owner: "scottcao",
+                                    owner: "scottcao", started: "2025-03-17",
                                     task: false,
                                 );
                             }

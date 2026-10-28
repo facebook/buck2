@@ -240,7 +240,10 @@ fn read_config_and_report_deprecated<'d>(
             DeprecatedConfigError(property, msg).into(),
             (file!(), line!(), column!()),
             StructuredErrorOptions {
-                kind: SoftErrorKind::Deprecation { owner: None },
+                kind: SoftErrorKind::Deprecation {
+                    owner: None,
+                    started: None,
+                },
                 ..Default::default()
             },
         )?;

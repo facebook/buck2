@@ -460,7 +460,7 @@ pub(crate) async fn validate_owner_paths(
             .await
             .without_package_context_information()
         {
-            deprecation!("owner_invalid_path", error, owner: "ianc");
+            deprecation!("owner_invalid_path", error, owner: "ianc", started: "2026-10-12");
         }
     }
     Ok(())

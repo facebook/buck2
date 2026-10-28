@@ -64,7 +64,7 @@ impl QueryAttrTypeExt for QueryAttrType {
                     deprecation!(
                         "query_literal_subtarget",
                         QueryError::SubtargetInQueryLiteral(pattern.to_owned()).into(),
-                        owner: "jtbraun",
+                        owner: "jtbraun", started: "2026-09-12",
                     );
                 }
                 self.literals.insert(pattern, label);

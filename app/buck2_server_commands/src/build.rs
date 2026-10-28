@@ -169,7 +169,7 @@ async fn build(
         deprecation!(
             "run_args_without_separator",
             RunArgsMissingSeparator.into(),
-            owner: "mattpayne",
+            owner: "mattpayne", started: "2026-02-17",
         );
     }
 

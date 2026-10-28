@@ -149,22 +149,25 @@ pub macro soft_error_or_panic($category:expr, $err:expr $(, $k:ident : $v:expr)*
 ///
 /// Uses are counted per category separately from soft errors, for `owner` (a unixname) to see
 /// what is left to migrate; nobody else is told, and in particular the user running the command
-/// is not. Once nothing uses the thing any more, the call site becomes a hard error. A
-/// deprecation nobody is driving should be deleted and replaced with a `FIXME`.
+/// is not. Once nothing uses the thing any more, the call site becomes a hard error. `started`
+/// is the day the deprecation went in, so that a reader can tell at a glance how long it has
+/// been around: one that is six months old with nobody driving it should be deleted and
+/// replaced with a `FIXME`.
 ///
 /// Under `BUCK2_HARD_ERROR` the report fails the command, as for [`soft_error!`];
 /// [`deprecation_or_panic!`] is for a call site with nowhere to return an error to.
 ///
 /// ```ignore
-/// deprecation!("platform_flavor", err, owner: "drollman");
+/// deprecation!("platform_flavor", err, owner: "drollman", started: "2023-03-09");
 /// ```
-pub macro deprecation($category:expr, $err:expr, owner: $owner:expr $(, $k:ident : $v:expr)* $(,)?) {
+pub macro deprecation($category:expr, $err:expr, owner: $owner:expr, started: $started:expr $(, $k:ident : $v:expr)* $(,)?) {
     {
         let _reported = $crate::soft_error::report!(
             $category,
             $err,
             kind: $crate::soft_error::SoftErrorKind::Deprecation {
                 owner: Some(::std::borrow::Cow::Borrowed($owner)),
+                started: Some(::std::borrow::Cow::Borrowed($started)),
             },
             user_facing: false
             $(, $k: $v)*
@@ -174,12 +177,13 @@ pub macro deprecation($category:expr, $err:expr, owner: $owner:expr $(, $k:ident
 
 /// [`deprecation!`] for a call site with nowhere to return an error to, as
 /// [`soft_error_or_panic!`].
-pub macro deprecation_or_panic($category:expr, $err:expr, owner: $owner:expr $(, $k:ident : $v:expr)* $(,)?) {
+pub macro deprecation_or_panic($category:expr, $err:expr, owner: $owner:expr, started: $started:expr $(, $k:ident : $v:expr)* $(,)?) {
     $crate::soft_error::panic_on_hard_error($crate::soft_error::report!(
         $category,
         $err,
         kind: $crate::soft_error::SoftErrorKind::Deprecation {
             owner: Some(::std::borrow::Cow::Borrowed($owner)),
+            started: Some(::std::borrow::Cow::Borrowed($started)),
         },
         user_facing: false
         $(, $k: $v)*
@@ -257,9 +261,13 @@ pub enum SoftErrorKind {
     /// Something went wrong. The buck2 oncall watches these; the user sees the ones that are not
     /// quiet.
     SoftError,
-    /// Something that is being removed was used. `owner` is the person driving the removal; it
-    /// is absent only for deprecations declared outside the code, where nothing records one.
-    Deprecation { owner: Option<Cow<'static, str>> },
+    /// Something that is being removed was used. `owner` is the person driving the removal and
+    /// `started` the day (`YYYY-MM-DD`) the deprecation went in; both are absent only for
+    /// deprecations declared outside the code, where nothing records them.
+    Deprecation {
+        owner: Option<Cow<'static, str>>,
+        started: Option<Cow<'static, str>>,
+    },
 }
 
 pub struct StructuredErrorOptions {
@@ -302,6 +310,13 @@ pub fn handle_soft_error(
     options: StructuredErrorOptions,
 ) -> Result<buck2_error::Error, buck2_error::Error> {
     validate_logview_category(category)?;
+    if let SoftErrorKind::Deprecation {
+        started: Some(started),
+        ..
+    } = &options.kind
+    {
+        validate_deprecation_start(started)?;
+    }
 
     let context = soft_error_context()?;
 
@@ -502,6 +517,27 @@ struct InvalidHardErrorConfig(String);
 enum InvalidSoftError {
     #[error("Invalid category, must be lower_snake_case, got `{0}`")]
     InvalidCategory(String),
+    #[error("Invalid deprecation start, must be a `YYYY-MM-DD` date, got `{0}`")]
+    InvalidDeprecationStart(String),
+}
+
+/// The start of a deprecation is a calendar day as `YYYY-MM-DD`; it is there to be read, so the
+/// shape is all that is checked.
+fn validate_deprecation_start(started: &str) -> buck2_error::Result<()> {
+    let bytes = started.as_bytes();
+    let well_formed = bytes.len() == 10
+        && bytes.iter().enumerate().all(|(i, b)| {
+            if i == 4 || i == 7 {
+                *b == b'-'
+            } else {
+                b.is_ascii_digit()
+            }
+        });
+    if well_formed {
+        Ok(())
+    } else {
+        Err(InvalidSoftError::InvalidDeprecationStart(started.to_owned()).into())
+    }
 }
 
 /// A category must be a-z with no consecutive underscores. Or we raise an error.
@@ -608,6 +644,14 @@ pub(crate) mod tests {
 
         assert!(capture_soft_error_context().is_none());
         Ok(())
+    }
+
+    #[test]
+    fn test_validate_deprecation_start() {
+        assert_matches!(validate_deprecation_start("2026-10-25"), Ok(_));
+        assert_matches!(validate_deprecation_start("2026-1-25"), Err(_));
+        assert_matches!(validate_deprecation_start("yesterday"), Err(_));
+        assert_matches!(validate_deprecation_start("2026/10/25"), Err(_));
     }
 
     #[test]

@@ -320,13 +320,13 @@ pub fn map_flavors(flavors: &str, full_target: &str) -> buck2_error::Result<Prov
         FlavorCategory::Platform => deprecation!(
             "platform_flavor",
             err,
-            owner: "drollman",
+            owner: "drollman", started: "2023-03-09",
             low_cardinality_key_for_additional_logview_samples: Some(Box::new(key))
         ),
         FlavorCategory::Subtarget | FlavorCategory::Unrecognized => deprecation!(
             category.name(),
             err,
-            owner: "drollman",
+            owner: "drollman", started: "2023-03-09",
             low_cardinality_key_for_additional_logview_samples: Some(Box::new(key))
         ),
     };

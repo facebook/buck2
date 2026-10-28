@@ -64,7 +64,7 @@ fn to_literal<'v>(
         deprecation!(
             "coerce_to_any",
             AnyError::CannotCoerce(value.get_type(), value.to_repr()).into(),
-            owner: "jtbraun"
+            owner: "jtbraun", started: "2023-04-29"
         );
         ctx.attr_arena().encode_string(&value.to_str())
     }

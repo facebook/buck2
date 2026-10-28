@@ -79,10 +79,11 @@ fn test_deprecation() -> buck2_error::Result<()> {
         "test_logged_deprecation",
         buck2_error!(buck2_error::ErrorTag::Input, "Still used").into(),
         owner: "jakobdegen",
+        started: "2026-10-25",
     );
     assert_eq!(
         Some(&format!(
-            "({:?}, {}, 5), : Still used : test_logged_deprecation : false : Deprecation {{ owner: Some(\"jakobdegen\") }}",
+            "({:?}, {}, 5), : Still used : test_logged_deprecation : false : Deprecation {{ owner: Some(\"jakobdegen\"), started: Some(\"2026-10-25\") }}",
             file!(),
             before_error_line + 1,
         )),

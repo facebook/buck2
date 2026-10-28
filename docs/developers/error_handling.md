@@ -120,10 +120,11 @@ the report is for, and that decides everything else, so pick by audience:
 - `warn_user!("category", err)`: the same, and the person running the command is told, because
   they can act on it: their checkout, their environment, their invocation. Buck2 does not print
   warnings that are really addressed to someone else, so this is the only thing it prints.
-- `deprecation!("category", err, owner: "unixname")`: a use of something that is being removed.
-  Only `owner`, the person driving the removal, cares about the count; nothing is shown to
-  anyone. Once the count is zero the call site becomes a hard error. A deprecation nobody is
-  driving gets deleted and replaced with a `FIXME`.
+- `deprecation!("category", err, owner: "unixname", started: "YYYY-MM-DD")`: a use of something
+  that is being removed. Only `owner`, the person driving the removal, cares about the count;
+  nothing is shown to anyone. Once the count is zero the call site becomes a hard error.
+  `started` is the day the deprecation went in: one that is six months old with nobody driving
+  it gets deleted and replaced with a `FIXME`.
 
 Under `BUCK2_HARD_ERROR=true`, which buck2's integration tests set, a report fails the command:
 the macro returns the error from the enclosing function, the way `?` would, so the condition

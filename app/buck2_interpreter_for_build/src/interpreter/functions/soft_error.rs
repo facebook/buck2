@@ -94,7 +94,10 @@ pub(crate) fn register_soft_error(builder: &mut GlobalsBuilder) {
             err,
             (file!(), line!(), column!()),
             StructuredErrorOptions {
-                kind: SoftErrorKind::Deprecation { owner: None },
+                kind: SoftErrorKind::Deprecation {
+                    owner: None,
+                    started: None,
+                },
                 ..Default::default()
             },
         )?;
