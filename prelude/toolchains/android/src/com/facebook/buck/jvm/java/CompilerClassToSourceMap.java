@@ -76,4 +76,28 @@ public final class CompilerClassToSourceMap {
     values.forEach((classFile, sources) -> result.entries.put(classFile, new TreeSet<>(sources)));
     return result;
   }
+
+  public static void prepare(CompilerOutputPaths paths, Path root) throws IOException {
+    if (paths.getCompilerClassToSourceMap() == null) {
+      return;
+    }
+    Path workingDir = root.resolve(paths.getWorkingDirectory().getPath());
+    Files.deleteIfExists(workingDir.resolve(JAVA_FILE_NAME));
+    Files.deleteIfExists(workingDir.resolve(KOTLIN_FILE_NAME));
+  }
+
+  public static void writeCombined(CompilerOutputPaths paths, Path root) throws IOException {
+    if (paths.getCompilerClassToSourceMap() == null) {
+      return;
+    }
+    CompilerClassToSourceMap combined = new CompilerClassToSourceMap();
+    Path workingDir = root.resolve(paths.getWorkingDirectory().getPath());
+    for (String name : java.util.List.of(JAVA_FILE_NAME, KOTLIN_FILE_NAME)) {
+      Path input = workingDir.resolve(name);
+      if (Files.exists(input)) {
+        combined.merge(read(input));
+      }
+    }
+    combined.write(root.resolve(paths.getCompilerClassToSourceMap().getPath()));
+  }
 }

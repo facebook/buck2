@@ -19,6 +19,8 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.tools.StandardJavaFileManager;
+import javax.tools.ToolProvider;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -60,5 +62,46 @@ public class CompilerClassToSourceMapTest {
     mapping.put("Kept.class", List.of(root.resolve("New.kt")), root);
     mapping.retainExistingOutputs(classes);
     assertEquals(Map.of("Kept.class", Set.of("New.kt")), mapping.getEntries());
+  }
+
+  @Test
+  public void recordsActualJavacOutputsWithDiskAndJarFileManagers() throws Exception {
+    Path root = temporaryFolder.getRoot().toPath();
+    Path source = root.resolve("Container.java");
+    Files.writeString(
+        source,
+        "package p; public class Container { class Inner {} Object f() { class Local {} "
+            + "return new Runnable() { public void run() {} }; } } class Secondary {}");
+    for (boolean directToJar : List.of(false, true)) {
+      CompilerClassToSourceMap mapping = new CompilerClassToSourceMap();
+      var compiler = ToolProvider.getSystemJavaCompiler();
+      try (StandardJavaFileManager standard = compiler.getStandardFileManager(null, null, null)) {
+        StandardJavaFileManager output =
+            directToJar
+                ? new JavaInMemoryFileManager(
+                    standard, root.resolve("library.jar"), ignored -> false)
+                : standard;
+        ListenableFileManager manager = new ListenableFileManager(output, mapping, root);
+        assertEquals(
+            true,
+            compiler
+                .getTask(
+                    null,
+                    manager,
+                    null,
+                    List.of("-d", root.toString(), "-proc:none"),
+                    null,
+                    standard.getJavaFileObjects(source.toFile()))
+                .call());
+      }
+      assertEquals(
+          Map.of(
+              "p/Container.class", Set.of("Container.java"),
+              "p/Container$Inner.class", Set.of("Container.java"),
+              "p/Container$1Local.class", Set.of("Container.java"),
+              "p/Container$1.class", Set.of("Container.java"),
+              "p/Secondary.class", Set.of("Container.java")),
+          mapping.getEntries());
+    }
   }
 }

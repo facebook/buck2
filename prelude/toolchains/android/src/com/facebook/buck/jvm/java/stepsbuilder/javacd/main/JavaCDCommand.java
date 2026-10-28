@@ -18,6 +18,8 @@ import com.facebook.buck.jvm.cd.DepFileUtils;
 import com.facebook.buck.jvm.cd.JvmCDCommand;
 import com.facebook.buck.jvm.cd.command.PostBuildParams;
 import com.facebook.buck.jvm.cd.command.java.BuildJavaCommand;
+import com.facebook.buck.jvm.java.CompilerClassToSourceMap;
+import com.facebook.buck.jvm.java.CompilerOutputPaths;
 import com.facebook.buck.jvm.java.JavaStepsBuilder;
 import com.facebook.buck.jvm.java.abi.StubJar;
 import com.google.common.base.Preconditions;
@@ -47,6 +49,7 @@ public class JavaCDCommand implements JvmCDCommand {
   private final JavaStepsBuilder stepsBuilder;
   private final ImmutableMap<Path, Path> jarToJarDirMap;
   private final PostBuildParams postBuildParams;
+  private final CompilerOutputPaths compilerOutputPaths;
 
   public JavaCDCommand(String[] args, ImmutableMap<String, String> env)
       throws CmdLineException, IOException {
@@ -71,6 +74,12 @@ public class JavaCDCommand implements JvmCDCommand {
     this.postBuildParams = PostBuildParams.Companion.fromProto(proto.getPostBuildParams());
     this.stepsBuilder = new JavaStepsBuilder(buildJavaCommand);
     this.jarToJarDirMap = buildJavaCommand.getBaseJarCommand().getJarToJarDirMap();
+    this.compilerOutputPaths =
+        buildJavaCommand
+            .getBaseJarCommand()
+            .getCompilerOutputPathsValue()
+            .getLibraryCompilerOutputPath();
+    CompilerClassToSourceMap.prepare(compilerOutputPaths, stepsBuilder.getRuleCellRoot().getPath());
   }
 
   public void maybeWriteClassAbi() throws IOException {
@@ -137,6 +146,8 @@ public class JavaCDCommand implements JvmCDCommand {
 
   @Override
   public void postExecute() throws IOException {
+    CompilerClassToSourceMap.writeCombined(
+        compilerOutputPaths, stepsBuilder.getRuleCellRoot().getPath());
     maybeWriteClassAbi();
     maybeWriteAbiDir();
     maybeWriteDepFile();
