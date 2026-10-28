@@ -238,18 +238,30 @@ impl FileOpsDelegateWithIgnores {
         };
 
         // Filter out any entries that are ignored. Input is sorted; we only
-        // remove entries, never reorder, so the output stays sorted.
-        let mut builder: PackedStringSliceBuilder<FileName, FileType> =
-            PackedStringSliceBuilder::with_capacity(entries.len());
-        for (file_name, file_type) in entries.iter_with_tag() {
+        // remove entries, never reorder, so the output stays sorted. Defer
+        // allocating a builder until we encounter the first ignored entry, so
+        // that the common no-ignored-files case can reuse the existing alloc.
+        let mut builder: Option<PackedStringSliceBuilder<FileName, FileType>> = None;
+        for (idx, (file_name, file_type)) in entries.iter_with_tag().enumerate() {
             if is_ignored(file_name.as_str())? {
+                builder.get_or_insert_with(|| {
+                    let mut b = PackedStringSliceBuilder::with_capacity(entries.len() - 1);
+                    for (fname, ftype) in entries.iter_with_tag().take(idx) {
+                        b.push(fname, ftype);
+                    }
+                    b
+                });
                 continue;
             }
-            builder.push(file_name, file_type);
+            if let Some(b) = builder.as_mut() {
+                b.push(file_name, file_type);
+            }
         }
-        Ok(ReadDirOutput {
-            included: builder.build_sorted(),
-        })
+        let included = match builder {
+            Some(b) => b.build_sorted(),
+            None => entries,
+        };
+        Ok(ReadDirOutput { included })
     }
 
     pub(crate) async fn exists_matching_exact_case(
