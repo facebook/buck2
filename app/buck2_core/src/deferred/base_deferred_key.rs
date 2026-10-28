@@ -192,9 +192,9 @@ impl BaseDeferredKey {
                 let cell_relative_path = target.pkg().cell_relative_path().as_str();
                 let escaped_target_name = Self::escape_target_name(target.name().as_str());
 
-                // It is performance critical that we use slices and allocate via `join` instead of
-                // repeated calls to `join` on the path object because `join` allocates on each call,
-                // which has a significant impact.
+                // Keep the identifier as borrowed fragments so the complete output path
+                // can be assembled with one final allocation. Repeated path joins
+                // allocate and copy each growing prefix.
                 let path_identifier = match path_resolution_method {
                     BuckOutPathKind::Configuration => [
                         target.cfg().output_hash().as_str(),
@@ -255,27 +255,41 @@ impl BaseDeferredKey {
                         }
                     }
                 };
-                let path_or_hash = if fully_hash_path {
+                let path_hash;
+                let hash_parts;
+                let path_identifier = if fully_hash_path {
                     let mut hasher = DefaultHasher::new();
                     path_identifier.hash(&mut hasher);
-
-                    format!("{:016x}/", hasher.finish())
+                    path_hash = format!("{:016x}/", hasher.finish());
+                    hash_parts = [path_hash.as_str()];
+                    hash_parts.as_slice()
                 } else {
-                    path_identifier.concat()
+                    path_identifier.as_slice()
                 };
 
-                let hashed_path = [
-                    base.as_str(),
-                    "/",
-                    prefix.as_str(),
-                    "/",
-                    target.pkg().cell_name().as_str(),
-                    "/",
-                    path_or_hash.as_str(),
-                    path.as_str(),
-                ];
+                let cell_name = target.pkg().cell_name();
+                // Copy the identifier directly into the complete path, without
+                // allocating an intermediate String for non-hashed paths.
+                let mut hashed_path = String::with_capacity(
+                    base.as_str().len()
+                        + prefix.as_str().len()
+                        + cell_name.as_str().len()
+                        + 3
+                        + path_identifier.iter().map(|part| part.len()).sum::<usize>()
+                        + path.as_str().len(),
+                );
+                hashed_path.push_str(base.as_str());
+                hashed_path.push('/');
+                hashed_path.push_str(prefix.as_str());
+                hashed_path.push('/');
+                hashed_path.push_str(cell_name.as_str());
+                hashed_path.push('/');
+                for part in path_identifier {
+                    hashed_path.push_str(part);
+                }
+                hashed_path.push_str(path.as_str());
 
-                Ok(ProjectRelativePathBuf::unchecked_new(hashed_path.concat()))
+                Ok(ProjectRelativePathBuf::unchecked_new(hashed_path))
             }
             BaseDeferredKey::AnonTarget(d) | BaseDeferredKey::BxlLabel(BaseDeferredKeyBxl(d)) => d
                 .make_hashed_path(
