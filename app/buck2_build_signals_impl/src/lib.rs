@@ -1079,10 +1079,21 @@ where
                 // `key -> PageIn(key) -> EvaluationWork(key) -> dependencies`.
                 let completion_key = evaluation.key.dupe();
                 let work_key = NodeKey::EvaluationWork(Arc::new(evaluation.key));
+                // Activation is reported after hydration, so an evaluation that carries no
+                // timing of its own is stamped later than the page-in it precedes here.
+                let hydrate_start = page_in.duration.total.start();
+                let mut work_duration = evaluation.duration;
+                if work_duration.total.end() > hydrate_start {
+                    work_duration.total = TimeSpan::new_saturating(
+                        work_duration.total.start().min(hydrate_start),
+                        hydrate_start,
+                    );
+                    work_duration.user = work_duration.user.min(work_duration.total.duration());
+                }
                 self.backend.process_node(
                     work_key.dupe(),
                     evaluation.extra_data,
-                    evaluation.duration,
+                    work_duration,
                     evaluation.dep_keys,
                     evaluation.spans,
                     evaluation.waiting_data,
@@ -1691,6 +1702,7 @@ mod tests {
     #[derive(Default)]
     struct RecordingBackend {
         deps: BuckMutMap<NodeKey, Vec<NodeKey>>,
+        durations: BuckMutMap<NodeKey, NodeDuration>,
     }
 
     impl BuildListenerBackend for RecordingBackend {
@@ -1698,11 +1710,12 @@ mod tests {
             &mut self,
             key: NodeKey,
             _extra_data: NodeExtraData,
-            _duration: NodeDuration,
+            duration: NodeDuration,
             dep_keys: impl IntoIterator<Item = NodeKey>,
             _span_ids: SmallVec<[SpanId; 1]>,
             _waiting_data: WaitingData,
         ) {
+            self.durations.insert(key.dupe(), duration);
             assert!(
                 self.deps
                     .insert(key, dep_keys.into_iter().collect())
@@ -1798,6 +1811,44 @@ mod tests {
             split_discovery: None,
             page_in: None,
         }
+    }
+
+    /// An evaluation without its own timing is stamped when its activation is reported,
+    /// which is after the hydration it is modelled as preceding.
+    #[test]
+    fn page_in_after_recompute_never_precedes_its_evaluation_work() {
+        let mut receiver = receiver();
+        let key = node_key("cell//p");
+        let hydrate = TimeSpan::from_start_and_duration(
+            Instant::now() - Duration::from_millis(2),
+            Duration::from_millis(1),
+        );
+        receiver.process_page_in(PageInSignal {
+            key: key.dupe(),
+            duration: NodeDuration {
+                user: hydrate.duration(),
+                total: hydrate,
+                queue: None,
+            },
+            phase: PageInPhase::AfterRecompute,
+        });
+        receiver.process_evaluation(evaluation(
+            key.dupe(),
+            node_key("cell//dep"),
+            key.dupe(),
+            PageInPhase::AfterRecompute,
+        ));
+
+        let span = |key: &NodeKey| receiver.backend.durations[key].total;
+        let work = span(&NodeKey::EvaluationWork(Arc::new(key.dupe())));
+        let page_in = span(&NodeKey::PageIn(Arc::new(key.dupe())));
+        let completion = span(&key);
+        assert!(
+            work.end() <= page_in.start(),
+            "work {work:?} must end before the page-in {page_in:?} starts"
+        );
+        assert_eq!(page_in, hydrate);
+        assert_eq!(completion.start(), page_in.end());
     }
 
     /// A package is discovered by the earliest-finishing computation about a target of
