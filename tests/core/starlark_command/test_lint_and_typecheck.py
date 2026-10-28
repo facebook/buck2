@@ -9,6 +9,7 @@
 # pyre-strict
 
 
+import os
 import shutil
 
 from buck2.tests.e2e_util.api.buck import Buck
@@ -43,4 +44,16 @@ class LintAndTypecheckTest(BuckTestCase):
         await expect_failure(
             buck.starlark("typecheck", "bad.bzl"),
             stderr_regex="Detected 2 errors",
+        )
+
+    @buck_test()
+    async def test_explicit_path_goes_through_the_path_check(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.starlark("lint", "nope.bzl"),
+            stderr_regex="File `nope.bzl` does not exist",
+        )
+        os.symlink(".", buck.cwd / "linkdir")
+        await expect_failure(
+            buck.starlark("lint", "linkdir/good.bzl"),
+            stderr_regex="is behind the symlink `linkdir`, which buck2 does not follow",
         )

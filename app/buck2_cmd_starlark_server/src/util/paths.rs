@@ -14,7 +14,10 @@ use async_recursion::async_recursion;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_common::file_ops::dice::DiceFileComputations;
 use buck2_common::file_ops::metadata::FileType;
-use buck2_common::file_ops::metadata::RawPathMetadata;
+use buck2_common::file_ops::path_check::PathCheck;
+use buck2_common::file_ops::path_check::PathCheckError;
+use buck2_common::file_ops::path_check::ReadKind;
+use buck2_common::file_ops::path_check::check_path;
 use buck2_common::io::IoProvider;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bxl::BxlFilePath;
@@ -32,8 +35,6 @@ use dupe::Dupe;
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]
 enum StarlarkFilesError {
-    #[error("File not found, `{0}`")]
-    FileNotFound(IProjectRelativePath),
     #[error("Symlinks and other esoteric files are not supported, `{0}`")]
     UnsupportedFileType(IProjectRelativePath),
 }
@@ -65,16 +66,13 @@ async fn starlark_file(
 
     let typ = match &recursive {
         Some(typ) => typ.dupe(),
-        None => match io.read_path_metadata_if_exists(proj_path).await? {
-            None => {
-                return Err(StarlarkFilesError::FileNotFound(proj_path).into());
+        // An explicit path is checked like every other read: missing, ignored, or behind a
+        // symlink is refused, and the provider is only asked about a present path.
+        None => match check_path(ctx, proj_path).await? {
+            PathCheck::Present(typ) => typ,
+            check => {
+                return Err(PathCheckError::new(ctx, proj_path, check, ReadKind::File).into());
             }
-            Some(RawPathMetadata::Directory) => FileType::Directory,
-            Some(RawPathMetadata::File(_)) => {
-                // It's a shame we throw away the digest we calculated, but not a huge deal (its cheap compared to parsing)
-                FileType::File
-            }
-            Some(RawPathMetadata::Symlink { .. }) => FileType::Symlink,
         },
     };
 
