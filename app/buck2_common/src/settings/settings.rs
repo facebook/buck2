@@ -11,6 +11,7 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use serde::Deserialize;
 use serde::Serialize;
@@ -78,6 +79,7 @@ pub struct BuckSettings {
 }
 
 /// Sections whose values belong to one invocation, on either the client or daemon.
+/// A request carries only these sections, and missing overrides use the section's defaults.
 #[derive(
     Clone,
     Dupe,
@@ -93,6 +95,17 @@ pub struct BuckSettings {
 pub struct InvocationBuckSettings {
     pub agent_interactive: AgentInteractiveSettings,
     pub agent_materialization: AgentMaterializationSettings,
+}
+
+impl InvocationBuckSettings {
+    pub fn from_request(request: Option<&str>) -> buck2_error::Result<Self> {
+        match request {
+            Some(request) => {
+                serde_json::from_str(request).buck_error_context("Invalid invocation Buck Settings")
+            }
+            None => Ok(Self::default()),
+        }
+    }
 }
 
 /// Sections whose values are fixed for the daemon's lifetime. Every section in
@@ -257,6 +270,52 @@ mod tests {
     }
 
     #[test]
+    fn test_section_scope_applies_to_all_settings() -> buck2_error::Result<()> {
+        let previous = BuckSettings::default();
+        for name in [
+            "enabled",
+            "killall_enabled",
+            "clean_enabled",
+            "new_isolation_dir_enabled",
+        ] {
+            let current: BuckSettings = serde_json::from_value(serde_json::json!({
+                "agent_interactive": {name: true},
+            }))?;
+            assert!(
+                current.daemon.changes_from(&previous.daemon).is_empty(),
+                "{name}"
+            );
+            let request = serde_json::to_string(&current.invocation)?;
+            let values: Value = serde_json::from_str(&request)?;
+            assert_eq!(values["agent_interactive"][name], true);
+            assert!(values.get("analysis").is_none());
+            assert!(values.get("log_download").is_none());
+            assert_eq!(
+                InvocationBuckSettings::from_request(Some(&request))?,
+                current.invocation
+            );
+        }
+
+        let current: BuckSettings = serde_json::from_value(serde_json::json!({
+            "log_download": {"log_url": "new", "log_use_manifold": false},
+        }))?;
+        let changes = current.daemon.changes_from(&previous.daemon);
+        assert_eq!(
+            changes
+                .iter()
+                .map(|change| change.key.as_str())
+                .collect::<Vec<_>>(),
+            ["log_download.log_url", "log_download.log_use_manifold"]
+        );
+        let request = serde_json::to_string(&current.invocation)?;
+        assert_eq!(
+            InvocationBuckSettings::from_request(Some(&request))?,
+            previous.invocation
+        );
+        Ok(())
+    }
+
+    #[test]
     fn test_flat_settings_roundtrip() -> buck2_error::Result<()> {
         let settings: BuckSettings = serde_json::from_str(
             r#"{"agent_materialization":{"enabled":true},"analysis":{"record_requested_anon_targets":false},"log_download":{"log_url":"https://example.com/"}}"#,
@@ -277,6 +336,71 @@ mod tests {
         );
         assert!(serde_json::from_str::<BuckSettings>(r#"{"unknown_section":{}}"#).is_err());
         Ok(())
+    }
+
+    #[test]
+    fn test_invocation_sections_roundtrip() -> buck2_error::Result<()> {
+        let client: BuckSettings = serde_json::from_str(
+            r#"{"agent_materialization":{"enabled":false},"agent_interactive":{"enabled":true,"killall_enabled":true},"analysis":{"record_requested_anon_targets":false}}"#,
+        )?;
+        let request = serde_json::to_string(&client.invocation)?;
+        let values: Value = serde_json::from_str(&request)?;
+        assert_eq!(
+            values,
+            serde_json::json!({
+                "agent_materialization": {"enabled": false},
+                "agent_interactive": {
+                    "enabled": true,
+                    "killall_enabled": true,
+                    "clean_enabled": null,
+                    "new_isolation_dir_enabled": null,
+                },
+            })
+        );
+        let invocation = InvocationBuckSettings::from_request(Some(&request))?;
+        assert_eq!(invocation, client.invocation);
+        assert!(invocation.agent_interactive.killall_enabled());
+        assert!(!invocation.agent_interactive.clean_enabled());
+        assert!(!invocation.agent_materialization.enabled());
+        Ok(())
+    }
+
+    #[test]
+    fn test_invocation_values_do_not_leak_between_requests() -> buck2_error::Result<()> {
+        let first = InvocationBuckSettings::from_request(Some(
+            r#"{"agent_materialization":{"enabled":true}}"#,
+        ))?;
+        let second = InvocationBuckSettings::from_request(Some(
+            r#"{"agent_interactive":{"enabled":true}}"#,
+        ))?;
+        assert!(first.agent_materialization.enabled());
+        assert!(!first.agent_interactive.enabled());
+        assert!(!second.agent_materialization.enabled());
+        assert!(second.agent_interactive.enabled());
+        for request in [
+            None,
+            Some("{}"),
+            Some(r#"{"agent_materialization":{"enabled":null}}"#),
+        ] {
+            let invocation = InvocationBuckSettings::from_request(request)?;
+            assert_eq!(invocation, InvocationBuckSettings::default());
+            assert!(!invocation.agent_materialization.enabled());
+            assert!(!invocation.agent_interactive.enabled());
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_invalid_invocation_settings() {
+        for request in [
+            "not json",
+            r#"{"agent_materialization":{"enabled":"true"}}"#,
+            r#"{"unknown_section":{"enabled":true}}"#,
+            r#"{"analysis":{"record_requested_anon_targets":true}}"#,
+        ] {
+            let error = InvocationBuckSettings::from_request(Some(request)).unwrap_err();
+            assert!(format!("{error:#}").contains("Invalid invocation Buck Settings"));
+        }
     }
 
     #[test]

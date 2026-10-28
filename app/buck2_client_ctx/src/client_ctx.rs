@@ -286,6 +286,7 @@ impl<'a> ClientCommandContext<'a> {
             }
             .into(),
             profile_pattern_opts: starlark_opts.profile_pattern_opts(&self.working_dir),
+            invocation_settings: Some(serde_json::to_string(&self.buck_settings()?.invocation)?),
             ..self.empty_client_context(cmd.logging_name())?
         })
     }
@@ -337,6 +338,7 @@ impl<'a> ClientCommandContext<'a> {
             profile_pattern_opts: None,
             agent_context: self.agent_context().to_proto(),
             tenant_identity,
+            invocation_settings: None,
         })
     }
 

@@ -56,6 +56,8 @@ use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::dice::HasInjectedLegacyConfigs;
 use buck2_common::legacy_configs::file_ops::ConfigPath;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
+use buck2_common::settings::BuckSettings;
+use buck2_common::settings::InvocationBuckSettings;
 use buck2_core::buck2_env;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
@@ -227,6 +229,7 @@ impl BaseServerCommandContext {
 /// the implementation of DaemonApi endpoints (ex. targets, query, build).
 pub struct ServerCommandContext<'a> {
     pub base_context: BaseServerCommandContext,
+    buck_settings: BuckSettings,
 
     /// The working directory of the client. This is used for resolving things in the request in a
     /// working-dir relative way. For example, it's common to resolve target patterns relative to
@@ -398,9 +401,16 @@ impl<'a> ServerCommandContext<'a> {
         // Read before `base_context` moves into the struct literal below.
         let buck_out_dir = base_context.repo().paths.buck_out_dir();
         let isolation_prefix = base_context.repo().paths.isolation().to_owned();
+        let buck_settings = BuckSettings {
+            daemon: base_context.daemon.daemon_buck_settings().dupe(),
+            invocation: InvocationBuckSettings::from_request(
+                client_context.invocation_settings.as_deref(),
+            )?,
+        };
 
         Ok(ServerCommandContext {
             base_context,
+            buck_settings,
             working_dir: working_dir_project_relative,
             working_dir_abs: AbsWorkingDir::unchecked_new(working_dir.to_buf()),
             host_platform_override: client_context.host_platform(),
@@ -1270,6 +1280,10 @@ impl Drop for ServerCommandContext<'_> {
 
 #[async_trait]
 impl ServerCommandContextTrait for ServerCommandContext<'_> {
+    fn buck_settings(&self) -> &BuckSettings {
+        &self.buck_settings
+    }
+
     fn working_dir(&self) -> &ProjectRelativePath {
         &self.working_dir
     }

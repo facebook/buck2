@@ -35,6 +35,7 @@ use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::legacy_configs::parse_buckconfig_metadata;
+use buck2_common::settings::DaemonBuckSettings;
 use buck2_common::settings::PackageVisibilityDefaultIntersection;
 use buck2_common::sqlite::sqlite_db::SqliteDb;
 use buck2_common::sqlite::sqlite_db::SqliteIdentity;
@@ -1183,6 +1184,13 @@ fn _assert_send_sync(
 }
 
 impl DaemonStateData {
+    pub(crate) fn daemon_buck_settings(&self) -> &DaemonBuckSettings {
+        self.tenant_state_factory
+            .init_ctx
+            .daemon_startup_config
+            .daemon_buck_settings()
+    }
+
     fn repo_shared_services(&self) -> DaemonSharedServices<'_> {
         DaemonSharedServices {
             blocking_executor_factory: &self.blocking_executor_factory,

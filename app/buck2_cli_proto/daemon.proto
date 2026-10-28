@@ -211,6 +211,10 @@ message ClientContext {
 
   // Stable address of the repository state selected by this client.
   optional TenantIdentity tenant_identity = 28;
+
+  // JSON containing only InvocationBuckSettings. Missing overrides use the
+  // setting's defaults for this command.
+  optional string invocation_settings = 29;
 }
 
 message TargetsRequest {
