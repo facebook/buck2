@@ -45,6 +45,7 @@ use buck2_common::liveliness_observer::TimeoutLivelinessObserver;
 use buck2_common::pattern::parse_from_cli::parse_patterns_with_modifiers_from_cli_args;
 use buck2_common::pattern::resolve::ResolveTargetPatterns;
 use buck2_common::pattern::resolve::ResolvedPattern;
+use buck2_core::deprecation;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::package::PackageLabelWithModifiers;
 use buck2_core::pattern::pattern::Modifiers;
@@ -57,7 +58,6 @@ use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
-use buck2_core::soft_error;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_data::BuildResult;
 use buck2_data::ToProtoMessage;
@@ -166,11 +166,10 @@ async fn build(
     request: &buck2_cli_proto::BuildRequest,
 ) -> buck2_error::Result<buck2_cli_proto::BuildResponse> {
     if request.run_args_missing_separator {
-        soft_error!(
+        deprecation!(
             "run_args_without_separator",
             RunArgsMissingSeparator.into(),
-            quiet: false,
-            deprecation: true,
+            owner: "mattpayne",
         )?;
     }
 

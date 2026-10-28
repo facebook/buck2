@@ -12,11 +12,12 @@ use buck2_core::soft_error;
 use starlark::eval::SoftErrorHandler;
 pub struct Buck2StarlarkSoftErrorHandler;
 
-/// When starlark deprecates something, we propagate it to our `soft_error!` handler.
+/// Starlark-rust reports inconsistencies it recovers from (corrupt spans) through this hook;
+/// they become buck2 soft errors.
 impl SoftErrorHandler for Buck2StarlarkSoftErrorHandler {
     fn soft_error(&self, category: &str, error: starlark::Error) -> Result<(), starlark::Error> {
         let error = buck2_error::Error::from(error);
-        soft_error!(&format!("starlark_rust_{category}"), error, deprecation: true, quiet: true)?;
+        soft_error!(&format!("starlark_rust_{category}"), error, quiet: true)?;
         Ok(())
     }
 }

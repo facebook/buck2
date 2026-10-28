@@ -67,6 +67,7 @@ mod imp {
 
     use backtrace::Backtrace;
     use buck2_core::error::SoftErrorContext;
+    use buck2_core::error::SoftErrorKind;
     use buck2_core::error::StructuredErrorOptions;
     use buck2_data::Location;
     use buck2_events::BuckEvent;
@@ -154,6 +155,9 @@ mod imp {
                 logview_key.to_string(),
             );
         }
+        if let SoftErrorKind::Deprecation { owner: Some(owner) } = &options.kind {
+            map.insert("deprecation_owner".to_owned(), owner.to_string());
+        }
         map
     }
 
@@ -240,7 +244,7 @@ mod imp {
             daemon_in_memory_state_is_corrupted: options.daemon_in_memory_state_is_corrupted,
             daemon_materializer_state_is_corrupted: options.daemon_materializer_state_is_corrupted,
             action_cache_is_corrupted: options.action_cache_is_corrupted,
-            deprecation: options.deprecation,
+            deprecation: matches!(&options.kind, SoftErrorKind::Deprecation { .. }),
         }
     }
 

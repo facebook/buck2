@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::borrow::Cow;
 use std::cell::RefCell;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -102,38 +103,28 @@ static HARD_ERROR_PANIC_ALLOWLIST: LazyLock<BuckFixedSortedSet<String>> = LazyLo
     BuckFixedSortedSet::from_iter(["spawn_version_control_collector_failed".to_owned()])
 });
 
-/// Throw a "soft_error" ie. a non-fatal error logged to logview.
-/// Errors will not be logged to stderr as warnings to the user, unless `quiet=false` is passed.
-/// Logview will generate tasks for each error category, unless `task=false` is passed.
-/// If `deprecation=true` this error should ideally become a hard error in the future.
+/// Reports a non-fatal error: something went wrong, but the command can go on.
 ///
-/// The macro lives in this crate to allow it be made available everywhere.
-/// Calling programs are responsible for calling initialize() to provide a handler for
-/// logging these soft_errors.
+/// Reports are counted per category in Logview
+/// ([internal link](https://www.internalfb.com/logview/overview/buck2)), where the buck2 oncall
+/// watches them, so a category should name one specific thing going wrong. The user does not see
+/// the report unless `quiet: false` is passed, which is for errors the user can act on. Under
+/// `BUCK2_HARD_ERROR`, which buck2's own tests set, the error is returned as `Err` instead, so a
+/// call site uses `?` where failing is acceptable and discards the result where it is not.
 ///
-/// You should pass two arguments:
+/// Returns the error as `Ok` when it was only reported, for callers that propagate it anyway.
 ///
-/// * The category string that will remain constant and identifies this specific soft error
-///   (used to report as a key).
-/// * The error is a `buck2_error::Error`.
+/// Uses of something that is being removed are not soft errors; see [`deprecation!`].
 ///
-/// Soft errors from Meta internal runs can be viewed
-/// [in logview](https://www.internalfb.com/logview/overview/buck2).
+/// The macro lives in this crate so it is available everywhere; the binary installs the handler
+/// that does the reporting through [`initialize`].
 ///
-/// You'll get the error back as the Ok() value if it wasn't thrown, otherwise you get a Err() to
-/// propagate.
-///
-/// Example (see [StructuredErrorOptions] for all key=value options):
+/// Example (see [`StructuredErrorOptions`] for the options):
 /// ```ignore
 /// soft_error!(
-///     "soft_error_category",
-///     buck2_error::buck2_error!(
-///         buck2_error::ErrorTag::Tier0,
-///         "Did something bad with {}",
-///         value,
-///     )
-///     .into(),
-///     quiet = false,
+///     "cas_missing",
+///     buck2_error::buck2_error!(buck2_error::ErrorTag::Tier0, "`{}` is missing", digest),
+///     quiet: true,
 /// )?;
 /// ```
 pub macro soft_error {
@@ -149,6 +140,42 @@ pub macro soft_error {
             $err,
             (file!(), line!(), column!()),
             $crate::soft_error::StructuredErrorOptions {
+                $($k: $v,)*
+                ..Default::default()
+            }
+        )
+    } },
+}
+
+/// Reports a use of something that is being removed.
+///
+/// Uses are counted per category separately from soft errors, for `owner` (a unixname) to see
+/// what is left to migrate; nobody else is told, and in particular the user running the command
+/// is not. Once nothing uses the thing any more, the call site becomes a hard error. A
+/// deprecation nobody is driving should be deleted and replaced with a `FIXME`.
+///
+/// Under `BUCK2_HARD_ERROR` the error is returned as `Err`, as for [`soft_error!`].
+///
+/// ```ignore
+/// deprecation!("platform_flavor", err, owner: "drollman")?;
+/// ```
+pub macro deprecation {
+    ($category:expr, $err:expr, owner: $owner:expr) => {
+        $crate::soft_error::deprecation!($category, $err, owner: $owner,)
+    },
+    ($category:expr, $err:expr, owner: $owner:expr, $($k:ident : $v:expr),+) => {
+        $crate::soft_error::deprecation!($category, $err, owner: $owner, $($k: $v,)*)
+    },
+    ($category:expr, $err:expr, owner: $owner:expr, $($k:ident : $v:expr ,)*) => { {
+        $crate::soft_error::handle_soft_error(
+            $category,
+            $err,
+            (file!(), line!(), column!()),
+            $crate::soft_error::StructuredErrorOptions {
+                kind: $crate::soft_error::SoftErrorKind::Deprecation {
+                    owner: Some(::std::borrow::Cow::Borrowed($owner)),
+                },
+                quiet: true,
                 $($k: $v,)*
                 ..Default::default()
             }
@@ -185,12 +212,23 @@ pub macro tag_result {
     },
 }
 
+/// Who a report is for.
+#[derive(Debug, Clone)]
+pub enum SoftErrorKind {
+    /// Something went wrong. The buck2 oncall watches these; the user sees the ones that are not
+    /// quiet.
+    SoftError,
+    /// Something that is being removed was used. `owner` is the person driving the removal; it
+    /// is absent only for deprecations declared outside the code, where nothing records one.
+    Deprecation { owner: Option<Cow<'static, str>> },
+}
+
 pub struct StructuredErrorOptions {
+    pub kind: SoftErrorKind,
     /// Log this error (to our event log and possibly to a task), but do not print it to stderr.
     pub quiet: bool,
     /// Create a task for this error.
     pub task: bool,
-    pub deprecation: bool,
     pub daemon_in_memory_state_is_corrupted: bool,
     pub daemon_materializer_state_is_corrupted: bool,
     pub action_cache_is_corrupted: bool,
@@ -205,9 +243,9 @@ pub struct StructuredErrorOptions {
 impl Default for StructuredErrorOptions {
     fn default() -> Self {
         Self {
+            kind: SoftErrorKind::SoftError,
             quiet: true,
             task: true,
-            deprecation: false,
             daemon_in_memory_state_is_corrupted: false,
             daemon_materializer_state_is_corrupted: false,
             action_cache_is_corrupted: false,

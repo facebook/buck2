@@ -23,9 +23,9 @@ use buck2_core::bzl::ImportPath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::name::CellName;
 use buck2_core::configuration::compatibility::MaybeCompatible;
+use buck2_core::deprecation;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
-use buck2_core::soft_error;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_error::BuckErrorContext;
 use buck2_fs::paths::file_name::FileName;
@@ -460,7 +460,7 @@ pub(crate) async fn validate_owner_paths(
             .await
             .without_package_context_information()
         {
-            soft_error!("owner_invalid_path", error, deprecation: true)?;
+            deprecation!("owner_invalid_path", error, owner: "ianc")?;
         }
     }
     Ok(())

@@ -13,6 +13,7 @@ use std::sync::Mutex;
 use std::sync::MutexGuard;
 use std::sync::Once;
 
+use buck2_core::deprecation;
 use buck2_core::error::StructuredErrorOptions;
 use buck2_core::error::initialize;
 use buck2_core::soft_error;
@@ -28,8 +29,8 @@ fn mock_handler(
     options: StructuredErrorOptions,
 ) {
     RESULT.lock().unwrap().push(format!(
-        "{:?}, : {} : {} : {}",
-        loc, err, category, options.quiet
+        "{:?}, : {} : {} : {} : {:?}",
+        loc, err, category, options.quiet, options.kind
     ));
 }
 
@@ -60,7 +61,27 @@ fn test_soft_error() {
     );
     assert_eq!(
         Some(&format!(
-            "({:?}, {}, 30), : Should be logged : test_logged_soft_error : true",
+            "({:?}, {}, 30), : Should be logged : test_logged_soft_error : true : SoftError",
+            file!(),
+            before_error_line + 1,
+        )),
+        RESULT.lock().unwrap().first()
+    );
+}
+
+#[test]
+fn test_deprecation() {
+    let _guard = test_init();
+
+    let before_error_line = line!();
+    let _ignore_hard_error = deprecation!(
+        "test_logged_deprecation",
+        buck2_error!(buck2_error::ErrorTag::Input, "Still used").into(),
+        owner: "jakobdegen",
+    );
+    assert_eq!(
+        Some(&format!(
+            "({:?}, {}, 30), : Still used : test_logged_deprecation : true : Deprecation {{ owner: Some(\"jakobdegen\") }}",
             file!(),
             before_error_line + 1,
         )),

@@ -54,6 +54,8 @@ pub use buck2_env::env::buck2_env;
 pub use buck2_env::env::buck2_env_name;
 // Re-export these macros at the crate root so they work like before when error was #[macro_use]
 #[doc(inline)]
+pub use buck2_env::soft_error::deprecation;
+#[doc(inline)]
 pub use buck2_env::soft_error::soft_error;
 #[doc(inline)]
 pub use buck2_env::soft_error::tag_error;
