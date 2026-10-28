@@ -186,6 +186,7 @@ load(
     ":link_groups.bzl",
     "BuildLinkGroupsContext",
     "FinalLabelsToLinks",
+    "LINK_GROUPS_INFO_SUB_TARGET",
     "LINK_GROUP_MAPPINGS_FILENAME_SUFFIX",
     "LINK_GROUP_MAPPINGS_SUB_TARGET",
     "LINK_GROUP_MAP_DATABASE_SUB_TARGET",
@@ -621,7 +622,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
                     ),
                 ),
             ]
-        sub_targets["link-groups-info"] = [
+        sub_targets[LINK_GROUPS_INFO_SUB_TARGET] = [
             DefaultInfo(
                 default_output = ctx.actions.write_json(
                     ctx.label.name + ".link-groups-info.json",

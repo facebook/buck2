@@ -15,6 +15,7 @@ load(
     "@prelude//cxx:link_groups_types.bzl",
     "LinkGroupDefinitions",
     "LinkGroupInfo",
+    "LinkGroupsDebugLinkInfo",
     "LinkGroupsDebugLinkableEntry",
     "LinkGroupsDebugLinkableEntryExtras",
     "LinkGroupsDebugLinkableItem",
@@ -131,6 +132,9 @@ load(
 # group.
 LINK_GROUP_MAP_DATABASE_SUB_TARGET = "link-group-map-database"
 LINK_GROUP_MAP_DATABASE_FILENAME = "link_group_map_database.json"
+
+# Returns the linkables of the link in link order (`LinkGroupsDebugLinkInfo`).
+LINK_GROUPS_INFO_SUB_TARGET = "link-groups-info"
 
 # Returns a mapping from link group names to its constituent targets.
 LINK_GROUP_MAPPINGS_SUB_TARGET = "link-group-mappings"
@@ -788,6 +792,27 @@ def get_filtered_targets(labels_to_links_map: dict[Label, LinkGroupLinkInfo]) ->
 def get_link_group_map_json(ctx: AnalysisContext, targets: set[TargetLabel]) -> DefaultInfo:
     json_map = ctx.actions.write_json(LINK_GROUP_MAP_DATABASE_FILENAME, sorted(targets), pretty = True, has_content_based_path = False)
     return DefaultInfo(default_output = json_map)
+
+def get_link_groups_info_json(ctx: AnalysisContext, labels_to_links_map: dict[Label, LinkGroupLinkInfo], with_extras: bool) -> DefaultInfo:
+    """
+    The `[link-groups-info]` of a link unit that creates no link groups of its
+    own (a shared library linked with link groups): the record the executable
+    writes, every linkable in link order under `binary`, with its extras when
+    `with_extras`, and no `libs`.
+    """
+    info = LinkGroupsDebugLinkInfo(
+        binary = LinkGroupsDebugLinkableItem(
+            ordered_linkables = create_debug_linkable_entries(labels_to_links_map, root = None, with_extras = with_extras),
+        ),
+        libs = {},
+    )
+    return DefaultInfo(
+        default_output = ctx.actions.write_json(
+            ctx.label.name + "." + LINK_GROUPS_INFO_SUB_TARGET + ".json",
+            info,
+            has_content_based_path = False,
+        )
+    )
 
 def _find_all_relevant_roots(
     specs: list[LinkGroupLibSpec],
