@@ -61,7 +61,6 @@ use buck2_hash::BuckMutMap;
 use buck2_util::arc_str::PackedStringSlice;
 use buck2_util::arc_str::PackedStringSliceBuilder;
 use buck2_util::process::background_command;
-use cmp_any::PartialEqAny;
 use dice::CancellationContext;
 use dice::DiceComputations;
 use dice::EqualityBehavior;
@@ -347,7 +346,6 @@ impl GitFileOpsDelegate {
     }
 }
 
-#[pagable_typetag]
 #[async_trait::async_trait]
 impl FileOpsDelegate for GitFileOpsDelegate {
     async fn read_file_if_exists(
@@ -407,10 +405,6 @@ impl FileOpsDelegate for GitFileOpsDelegate {
                 )),
             },
         )?))
-    }
-
-    fn eq_token(&self) -> PartialEqAny<'_> {
-        PartialEqAny::always_false()
     }
 }
 

@@ -66,7 +66,6 @@ use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_util::arc_str::PackedStringSlice;
 use buck2_util::arc_str::PackedStringSliceBuilder;
 use buck2_util::strong_hasher::Blake3StrongHasher;
-use cmp_any::PartialEqAny;
 use dice::CancellationContext;
 use dice::DiceComputations;
 use dice::EqualityBehavior;
@@ -357,7 +356,6 @@ impl BundledFileOpsDelegate {
     }
 }
 
-#[pagable_typetag]
 #[async_trait::async_trait]
 impl FileOpsDelegate for BundledFileOpsDelegate {
     async fn read_file_if_exists(
@@ -383,10 +381,6 @@ impl FileOpsDelegate for BundledFileOpsDelegate {
         path: ICellRelativePath,
     ) -> buck2_error::Result<Option<RawPathMetadata>> {
         self.read_path_metadata_if_exists(&path)
-    }
-
-    fn eq_token(&self) -> PartialEqAny<'_> {
-        PartialEqAny::always_false()
     }
 }
 

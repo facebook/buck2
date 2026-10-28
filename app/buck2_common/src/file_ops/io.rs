@@ -10,10 +10,6 @@
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_core::cells::CellResolver;
-use buck2_core::cells::cell_path::CellPath;
-use buck2_core::cells::i_cell_relative_path::ICellRelativePath;
-use buck2_core::cells::name::CellName;
 use buck2_core::fs::i_project_rel_path::IProjectRelativePath;
 use buck2_error::BuckErrorContext;
 use buck2_fs::paths::file_name::FileName;
@@ -21,8 +17,6 @@ use buck2_hash::BuckDashMap;
 use buck2_hash::BuckMutSet;
 use buck2_util::arc_str::PackedStringSlice;
 use buck2_util::arc_str::PackedStringSliceBuilder;
-use cmp_any::PartialEqAny;
-use derivative::Derivative;
 use derive_more::Display;
 use dice::CancellationContext;
 use dice::DiceComputations;
@@ -40,20 +34,9 @@ use pagable::pagable_typetag;
 
 use crate::dice::data::HasIoProvider;
 use crate::file_ops::baseline::HasFileSystemBaseline;
-use crate::file_ops::delegate::FileOpsDelegate;
 use crate::file_ops::metadata::FileType;
 use crate::file_ops::metadata::RawPathMetadata;
 use crate::file_ops::path_check::PathCheckKey;
-
-/// A `FileOpsDelegate` implementation that calls out to the `IoProvider` to read files.
-///
-/// This is used for everything except 1) tests, and 2) external cells.
-#[derive(Clone, Dupe, Derivative, Allocative, Pagable)]
-#[derivative(PartialEq)]
-pub(super) struct IoFileOpsDelegate {
-    pub(super) cells: CellResolver,
-    pub(super) cell: CellName,
-}
 
 /// The `Io*` keys are the DICE nodes at which file system state enters the graph; file watchers
 /// invalidate them through the `FileChangeTracker`.
@@ -264,59 +247,41 @@ impl Key for IoExistsMatchingExactCaseKey {
     }
 }
 
-#[pagable_typetag]
-#[async_trait]
-impl FileOpsDelegate for IoFileOpsDelegate {
-    async fn read_file_if_exists(
-        &self,
-        ctx: &mut DiceComputations<'_>,
-        path: ICellRelativePath,
-    ) -> buck2_error::Result<Option<String>> {
-        let path = self.cells.resolve_ipath(CellPath::new_i(self.cell, path))?;
-        ctx.compute(&IoReadFileKey(path))
-            .await?
-            .as_ref()
-            .duped_err()?;
-        let io = ctx.global_data().get_io_provider();
-        io.read_file_if_exists(path).await
-    }
+pub(super) async fn read_file_if_exists(
+    ctx: &mut DiceComputations<'_>,
+    path: IProjectRelativePath,
+) -> buck2_error::Result<Option<String>> {
+    ctx.compute(&IoReadFileKey(path))
+        .await?
+        .as_ref()
+        .duped_err()?;
+    ctx.global_data()
+        .get_io_provider()
+        .read_file_if_exists(path)
+        .await
+}
 
-    async fn read_dir(
-        &self,
-        ctx: &mut DiceComputations<'_>,
-        path: ICellRelativePath,
-    ) -> buck2_error::Result<PackedStringSlice<FileName, FileType>> {
-        let path = self.cells.resolve_ipath(CellPath::new_i(self.cell, path))?;
-        ctx.compute(&IoReadDirKey(path)).await?.dupe()
-    }
+pub(super) async fn read_dir(
+    ctx: &mut DiceComputations<'_>,
+    path: IProjectRelativePath,
+) -> buck2_error::Result<PackedStringSlice<FileName, FileType>> {
+    ctx.compute(&IoReadDirKey(path)).await?.dupe()
+}
 
-    async fn read_path_metadata_if_exists(
-        &self,
-        ctx: &mut DiceComputations<'_>,
-        path: ICellRelativePath,
-    ) -> buck2_error::Result<Option<RawPathMetadata>> {
-        let path = self.cells.resolve_ipath(CellPath::new_i(self.cell, path))?;
-        Ok(ctx
-            .compute(&IoPathMetadataKey(path))
-            .await?
-            .dupe()?
-            .map(|meta| meta.map(|p| self.cells.get_cell_path(&p))))
-    }
+pub(super) async fn read_path_metadata_if_exists(
+    ctx: &mut DiceComputations<'_>,
+    path: IProjectRelativePath,
+) -> buck2_error::Result<Option<RawPathMetadata<IProjectRelativePath>>> {
+    ctx.compute(&IoPathMetadataKey(path)).await?.dupe()
+}
 
-    async fn exists_matching_exact_case(
-        &self,
-        ctx: &mut DiceComputations<'_>,
-        path: ICellRelativePath,
-    ) -> buck2_error::Result<bool> {
-        let path = self.cells.resolve_ipath(CellPath::new_i(self.cell, path))?;
-        ctx.compute(&IoExistsMatchingExactCaseKey(path))
-            .await?
-            .dupe()
-    }
-
-    fn eq_token(&self) -> PartialEqAny<'_> {
-        PartialEqAny::new(self)
-    }
+pub(super) async fn exists_matching_exact_case(
+    ctx: &mut DiceComputations<'_>,
+    path: IProjectRelativePath,
+) -> buck2_error::Result<bool> {
+    ctx.compute(&IoExistsMatchingExactCaseKey(path))
+        .await?
+        .dupe()
 }
 
 struct ReadDirCache(BuckDashMap<IProjectRelativePath, PackedStringSlice<FileName, FileType>>);

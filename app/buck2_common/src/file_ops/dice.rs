@@ -8,35 +8,31 @@
  * above-listed licenses.
  */
 
-use std::fmt::Debug;
-use std::hash::Hash;
 use std::sync::Arc;
 
-use allocative::Allocative;
-use async_trait::async_trait;
+use buck2_core::cells::CellResolver;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::name::CellName;
+use buck2_core::cells::paths::CellRelativePath;
+use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::file_name::FileNameBuf;
-use derive_more::Display;
+use buck2_util::arc_str::PackedStringSlice;
+use buck2_util::arc_str::PackedStringSliceBuilder;
 use dice::DiceComputations;
-use dice::EqualityBehavior;
-use dice::Key;
-use dice::OkPagableValueSerialize;
-use dice::ValueSerialize;
-use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
-use dupe::ResultDupedErrExt;
-use pagable::Pagable;
-use pagable::pagable_typetag;
 
 use crate::buildfiles::HasBuildfiles;
-use crate::file_ops::delegate::FileOpsDelegateWithIgnores;
-use crate::file_ops::delegate::get_delegated_file_ops;
+use crate::dice::cells::HasCellResolver;
+use crate::file_ops::delegate::external_cell_delegate;
 use crate::file_ops::error::FileReadError;
 use crate::file_ops::error::extended_ignore_error;
+use crate::file_ops::io;
+use crate::file_ops::metadata::FileType;
 use crate::file_ops::metadata::RawPathMetadata;
 use crate::file_ops::metadata::ReadDirOutput;
+use crate::ignores::file_ignores::CellFileIgnores;
 use crate::ignores::file_ignores::FileIgnoreResult;
+use crate::ignores::ignore_set::HasIgnoreSet;
 use crate::io::ReadDirError;
 
 pub struct DiceFileComputations;
@@ -44,17 +40,11 @@ pub struct DiceFileComputations;
 /// Functions for accessing files with keys on the dice graph.
 impl DiceFileComputations {
     /// Filters out ignored paths
-    pub async fn read_dir<'d>(
-        ctx: &mut DiceComputations<'d>,
+    pub async fn read_dir(
+        ctx: &mut DiceComputations<'_>,
         path: CellPath,
-    ) -> buck2_error::Result<&'d ReadDirOutput> {
-        ctx.compute(&ReadDirKey {
-            path,
-            check_ignores: CheckIgnores::Yes,
-        })
-        .await?
-        .as_ref()
-        .duped_err()
+    ) -> buck2_error::Result<ReadDirOutput> {
+        read_dir_impl(ctx, path, true).await
     }
 
     /// Returns if a directory or file exists at the given path, but checks for an exact,
@@ -66,20 +56,24 @@ impl DiceFileComputations {
         ctx: &mut DiceComputations<'_>,
         path: CellPath,
     ) -> buck2_error::Result<bool> {
-        ctx.compute(&ExistsMatchingExactCaseKey(path)).await?.dupe()
+        let cells = ctx.get_cell_resolver().await?;
+        if cell_ignores(ctx, cells, path.cell())?
+            .check(path.path())
+            .is_ignored()
+        {
+            return Ok(false);
+        }
+        match external_cell_delegate(ctx, cells, path.cell()).await? {
+            Some(delegate) => delegate.exists_matching_exact_case(ctx, path.ipath()).await,
+            None => io::exists_matching_exact_case(ctx, cells.resolve_ipath(path)?).await,
+        }
     }
 
-    pub async fn read_dir_include_ignores<'d>(
-        ctx: &mut DiceComputations<'d>,
+    pub async fn read_dir_include_ignores(
+        ctx: &mut DiceComputations<'_>,
         path: CellPath,
-    ) -> buck2_error::Result<&'d ReadDirOutput> {
-        ctx.compute(&ReadDirKey {
-            path,
-            check_ignores: CheckIgnores::No,
-        })
-        .await?
-        .as_ref()
-        .duped_err()
+    ) -> buck2_error::Result<ReadDirOutput> {
+        read_dir_impl(ctx, path, false).await
     }
 
     /// Like read_dir, but with extended error information. This may add additional dice dependencies.
@@ -97,12 +91,11 @@ impl DiceFileComputations {
         ctx: &mut DiceComputations<'_>,
         path: CellPath,
     ) -> buck2_error::Result<Option<String>> {
-        ctx.compute(&ReadFileKey(path))
-            .await?
-            .as_ref()
-            .duped_err()?
-            .read_file_if_exists(ctx)
-            .await
+        let cells = ctx.get_cell_resolver().await?;
+        match external_cell_delegate(ctx, cells, path.cell()).await? {
+            Some(delegate) => delegate.read_file_if_exists(ctx, path.ipath()).await,
+            None => io::read_file_if_exists(ctx, cells.resolve_ipath(path)?).await,
+        }
     }
 
     /// Does not check if the path is ignored
@@ -121,7 +114,19 @@ impl DiceFileComputations {
         ctx: &mut DiceComputations<'_>,
         path: CellPath,
     ) -> buck2_error::Result<Option<RawPathMetadata>> {
-        ctx.compute(&PathMetadataKey(path)).await?.dupe()
+        let cells = ctx.get_cell_resolver().await?;
+        match external_cell_delegate(ctx, cells, path.cell()).await? {
+            Some(delegate) => {
+                delegate
+                    .read_path_metadata_if_exists(ctx, path.ipath())
+                    .await
+            }
+            None => Ok(
+                io::read_path_metadata_if_exists(ctx, cells.resolve_ipath(path)?)
+                    .await?
+                    .map(|meta| meta.map(|p| cells.get_cell_path(&p))),
+            ),
+        }
     }
 
     /// Does not check if the path is ignored
@@ -139,10 +144,8 @@ impl DiceFileComputations {
         ctx: &mut DiceComputations<'_>,
         path: CellPath,
     ) -> buck2_error::Result<FileIgnoreResult> {
-        get_delegated_file_ops(ctx, path.cell(), CheckIgnores::Yes)
-            .await?
-            .is_ignored(path.path())
-            .await
+        let cells = ctx.get_cell_resolver().await?;
+        Ok(cell_ignores(ctx, cells, path.cell())?.check(path.path()))
     }
 
     pub async fn buildfiles<'d>(
@@ -153,162 +156,92 @@ impl DiceFileComputations {
     }
 }
 
-#[derive(
-    Debug, Display, Clone, Dupe, Copy, PartialEq, Eq, Hash, Allocative, Pagable
-)]
-pub(crate) enum CheckIgnores {
-    Yes,
-    No,
+fn cell_ignores(
+    ctx: &DiceComputations<'_>,
+    cells: &CellResolver,
+    cell: CellName,
+) -> buck2_error::Result<CellFileIgnores> {
+    cells.get(cell)?;
+    Ok(CellFileIgnores::new(
+        cells.dupe(),
+        cell,
+        ctx.global_data().get_ignore_set(),
+    ))
 }
 
-/// The return value of a `ReadFileKey` computation.
-///
-/// Instead of the actual file contents, this holds a `FileOpsDelegateWithIgnores`
-/// and the path to read. The actual file read happens when the caller invokes
-/// `read_file_if_exists` on this value. This ensures we don't store file
-/// contents in memory.
-#[derive(Clone, Dupe, Allocative, Pagable)]
-pub struct ReadFileValue {
-    file_ops: FileOpsDelegateWithIgnores,
+async fn read_dir_impl(
+    ctx: &mut DiceComputations<'_>,
     path: CellPath,
+    check_ignores: bool,
+) -> buck2_error::Result<ReadDirOutput> {
+    let cells = ctx.get_cell_resolver().await?;
+    let ignores = if check_ignores {
+        let ignores = cell_ignores(ctx, cells, path.cell())?;
+        // TODO(cjhopman): This should also probably verify that the parent chain is not ignored.
+        ignores.check(path.path()).into_result()?;
+        Some(ignores)
+    } else {
+        None
+    };
+
+    let entries = match external_cell_delegate(ctx, cells, path.cell()).await? {
+        Some(delegate) => delegate.read_dir(ctx, path.ipath()).await?,
+        None => io::read_dir(ctx, cells.resolve_ipath(path)?).await?,
+    };
+
+    let included = match ignores {
+        Some(ignores) => without_ignored(path, entries, &ignores),
+        None => entries,
+    };
+    Ok(ReadDirOutput { included })
 }
 
-impl ReadFileValue {
-    // FIXME: `ReadFileKey` is not marked as transient if this returns an error, which is
-    // unfortunate.
-    // A reasonable fix would be to take a dep on an always transient key in the error case.
-    pub async fn read_file_if_exists(
-        &self,
-        ctx: &mut DiceComputations<'_>,
-    ) -> buck2_error::Result<Option<String>> {
-        self.file_ops
-            .read_file_if_exists(ctx, self.path.ipath())
-            .await
-    }
-}
-
-#[derive(
-    Clone, Dupe, Copy, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable
-)]
-#[pagable_typetag(dice::DiceKeyDyn)]
-struct ReadFileKey(CellPath);
-
-#[async_trait]
-impl Key for ReadFileKey {
-    type Value = buck2_error::Result<ReadFileValue>;
-    async fn compute(
-        &self,
-        ctx: &mut DiceComputations,
-        _cancellations: &CancellationContext,
-    ) -> Self::Value {
-        let file_ops = get_delegated_file_ops(ctx, self.0.cell(), CheckIgnores::No).await?;
-        Ok(ReadFileValue {
-            file_ops,
-            path: self.0.dupe(),
-        })
-    }
-
-    fn equality_behavior() -> EqualityBehavior<Self::Value> {
-        EqualityBehavior::AlwaysUnequal
-    }
-
-    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
-        OkPagableValueSerialize::<Self::Value>::new()
-    }
-}
-
-#[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
-#[display("{}", path)]
-#[pagable_typetag(dice::DiceKeyDyn)]
-struct ReadDirKey {
+/// `entries`, listed at `path`, minus those the ignores apply to.
+fn without_ignored(
     path: CellPath,
-    check_ignores: CheckIgnores,
-}
+    entries: PackedStringSlice<FileName, FileType>,
+    ignores: &CellFileIgnores,
+) -> PackedStringSlice<FileName, FileType> {
+    let path = path.path();
+    let is_ignored = |file_name: &str| {
+        let mut cell_relative_path_buf;
+        let cell_relative_path: &str = if path.is_empty() {
+            file_name
+        } else {
+            cell_relative_path_buf =
+                String::with_capacity(path.as_str().len() + 1 + file_name.len());
+            cell_relative_path_buf.push_str(path.as_str());
+            cell_relative_path_buf.push('/');
+            cell_relative_path_buf.push_str(file_name);
+            &cell_relative_path_buf
+        };
+        ignores
+            .check(CellRelativePath::unchecked_new(cell_relative_path))
+            .is_ignored()
+    };
 
-#[async_trait]
-impl Key for ReadDirKey {
-    type Value = buck2_error::Result<ReadDirOutput>;
-    async fn compute(
-        &self,
-        ctx: &mut DiceComputations,
-        _cancellations: &CancellationContext,
-    ) -> Self::Value {
-        let file_ops = get_delegated_file_ops(ctx, self.path.cell(), self.check_ignores).await?;
-        file_ops.read_dir(ctx, self.path.ipath()).await
+    // Input is sorted; we only remove entries, never reorder, so the output stays sorted. Defer
+    // allocating a builder until we encounter the first ignored entry, so that the common
+    // no-ignored-files case can reuse the existing alloc.
+    let mut builder: Option<PackedStringSliceBuilder<FileName, FileType>> = None;
+    for (idx, (file_name, file_type)) in entries.iter_with_tag().enumerate() {
+        if is_ignored(file_name.as_str()) {
+            builder.get_or_insert_with(|| {
+                let mut b = PackedStringSliceBuilder::with_capacity(entries.len() - 1);
+                for (fname, ftype) in entries.iter_with_tag().take(idx) {
+                    b.push(fname, ftype);
+                }
+                b
+            });
+            continue;
+        }
+        if let Some(b) = builder.as_mut() {
+            b.push(file_name, file_type);
+        }
     }
-
-    fn equality_behavior() -> EqualityBehavior<Self::Value> {
-        EqualityBehavior::Compare(|x, y| match (x, y) {
-            (Ok(x), Ok(y)) => x == y,
-            _ => false,
-        })
-    }
-
-    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
-        OkPagableValueSerialize::<Self::Value>::new()
-    }
-}
-
-#[derive(Clone, Display, Allocative, Debug, Eq, Hash, PartialEq, Pagable)]
-#[display("{}", _0)]
-#[pagable_typetag(dice::DiceKeyDyn)]
-struct ExistsMatchingExactCaseKey(CellPath);
-
-#[async_trait]
-impl Key for ExistsMatchingExactCaseKey {
-    type Value = buck2_error::Result<bool>;
-    async fn compute(
-        &self,
-        ctx: &mut DiceComputations,
-        _cancellations: &CancellationContext,
-    ) -> Self::Value {
-        get_delegated_file_ops(ctx, self.0.cell(), CheckIgnores::Yes)
-            .await?
-            .exists_matching_exact_case(self.0.ipath(), ctx)
-            .await
-    }
-
-    fn equality_behavior() -> EqualityBehavior<Self::Value> {
-        EqualityBehavior::Compare(|x, y| match (x, y) {
-            (Ok(x), Ok(y)) => x == y,
-            _ => false,
-        })
-    }
-
-    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
-        OkPagableValueSerialize::<Self::Value>::new()
-    }
-}
-
-#[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
-#[pagable_typetag(dice::DiceKeyDyn)]
-struct PathMetadataKey(CellPath);
-
-#[async_trait]
-impl Key for PathMetadataKey {
-    type Value = buck2_error::Result<Option<RawPathMetadata>>;
-    async fn compute(
-        &self,
-        ctx: &mut DiceComputations,
-        _cancellations: &CancellationContext,
-    ) -> Self::Value {
-        let res = get_delegated_file_ops(ctx, self.0.cell(), CheckIgnores::No)
-            .await?
-            .read_path_metadata_if_exists(ctx, self.0.ipath())
-            .await?;
-
-        Ok(res)
-    }
-
-    fn equality_behavior() -> EqualityBehavior<Self::Value> {
-        EqualityBehavior::Compare(|x, y| match (x, y) {
-            (Ok(x), Ok(y)) => x == y,
-            _ => false,
-        })
-    }
-
-    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
-        OkPagableValueSerialize::<Self::Value>::new()
+    match builder {
+        Some(b) => b.build_sorted(),
+        None => entries,
     }
 }
 
@@ -318,7 +251,7 @@ async fn read_dir_ext(
     path: CellPath,
 ) -> Result<ReadDirOutput, ReadDirError> {
     match DiceFileComputations::read_dir(ctx, path).await {
-        Ok(v) => Ok(v.dupe()),
+        Ok(v) => Ok(v),
         Err(e) => match extended_ignore_error(ctx, path).await {
             Some(e) => Err(e),
             None => Err(e.into()),

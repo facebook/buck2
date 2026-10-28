@@ -12,65 +12,21 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_core::cells::CellResolver;
 use buck2_core::cells::i_cell_relative_path::ICellRelativePath;
 use buck2_core::cells::name::CellName;
-use buck2_core::cells::paths::CellRelativePath;
 use buck2_fs::paths::file_name::FileName;
 use buck2_util::arc_str::PackedStringSlice;
-use buck2_util::arc_str::PackedStringSliceBuilder;
-use cmp_any::PartialEqAny;
 use dice::DiceComputations;
-use dice::EqualityBehavior;
-use dice::Key;
-use dice::OkPagableValueSerialize;
-use dice::ValueSerialize;
-use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
-use pagable::Pagable;
-use pagable::pagable_typetag;
-use pagable::typetag::PagableTagged;
 
-use crate::dice::cells::HasCellResolver;
 use crate::external_cells::EXTERNAL_CELLS_IMPL;
-use crate::file_ops::delegate::keys::FileOpsKey;
-use crate::file_ops::delegate::keys::FileOpsValue;
-use crate::file_ops::dice::CheckIgnores;
-use crate::file_ops::io::IoFileOpsDelegate;
 use crate::file_ops::metadata::FileType;
 use crate::file_ops::metadata::RawPathMetadata;
-use crate::file_ops::metadata::ReadDirOutput;
-use crate::ignores::all_cells::HasCellFileIgnores;
-use crate::ignores::file_ignores::CellFileIgnores;
-use crate::ignores::file_ignores::FileIgnoreResult;
 
-/// Note: Everything in this mini-module exists only so that it can be replaced by a `TestFileOps`
-/// in unittests
-mod keys {
-    use allocative::Allocative;
-    use buck2_core::cells::name::CellName;
-    use derive_more::Display;
-    use dupe::Dupe;
-    use pagable::Pagable;
-    use pagable::pagable_typetag;
-
-    use crate::file_ops::delegate::FileOpsDelegateWithIgnores;
-    use crate::file_ops::dice::CheckIgnores;
-
-    #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
-    #[display("{:?}", self)]
-    #[pagable_typetag(dice::DiceKeyDyn)]
-    pub(crate) struct FileOpsKey {
-        pub cell: CellName,
-        pub check_ignores: CheckIgnores,
-    }
-
-    #[derive(Dupe, Clone, Allocative, Pagable)]
-    pub(crate) struct FileOpsValue(#[allocative(skip)] pub FileOpsDelegateWithIgnores);
-}
-
-#[pagable_typetag]
+/// Reads for a cell whose files the `IoProvider` does not serve, that is, an external cell.
 #[async_trait]
-pub trait FileOpsDelegate: PagableTagged + Allocative + Send + Sync {
+pub trait FileOpsDelegate: Allocative + Send + Sync {
     async fn read_file_if_exists(
         &self,
         ctx: &mut DiceComputations<'_>,
@@ -102,190 +58,21 @@ pub trait FileOpsDelegate: PagableTagged + Allocative + Send + Sync {
         let metadata = self.read_path_metadata_if_exists(ctx, path).await?;
         Ok(metadata.is_some())
     }
-
-    fn eq_token(&self) -> PartialEqAny<'_>;
 }
 
-#[async_trait]
-impl Key for FileOpsKey {
-    type Value = buck2_error::Result<FileOpsValue>;
-    async fn compute(
-        &self,
-        ctx: &mut DiceComputations,
-        _cancellations: &CancellationContext,
-    ) -> Self::Value {
-        let cells = ctx.get_cell_resolver().await?;
-        let ignores = if self.check_ignores == CheckIgnores::Yes {
-            Some(ctx.new_cell_ignores(self.cell).await?)
-        } else {
-            None
-        };
-
-        let out = if let Some(origin) = cells.get(self.cell)?.external() {
-            let delegate = EXTERNAL_CELLS_IMPL
-                .get()?
-                .get_file_ops_delegate(ctx, self.cell, origin.dupe())
-                .await?;
-            FileOpsDelegateWithIgnores::new(ignores, delegate)
-        } else {
-            let delegate = IoFileOpsDelegate {
-                cells: cells.dupe(),
-                cell: self.cell,
-            };
-            FileOpsDelegateWithIgnores::new(ignores, Arc::new(delegate))
-        };
-
-        Ok(FileOpsValue(out))
-    }
-
-    fn equality_behavior() -> EqualityBehavior<Self::Value> {
-        EqualityBehavior::Compare(|x, y| match (x, y) {
-            (Ok(x), Ok(y)) => x.0 == y.0,
-            _ => false,
-        })
-    }
-
-    fn validity(x: &Self::Value) -> bool {
-        x.is_ok()
-    }
-
-    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
-        OkPagableValueSerialize::<Self::Value>::new()
-    }
-}
-
-pub(crate) async fn get_delegated_file_ops(
-    dice: &mut DiceComputations<'_>,
+/// The delegate serving `cell`, if it is an external cell.
+pub(crate) async fn external_cell_delegate(
+    ctx: &mut DiceComputations<'_>,
+    cells: &CellResolver,
     cell: CellName,
-    check_ignores: CheckIgnores,
-) -> buck2_error::Result<FileOpsDelegateWithIgnores> {
-    Ok(dice
-        .compute(&FileOpsKey {
-            cell,
-            check_ignores,
-        })
-        .await?
-        .dupe()?
-        .0)
-}
-
-#[derive(Clone, Dupe, Pagable, Allocative)]
-pub struct FileOpsDelegateWithIgnores {
-    ignores: Option<Arc<CellFileIgnores>>,
-    delegate: Arc<dyn FileOpsDelegate>,
-}
-
-impl PartialEq for FileOpsDelegateWithIgnores {
-    fn eq(&self, other: &Self) -> bool {
-        self.ignores == other.ignores && self.delegate.eq_token() == other.delegate.eq_token()
-    }
-}
-
-impl FileOpsDelegateWithIgnores {
-    pub(crate) fn new(
-        ignores: Option<Arc<CellFileIgnores>>,
-        delegate: Arc<dyn FileOpsDelegate>,
-    ) -> Self {
-        Self { ignores, delegate }
-    }
-}
-
-impl FileOpsDelegateWithIgnores {
-    fn check_ignores(&self, path: &CellRelativePath) -> FileIgnoreResult {
-        match self.ignores.as_ref() {
-            Some(ignores) => ignores.check(path),
-            None => FileIgnoreResult::Ok,
-        }
-    }
-
-    pub async fn read_file_if_exists(
-        &self,
-        ctx: &mut DiceComputations<'_>,
-        path: ICellRelativePath,
-    ) -> buck2_error::Result<Option<String>> {
-        self.delegate.read_file_if_exists(ctx, path).await
-    }
-
-    /// Return the list of file outputs, sorted.
-    pub(crate) async fn read_dir(
-        &self,
-        ctx: &mut DiceComputations<'_>,
-        path: ICellRelativePath,
-    ) -> buck2_error::Result<ReadDirOutput> {
-        // TODO(cjhopman): This should also probably verify that the parent chain is not ignored.
-        self.check_ignores(path.as_ref()).into_result()?;
-
-        let entries = self.delegate.read_dir(ctx, path).await?;
-
-        let is_ignored = |file_name: &str| {
-            let mut cell_relative_path_buf;
-            let cell_relative_path: &str = if path.is_empty() {
-                file_name
-            } else {
-                cell_relative_path_buf =
-                    String::with_capacity(path.as_str().len() + 1 + file_name.len());
-                cell_relative_path_buf.push_str(path.as_str());
-                cell_relative_path_buf.push('/');
-                cell_relative_path_buf.push_str(file_name);
-                &cell_relative_path_buf
-            };
-
-            let cell_relative_path = CellRelativePath::unchecked_new(cell_relative_path);
-            let is_ignored = self.check_ignores(cell_relative_path).is_ignored();
-            buck2_error::Ok(is_ignored)
-        };
-
-        // Filter out any entries that are ignored. Input is sorted; we only
-        // remove entries, never reorder, so the output stays sorted. Defer
-        // allocating a builder until we encounter the first ignored entry, so
-        // that the common no-ignored-files case can reuse the existing alloc.
-        let mut builder: Option<PackedStringSliceBuilder<FileName, FileType>> = None;
-        for (idx, (file_name, file_type)) in entries.iter_with_tag().enumerate() {
-            if is_ignored(file_name.as_str())? {
-                builder.get_or_insert_with(|| {
-                    let mut b = PackedStringSliceBuilder::with_capacity(entries.len() - 1);
-                    for (fname, ftype) in entries.iter_with_tag().take(idx) {
-                        b.push(fname, ftype);
-                    }
-                    b
-                });
-                continue;
-            }
-            if let Some(b) = builder.as_mut() {
-                b.push(file_name, file_type);
-            }
-        }
-        let included = match builder {
-            Some(b) => b.build_sorted(),
-            None => entries,
-        };
-        Ok(ReadDirOutput { included })
-    }
-
-    pub(crate) async fn exists_matching_exact_case(
-        &self,
-        path: ICellRelativePath,
-        dice: &mut DiceComputations<'_>,
-    ) -> buck2_error::Result<bool> {
-        if self.check_ignores(path.as_ref()).is_ignored() {
-            return Ok(false);
-        }
-
-        self.delegate.exists_matching_exact_case(dice, path).await
-    }
-
-    pub async fn read_path_metadata_if_exists(
-        &self,
-        ctx: &mut DiceComputations<'_>,
-        path: ICellRelativePath,
-    ) -> buck2_error::Result<Option<RawPathMetadata>> {
-        self.delegate.read_path_metadata_if_exists(ctx, path).await
-    }
-
-    pub async fn is_ignored(
-        &self,
-        path: &CellRelativePath,
-    ) -> buck2_error::Result<FileIgnoreResult> {
-        Ok(self.check_ignores(path))
+) -> buck2_error::Result<Option<Arc<dyn FileOpsDelegate>>> {
+    match cells.get(cell)?.external() {
+        Some(origin) => Ok(Some(
+            EXTERNAL_CELLS_IMPL
+                .get()?
+                .get_file_ops_delegate(ctx, cell, origin.dupe())
+                .await?,
+        )),
+        None => Ok(None),
     }
 }

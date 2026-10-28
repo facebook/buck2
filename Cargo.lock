@@ -2000,7 +2000,6 @@ dependencies = [
  "buck2_util",
  "buck2_wrapper_common",
  "bytes",
- "cmp_any",
  "compact_str",
  "ctor",
  "derivative",

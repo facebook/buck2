@@ -51,9 +51,7 @@ impl FileOps for DiceFileOps<'_, '_> {
     }
 
     async fn read_dir(&self, path: CellPath) -> buck2_error::Result<ReadDirOutput> {
-        DiceFileComputations::read_dir(&mut self.0.get(), path)
-            .await
-            .map(Dupe::dupe)
+        DiceFileComputations::read_dir(&mut self.0.get(), path).await
     }
 
     async fn read_path_metadata_if_exists(

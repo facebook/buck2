@@ -31,7 +31,7 @@ class DumpTest(BuckTestCase):
 
         nodes = gzip.open(f"{file_path}/nodes.gz", "r").read().decode()
         assert "BuildDataKey" in nodes
-        assert "FileOpsKey" in nodes
+        assert "IoReadDirKey" in nodes
 
         edges = gzip.open(f"{file_path}/edges.gz", "r").read().decode()
         print(edges)
