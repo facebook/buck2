@@ -53,6 +53,7 @@ use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::materialize::materializer::ReadLease;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
+use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_hash::BuckMutMap;
 use buck2_util::arc_str::PackedStringSlice;
@@ -362,7 +363,7 @@ impl FileOpsDelegate for GitFileOpsDelegate {
         &self,
         _ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
-    ) -> buck2_error::Result<PackedStringSlice<str, FileType>> {
+    ) -> buck2_error::Result<PackedStringSlice<FileName, FileType>> {
         let project_path = self.resolve(path);
         let entries = (&self.io as &dyn IoProvider)
             .read_dir(project_path)
@@ -372,7 +373,7 @@ impl FileOpsDelegate for GitFileOpsDelegate {
 
         // Pack into a sorted compact representation. `read_dir` is not
         // guaranteed to return entries in any particular order.
-        let mut builder: PackedStringSliceBuilder<str, FileType> =
+        let mut builder: PackedStringSliceBuilder<FileName, FileType> =
             PackedStringSliceBuilder::with_capacity(entries.len());
         for e in &entries {
             builder.push(&e.file_name, e.file_type);

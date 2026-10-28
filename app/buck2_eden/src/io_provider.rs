@@ -24,6 +24,7 @@ use buck2_common::io::IoProvider;
 use buck2_common::io::ReadDirOutcome;
 use buck2_common::io::fs::FsIoProvider;
 use buck2_common::io::fs::ReadUncheckedOptions;
+use buck2_common::io::report_invalid_file_names;
 use buck2_core;
 use buck2_core::buck2_env;
 use buck2_core::fs::project::ProjectRoot;
@@ -33,6 +34,7 @@ use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
 use buck2_error::ErrorTag;
+use buck2_fs::paths::file_name::FileNameBuf;
 use compact_str::CompactString;
 use dupe::Dupe;
 use edenfs::FileAttributes;
@@ -317,51 +319,56 @@ impl EdenIoProvider {
 
         tracing::debug!("readdir({}): {} entries", path, data.len());
 
-        let entries = data
-            .into_iter()
-            .map(|(file_name, attrs)| {
-                let file_name = CompactString::from_utf8(file_name)
-                    .buck_error_context("Filename is not UTF-8")?;
+        let mut entries = Vec::with_capacity(data.len());
+        let mut invalid_names = Vec::new();
+        for (file_name, attrs) in data {
+            let file_name =
+                CompactString::from_utf8(file_name).buck_error_context("Filename is not UTF-8")?;
+            let Ok(file_name) = FileNameBuf::try_from(file_name.clone()) else {
+                invalid_names.push(file_name.into_string());
+                continue;
+            };
 
-                let attr_data = match attrs.into_result() {
-                    Ok(data) => data,
-                    Err(EdenError::PosixError { code, .. }) if code == libc::EACCES => {
-                        // EACCES on per-entry attributes means this is a tented directory --
-                        // tenting is tree-level only in EdenFS, so if a file were tented its
-                        // parent dir would have been restricted instead.
-                        tracing::debug!(
-                            "readdir({}): permission denied on entry `{}`, treating as restricted directory",
-                            path,
-                            file_name
-                        );
-                        return Ok(RawDirEntry {
-                            file_name,
-                            file_type: FileType::Directory,
-                        });
-                    }
-                    Err(e) => return Err(e.into()),
-                };
+            let attr_data = match attrs.into_result() {
+                Ok(data) => data,
+                Err(EdenError::PosixError { code, .. }) if code == libc::EACCES => {
+                    // EACCES on per-entry attributes means this is a tented directory --
+                    // tenting is tree-level only in EdenFS, so if a file were tented its
+                    // parent dir would have been restricted instead.
+                    tracing::debug!(
+                        "readdir({}): permission denied on entry `{}`, treating as restricted directory",
+                        path,
+                        file_name
+                    );
+                    entries.push(RawDirEntry {
+                        file_name,
+                        file_type: FileType::Directory,
+                    });
+                    continue;
+                }
+                Err(e) => return Err(e.into()),
+            };
 
-                let source_control_type = attr_data
-                    .sourceControlType
-                    .internal_error("Missing sourceControlType")?
-                    .into_result()?;
+            let source_control_type = attr_data
+                .sourceControlType
+                .internal_error("Missing sourceControlType")?
+                .into_result()?;
 
-                let file_type = match source_control_type {
-                    SourceControlType::TREE => FileType::Directory,
-                    SourceControlType::REGULAR_FILE | SourceControlType::EXECUTABLE_FILE => {
-                        FileType::File
-                    }
-                    SourceControlType::SYMLINK => FileType::Symlink,
-                    _ => FileType::Unknown,
-                };
+            let file_type = match source_control_type {
+                SourceControlType::TREE => FileType::Directory,
+                SourceControlType::REGULAR_FILE | SourceControlType::EXECUTABLE_FILE => {
+                    FileType::File
+                }
+                SourceControlType::SYMLINK => FileType::Symlink,
+                _ => FileType::Unknown,
+            };
 
-                buck2_error::Ok(RawDirEntry {
-                    file_name,
-                    file_type,
-                })
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+            entries.push(RawDirEntry {
+                file_name,
+                file_type,
+            });
+        }
+        report_invalid_file_names(&path, &invalid_names);
 
         Ok(ReadDirOutcome::Entries(entries))
     }

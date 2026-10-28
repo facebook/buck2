@@ -15,13 +15,25 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
+use buck2_events::dispatch::console_message;
 
 use crate::file_ops::metadata::RawDirEntry;
 use crate::file_ops::metadata::RawPathMetadata;
 use crate::ignores::file_ignores::FileIgnoreReason;
+
+/// Tells the user about directory entries whose names buck2 cannot represent (a `\\` on Linux,
+/// say). Providers leave such entries out of their listings and call this with them.
+pub fn report_invalid_file_names(dir: &ProjectRelativePath, names: &[String]) {
+    for name in names {
+        console_message(format!(
+            "File name `{name}` in `{dir}` is not valid, the entry is ignored"
+        ));
+    }
+}
 
 pub enum ReadDirOutcome {
     Entries(Vec<RawDirEntry>),

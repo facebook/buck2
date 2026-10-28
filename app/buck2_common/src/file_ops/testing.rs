@@ -253,18 +253,9 @@ impl FileOpsDelegate for TestCellFileOps {
         &self,
         _ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
-    ) -> buck2_error::Result<PackedStringSlice<str, FileType>> {
+    ) -> buck2_error::Result<PackedStringSlice<FileName, FileType>> {
         let path = CellPath::new(self.0, path);
-        let included = FileOps::read_dir(&self.1, path).await?.included;
-        // Re-pack as raw `str`-typed since the FileOpsDelegate boundary is
-        // pre-validation. The strings are already valid `FileName`s, so the
-        // delegate's filter pass will accept them all.
-        let mut builder: PackedStringSliceBuilder<str, FileType> =
-            PackedStringSliceBuilder::with_capacity(included.len());
-        for (file_name, file_type) in included.iter_with_tag() {
-            builder.push(file_name.as_str(), file_type);
-        }
-        Ok(builder.build_sorted())
+        Ok(FileOps::read_dir(&self.1, path).await?.included)
     }
 
     async fn read_path_metadata_if_exists(

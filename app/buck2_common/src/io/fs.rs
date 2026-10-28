@@ -28,6 +28,7 @@ use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_path::AbsPath;
 use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_fs::paths::file_name::FileName;
+use buck2_fs::paths::file_name::FileNameBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use compact_str::CompactString;
@@ -47,6 +48,7 @@ use crate::file_ops::metadata::Symlink;
 use crate::file_ops::metadata::TrackedFileDigest;
 use crate::io::IoProvider;
 use crate::io::ReadDirOutcome;
+use crate::io::report_invalid_file_names;
 
 #[derive(Clone, Dupe, Allocative, Pagable)]
 pub struct FsIoProvider {
@@ -122,7 +124,11 @@ fn classify_eden_error(is_eden: bool, path: &AbsPath, e: buck2_error::Error) -> 
     }
 }
 
-fn read_dir_entries(path: &AbsNormPath, is_eden: bool) -> buck2_error::Result<ReadDirOutcome> {
+/// The listing, and the names of entries left out of it for not being valid buck2 file names.
+fn read_dir_entries(
+    path: &AbsNormPath,
+    is_eden: bool,
+) -> buck2_error::Result<(ReadDirOutcome, Vec<String>)> {
     let dir_entries = match fs_util::read_dir(path) {
         Ok(entries) => entries,
         Err(e) if is_eden && e.io_error_kind() == Some(std::io::ErrorKind::PermissionDenied) => {
@@ -130,12 +136,13 @@ fn read_dir_entries(path: &AbsNormPath, is_eden: bool) -> buck2_error::Result<Re
                 "read_dir({}): permission denied on Eden repo, treating as restricted directory",
                 path.display()
             );
-            return Ok(ReadDirOutcome::EdenPermissionDenied);
+            return Ok((ReadDirOutcome::EdenPermissionDenied, Vec::new()));
         }
         Err(e) => return Err(e.categorize_input()),
     };
 
     let mut entries = Vec::new();
+    let mut invalid_names = Vec::new();
 
     for entry in dir_entries {
         let e = entry.buck_error_context("Error accessing directory entry")?;
@@ -143,13 +150,17 @@ fn read_dir_entries(path: &AbsNormPath, is_eden: bool) -> buck2_error::Result<Re
         let file_name = file_name
             .to_str()
             .ok_or_else(|| FsIoError::NotUtf8(file_name.clone()))?;
+        let Ok(file_name) = FileNameBuf::try_from(CompactString::from(file_name)) else {
+            invalid_names.push(file_name.to_owned());
+            continue;
+        };
         entries.push(RawDirEntry {
             file_type: e.file_type()?.into(),
-            file_name: CompactString::from(file_name),
+            file_name,
         });
     }
 
-    Ok(ReadDirOutcome::Entries(entries))
+    Ok((ReadDirOutcome::Entries(entries), invalid_names))
 }
 
 /// i/o operations use tokio's blocking threads to not block the cpu threads on i/o. This avoids a lot of bottlenecks
@@ -187,15 +198,17 @@ impl IoProvider for FsIoProvider {
         static SEMAPHORE: LazyLock<Semaphore> = LazyLock::new(|| Semaphore::new(400));
         let _permit = SEMAPHORE.acquire().await.unwrap();
 
-        let path = self.fs.resolve(&path);
+        let abs_path = self.fs.resolve(&path);
         let is_eden = self.is_eden;
 
-        spawn_blocking(move || {
-            read_dir_entries(&path, is_eden)
-                .map_err(|e| classify_eden_error(is_eden, path.as_abs_path(), e))
+        let (outcome, invalid_names) = spawn_blocking(move || {
+            read_dir_entries(&abs_path, is_eden)
+                .map_err(|e| classify_eden_error(is_eden, abs_path.as_abs_path(), e))
         })
         .await?
-        .buck_error_context("Error listing directory")
+        .buck_error_context("Error listing directory")?;
+        report_invalid_file_names(&path, &invalid_names);
+        Ok(outcome)
     }
 
     async fn read_path_metadata_if_exists_impl(

@@ -199,7 +199,7 @@ class UncategorizedTest(BuckTestCase):
         # Create an invalid file. Build should work.
         invalid.touch()
         output = await buck.build(":root")
-        assert "is not valid. Add the path to" in output.stderr
+        assert "is not valid, the entry is ignored" in output.stderr
 
         # Delete it, build should work.
         invalid.unlink()
@@ -208,7 +208,7 @@ class UncategorizedTest(BuckTestCase):
         # Create an invalid dir. Build should still work.
         invalid_nested.mkdir(parents=True)
         output = await buck.build(":root")
-        assert "is not valid. Add the path to" in output.stderr
+        assert "is not valid, the entry is ignored" in output.stderr
 
         # And delete it. Things should work.
         invalid_nested.rmdir()
@@ -218,7 +218,7 @@ class UncategorizedTest(BuckTestCase):
         # Finally, do an invalid file inside an invalid dir...
         invalid_nested_invalid.mkdir(parents=True)
         output = await buck.build(":root")
-        assert "is not valid. Add the path to" in output.stderr
+        assert "is not valid, the entry is ignored" in output.stderr
 
         # And delete it. Things should again.
         invalid_nested_invalid.rmdir()

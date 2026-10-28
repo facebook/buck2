@@ -309,7 +309,7 @@ impl BundledFileOpsDelegate {
     async fn read_dir(
         &self,
         path: &CellRelativePath,
-    ) -> buck2_error::Result<PackedStringSlice<str, FileType>> {
+    ) -> buck2_error::Result<PackedStringSlice<FileName, FileType>> {
         let dir = match self.get_entry_at_path(path)? {
             DirectoryEntry::Dir(dir) => dir,
             DirectoryEntry::Leaf(_) => {
@@ -317,13 +317,14 @@ impl BundledFileOpsDelegate {
             }
         };
 
-        let mut builder: PackedStringSliceBuilder<str, FileType> = PackedStringSliceBuilder::new();
+        let mut builder: PackedStringSliceBuilder<FileName, FileType> =
+            PackedStringSliceBuilder::new();
         for (name, entry) in dir.entries() {
             let file_type = match entry {
                 DirectoryEntry::Leaf(_) => FileType::File,
                 DirectoryEntry::Dir(_) => FileType::Directory,
             };
-            builder.push(name.as_str(), file_type);
+            builder.push(name, file_type);
         }
         Ok(builder.sort_and_build())
     }
@@ -371,7 +372,7 @@ impl FileOpsDelegate for BundledFileOpsDelegate {
         &self,
         _ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
-    ) -> buck2_error::Result<PackedStringSlice<str, FileType>> {
+    ) -> buck2_error::Result<PackedStringSlice<FileName, FileType>> {
         self.read_dir(path).await
     }
 
@@ -648,7 +649,10 @@ mod tests {
         assert_matches!(root_metadata, RawPathMetadata::Directory);
         let root_entries = ops.read_dir(root).await.unwrap();
         assert_eq!(
-            root_entries.iter_with_tag().collect::<Vec<_>>(),
+            root_entries
+                .iter_with_tag()
+                .map(|(name, file_type)| (name.as_str(), file_type))
+                .collect::<Vec<_>>(),
             vec![
                 (".buckconfig", FileType::File),
                 ("BUCK_TREE", FileType::File),

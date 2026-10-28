@@ -16,6 +16,7 @@ use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
+use buck2_fs::paths::file_name::FileName;
 use buck2_hash::BuckDashMap;
 use buck2_hash::BuckMutSet;
 use buck2_util::arc_str::PackedStringSlice;
@@ -97,7 +98,7 @@ struct IoReadDirKey(CellPath);
 
 #[async_trait]
 impl Key for IoReadDirKey {
-    type Value = buck2_error::Result<PackedStringSlice<str, FileType>>;
+    type Value = buck2_error::Result<PackedStringSlice<FileName, FileType>>;
 
     async fn compute(
         &self,
@@ -127,7 +128,7 @@ impl Key for IoReadDirKey {
 async fn io_read_dir_key_impl(
     ctx: &mut DiceComputations<'_>,
     path: CellPath,
-) -> buck2_error::Result<PackedStringSlice<str, FileType>> {
+) -> buck2_error::Result<PackedStringSlice<FileName, FileType>> {
     let project_path = ctx.get_cell_resolver().await?.resolve_path(path)?;
     let read_dir_cache = ctx
         .per_transaction_data()
@@ -147,7 +148,7 @@ async fn io_read_dir_key_impl(
 
     // Pack into a sorted compact representation. `read_dir` is not guaranteed
     // to return entries in any particular order.
-    let mut builder: PackedStringSliceBuilder<str, FileType> =
+    let mut builder: PackedStringSliceBuilder<FileName, FileType> =
         PackedStringSliceBuilder::with_capacity(entries.len());
     for e in &entries {
         builder.push(&e.file_name, e.file_type);
@@ -244,7 +245,7 @@ impl Key for IoExistsMatchingExactCaseKey {
         // for this
         let entry = self.0.path().file_name().unwrap();
         let dir = io_read_dir_key_impl(ctx, dir).await?;
-        Ok(dir.contains(entry.as_str()))
+        Ok(dir.contains(entry))
     }
 
     fn equality_behavior() -> EqualityBehavior<Self::Value> {
@@ -285,7 +286,7 @@ impl FileOpsDelegate for IoFileOpsDelegate {
         &self,
         ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
-    ) -> buck2_error::Result<PackedStringSlice<str, FileType>> {
+    ) -> buck2_error::Result<PackedStringSlice<FileName, FileType>> {
         let path = CellPath::new(self.cell, path);
         ctx.compute(&IoReadDirKey(path)).await?.dupe()
     }
@@ -315,7 +316,7 @@ impl FileOpsDelegate for IoFileOpsDelegate {
     }
 }
 
-struct ReadDirCache(BuckDashMap<ProjectRelativePathBuf, PackedStringSlice<str, FileType>>);
+struct ReadDirCache(BuckDashMap<ProjectRelativePathBuf, PackedStringSlice<FileName, FileType>>);
 
 pub fn initialize_read_dir_cache(data: &mut UserComputationData) {
     data.data.set(ReadDirCache(Default::default()));

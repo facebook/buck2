@@ -15,7 +15,6 @@ use async_trait::async_trait;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::unchecked_cell_rel_path::UncheckedCellRelativePath;
-use buck2_events::dispatch::console_message;
 use buck2_fs::paths::file_name::FileName;
 use buck2_util::arc_str::PackedStringSlice;
 use buck2_util::arc_str::PackedStringSliceBuilder;
@@ -78,14 +77,12 @@ pub trait FileOpsDelegate: PagableTagged + Allocative + Send + Sync {
         path: &'async_trait CellRelativePath,
     ) -> buck2_error::Result<Option<String>>;
 
-    /// Return the list of file outputs, sorted by file name. Names are not
-    /// validated as [`FileName`]s — invalid names get filtered out by
-    /// [`FileOpsDelegateWithIgnores::read_dir`].
+    /// Return the list of file outputs, sorted by file name.
     async fn read_dir(
         &self,
         ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
-    ) -> buck2_error::Result<PackedStringSlice<str, FileType>>;
+    ) -> buck2_error::Result<PackedStringSlice<FileName, FileType>>;
 
     async fn read_path_metadata_if_exists(
         &self,
@@ -239,22 +236,14 @@ impl FileOpsDelegateWithIgnores {
             buck2_error::Ok(is_ignored)
         };
 
-        // Filter out any entries that are ignored, and validate names as
-        // `FileName`s. Input is sorted; we only remove entries, never reorder,
-        // so the output stays sorted.
+        // Filter out any entries that are ignored. Input is sorted; we only
+        // remove entries, never reorder, so the output stays sorted.
         let mut builder: PackedStringSliceBuilder<FileName, FileType> =
             PackedStringSliceBuilder::with_capacity(entries.len());
-        for (file_name_str, file_type) in entries.iter_with_tag() {
-            if is_ignored(file_name_str)? {
+        for (file_name, file_type) in entries.iter_with_tag() {
+            if is_ignored(file_name.as_str())? {
                 continue;
             }
-            let Ok(file_name) = <&FileName>::try_from(file_name_str) else {
-                console_message(format!(
-                    "File name `{file_name_str}` is not valid. \
-                            Add the path to `project.ignore` to mute this message",
-                ));
-                continue;
-            };
             builder.push(file_name, file_type);
         }
         Ok(ReadDirOutput {
