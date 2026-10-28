@@ -89,7 +89,7 @@ use crate::materializers::deferred::clean_stale::CleanFailure;
 use crate::materializers::deferred::clean_stale::CleanResult;
 use crate::materializers::deferred::clean_stale::CleanStaleArtifactsCommand;
 use crate::materializers::deferred::clean_stale::CleanStaleConfig;
-use crate::materializers::deferred::clean_stale::default_root_abs_path;
+use crate::materializers::deferred::clean_stale::disk_space_probe_path;
 use crate::materializers::deferred::extension::ExtensionCommand;
 use crate::materializers::deferred::io_handler::IoHandler;
 use crate::materializers::deferred::join_all_existing_futs;
@@ -120,8 +120,8 @@ pub(super) struct DeferredMaterializerCommandProcessor<T: 'static> {
     access_times_buffer: Option<BuckMutSet<ProjectRelativePathBuf>>,
     verbose_materializer_log: bool,
     daemon_dispatcher: EventDispatcher,
-    /// Filesystem root used for clean-stale `disk_space_stats` lookups.
-    pub(super) root_abs_path: Option<Arc<AbsPathBuf>>,
+    /// Buck-out path used for clean-stale `disk_space_stats` lookups.
+    pub(super) buck_out_abs_path: Option<Arc<AbsPathBuf>>,
     pub(super) clean_stale_config: CleanStaleConfig,
     /// Minimum remaining CAS TTL required before local contents may be discarded.
     /// `None` when periodic TTL refresh cannot preserve a remotely-backed artifact.
@@ -433,7 +433,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         let ttl_refresh_history = Vec::new();
         let ttl_refresh_instance = None;
         let version_tracker = VersionTracker::new();
-        let root_abs_path = default_root_abs_path();
+        let buck_out_abs_path = disk_space_probe_path(io.fs(), io.buck_out_path());
         Self {
             io,
             sqlite_db,
@@ -449,7 +449,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             access_times_buffer,
             verbose_materializer_log,
             daemon_dispatcher,
-            root_abs_path,
+            buck_out_abs_path,
             clean_stale_config,
             rematerialization_ttl,
             background_cleanup_gate,
@@ -478,7 +478,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
     ) -> CleanStaleArtifactsCommand {
         CleanStaleArtifactsCommand::configured(
             &self.clean_stale_config,
-            self.root_abs_path.dupe(),
+            self.buck_out_abs_path.dupe(),
             dispatcher,
             dry_run,
             tracked_only,

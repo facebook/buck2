@@ -452,6 +452,8 @@ impl<T: IoHandler> DeferredMaterializerAccessor<T> {
                     adaptive_min_ttl,
                     adaptive_unmaterialize_active,
                     dispatcher,
+                    // Resolved to the processor's buck-out volume at execution.
+                    None,
                 ),
             ),
         };

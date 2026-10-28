@@ -1254,8 +1254,6 @@ async fn test_clean_stale_dry_run_deletes_nothing() -> buck2_error::Result<()> {
     .await
 }
 
-// The low-disk policy looks at `/` (`default_root_abs_path`), which Windows has not.
-#[cfg(unix)]
 #[tokio::test]
 async fn test_an_active_root_stays_when_its_upload_fails() -> buck2_error::Result<()> {
     use crate::materializers::deferred::clean_stale::LowDiskCleanConfig;

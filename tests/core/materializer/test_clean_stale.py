@@ -233,7 +233,7 @@ class CleanStaleTest(BuckTestCase):
         await buck.clean("--stale")
         assert not output.exists()
 
-    @buck_test(skip_for_os=["windows"])
+    @buck_test()
     async def test_clean_stale_uses_configured_adaptive_policy(
         self, buck: Buck
     ) -> None:
@@ -269,7 +269,7 @@ clean_stale_dry_run = true
         await buck.clean("--stale")
         assert output.exists()
 
-    @buck_test(skip_for_os=["windows"])
+    @buck_test()
     async def test_explicit_clean_stale_duration_ignores_configured_adaptive_policy(
         self,
         buck: Buck,
@@ -333,7 +333,7 @@ clean_stale_period_hours = 0.0001
         # Original output should be cleaned.
         assert not output.exists()
 
-    @buck_test(skip_for_os=["windows"])
+    @buck_test()
     async def test_clean_stale_scheduled_does_not_run_during_command(
         self, buck: Buck
     ) -> None:
@@ -351,7 +351,7 @@ clean_stale_period_hours = 0.0001
         output = result.get_build_report().output_for_target("root//:slow_write")
         assert output.read_text().strip() == "finished"
 
-    @buck_test(skip_for_os=["windows"])
+    @buck_test()
     async def test_clean_stale_scheduled_high_disk_usage(self, buck: Buck) -> None:
         # Need to write to .buckconfig instead of passing cmd line args because
         # the config used when creating daemon state does not include cmd line args (but maybe it should).
@@ -383,7 +383,7 @@ clean_stale_low_disk_artifact_ttl_hours = 0.0
         # Original output should be cleaned.
         assert not output.exists()
 
-    @buck_test(skip_for_os=["windows"])
+    @buck_test()
     async def test_clean_stale_scheduled_adaptive_high_disk_usage(
         self, buck: Buck
     ) -> None:
@@ -414,7 +414,7 @@ clean_stale_low_disk_adaptive_min_ttl_hours = 0
         time.sleep(3)
         assert not output.exists()
 
-    @buck_test(skip_for_os=["windows"])
+    @buck_test()
     async def test_clean_stale_scheduled_adaptive_threshold_not_tripped(
         self, buck: Buck
     ) -> None:
@@ -444,7 +444,7 @@ clean_stale_low_disk_adaptive_min_ttl_hours = 0
         time.sleep(3)
         assert output.exists()
 
-    @buck_test(skip_for_os=["windows"])
+    @buck_test()
     async def test_clean_stale_scheduled_adaptive_min_ttl_protects_recent(
         self,
         buck: Buck,
@@ -476,7 +476,7 @@ clean_stale_low_disk_adaptive_min_ttl_hours = 24
         time.sleep(3)
         assert output.exists()
 
-    @buck_test(skip_for_os=["windows"])
+    @buck_test()
     async def test_clean_stale_cli_adaptive_promotes_retained(self, buck: Buck) -> None:
         # `--stale=10000d` alone would not clean a freshly-built artifact, but
         # `--adaptive-low-disk-threshold=100.0` always trips the adaptive branch
@@ -497,7 +497,7 @@ clean_stale_low_disk_adaptive_min_ttl_hours = 24
         assert "Adaptive low-disk promotion enabled at 100%" in res.stderr
         assert not output.exists()
 
-    @buck_test(skip_for_os=["windows"])
+    @buck_test()
     async def test_clean_stale_cli_adaptive_min_ttl_protects_recent(
         self, buck: Buck
     ) -> None:
@@ -516,7 +516,7 @@ clean_stale_low_disk_adaptive_min_ttl_hours = 24
         )
         assert output.exists()
 
-    @buck_test(skip_for_os=["windows"], skip_for_materializer=["v2"])
+    @buck_test(skip_for_materializer=["v2"])
     async def test_adaptive_unmaterializes_active_remote_intermediate(
         self,
         buck: Buck,
@@ -542,7 +542,7 @@ clean_stale_low_disk_adaptive_min_ttl_hours = 24
             rel_path="golden/test_adaptive_unmaterializes_active_remote_intermediate.golden.txt",
         )
 
-    @buck_test(skip_for_os=["windows"], skip_for_materializer=["v2"])
+    @buck_test(skip_for_materializer=["v2"])
     async def test_adaptive_unmaterializes_active_write_intermediate(
         self,
         buck: Buck,
@@ -573,7 +573,7 @@ clean_stale_low_disk_adaptive_min_ttl_hours = 24
             rel_path="golden/test_adaptive_unmaterializes_active_write_intermediate.golden.txt",
         )
 
-    @buck_test(skip_for_os=["windows"], skip_for_materializer=["v2"])
+    @buck_test(skip_for_materializer=["v2"])
     async def test_adaptive_unmaterialization_fails_for_modified_local_intermediate(
         self,
         buck: Buck,
@@ -606,7 +606,7 @@ clean_stale_low_disk_adaptive_min_ttl_hours = 24
         assert "\tmaterialized" in await audit_entry(buck, "__write__")
         assert artifact.read_text(encoding="utf-8") == "EDITED"
 
-    @buck_test(skip_for_os=["windows"], skip_for_materializer=["v2"])
+    @buck_test(skip_for_materializer=["v2"])
     async def test_adaptive_unmaterializes_active_local_copy_intermediate(
         self,
         buck: Buck,
@@ -635,7 +635,7 @@ clean_stale_low_disk_adaptive_min_ttl_hours = 24
             rel_path="golden/test_adaptive_unmaterializes_active_local_copy_intermediate.golden.txt",
         )
 
-    @buck_test(skip_for_os=["windows"], skip_for_materializer=["v2"])
+    @buck_test(skip_for_materializer=["v2"])
     async def test_adaptive_unmaterializes_active_local_action_intermediate(
         self,
         buck: Buck,
@@ -663,7 +663,7 @@ clean_stale_low_disk_adaptive_min_ttl_hours = 24
             rel_path="golden/test_adaptive_unmaterializes_active_local_action_intermediate.golden.txt",
         )
 
-    @buck_test(skip_for_os=["windows"], skip_for_materializer=["v2"])
+    @buck_test(skip_for_materializer=["v2"])
     async def test_adaptive_does_not_unmaterialize_active_final_output(
         self, buck: Buck
     ) -> None:
@@ -679,7 +679,7 @@ clean_stale_low_disk_adaptive_min_ttl_hours = 24
             rel_path="golden/test_adaptive_does_not_unmaterialize_active_final_output.golden.txt",
         )
 
-    @buck_test(skip_for_os=["windows"], skip_for_materializer=["v2"])
+    @buck_test(skip_for_materializer=["v2"])
     async def test_adaptive_does_not_unmaterialize_when_disabled(
         self, buck: Buck
     ) -> None:

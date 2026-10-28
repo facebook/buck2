@@ -85,7 +85,7 @@ use crate::materializers::deferred::clean_stale::TrackedState;
 use crate::materializers::deferred::clean_stale::apply_adaptive_low_disk;
 use crate::materializers::deferred::clean_stale::clean_artifact;
 use crate::materializers::deferred::clean_stale::create_result;
-use crate::materializers::deferred::clean_stale::default_root_abs_path;
+use crate::materializers::deferred::clean_stale::disk_space_probe_path;
 use crate::materializers::deferred::clean_stale::get_size;
 use crate::materializers::deferred::clean_stale::initial_stats;
 use crate::materializers::deferred::clean_stale::rematerialization_deadline;
@@ -115,7 +115,7 @@ pub(crate) struct Cleaner<T> {
     shared: Arc<Shared>,
     config: CleanStaleConfig,
     rematerialization_ttl: Option<SignedDuration>,
-    root_abs_path: Option<Arc<AbsPathBuf>>,
+    buck_out_abs_path: Option<Arc<AbsPathBuf>>,
     daemon_dispatcher: EventDispatcher,
     /// When this daemon started; what it has read or written since is active.
     started: Timestamp,
@@ -136,6 +136,7 @@ impl<T: IoHandler> Cleaner<T> {
         daemon_dispatcher: EventDispatcher,
         store: &'static BlobStore,
     ) -> Arc<Self> {
+        let buck_out_abs_path = disk_space_probe_path(io.fs(), io.buck_out_path());
         Arc::new(Self {
             io,
             blocking_executor,
@@ -145,7 +146,7 @@ impl<T: IoHandler> Cleaner<T> {
             // The daemon-wide walk refreshes CAS TTLs under this core whatever
             // `buck2.ttl_refresh_enabled` says of the deferred core's own refresher.
             rematerialization_ttl: SignedDuration::try_from(configs.ttl_refresh.frequency).ok(),
-            root_abs_path: default_root_abs_path(),
+            buck_out_abs_path,
             daemon_dispatcher,
             started: Timestamp::now(),
             gate: Arc::new(BackgroundCleanupGate::default()),
@@ -176,7 +177,7 @@ impl<T: IoHandler> Cleaner<T> {
                 };
                 let command = CleanStaleArtifactsCommand::configured(
                     &cleaner.config,
-                    cleaner.root_abs_path.dupe(),
+                    cleaner.buck_out_abs_path.dupe(),
                     cleaner.daemon_dispatcher.dupe(),
                     false,
                     false,
@@ -207,7 +208,7 @@ impl<T: IoHandler> Cleaner<T> {
         let command = CleanStaleArtifactsCommand::from_args(
             args,
             &self.config,
-            self.root_abs_path.dupe(),
+            self.buck_out_abs_path.dupe(),
             get_dispatcher(),
         );
         self.run(command)
@@ -389,8 +390,8 @@ impl<T: IoHandler> Cleaner<T> {
 
         let mut record_unmaterialization_ineligibility = false;
         if let Some(params) = command.adaptive_low_disk.as_ref() {
-            adaptive_outcome = match self.root_abs_path.as_ref() {
-                Some(root_abs_path) => match disk_space_stats(&**root_abs_path) {
+            adaptive_outcome = match self.buck_out_abs_path.as_ref() {
+                Some(buck_out_abs_path) => match disk_space_stats(&**buck_out_abs_path) {
                     Ok(disk_stats) => {
                         let mut params = params.clone();
                         params.unmaterialize_active &= self.rematerialization_ttl.is_some();

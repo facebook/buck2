@@ -1888,7 +1888,6 @@ pub(crate) mod state_machine {
         .await
     }
 
-    #[cfg(unix)]
     fn explicit_clean_stale_args(tracked_only: bool) -> CleanStaleArtifactsArgs {
         CleanStaleArtifactsArgs {
             policy: CleanStaleArtifactsPolicy::Explicit {
@@ -1902,7 +1901,6 @@ pub(crate) mod state_machine {
         }
     }
 
-    #[cfg(unix)]
     #[tokio::test]
     async fn test_clean_stale_tracked_only_with_file_at_tracked_dir() -> buck2_error::Result<()> {
         ignore_stack_overflow_checks_for_future(async {
@@ -1936,7 +1934,6 @@ pub(crate) mod state_machine {
         .await
     }
 
-    #[cfg(unix)]
     #[tokio::test]
     async fn test_clean_stale_tracked_only_with_symlink_at_tracked_dir() -> buck2_error::Result<()>
     {

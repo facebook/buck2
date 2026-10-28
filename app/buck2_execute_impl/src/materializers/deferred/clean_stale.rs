@@ -46,7 +46,6 @@ use buck2_execute::materialize::materializer::CleanStaleArtifactsPolicy;
 use buck2_fs::fs_util;
 use buck2_fs::fs_util::disk_space_stats;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
-use buck2_fs::paths::abs_path::AbsPath;
 use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::file_name::FileNameBuf;
@@ -99,11 +98,10 @@ pub struct CleanStaleArtifactsCommand {
     /// rises above the threshold.
     pub adaptive_low_disk: Option<AdaptiveLowDiskParams>,
     pub unmaterialize_upload: Option<UnmaterializationUploadConfig>,
-    /// Root path for `disk_space_stats` during the adaptive promotion pass.
-    /// Constructed once by the caller and shared via `Arc::dupe`. `None` when no
-    /// valid filesystem root could be constructed (e.g. on Windows, where `/` is
-    /// not an absolute path); the adaptive pass is then skipped.
-    pub root_abs_path: Option<Arc<AbsPathBuf>>,
+    /// Buck-out path probed by `disk_space_stats` during the adaptive promotion pass.
+    /// `disk_space_stats` accepts any path on the volume, so probing buck-out
+    /// measures the volume that holds the artifacts on every platform.
+    pub buck_out_abs_path: Option<Arc<AbsPathBuf>>,
     pub trigger: Trigger,
     pub policy_mode: PolicyMode,
 }
@@ -135,7 +133,7 @@ impl CleanStaleArtifactsCommand {
     /// TTL, or the low-disk policy when the disk is at or under its threshold.
     pub(crate) fn configured(
         config: &CleanStaleConfig,
-        root_abs_path: Option<Arc<AbsPathBuf>>,
+        buck_out_abs_path: Option<Arc<AbsPathBuf>>,
         dispatcher: EventDispatcher,
         dry_run: bool,
         tracked_only: bool,
@@ -144,7 +142,7 @@ impl CleanStaleArtifactsCommand {
         let (artifact_ttl, adaptive_low_disk) = resolve_clean_stale_params(
             config.low_disk.as_ref(),
             config.artifact_ttl,
-            root_abs_path.as_deref(),
+            buck_out_abs_path.as_deref(),
         );
         Self {
             keep_since_time: Timestamp::now()
@@ -155,7 +153,7 @@ impl CleanStaleArtifactsCommand {
             dispatcher,
             adaptive_low_disk,
             unmaterialize_upload: config.unmaterialize_upload.clone(),
-            root_abs_path,
+            buck_out_abs_path,
             trigger,
             policy_mode: match config.low_disk.as_ref().map(|config| &config.mode) {
                 None => PolicyMode::ConfiguredTtl,
@@ -175,6 +173,7 @@ impl CleanStaleArtifactsCommand {
         adaptive_min_ttl: Option<Duration>,
         adaptive_unmaterialize_active: bool,
         dispatcher: EventDispatcher,
+        buck_out_abs_path: Option<Arc<AbsPathBuf>>,
     ) -> Self {
         let adaptive_low_disk = adaptive_low_disk_threshold.map(|threshold_percent| {
             let min_ttl = adaptive_min_ttl.unwrap_or_else(|| Duration::from_secs(12 * 60 * 60));
@@ -195,7 +194,7 @@ impl CleanStaleArtifactsCommand {
             dispatcher,
             adaptive_low_disk,
             unmaterialize_upload: None,
-            root_abs_path: default_root_abs_path(),
+            buck_out_abs_path,
             trigger: Trigger::ManualExplicit,
             policy_mode: if adaptive_low_disk_threshold.is_some() {
                 PolicyMode::ExplicitAdaptive
@@ -211,13 +210,13 @@ impl CleanStaleArtifactsCommand {
     pub(crate) fn from_args(
         args: CleanStaleArtifactsArgs,
         config: &CleanStaleConfig,
-        root_abs_path: Option<Arc<AbsPathBuf>>,
+        buck_out_abs_path: Option<Arc<AbsPathBuf>>,
         dispatcher: EventDispatcher,
     ) -> Self {
         match args.policy {
             CleanStaleArtifactsPolicy::Configured => Self::configured(
                 config,
-                root_abs_path,
+                buck_out_abs_path,
                 dispatcher,
                 args.dry_run,
                 args.tracked_only,
@@ -236,22 +235,26 @@ impl CleanStaleArtifactsCommand {
                 adaptive_min_ttl,
                 adaptive_unmaterialize_active,
                 dispatcher,
+                buck_out_abs_path,
             ),
         }
     }
 }
 
-/// The filesystem root whose free space the low-disk policy looks at. `None` where `/` is not an
-/// absolute path (Windows); the adaptive pass is then skipped.
-pub(crate) fn default_root_abs_path() -> Option<Arc<AbsPathBuf>> {
-    AbsPath::new("/").ok().map(|p| Arc::new(p.to_owned()))
+/// Path probed by `disk_space_stats` for the low-disk policy: the buck-out
+/// directory itself. Any path on the volume reports that volume's space.
+pub(crate) fn disk_space_probe_path(
+    fs: &ProjectRoot,
+    buck_out: &ProjectRelativePath,
+) -> Option<Arc<AbsPathBuf>> {
+    Some(Arc::new(fs.resolve(buck_out).into_abs_path_buf()))
 }
 
 /// The TTL and the adaptive parameters a run uses under `low_disk`, given the disk as it is now.
 pub(crate) fn resolve_clean_stale_params(
     low_disk: Option<&LowDiskCleanConfig>,
     default_ttl: Duration,
-    root_abs_path: Option<&AbsPathBuf>,
+    buck_out_abs_path: Option<&AbsPathBuf>,
 ) -> (Duration, Option<AdaptiveLowDiskParams>) {
     let Some(cfg) = low_disk else {
         return (default_ttl, None);
@@ -278,10 +281,10 @@ pub(crate) fn resolve_clean_stale_params(
             }),
         ),
         LowDiskCleanMode::Fixed(duration) => {
-            let Some(root_abs_path) = root_abs_path else {
+            let Some(buck_out_abs_path) = buck_out_abs_path else {
                 return (default_ttl, None);
             };
-            let disk_stats = match disk_space_stats(root_abs_path) {
+            let disk_stats = match disk_space_stats(buck_out_abs_path) {
                 Ok(stats) => stats,
                 Err(e) => {
                     soft_error_or_panic!("disk_space_stats", e);
@@ -494,7 +497,12 @@ impl<T: IoHandler> ExtensionCommand<T> for CleanStaleArtifactsExtensionCommand {
                 tracked_only,
                 Trigger::ManualConfigured,
             ),
-            CleanStaleArtifactsExtensionCommandKind::Explicit(cmd) => cmd,
+            CleanStaleArtifactsExtensionCommandKind::Explicit(mut cmd) => {
+                // The sender-side constructor has no `IoHandler`, so it cannot
+                // resolve buck-out; the processor's volume is authoritative.
+                cmd.buck_out_abs_path = processor.buck_out_abs_path.dupe();
+                cmd
+            }
         };
         let trace_id = cmd.dispatcher.trace_id().clone();
         let daemon_id = cmd.dispatcher.daemon_id().clone();
@@ -762,8 +770,8 @@ impl CleanStaleArtifactsCommand {
         };
 
         if let Some(params) = self.adaptive_low_disk.as_ref() {
-            adaptive_outcome = match self.root_abs_path.as_ref() {
-                Some(root_abs_path) => match disk_space_stats(&**root_abs_path) {
+            adaptive_outcome = match self.buck_out_abs_path.as_ref() {
+                Some(buck_out_abs_path) => match disk_space_stats(&**buck_out_abs_path) {
                     Ok(disk_stats) => {
                         let mut params = params.clone();
                         params.unmaterialize_active &= rematerialization_ttl.is_some();
@@ -3129,7 +3137,6 @@ mod tests {
         );
     }
 
-    #[cfg(unix)]
     #[test]
     fn get_size_does_not_follow_symlinks() {
         use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -3143,7 +3150,11 @@ mod tests {
         let dir = buck_out.path().join("dir");
         std::fs::create_dir(&dir).unwrap();
         std::fs::write(dir.join("file"), b"abc").unwrap();
-        std::os::unix::fs::symlink(outside.path(), dir.join("link")).unwrap();
+        buck2_fs::fs_util::symlink(
+            outside.path(),
+            buck2_fs::paths::abs_path::AbsPath::new(&dir.join("link")).unwrap(),
+        )
+        .unwrap();
         let link_len = std::fs::symlink_metadata(dir.join("link")).unwrap().len();
 
         let mut stats = CleanStaleStats::default();
