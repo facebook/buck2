@@ -18,6 +18,8 @@ import org.jetbrains.kotlin.buildtools.api.ExperimentalBuildToolsApi
 import org.jetbrains.kotlin.buildtools.api.KotlinLogger
 import org.jetbrains.kotlin.buildtools.api.ProjectId
 
+// Legacy BTA API is DEPRECATION_ERROR from Kotlin 2.4; KotlinToolchains replaces it.
+@Suppress("DEPRECATION_ERROR")
 @OptIn(ExperimentalBuildToolsApi::class)
 internal class KotlinCompilationService(
     private val compilationService: CompilationService,

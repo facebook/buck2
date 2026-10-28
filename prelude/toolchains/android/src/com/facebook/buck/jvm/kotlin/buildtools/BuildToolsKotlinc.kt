@@ -39,6 +39,8 @@ import org.jetbrains.kotlin.buildtools.api.ProjectId
 @OptIn(ExperimentalBuildToolsApi::class)
 class BuildToolsKotlinc : Kotlinc {
 
+  // Legacy BTA API is DEPRECATION_ERROR from Kotlin 2.4; KotlinToolchains replaces it.
+  @Suppress("DEPRECATION_ERROR")
   override fun buildWithClasspath(
       context: IsolatedExecutionContext,
       invokingRule: BuildTargetValue,

@@ -21,6 +21,8 @@ import org.jetbrains.kotlin.buildtools.api.ExperimentalBuildToolsApi
 import org.jetbrains.kotlin.buildtools.api.jvm.ClasspathSnapshotBasedIncrementalCompilationApproachParameters
 import org.jetbrains.kotlin.buildtools.api.jvm.JvmCompilationConfiguration
 
+// Legacy BTA API is DEPRECATION_ERROR from Kotlin 2.4; KotlinToolchains replaces it.
+@Suppress("DEPRECATION_ERROR")
 @OptIn(ExperimentalBuildToolsApi::class)
 internal class JvmCompilationConfigurationFactory(
     private val compilationService: CompilationService,

@@ -38,6 +38,8 @@ import org.junit.Rule
 import org.junit.Test
 import org.mockito.kotlin.mock
 
+// Legacy BTA API is DEPRECATION_ERROR from Kotlin 2.4; KotlinToolchains replaces it.
+@Suppress("DEPRECATION_ERROR")
 @OptIn(ExperimentalBuildToolsApi::class)
 internal class KotlinCompilationServiceTest {
 
