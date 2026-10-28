@@ -254,6 +254,7 @@ impl Key for PathCheckKey {
 mod tests {
     use std::sync::Arc;
 
+    use assert_matches::assert_matches;
     use buck2_core::cells::CellResolver;
     use buck2_core::cells::cell_path::CellPath;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
@@ -275,6 +276,8 @@ mod tests {
     use crate::file_ops::dice::DiceFileComputations;
     use crate::file_ops::io::FileChangeTracker;
     use crate::file_ops::io::initialize_read_dir_cache;
+    use crate::file_ops::metadata::RawPathMetadata;
+    use crate::file_ops::metadata::RawSymlink;
     use crate::ignores::ignore_set::IgnoreSet;
     use crate::ignores::ignore_set::SetIgnoreSet;
 
@@ -346,14 +349,25 @@ mod tests {
             Ok(updater.commit().await)
         }
 
+        /// Writes the target verbatim; `fs_util::symlink` makes it absolute on Windows, and
+        /// the tests that look at the target want a relative one to stay relative.
         fn symlink(&self, link: &str, target: &str) {
-            fs_util::symlink(
-                target,
-                self.fs
-                    .path()
-                    .resolve(ProjectRelativePath::new(link).unwrap()),
-            )
-            .unwrap();
+            let link = self
+                .fs
+                .path()
+                .resolve(ProjectRelativePath::new(link).unwrap());
+            #[cfg(unix)]
+            std::os::unix::fs::symlink(target, &link).unwrap();
+            #[cfg(windows)]
+            {
+                // Windows symlinks are typed; a dangling one is a file link.
+                let is_dir = link.as_path().parent().unwrap().join(target).is_dir();
+                if is_dir {
+                    std::os::windows::fs::symlink_dir(target, &link).unwrap();
+                } else {
+                    std::os::windows::fs::symlink_file(target, &link).unwrap();
+                }
+            }
         }
     }
 
@@ -675,6 +689,107 @@ mod tests {
         assert!(!exists("root//ign/f").await);
         assert!(!exists("root//missing/f").await);
         assert!(!exists("root//sub/f").await);
+        Ok(())
+    }
+
+    fn cp(s: &str) -> CellPath {
+        CellPath::testing_new(s)
+    }
+
+    async fn metadata(ctx: &DiceTransaction, path: &str) -> Option<RawPathMetadata> {
+        DiceFileComputations::read_path_metadata_if_exists(&mut ctx.ctx(), cp(path))
+            .await
+            .unwrap()
+    }
+
+    /// Metadata goes through the check; a symlink above the path is reported as the symlink,
+    /// with the remainder of the path appended to its target.
+    #[tokio::test]
+    async fn metadata_through_the_check() -> buck2_error::Result<()> {
+        let f = Fixture::new("ign").await?;
+        f.fs.write_file("a/b/f", "");
+        f.fs.write_file("ign/f", "");
+        f.symlink("l", "a");
+        // Absolute on the host, so that it is external on Windows too.
+        let elsewhere = if cfg!(windows) {
+            "C:/nowhere/else"
+        } else {
+            "/nowhere/else"
+        };
+        f.symlink("e", elsewhere);
+        let ctx = f.transaction(FileChangeTracker::new()).await?;
+
+        assert_eq!(
+            metadata(&ctx, "root//").await,
+            Some(RawPathMetadata::Directory)
+        );
+        assert_eq!(
+            metadata(&ctx, "root//a").await,
+            Some(RawPathMetadata::Directory)
+        );
+        assert_matches!(
+            metadata(&ctx, "root//a/b/f").await,
+            Some(RawPathMetadata::File(_))
+        );
+        assert_eq!(metadata(&ctx, "root//a/B/f").await, None);
+        assert_eq!(metadata(&ctx, "root//ign/f").await, None);
+        assert_eq!(metadata(&ctx, "root//a/b/f/x").await, None);
+        assert_eq!(metadata(&ctx, "root//nope").await, None);
+
+        assert_matches!(
+            metadata(&ctx, "root//l").await,
+            Some(RawPathMetadata::Symlink { at, to: RawSymlink::Relative(target, raw) }) => {
+                assert_eq!(at, cp("root//l"));
+                assert_eq!(target, cp("root//a"));
+                assert_eq!(raw.target().as_str(), "a");
+            }
+        );
+        assert_matches!(
+            metadata(&ctx, "root//l/b/f").await,
+            Some(RawPathMetadata::Symlink { at, to: RawSymlink::Relative(target, raw) }) => {
+                assert_eq!(at, cp("root//l"));
+                assert_eq!(target, cp("root//a/b/f"));
+                assert_eq!(raw.target().as_str(), "a/b/f");
+            }
+        );
+        assert_matches!(
+            metadata(&ctx, "root//e/x/y").await,
+            Some(RawPathMetadata::Symlink { at, to: RawSymlink::External(external) }) => {
+                assert_eq!(at, cp("root//e"));
+                assert_eq!(external.target().to_str().unwrap(), elsewhere);
+                assert_eq!(external.remaining_path().as_str(), "x/y");
+            }
+        );
+        Ok(())
+    }
+
+    /// Metadata behind a symlink follows the symlink when the watcher reports it changed.
+    #[tokio::test]
+    async fn metadata_behind_a_changed_symlink() -> buck2_error::Result<()> {
+        let f = Fixture::new("").await?;
+        f.fs.write_file("a/f", "");
+        f.fs.write_file("a2/f", "");
+        f.symlink("l", "a");
+        let ctx = f.transaction(FileChangeTracker::new()).await?;
+        assert_matches!(
+            metadata(&ctx, "root//l/f").await,
+            Some(RawPathMetadata::Symlink { to: RawSymlink::Relative(target, _), .. }) => {
+                assert_eq!(target, cp("root//a/f"));
+            }
+        );
+        drop(ctx);
+
+        fs_util::remove_file(f.fs.path().resolve(ProjectRelativePath::new("l").unwrap())).unwrap();
+        f.symlink("l", "a2");
+        let mut changes = FileChangeTracker::new();
+        changes.file_contents_changed(p("l"));
+        let ctx = f.transaction(changes).await?;
+        assert_matches!(
+            metadata(&ctx, "root//l/f").await,
+            Some(RawPathMetadata::Symlink { to: RawSymlink::Relative(target, _), .. }) => {
+                assert_eq!(target, cp("root//a2/f"));
+            }
+        );
         Ok(())
     }
 }

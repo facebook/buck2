@@ -14,6 +14,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_core::buck2_env;
 use buck2_core::cells::cell_path::CellPath;
+use buck2_core::fs::i_project_rel_path::IProjectRelativePath;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::RelativePath;
@@ -21,6 +22,7 @@ use buck2_fs::paths::RelativePathBuf;
 use buck2_fs::paths::abs_path::AbsPath;
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::file_name::FileNameBuf;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_util::arc_str::PackedStringSlice;
 use derive_more::Display;
 use dupe::Dupe;
@@ -314,6 +316,32 @@ impl Symlink {
 pub enum RawSymlink<T> {
     Relative(T, Arc<Symlink>),
     External(Arc<ExternalSymlink>),
+}
+
+impl<T> RawSymlink<T> {
+    pub fn map<O>(self, f: impl Fn(T) -> O) -> RawSymlink<O> {
+        match self {
+            RawSymlink::Relative(target, raw) => RawSymlink::Relative(f(target), raw),
+            RawSymlink::External(external) => RawSymlink::External(external),
+        }
+    }
+}
+
+impl RawSymlink<IProjectRelativePath> {
+    /// The target of this symlink, continued by `rest`: what a path that goes through the symlink
+    /// and then follows `rest` points at.
+    pub fn continued_by(self, rest: &ForwardRelativePath) -> buck2_error::Result<Self> {
+        Ok(match self {
+            RawSymlink::Relative(target, raw) => RawSymlink::Relative(
+                target.join(rest),
+                Arc::new(Symlink::new(raw.target().join(rest.as_str()))),
+            ),
+            RawSymlink::External(external) => RawSymlink::External(Arc::new(ExternalSymlink::new(
+                external.target().to_owned(),
+                external.remaining_path().join(rest),
+            )?)),
+        })
+    }
 }
 
 /// Stores the relevant metadata for a path.

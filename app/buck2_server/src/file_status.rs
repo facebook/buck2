@@ -19,11 +19,14 @@ use buck2_common::dice::data::HasIoProvider;
 use buck2_common::file_ops::dice::DiceFileComputations;
 use buck2_common::file_ops::metadata::RawPathMetadata;
 use buck2_common::file_ops::metadata::RawSymlink;
+use buck2_common::file_ops::path_check::PathCheck;
+use buck2_common::file_ops::path_check::check_path;
 use buck2_common::io::IoProvider;
 use buck2_common::io::fs::FsIoProvider;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::i_project_rel_path::IProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_error::BuckErrorContext;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_fs::paths::abs_path::AbsPath;
 use buck2_fs::paths::file_name::FileName;
@@ -190,7 +193,22 @@ async fn check_file_status(
         return Ok(());
     }
 
-    let fs_metadata = io.read_path_metadata_if_exists(path).await?;
+    // The provider is not asked about paths behind a symlink (see `IoProvider`); compose the
+    // answer from the symlink itself, as DICE does.
+    let fs_metadata = match check_path(ctx, path).await? {
+        PathCheck::ParentSymlink { at } => match io.read_path_metadata_if_exists(at).await? {
+            Some(RawPathMetadata::Symlink { at: link_at, to }) => {
+                let rest = path.strip_prefix(at).internal_error("a prefix")?;
+                let to = to
+                    .map(|p| IProjectRelativePath::intern_directly(&p))
+                    .continued_by(rest)?
+                    .map(|p| p.to_buf());
+                Some(RawPathMetadata::Symlink { at: link_at, to })
+            }
+            other => other,
+        },
+        _ => io.read_path_metadata_if_exists(path).await?,
+    };
 
     let dice_metadata = DiceFileComputations::read_path_metadata_if_exists(ctx, cell_path).await?;
 

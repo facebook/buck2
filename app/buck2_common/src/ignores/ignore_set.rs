@@ -13,9 +13,11 @@ use std::sync::LazyLock;
 
 use allocative::Allocative;
 use buck2_core::cells::CellResolver;
+use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::internal_error;
 use buck2_hash::BuckMutMap;
 use dice::DiceData;
@@ -80,6 +82,16 @@ impl IgnoreSet {
         root_cell: bool,
     ) -> buck2_error::Result<bool> {
         Ok(self.by_cell.get(&cell) == Some(&PerCellIgnoreSet::from_config(config, root_cell)?))
+    }
+
+    /// Ignores nothing (beyond `buck-out`), whatever the cells are.
+    pub fn testing_empty() -> Self {
+        let root = CellName::testing_new("root");
+        let cells = CellResolver::testing_with_name_and_path(
+            root,
+            CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new(String::new())),
+        );
+        Self::testing_new_single_cell(cells, root, "").unwrap()
     }
 
     pub fn testing_new_single_cell(

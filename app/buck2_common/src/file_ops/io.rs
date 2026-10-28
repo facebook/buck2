@@ -45,6 +45,8 @@ use crate::file_ops::path_check::check_path;
 use crate::file_ops::path_check::read_through_symlink;
 use crate::ignores::ignore_set::HasIgnoreSet;
 use crate::ignores::ignore_set::IgnoreSet;
+use crate::io::trace;
+use crate::io::trace::TracingIoProvider;
 
 /// The `Io*` keys are the DICE nodes at which file system state enters the graph; file watchers
 /// invalidate them through the `FileChangeTracker`.
@@ -182,12 +184,10 @@ pub(super) async fn read_dir_cached(
     ctx: &mut DiceComputations<'_>,
     path: IProjectRelativePath,
 ) -> buck2_error::Result<PackedStringSlice<FileName, FileType>> {
-    let read_dir_cache = ctx
-        .per_transaction_data()
-        .data
-        .get::<ReadDirCache>()
-        .expect("ReadDirCache is expected to be set.");
-    if let Some(cached) = read_dir_cache.0.get(&path) {
+    // Commands set the cache up (`initialize_read_dir_cache`); without it every read goes to the
+    // provider, which is correct and what unit tests get.
+    let read_dir_cache = ctx.per_transaction_data().data.get::<ReadDirCache>().ok();
+    if let Some(cached) = read_dir_cache.and_then(|cache| cache.0.get(&path)) {
         return Ok(cached.dupe());
     };
     let entries = ctx
@@ -206,7 +206,9 @@ pub(super) async fn read_dir_cached(
         builder.push(&e.file_name, e.file_type);
     }
     let entries = builder.sort_and_build();
-    read_dir_cache.0.insert(path, entries.dupe());
+    if let Some(cache) = read_dir_cache {
+        cache.0.insert(path, entries.dupe());
+    }
 
     Ok(entries)
 }
@@ -224,30 +226,49 @@ impl Key for IoPathMetadataKey {
         _cancellations: &CancellationContext,
     ) -> Self::Value {
         ctx.get_file_system_baseline().await?;
-        let Some(meta) = ctx
-            .global_data()
-            .get_io_provider()
-            .read_path_metadata_if_exists(self.0)
-            .await
-            .with_buck_error_context(|| {
-                format!("Error accessing metadata for path `{p}`", p = self.0)
-            })?
-        else {
-            return Ok(None);
-        };
-        let meta = meta.map(|path| IProjectRelativePath::intern_directly(&path));
-
-        match meta {
-            RawPathMetadata::Symlink { at, to: _ } => {
-                ctx.compute(&IoReadFileKey(at))
-                    .await?
-                    .as_ref()
-                    .duped_err()?;
+        let at = match check_path(ctx, self.0).await? {
+            PathCheck::Present(FileType::Directory) => return Ok(Some(RawPathMetadata::Directory)),
+            PathCheck::Present(_) => {
+                let meta = ctx
+                    .global_data()
+                    .get_io_provider()
+                    .read_path_metadata_if_exists(self.0)
+                    .await
+                    .with_buck_error_context(|| {
+                        format!("Error accessing metadata for path `{p}`", p = self.0)
+                    })?;
+                return Ok(meta.map(|meta| meta.map(|p| IProjectRelativePath::intern_directly(&p))));
             }
-            _ => (),
+            PathCheck::Missing { .. }
+            | PathCheck::Ignored { .. }
+            | PathCheck::ParentNotDirectory { .. } => return Ok(None),
+            PathCheck::ParentSymlink { at } => at,
         };
-
-        Ok(Some(meta))
+        // Behind a symlink: report the symlink, with the rest of the path appended to its target,
+        // which is what source artifacts through a symlink expect to see.
+        let rest = self
+            .0
+            .strip_prefix(at)
+            .internal_error("the check reported a prefix")?;
+        match ctx.compute(&IoPathMetadataKey(at)).await?.dupe()? {
+            Some(RawPathMetadata::Symlink { at: link, to }) if link == at => {
+                let to = to.continued_by(rest)?;
+                // The trace sees the provider's reads, and this one did not reach the provider.
+                if let Some(trace) = TracingIoProvider::from_io(ctx.global_data().get_io_provider())
+                {
+                    trace.add_symlink(trace::Symlink {
+                        at: at.to_buf(),
+                        to: to.clone().map(|p| p.to_buf()),
+                    });
+                }
+                Ok(Some(RawPathMetadata::Symlink { at, to }))
+            }
+            _ => Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::IoSource,
+                "`{at}` stopped being a symlink while `{p}` was read",
+                p = self.0
+            )),
+        }
     }
 
     fn equality_behavior() -> EqualityBehavior<Self::Value> {

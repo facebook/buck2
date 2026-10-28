@@ -245,21 +245,48 @@ impl IoProvider for TestIoProvider {
         FileOps::read_file_if_exists(&self.ops, self.cell_path(path)).await
     }
 
+    /// The files are given per cell; the directories leading from the project root to the cell
+    /// roots exist by construction.
     async fn read_dir_impl(
         &self,
         path: IProjectRelativePath,
     ) -> buck2_error::Result<ReadDirOutcome> {
-        let listing = FileOps::read_dir(&self.ops, self.cell_path(path)).await?;
-        Ok(ReadDirOutcome::Entries(
-            listing
+        let cell_roots = || {
+            self.cells
+                .cells()
+                .map(|(_, instance)| instance.path().as_project_relative_path())
+        };
+        let mut entries = match FileOps::read_dir(&self.ops, self.cell_path(path)).await {
+            Ok(listing) => listing
                 .included
                 .iter_with_tag()
                 .map(|(file_name, file_type)| RawDirEntry {
                     file_name: file_name.to_owned(),
                     file_type,
                 })
-                .collect(),
-        ))
+                .collect::<Vec<_>>(),
+            Err(e) => {
+                if cell_roots().any(|root| root.starts_with(path.as_project_relative_path())) {
+                    Vec::new()
+                } else {
+                    return Err(e);
+                }
+            }
+        };
+        for root in cell_roots() {
+            if let Some(first) = root
+                .strip_prefix_opt(path.as_project_relative_path())
+                .and_then(|rest| rest.iter().next())
+            {
+                entries.push(RawDirEntry {
+                    file_name: first.to_owned(),
+                    file_type: FileType::Directory,
+                });
+            }
+        }
+        entries.sort();
+        entries.dedup();
+        Ok(ReadDirOutcome::Entries(entries))
     }
 
     async fn read_path_metadata_if_exists_impl(

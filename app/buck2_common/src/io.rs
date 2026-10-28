@@ -80,6 +80,11 @@ impl From<buck2_error::Error> for ReadDirError {
     }
 }
 
+/// Reads of the project's files, by exact path.
+///
+/// Callers establish, before asking, that every parent component of the path is a plain
+/// directory, spelled as given; see `file_ops::path_check`. Providers may therefore answer by
+/// looking at the path itself and need not detect symlinks or case differences above it.
 #[async_trait]
 pub trait IoProvider: Allocative + Send + Sync {
     async fn read_file_if_exists_impl(

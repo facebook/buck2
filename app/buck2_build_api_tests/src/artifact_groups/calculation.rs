@@ -28,6 +28,7 @@ use buck2_build_api::keep_going::HasKeepGoing;
 use buck2_common::dice::cells::SetCellResolver;
 use buck2_common::file_ops::baseline::FileSystemBaseline;
 use buck2_common::file_ops::baseline::SetFileSystemBaseline;
+use buck2_common::file_ops::io::initialize_read_dir_cache;
 use buck2_common::file_ops::metadata::FileMetadata;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_common::file_ops::testing::TestFileOps;
@@ -199,6 +200,7 @@ async fn test_ensure_artifact_group() -> buck2_error::Result<()> {
 
     let mut extra = UserComputationData::new();
     extra.set_keep_going(true);
+    initialize_read_dir_cache(&mut extra);
 
     let mut dice = dice_builder.build(extra).await.unwrap();
     dice.set_cell_resolver(cell_resolver)?;

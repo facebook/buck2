@@ -19,7 +19,6 @@ use buck2_core::fs::i_project_rel_path::IProjectRelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
-use buck2_error::BuckErrorOptionContext;
 use buck2_fs::IoResultExt;
 use buck2_fs::async_fs_util::spawn_blocking;
 use buck2_fs::error::tag_eden_io_error;
@@ -28,7 +27,6 @@ use buck2_fs::paths::RelativePathBuf;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_path::AbsPath;
 use buck2_fs::paths::abs_path::AbsPathBuf;
-use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::file_name::FileNameBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
@@ -274,64 +272,24 @@ struct PathAndAbsPath {
     abspath: AbsPathBuf,
 }
 
-impl PathAndAbsPath {
-    fn push(&mut self, name: &FileName) {
-        self.path.push(name);
-        self.abspath.push(name);
-    }
-}
-
 fn read_path_metadata<P: AsRef<AbsPath>>(
     root: P,
     relpath: &ForwardRelativePath,
     file_digest_config: FileDigestConfig,
 ) -> buck2_error::Result<Option<RawPathMetadata<ForwardRelativePathBuf>>> {
-    let root = root.as_ref();
-
-    let mut relpath_components = relpath.iter();
-    let mut meta = None;
-
-    let curr_path_capacity = relpath.as_str().len();
-
-    let mut curr_abspath = root.to_owned();
-    curr_abspath.reserve(relpath.as_path().as_os_str().len());
-
-    let curr_abspath_capacity = curr_abspath.capacity();
-
-    let curr_path = ForwardRelativePathBuf::with_capacity(curr_path_capacity);
-
-    let mut curr = PathAndAbsPath {
-        path: curr_path,
-        abspath: curr_abspath,
+    let curr = PathAndAbsPath {
+        path: relpath.to_buf(),
+        abspath: root.as_ref().join(relpath.as_path()),
     };
-
-    while let Some(c) = relpath_components.next() {
-        // We track both paths so we don't need to convert the abspath back to a relative path if
-        // we hit a symlink.
-        curr.push(c);
-
-        match ExactPathMetadata::from_exact_path(&curr)? {
-            ExactPathMetadata::DoesNotExist => return Ok(None),
-            ExactPathMetadata::Symlink(symlink) => {
-                let rest: ForwardRelativePathBuf = relpath_components.collect();
-                return Ok(Some(symlink.into_raw_path_metadata(curr, rest)?));
-            }
-            ExactPathMetadata::FileOrDirectory(path_meta) => {
-                meta = Some(path_meta);
-            }
-        };
-    }
-
-    // If we get here that means we never hit a symlink. So, the metadata we have
-    let meta = meta.internal_error("Attempted to access empty path")?;
-    let meta = convert_metadata(&curr, meta, file_digest_config)?;
-
-    if cfg!(test) {
-        assert!(curr.abspath.as_os_str().len() <= curr_abspath_capacity);
-        assert!(curr.path.as_str().len() <= curr_path_capacity);
-    }
-
-    Ok(Some(meta))
+    Ok(Some(match ExactPathMetadata::from_exact_path(&curr)? {
+        ExactPathMetadata::DoesNotExist => return Ok(None),
+        ExactPathMetadata::Symlink(symlink) => {
+            symlink.into_raw_path_metadata(curr, ForwardRelativePathBuf::default())?
+        }
+        ExactPathMetadata::FileOrDirectory(meta) => {
+            convert_metadata(&curr, meta, file_digest_config)?
+        }
+    }))
 }
 
 fn convert_metadata(
@@ -543,30 +501,13 @@ mod tests {
     }
 
     #[test]
-    fn test_read_symlink_remaining_path() -> buck2_error::Result<()> {
-        let t = TempDir::new()?;
-
-        unix::fs::symlink("y", t.path().join("x"))?;
-
-        assert_matches!(
-            read_path_metadata(AbsPath::new(t.path())?, ForwardRelativePath::new("x/z/zz")?, FileDigestConfig::source(CasDigestConfig::testing_default())),
-            Ok(Some(RawPathMetadata::Symlink{at:_, to: RawSymlink::Relative(r, r_rel)})) => {
-                assert_eq!(r.as_str(), "y/z/zz");
-                assert_eq!(r_rel.target().as_str(), "y/z/zz");
-            }
-        );
-
-        Ok(())
-    }
-
-    #[test]
     fn test_read_symlink_out_of_project() -> buck2_error::Result<()> {
         let t = TempDir::new()?;
 
         unix::fs::symlink("../y", t.path().join("x"))?;
 
         assert_matches!(
-            read_path_metadata(AbsPath::new(t.path())?, ForwardRelativePath::new("x/xx/xxx")?, FileDigestConfig::source(CasDigestConfig::testing_default())),
+            read_path_metadata(AbsPath::new(t.path())?, ForwardRelativePath::new("x")?, FileDigestConfig::source(CasDigestConfig::testing_default())),
             Err(e) if format!("{e:#}").contains("Invalid symlink")
         );
 

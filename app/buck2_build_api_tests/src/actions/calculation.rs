@@ -49,6 +49,7 @@ use buck2_common::dice::data::testing::SetTestingIoProvider;
 use buck2_common::external_symlink::ExternalSymlink;
 use buck2_common::file_ops::baseline::FileSystemBaseline;
 use buck2_common::file_ops::baseline::SetFileSystemBaseline;
+use buck2_common::file_ops::io::initialize_read_dir_cache;
 use buck2_common::file_ops::metadata::FileMetadata;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_common::file_ops::testing::TestFileOps;
@@ -473,9 +474,11 @@ async fn dice_with_test_file_ops(file_ops: &TestFileOps) -> buck2_error::Result<
     let dice_builder = DiceBuilder::new().set_data(|data| {
         data.set_digest_config(DigestConfig::testing_default());
     });
+    let mut extra = UserComputationData::new();
+    initialize_read_dir_cache(&mut extra);
     let mut dice = file_ops
         .mock_in_dice(&cells, dice_builder)
-        .build(UserComputationData::new())
+        .build(extra)
         .await
         .unwrap();
     dice.set_cell_resolver(cells)?;

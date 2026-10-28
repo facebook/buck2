@@ -292,23 +292,22 @@ impl EdenIoProvider {
 
         let data = match res {
             edenfs::DirListAttributeDataOrError::dirListAttributeData(data) => data,
-            edenfs::DirListAttributeDataOrError::error(err) => {
-                match err.errorCode {
-                    Some(libc::ENOENT) => return Err(EdenError::from(err).into()),
-                    Some(libc::EACCES) => {
-                        tracing::debug!(
-                            "readdir({}): permission denied, treating as restricted directory",
-                            path
-                        );
-                        return Ok(ReadDirOutcome::EdenPermissionDenied);
-                    }
-                    Some(libc::EINVAL) | Some(libc::ENOTDIR) => {
-                        // Fallback to regular file I/O if we get EINVAL or ENOTDIR because that means it's a symlink
-                        return self.fs.read_dir_impl(path).await;
-                    }
-                    _ => return Err(EdenError::from(err).into()),
+            edenfs::DirListAttributeDataOrError::error(err) => match err.errorCode {
+                Some(libc::ENOENT) => return Err(EdenError::from(err).into()),
+                Some(libc::EACCES) => {
+                    tracing::debug!(
+                        "readdir({}): permission denied, treating as restricted directory",
+                        path
+                    );
+                    return Ok(ReadDirOutcome::EdenPermissionDenied);
                 }
-            }
+                Some(libc::EINVAL) | Some(libc::ENOTDIR) => {
+                    // A symlink at or above the path, which plain file IO follows. Goes with the
+                    // diff that refuses reads through symlinks.
+                    return self.fs.read_dir_impl(path).await;
+                }
+                _ => return Err(EdenError::from(err).into()),
+            },
             edenfs::DirListAttributeDataOrError::UnknownField(code) => {
                 return Err(buck2_error::buck2_error!(
                     buck2_error::ErrorTag::IoEden,
@@ -458,15 +457,15 @@ impl IoProvider for EdenIoProvider {
                         tracing::debug!("getAttributesFromFilesV2({}): ENOENT", path);
                         Ok(None)
                     }
-                    EdenError::PosixError { code, .. }
-                        if code == libc::EINVAL || code == libc::ENOTDIR =>
-                    {
-                        // If we get EINVAL it means the target wasn't a file, and since we know it
-                        // existed and it wasn't a dir, then that means it must be a symlink. If we get
-                        // ENOTDIR, that means we tried to traverse a path component that was a
-                        // symlink. In both cases, we need to both a) handle ExternalSymlink and b)
-                        // look through to the target, so we do that.
-                        tracing::debug!("getAttributesFromFilesV2({}): fallthrough", path);
+                    EdenError::PosixError { code, .. } if code == libc::EINVAL => {
+                        // Eden versions that do not report `SourceControlType::SYMLINK` say
+                        // EINVAL for a symlink instead. The parents are plain directories by the
+                        // `IoProvider` contract, so one look at the path itself is all there is
+                        // to do, and `None` if it is gone by now.
+                        tracing::debug!(
+                            "getAttributesFromFilesV2({}): EINVAL, reading as symlink",
+                            path
+                        );
                         self.fs.read_path_metadata_if_exists_impl(path).await
                     }
                     _ => Err(err.into()),
