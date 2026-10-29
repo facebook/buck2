@@ -145,6 +145,7 @@ use host_sharing::HostSharingStrategy;
 use tracing::warn;
 
 use crate::active_commands::ActiveCommandDropGuard;
+use crate::agent_config_guard::check_agent_config_change;
 use crate::agent_context_validation::validate_agent_context;
 use crate::agent_host_guard::check_agent_host_guard;
 use crate::daemon::common::CommandExecutorFactory;
@@ -814,6 +815,17 @@ impl DiceUpdater for DiceCommandUpdater<'_, '_> {
             self.cmd_ctx.base_context.repo().paths.project_root(),
             self.cmd_ctx.isolation_prefix.as_str(),
         )?;
+
+        // Check before setup_interpreter consumes the new configs. Returning an error
+        // here prevents the caller from committing the configuration change.
+        check_agent_config_change(
+            &mut existing_state.ctx(),
+            &cells_and_configs.external_data,
+            &self.cmd_ctx.buck_settings.invocation,
+            &self.cmd_ctx.agent_context,
+            self.cmd_ctx.events(),
+        )
+        .await?;
 
         existing_state
             .ctx()

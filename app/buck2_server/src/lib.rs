@@ -11,6 +11,7 @@
 #![feature(try_blocks)]
 
 pub mod active_commands;
+mod agent_config_guard;
 mod agent_context_validation;
 mod agent_host_guard;
 mod clean_stale;

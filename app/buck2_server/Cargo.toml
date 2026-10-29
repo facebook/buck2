@@ -12,6 +12,7 @@ allocative.workspace = true
 async-recursion.workspace = true
 async-trait.workspace = true
 bincode.workspace = true
+buck2_agent_interactive.workspace = true
 buck2_analysis.workspace = true
 buck2_build_api.workspace = true
 buck2_build_signals.workspace = true

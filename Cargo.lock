@@ -3285,6 +3285,7 @@ dependencies = [
  "async-recursion",
  "async-trait",
  "bincode",
+ "buck2_agent_interactive",
  "buck2_analysis",
  "buck2_build_api",
  "buck2_build_signals",
