@@ -1082,6 +1082,7 @@ dependencies = [
  "starlark",
  "starlark_map",
  "strong_hash",
+ "tokio",
  "tracing",
 ]
 
