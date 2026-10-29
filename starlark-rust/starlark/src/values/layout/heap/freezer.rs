@@ -88,12 +88,14 @@ impl<'v, 'fv> Freezer<'v, 'fv> {
         }
 
         // Case 2: We have already been replaced with a forwarding, or need to freeze
-        let value = value.0.unpack_ptr().unwrap();
-        match value.state() {
+        let entry = value.0.unpack_ptr().unwrap();
+        match entry.state() {
             AValueHeapEntryState::Forward(x) => {
                 Ok(unsafe { x.forward_ptr().unpack_frozen_value() })
             }
-            AValueHeapEntryState::Value(v) => {
+            AValueHeapEntryState::Value(_) => {
+                // SAFETY: just checked to be a live value.
+                let v = unsafe { value.0.value_header_ptr_unchecked() };
                 let result = unsafe { v.unpack().heap_freeze(self) };
                 #[cfg(debug_assertions)]
                 if result.is_err() {

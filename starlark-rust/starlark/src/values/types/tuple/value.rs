@@ -21,7 +21,6 @@ use std::fmt::Debug;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::mem;
-use std::slice;
 
 use allocative::Allocative;
 use display_container::fmt_container;
@@ -44,6 +43,7 @@ use crate::values::comparison::compare_slice;
 use crate::values::comparison::equals_slice;
 use crate::values::index::apply_slice;
 use crate::values::index::convert_index;
+use crate::values::layout::avalue::TrailingValues;
 
 /// Define the tuple type.
 #[repr(C)]
@@ -100,19 +100,30 @@ impl<'v> Tuple<'v> {
     }
 }
 
+// SAFETY: every tuple allocation writes `len` elements after `content`.
+unsafe impl<'v> TrailingValues<'v> for Tuple<'v> {
+    fn len(&self) -> usize {
+        self.len
+    }
+
+    fn content_ptr(&self) -> *const Value<'v> {
+        self.content.as_ptr()
+    }
+
+    fn content_mut_ptr(&mut self) -> *mut Value<'v> {
+        self.content.as_mut_ptr()
+    }
+}
+
 impl<'v> Tuple<'v> {
     /// Get the length of the tuple.
     pub(crate) fn len(&self) -> usize {
-        self.len
+        TrailingValues::len(self)
     }
 
     /// Tuple elements.
     pub(crate) fn content(&self) -> &[Value<'v>] {
-        unsafe { slice::from_raw_parts(self.content.as_ptr(), self.len) }
-    }
-
-    pub(crate) fn content_mut(&mut self) -> &mut [Value<'v>] {
-        unsafe { slice::from_raw_parts_mut(self.content.as_mut_ptr(), self.len) }
+        TrailingValues::content(self)
     }
 
     /// Iterate over the elements of the tuple.

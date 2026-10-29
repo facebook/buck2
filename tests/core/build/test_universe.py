@@ -10,37 +10,37 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_build_universe(buck: Buck) -> None:
-    # Run the build without universe.
-    result = await buck.build("//:test")
-    build_report = result.get_build_report()
-    output = build_report.output_for_target("//:test")
-    assert output.read_text().rstrip() == "default"
+class UniverseTest(BuckTestCase):
+    @buck_test()
+    async def test_build_universe(self, buck: Buck) -> None:
+        # Run the build without universe.
+        result = await buck.build("//:test")
+        build_report = result.get_build_report()
+        output = build_report.output_for_target("//:test")
+        assert output.read_text().rstrip() == "default"
 
-    # Now build the same target, but with the universe.
-    result = await buck.build(
-        "//:test",
-        "--target-universe",
-        "//:universe",
-    )
-    build_report = result.get_build_report()
-    output = build_report.output_for_target("//:test")
-    assert output.read_text().rstrip() == "cat"
+        # Now build the same target, but with the universe.
+        result = await buck.build(
+            "//:test",
+            "--target-universe",
+            "//:universe",
+        )
+        build_report = result.get_build_report()
+        output = build_report.output_for_target("//:test")
+        assert output.read_text().rstrip() == "cat"
 
+    @buck_test()
+    async def test_build_target_not_found_in_universe(self, buck: Buck) -> None:
+        result = await buck.build(
+            "//:test",
+            "--target-universe",
+            "//:different_universe",
+        )
 
-@buck_test()
-async def test_build_target_not_found_in_universe(buck: Buck) -> None:
-    result = await buck.build(
-        "//:test",
-        "--target-universe",
-        "//:different_universe",
-    )
-
-    assert (
-        "No targets found inside the specified universe, nothing will be built"
-        in result.stderr
-    )
+        assert (
+            "No targets found inside the specified universe, nothing will be built"
+            in result.stderr
+        )

@@ -6,6 +6,9 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
+load("@prelude//decls:common.bzl", "buck")
+load("@prelude//julia:julia_toolchain.bzl", "julia_toolchain")
 load(
     "@prelude//linking:shared_libraries.bzl",
     "create_shlib_symlink_tree",
@@ -149,3 +152,18 @@ def build_julia_command(ctx):
 def julia_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     cmd, json_info_file = build_julia_command(ctx)
     return [DefaultInfo(default_output = json_info_file, other_outputs = [cmd]), RunInfo(cmd)]
+
+julia_binary = prelude_rule(
+    name = "julia_binary",
+    impl = julia_binary_impl,
+    attrs = {
+        "deps": attrs.list(attrs.dep(), default = []),
+        "julia_args": attrs.list(attrs.string(), default = []),
+        "julia_flags": attrs.list(attrs.string(), default = []),
+        "main": attrs.string(),
+        "srcs": attrs.list(attrs.source(), default = []),
+        "_julia_toolchain": julia_toolchain(),
+    }
+    | buck.labels_arg()
+    | buck.contacts_arg(),
+)

@@ -12,7 +12,6 @@ use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::local_resource_info::LocalResourceInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::local_resource_info::OwnedLocalResourceInfo;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_core::soft_error;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::ErrorTag;
 use buck2_error::internal_error;
@@ -59,10 +58,7 @@ pub(crate) async fn required_providers<'v>(
         .filter_map(|r| match r {
             Ok(Some(x)) => Some(Ok(x)),
             Ok(None) => None,
-            Err(e) => {
-                let _ignore = soft_error!("missing_required_local_resource", e, quiet: true, error_on_oss: true);
-                None
-            }
+            Err(e) => Some(Err(e)),
         })
         .collect::<Result<Vec<_>, buck2_error::Error>>()?;
     // Several resource types may name the same provider; it is set up once.

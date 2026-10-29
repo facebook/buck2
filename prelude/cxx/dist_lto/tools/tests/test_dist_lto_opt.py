@@ -337,3 +337,7 @@ class TestDistLtoOpt(unittest.TestCase):
                 "-enable-lto-ir-verification=false",
             ],
         )
+
+    def test_unterminated_xlinker_returns_none(self):
+        self.assertIsNone(_filter_flags(["-Xlinker"]))
+        self.assertIsNone(_filter_flags(["-Xlinker", "-mllvm"]))

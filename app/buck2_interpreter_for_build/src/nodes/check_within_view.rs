@@ -12,15 +12,15 @@ use buck2_core::package::PackageLabel;
 use buck2_core::package::source_path::SourcePathRef;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_hash::BuckFixedSortedSet;
+use buck2_node::attrs::arena::CoercedAttrRef;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::attr_type::configuration_dep::ConfigurationDepKind;
-use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::traversal::CoercedAttrTraversal;
 use buck2_node::visibility::VisibilityPattern;
 use buck2_node::visibility::VisibilityPatternList;
 use buck2_node::visibility::WithinViewSpecification;
 use dupe::Dupe;
-use starlark::collections::SmallSet;
 
 fn indented_within_view(spec: &WithinViewSpecification) -> String {
     match &spec.0 {
@@ -59,12 +59,12 @@ enum CheckWithinViewError {
 /// every dep matches both the target's own `within_view` and the cap propagated
 /// from `enforce_within_view_intersection()` in ancestor `PACKAGE` files.
 pub(crate) fn check_within_view(
-    attr: &CoercedAttr,
+    attr: CoercedAttrRef<'_>,
     pkg: PackageLabel,
     attr_type: &AttrType,
     within_view: &WithinViewSpecification,
     within_view_cap: &VisibilityPatternList,
-    default_deps: Option<&SmallSet<TargetLabel>>,
+    default_deps: Option<&BuckFixedSortedSet<TargetLabel>>,
 ) -> buck2_error::Result<()> {
     if within_view == &WithinViewSpecification::PUBLIC
         && within_view_cap == &VisibilityPatternList::Public
@@ -77,7 +77,7 @@ pub(crate) fn check_within_view(
         pkg: PackageLabel,
         within_view: &'x WithinViewSpecification,
         within_view_cap: &'x VisibilityPatternList,
-        default_deps: &'x SmallSet<TargetLabel>,
+        default_deps: &'x BuckFixedSortedSet<TargetLabel>,
     }
 
     impl<'x> WithinViewCheckTraversal<'x> {
@@ -142,7 +142,7 @@ pub(crate) fn check_within_view(
             pkg,
             within_view,
             within_view_cap,
-            default_deps: default_deps.unwrap_or(&SmallSet::new()),
+            default_deps: default_deps.unwrap_or(&BuckFixedSortedSet::new()),
         },
     )
 }

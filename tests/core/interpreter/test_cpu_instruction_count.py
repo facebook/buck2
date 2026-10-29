@@ -12,32 +12,33 @@ import logging
 import platform
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 from buck2.tests.e2e_util.helper.utils import filter_events
 
 
-@buck_test()
-async def test_cpu_instruction_count(buck: Buck) -> None:
-    await buck.uquery("//:")
-    span_end_load_event = await filter_events(
-        buck,
-        "Event",
-        "data",
-        "SpanEnd",
-        "data",
-        "Load",
-    )
-    assert len(span_end_load_event) == 1
+class CpuInstructionCountTest(BuckTestCase):
+    @buck_test()
+    async def test_cpu_instruction_count(self, buck: Buck) -> None:
+        await buck.uquery("//:")
+        span_end_load_event = await filter_events(
+            buck,
+            "Event",
+            "data",
+            "SpanEnd",
+            "data",
+            "Load",
+        )
+        assert len(span_end_load_event) == 1
 
-    cpu_instruction_count = span_end_load_event[0]["cpu_instruction_count"]
+        cpu_instruction_count = span_end_load_event[0]["cpu_instruction_count"]
 
-    # We only populate counters on Linux
-    if platform.system() == "Linux":
-        if cpu_instruction_count is None:
-            logging.warning(
-                "cpu_instruction_count is None, but we expect it to be populated on Linux most of the time. This is not a failure."
-            )
+        # We only populate counters on Linux
+        if platform.system() == "Linux":
+            if cpu_instruction_count is None:
+                logging.warning(
+                    "cpu_instruction_count is None, but we expect it to be populated on Linux most of the time. This is not a failure."
+                )
+            else:
+                assert cpu_instruction_count >= 1000
         else:
-            assert cpu_instruction_count >= 1000
-    else:
-        assert cpu_instruction_count is None
+            assert cpu_instruction_count is None

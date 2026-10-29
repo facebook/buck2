@@ -10,10 +10,11 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_oneof_concat(buck: Buck) -> None:
-    res = await buck.cquery("//:foo")
-    assert res.stdout.startswith("root//:foo ")
+class SelectConcatTest(BuckTestCase):
+    @buck_test()
+    async def test_oneof_concat(self, buck: Buck) -> None:
+        res = await buck.cquery("//:foo")
+        assert res.stdout.startswith("root//:foo ")

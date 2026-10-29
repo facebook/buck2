@@ -10,26 +10,12 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test, env
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-@env(
-    "BUCK2_HARD_ERROR",
-    "true",
-)
-async def test_missing_source_file_when_hard_errors_enabled(buck: Buck) -> None:
-    await expect_failure(
-        buck.uquery("//package1:"),
-        stderr_regex="Source file `non_existent_source_file.txt` does not exist as a member of package `prelude//package1`",
-    )
-
-
-@buck_test()
-@env(
-    "BUCK2_HARD_ERROR",
-    "false",
-)
-async def test_missing_source_file_when_hard_errors_disabled(buck: Buck) -> None:
-    await buck.uquery("//package1:")
+class MissingSourceFileTest(BuckTestCase):
+    @buck_test()
+    async def test_missing_source_file_is_tolerated_at_load_time(
+        self, buck: Buck
+    ) -> None:
+        await buck.uquery("//package1:")

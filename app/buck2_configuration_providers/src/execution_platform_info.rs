@@ -9,13 +9,14 @@
  */
 
 use std::fmt::Debug;
+use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_build_api::interpreter::rule_defs::command_executor_config::StarlarkCommandExecutorConfig;
 use buck2_build_api_derive::internal_provider;
-use buck2_core::configuration::constraints::ConstraintKey;
-use buck2_core::configuration::constraints::ConstraintValue;
 use buck2_core::configuration::data::ConfigurationData;
+use buck2_core::configuration::data::ExecPlatformMarker;
+use buck2_core::configuration::data::ExecPlatformMarking;
 use buck2_core::execution_types::execution::ExecutionPlatform;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
@@ -53,27 +54,28 @@ pub struct ExecutionPlatformInfo<'v> {
 
 impl<'v> ExecutionPlatformInfo<'v> {
     pub fn to_execution_platform(&self) -> buck2_error::Result<ExecutionPlatform> {
-        self.to_execution_platform_with_marker(None)
+        self.to_execution_platform_with_marker(None, false)
     }
 
     /// Convert to an ExecutionPlatform, optionally adding a marker constraint to the configuration.
     pub fn to_execution_platform_with_marker(
         &self,
-        marker_constraint: Option<&(ConstraintKey, ConstraintValue)>,
+        exec_marker: Option<Arc<ExecPlatformMarker>>,
+        preserve_exec_platform_marker: bool,
     ) -> buck2_error::Result<ExecutionPlatform> {
         let target = self.label.label();
         let mut cfg = self.configuration.to_configuration_data()?;
-
-        // Add the marker constraint if provided
-        if let Some((key, value)) = marker_constraint {
-            cfg.constraints.insert(key.clone(), value.clone());
-        }
-
-        let cfg = ConfigurationData::from_platform(
-            TargetLabel::to_string(target),
-            cfg,
-            marker_constraint.is_some(),
-        )?;
+        let exec_marking = match exec_marker {
+            Some(marker) if preserve_exec_platform_marker => ExecPlatformMarking::Preserve(marker),
+            Some(marker) => {
+                let (key, value) = marker.constraint();
+                cfg.constraints.insert(key.dupe(), value.dupe());
+                ExecPlatformMarking::Legacy
+            }
+            None => ExecPlatformMarking::Unmarked,
+        };
+        let cfg =
+            ConfigurationData::from_platform(TargetLabel::to_string(target), cfg, exec_marking)?;
         Ok(ExecutionPlatform::platform(
             target.dupe(),
             cfg,

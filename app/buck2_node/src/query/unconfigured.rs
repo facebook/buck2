@@ -17,7 +17,7 @@ use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::graph::node::LabeledNode;
 use dupe::Dupe;
 
-use crate::attrs::coerced_attr::CoercedAttr;
+use crate::attrs::coerced::AttrView;
 use crate::attrs::inspect_options::AttrInspectOptions;
 use crate::nodes::unconfigured::TargetNode;
 use crate::nodes::unconfigured::TargetNodeData;
@@ -31,7 +31,7 @@ impl LabeledNode for TargetNode {
 }
 
 impl QueryTarget for TargetNode {
-    type Attr<'a> = CoercedAttr;
+    type Attr<'a> = AttrView<'a>;
 
     fn rule_type(&self) -> Cow<'_, str> {
         Cow::Borrowed(TargetNodeData::rule_type(self).name())
@@ -83,7 +83,7 @@ impl QueryTarget for TargetNode {
         mut func: F,
     ) -> Result<(), E> {
         for (name, attr) in TargetNode::special_attrs(self) {
-            func(name, &attr)?;
+            func(name, &AttrView::Special(attr))?;
         }
         Ok(())
     }
@@ -96,7 +96,7 @@ impl QueryTarget for TargetNode {
         mut func: F,
     ) -> Result<(), E> {
         for a in self.attrs(AttrInspectOptions::All) {
-            func(a.name, a.value)?;
+            func(a.name, &AttrView::Normal(a.value))?;
         }
         Ok(())
     }
@@ -109,7 +109,7 @@ impl QueryTarget for TargetNode {
         mut func: F,
     ) -> Result<(), E> {
         for a in self.attrs(AttrInspectOptions::DefinedOnly) {
-            func(a.name, a.value)?;
+            func(a.name, &AttrView::Normal(a.value))?;
         }
         Ok(())
     }
@@ -119,11 +119,10 @@ impl QueryTarget for TargetNode {
         key: &str,
         mut func: F,
     ) -> buck2_error::Result<R> {
-        Ok(func(
-            self.attr_or_none(key, AttrInspectOptions::All)
-                .as_ref()
-                .map(|a| a.value),
-        ))
+        let attr = self
+            .attr_or_none(key, AttrInspectOptions::All)
+            .map(|a| AttrView::Normal(a.value));
+        Ok(func(attr.as_ref()))
     }
 
     fn map_any_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(
@@ -132,9 +131,9 @@ impl QueryTarget for TargetNode {
         mut func: F,
     ) -> buck2_error::Result<R> {
         Ok(match self.attr_or_none(key, AttrInspectOptions::All) {
-            Some(attr) => func(Some(attr.value)),
+            Some(attr) => func(Some(&AttrView::Normal(attr.value))),
             None => match self.special_attr_or_none(key) {
-                Some(special) => func(Some(&special)),
+                Some(special) => func(Some(&AttrView::Special(special))),
                 None => func(None),
             },
         })
@@ -160,12 +159,10 @@ mod tests {
     use buck2_core::provider::label::ProvidersLabel;
     use buck2_core::target::label::label::TargetLabel;
     use buck2_query::query::syntax::simple::eval::set::TargetSet;
-    use buck2_util::arc_str::ArcSlice;
 
+    use crate::attrs::arena::OwnedCoercedAttr;
     use crate::attrs::attr::Attribute;
     use crate::attrs::attr_type::AttrType;
-    use crate::attrs::attr_type::list::ListLiteral;
-    use crate::attrs::coerced_attr::CoercedAttr;
     use crate::bzl_or_bxl_path::BzlOrBxlPath;
     use crate::nodes::unconfigured::TargetNode;
     use crate::nodes::unconfigured::testing::TargetNodeExt;
@@ -188,9 +185,13 @@ mod tests {
                     AttrType::list(AttrType::dep(ProviderIdSet::EMPTY, PluginKindSet::EMPTY)),
                 )
                 .unwrap(),
-                CoercedAttr::List(ListLiteral(ArcSlice::new([CoercedAttr::Dep(
-                    ProvidersLabel::default_for(TargetLabel::testing_parse(dep)),
-                )]))),
+                OwnedCoercedAttr::new_with(|b| {
+                    let dep = b.encode_dep(&ProvidersLabel::default_for(
+                        TargetLabel::testing_parse(dep),
+                    ))?;
+                    b.encode_list(&[dep])
+                })
+                .unwrap(),
             )],
             None,
         )

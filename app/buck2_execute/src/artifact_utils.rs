@@ -66,6 +66,17 @@ impl<'a> ArtifactValueBuilder<'a> {
         insert_artifact(&mut self.builder, path, value)
     }
 
+    /// Creates a symlink to `src` at `dest`, saying nothing about what is at `src`.
+    pub fn add_symlink(
+        &mut self,
+        src: &ProjectRelativePath,
+        dest: &ProjectRelativePath,
+    ) -> buck2_error::Result<()> {
+        let symlink = new_symlink(self.project_fs.relative_path(src, dest))?;
+        self.builder.insert(dest, DirectoryEntry::Leaf(symlink))?;
+        Ok(())
+    }
+
     /// Takes an input `src_value`, adds it to the builder at `src`. Then
     /// creates a symlink to `src`, adds it to the builder at `dest` and
     /// returns it.
@@ -138,6 +149,32 @@ impl<'a> ArtifactValueBuilder<'a> {
             .insert(dest, entry.dupe().map_dir(|d| d.into_builder()))?;
 
         Ok(entry)
+    }
+
+    /// Builds the `ArtifactValue` as [`Self::build`] does, with the directory at `output` and
+    /// every directory under it marked exhaustive: the whole of what is at `output` is what was
+    /// put there, so a materializer may remove whatever else it finds under it.
+    pub fn build_exhaustive(
+        &self,
+        output: &ProjectRelativePath,
+    ) -> buck2_error::Result<ArtifactValue> {
+        let value = self.build(output)?;
+        let entry = match value.entry() {
+            DirectoryEntry::Dir(dir) => {
+                let mut builder = dir.dupe().into_builder();
+                builder.mark_uniformly_exhaustive();
+                DirectoryEntry::Dir(
+                    builder
+                        .fingerprint(self.digest_config.as_directory_serializer())
+                        .shared(&*INTERNER),
+                )
+            }
+            leaf @ DirectoryEntry::Leaf(_) => leaf.dupe(),
+        };
+        Ok(ArtifactValue::new(
+            entry,
+            value.deps().map(|deps| deps.dupe()),
+        ))
     }
 
     /// Builds the `ArtifactValue`. Since `self.builder` is rooted at the

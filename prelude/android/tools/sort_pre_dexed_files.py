@@ -28,7 +28,9 @@ merge_dexes actions.
 from __future__ import annotations
 
 import argparse
+import itertools
 import json
+import math
 import pathlib
 from typing import Optional, TypedDict
 
@@ -218,6 +220,24 @@ def _assign_to_dex(
     current_inputs.append({"id": lib_id, "class_names": dex_class_names})
 
 
+def _deal_pairs_round_robin(class_names: list[str], num_chunks: int) -> list[list[str]]:
+    """Deal adjacent class pairs round-robin across `num_chunks` buckets.
+
+    Pair-stride interleaves long runs of heavy classes across chunks while
+    preserving even-aligned adjacent pairs (e.g. a synthetic + its
+    synthesizing context, when adjacently aligned) in the same chunk;
+    odd-aligned pairs may still split. Buckets with no pairs are dropped,
+    so the result never contains empty chunks.
+    """
+    pairs = [class_names[i : i + 2] for i in range(0, len(class_names), 2)]
+    chunks = []
+    for chunk_idx in range(num_chunks):
+        chunk = list(itertools.chain.from_iterable(pairs[chunk_idx::num_chunks]))
+        if chunk:
+            chunks.append(chunk)
+    return chunks
+
+
 def _organize_lib(
     dest: list[DexGroup],
     module: str,
@@ -250,17 +270,24 @@ def _organize_lib(
             is_oversized = True
 
     if is_oversized:
-        num_classes = len(dex_class_names)
-        chunks = max(
+        oversize_ratio = max(
             weight_estimate / dex_weight_limit if dex_weight_limit else 1,
             method_ref_count / DEX_REF_LIMIT if method_ref_count > DEX_REF_LIMIT else 1,
             field_ref_count / DEX_REF_LIMIT if field_ref_count > DEX_REF_LIMIT else 1,
             type_ref_count / DEX_REF_LIMIT if type_ref_count > DEX_REF_LIMIT else 1,
         )
-        chunk_size = max(1, int(num_classes // chunks))
-        for start_index in range(0, num_classes, chunk_size):
-            end_index = min(start_index + chunk_size, num_classes)
-            chunked = dex_class_names[start_index:end_index]
+        # Pair-stride across ceil(oversize_ratio) buckets. Contiguous chunking
+        # concentrates heavy classes that cluster together in lib order
+        # (e.g. adjacent classes emitted by codegen) in one chunk, so the
+        # tail dex can still exceed DEX_REF_LIMIT; interleaving spreads refs
+        # evenly. Non-adjacent affinity is not modeled; the sorter does not
+        # see those pairs yet.
+        # Known limitation: ceil() buckets leave no headroom, so skewed
+        # per-pair weights or cross-chunk shared refs can still overflow a
+        # chunk. The principled fix is per-class ref counts from filter_dex
+        # for ref-aware packing.
+        num_chunks = max(1, math.ceil(oversize_ratio))
+        for chunked in _deal_pairs_round_robin(dex_class_names, num_chunks):
             _assign_to_dex(
                 dest,
                 module,

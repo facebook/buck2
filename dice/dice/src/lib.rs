@@ -207,7 +207,6 @@ pub(crate) mod metrics;
 pub(crate) mod opaque;
 pub(crate) mod storage;
 pub(crate) mod updater;
-pub(crate) mod user_cycle;
 pub(crate) mod value;
 mod versions;
 
@@ -250,8 +249,6 @@ pub use crate::api::projection::ProjectionKey;
 pub use crate::api::transaction::DiceTransaction;
 pub use crate::api::transaction::DiceTransactionUpdater;
 pub use crate::api::user_data::UserComputationData;
-pub use crate::api::user_data::UserCycleDetector;
-pub use crate::api::user_data::UserCycleDetectorGuard;
 pub use crate::dice::Dice;
 pub use crate::dice::DiceDataBuilder;
 pub use crate::dice::PagableNodeCounts;
@@ -263,11 +260,14 @@ pub use crate::introspection::serialize_dense_graph;
 pub use crate::introspection::serialize_graph;
 pub use crate::key::DiceKeyDyn;
 pub use crate::key::DiceProjectionDyn;
+pub use crate::metrics::EvictionSnapshot;
 pub use crate::metrics::PagingMemorySnapshot;
 pub use crate::metrics::set_thread_alloc_counters;
 pub use crate::opaque::OpaqueValue;
 pub use crate::storage::DiceStorage;
+pub use crate::storage::EvictionPolicy;
 pub use crate::storage::PagableStorageBackend;
+pub use crate::storage::PageOutPolicy;
 pub use crate::value::DiceValueDyn;
 
 pub mod testing {

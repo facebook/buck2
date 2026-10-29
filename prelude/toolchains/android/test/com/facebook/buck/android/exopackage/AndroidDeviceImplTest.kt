@@ -723,6 +723,41 @@ class AndroidDeviceImplTest {
   }
 
   @Test
+  fun testInstallApkSucceedsWhenAdbFallsBackFromARefusedIncrementalInstall() {
+    val installCommand = "install -r -d ${apkFile.absolutePath}"
+    whenever(mockAdbUtils.executeAdbCommand(installCommand, serialNumber))
+        .thenReturn(
+            "Serving...\nPerforming Incremental Install\n" +
+                "Failure [INSTALL_FAILED_SESSION_INVALID: Incremental installation of this " +
+                "package is not allowed.]\nPerforming Streamed Install\nSuccess\n",
+        )
+    stubInstallVerified()
+
+    assertTrue(
+        androidDevice.installApkOnDevice(apkFile, false, false, false, false, packageName),
+    )
+  }
+
+  @Test
+  fun testInstallApkFailsWhenTheStreamedFallbackAlsoFails() {
+    val installCommand = "install -r -d ${apkFile.absolutePath}"
+    whenever(mockAdbUtils.executeAdbCommand(installCommand, serialNumber))
+        .thenReturn(
+            "Performing Incremental Install\n" +
+                "Failure [INSTALL_FAILED_SESSION_INVALID: Incremental installation of this " +
+                "package is not allowed.]\nPerforming Streamed Install\n" +
+                "Failure [INSTALL_FAILED_INSUFFICIENT_STORAGE]\n",
+        )
+
+    try {
+      androidDevice.installApkOnDevice(apkFile, false, false, false, false, packageName)
+      fail("Expected AndroidInstallException")
+    } catch (e: AndroidInstallException) {
+      assertEquals(setOf(AndroidInstallErrorTag.NO_SPACE_LEFT_ON_DEVICE), e.installError.tags)
+    }
+  }
+
+  @Test
   fun testInstallApkRecoversFromSignatureMismatchReportedWithExitZero() {
     val installCommand = "install -r -d ${apkFile.absolutePath}"
     whenever(mockAdbUtils.executeAdbCommand(installCommand, serialNumber))

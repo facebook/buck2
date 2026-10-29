@@ -72,6 +72,12 @@ def _matches_or_array_is_subset_of(
         return True
     if isinstance(expected_value, list) and isinstance(actual_value, list):
         return set(expected_value).issubset(set(actual_value))
+    if (
+        isinstance(expected_value, str)
+        and isinstance(actual_value, list)
+        and all(isinstance(value, str) for value in actual_value)
+    ):
+        return expected_value in actual_value
     return actual_value == expected_value
 
 
@@ -281,7 +287,9 @@ def select_best_provisioning_profile_core(
             )
             continue
 
-        if datetime.datetime.now() > profile.expiration_date:
+        # `ExpirationDate` is read as a naive UTC time, so compare it with UTC, not local time.
+        now_utc = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+        if now_utc > profile.expiration_date:
             log_mismatched_profile(
                 ProfileExpired(
                     profile=profile, bundle_id_match_length=current_match_length

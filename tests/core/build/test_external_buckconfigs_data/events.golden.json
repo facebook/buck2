@@ -8,6 +8,12 @@
     "value": "fs_hash_crawler"
   },
   {
+    "key": "readonly_outputs",
+    "origin": "tmp-path/extra.bcfg",
+    "section": "buck2",
+    "value": "true"
+  },
+  {
     "origin": "config-file",
     "path": "my_mode.bcfg"
   },

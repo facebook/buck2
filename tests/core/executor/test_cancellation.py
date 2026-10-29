@@ -18,7 +18,7 @@ from pathlib import Path
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.api.buck_result import BuckException, BuckResult, ExitCodeV2
 from buck2.tests.e2e_util.api.process import Process
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 from buck2.tests.e2e_util.helper.utils import read_invocation_record
 
 
@@ -79,15 +79,15 @@ async def _test_cancellation_helper(
     assert record["exit_result_name"] == "SIGNAL_INTERRUPT"
 
 
-@buck_test()
-async def test_cancellation(buck: Buck, tmp_path: Path) -> None:
-    await _test_cancellation_helper(
-        buck, tmp_path, lambda buck, opts: buck.build(*opts, ":slow")
-    )
+class CancellationTest(BuckTestCase):
+    @buck_test()
+    async def test_cancellation(self, buck: Buck, tmp_path: Path) -> None:
+        await _test_cancellation_helper(
+            buck, tmp_path, lambda buck, opts: buck.build(*opts, ":slow")
+        )
 
-
-@buck_test()
-async def test_cancellation_bxl(buck: Buck, tmp_path: Path) -> None:
-    await _test_cancellation_helper(
-        buck, tmp_path, lambda buck, opts: buck.bxl(*opts, "//build.bxl:build")
-    )
+    @buck_test()
+    async def test_cancellation_bxl(self, buck: Buck, tmp_path: Path) -> None:
+        await _test_cancellation_helper(
+            buck, tmp_path, lambda buck, opts: buck.bxl(*opts, "//build.bxl:build")
+        )

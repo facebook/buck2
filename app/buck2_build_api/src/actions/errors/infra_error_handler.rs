@@ -48,6 +48,13 @@ const INFRA_PATTERNS: &[InfraErrorPattern] = &[
         tag: ErrorTag::ActionOom,
         exclusion: None,
     },
+    // Windows reports commit-charge exhaustion (RAM plus pagefile) with this text when any
+    // allocation or file mapping fails, so it is a machine-wide condition like OOM.
+    InfraErrorPattern {
+        pattern: "paging file is too small",
+        tag: ErrorTag::ActionOom,
+        exclusion: None,
+    },
     InfraErrorPattern {
         pattern: "input/output error",
         tag: ErrorTag::IoInputOutputError,
@@ -201,6 +208,18 @@ mod tests {
             check_infra_error_patterns(Some(&command_with_stderr(stderr))),
             Some(ErrorTag::IoInputOutputError),
             "The dotslash exclusion only skips the dotslash entry; other infra patterns still apply"
+        );
+    }
+
+    #[test]
+    fn test_windows_commit_limit_is_infra() {
+        let stderr = "error[E0786]: found invalid metadata files for crate `std`\n\
+             = note: failed to mmap file 'D:\\buck-out\\v2\\art\\libstd-348d8c37.rlib': The paging file is too small for this operation to complete. (os error 1455)\n";
+
+        assert_eq!(
+            check_infra_error_patterns(Some(&command_with_stderr(stderr))),
+            Some(ErrorTag::ActionOom),
+            "Exhausted Windows commit charge is an environment error, not a user error"
         );
     }
 

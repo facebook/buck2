@@ -164,10 +164,6 @@ where
         Some(Self::downgrade(self))
     }
 
-    fn upgrade_weak(weak: &Self::Weak) -> Option<Self> {
-        weak.upgrade()
-    }
-
     fn erase_type() -> impl ArcEraseType {
         StdArcEraseType::<Self>::new()
     }

@@ -13,23 +13,31 @@ import re
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_skip_targets_with_duplicate_names_without_flag(buck: Buck) -> None:
-    await expect_failure(
-        buck.targets("//..."),
-        stderr_regex="Attempted to register target prelude//:aa twice",
-    )
+class SkipTargetsWithDuplicateNamesTest(BuckTestCase):
+    @buck_test()
+    async def test_skip_targets_with_duplicate_names_without_flag(
+        self, buck: Buck
+    ) -> None:
+        await expect_failure(
+            buck.targets("//..."),
+            stderr_regex="Attempted to register target prelude//:aa twice",
+        )
 
-
-@buck_test()
-async def test_skip_targets_with_duplicate_names_with_flag(buck: Buck) -> None:
-    result = await buck.targets("//...", "--skip-targets-with-duplicate-names")
-    assert [
-        "prelude//:aa",
-        "prelude//:bb",
-    ] == result.stdout.splitlines()
-    assert re.search("Attempted to register target prelude//:aa twice", result.stderr)
-    assert re.search("Attempted to register target prelude//:bb twice", result.stderr)
+    @buck_test()
+    async def test_skip_targets_with_duplicate_names_with_flag(
+        self, buck: Buck
+    ) -> None:
+        result = await buck.targets("//...", "--skip-targets-with-duplicate-names")
+        assert [
+            "prelude//:aa",
+            "prelude//:bb",
+        ] == result.stdout.splitlines()
+        assert re.search(
+            "Attempted to register target prelude//:aa twice", result.stderr
+        )
+        assert re.search(
+            "Attempted to register target prelude//:bb twice", result.stderr
+        )

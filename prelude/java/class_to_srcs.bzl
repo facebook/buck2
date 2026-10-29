@@ -76,14 +76,18 @@ def create_class_to_source_map_from_jar(
     owner_target: str,
     sources_jar_name: [str, None] = None,
     debuginfo: Artifact | None = None,
+    compiler_map: Artifact | None = None,
 ) -> (Artifact, Artifact | None):
     output = actions.declare_output(name, has_content_based_path = True)
-    cmd = cmd_args(java_toolchain.gen_class_to_source_map[RunInfo])
+    tool = java_toolchain.compiler_class_to_source_map if compiler_map != None else java_toolchain.gen_class_to_source_map
+    cmd = cmd_args(tool[RunInfo])
     if java_toolchain.gen_class_to_source_map_include_sourceless_compiled_packages != None:
         for item in java_toolchain.gen_class_to_source_map_include_sourceless_compiled_packages:
             cmd.add("-i", item)
     cmd.add("-o", output.as_output())
-    if debuginfo != None:
+    if compiler_map != None:
+        cmd.add("--compiler-map", compiler_map)
+    elif debuginfo != None:
         cmd.add("--debuginfo", debuginfo)
     cmd.add("--owner-target", owner_target)
     cmd.add(jar)
@@ -92,7 +96,7 @@ def create_class_to_source_map_from_jar(
     if sources_jar_name:
         sources_jar = actions.declare_output(sources_jar_name, has_content_based_path = True)
         cmd.add("--sources_jar", sources_jar.as_output())
-    actions.run(cmd, category = "class_to_srcs_map")
+    actions.run(cmd, category = "class_to_srcs_map_from_compiler" if compiler_map != None else "class_to_srcs_map")
     return (output, sources_jar)
 
 def maybe_create_class_to_source_map_debuginfo(actions: AnalysisActions, name: str, java_toolchain: JavaToolchainInfo, srcs: list[Artifact]) -> Artifact | None:

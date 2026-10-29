@@ -10,9 +10,12 @@
 
 use std::convert::Infallible;
 use std::ops::Deref;
+use std::slice;
+use std::sync::OnceLock;
 
 use allocative::Allocative;
 use buck2_build_api::actions::query::ActionQueryNode;
+use buck2_build_api::interpreter::rule_defs::type_id_domain::Buck2TypeIdDomain;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::environment::QueryTarget;
@@ -24,6 +27,7 @@ use pagable::PagableDeserialize;
 use pagable::PagableSerialize;
 use starlark::any::IsStaticType;
 use starlark::any::ProvidesStaticType;
+use starlark::docs::DocItem;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::pagable::StarlarkDeserialize;
@@ -31,24 +35,86 @@ use starlark::pagable::StarlarkDeserializeContext;
 use starlark::pagable::StarlarkSerialize;
 use starlark::pagable::StarlarkSerializeContext;
 use starlark::starlark_module;
+use starlark::starlark_simple_value;
 use starlark::typing::HasTyVTable;
 use starlark::typing::Ty;
+use starlark::typing::TyBasic;
+use starlark::typing::TyStarlarkValue;
+use starlark::typing::TyUser;
+use starlark::typing::TyUserIndex;
+use starlark::typing::TyUserParams;
+use starlark::typing::TypingBinOp;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
 use starlark::values::FreezeResult;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueError;
 use starlark::values::starlark_value;
 use starlark::values::type_repr::StarlarkTypeRepr;
+use starlark::values::typing::TypeCompiled;
+use starlark::values::typing::TypeInstanceId;
 
 use crate::bxl::starlark_defs::alloc_node::AllocNode;
 
 pub(crate) trait NodeLike =
-    QueryTarget + std::fmt::Debug + Eq + Dupe + AllocNode + Allocative + Pagable;
+    QueryTarget + std::fmt::Debug + Eq + Dupe + AllocNode + Allocative + Pagable + TargetSetNode;
+
+/// Node kinds a `target_set` can hold.
+pub(crate) trait TargetSetNode {
+    /// Static type of `StarlarkTargetSet<Self>`, e.g. `bxl.TargetSet[bxl.ConfiguredTargetNode]`.
+    fn target_set_ty() -> Ty;
+}
+
+impl TargetSetNode for TargetNode {
+    fn target_set_ty() -> Ty {
+        static TY: OnceLock<Ty> = OnceLock::new();
+        TY.get_or_init(new_target_set_ty::<Self>).dupe()
+    }
+}
+
+impl TargetSetNode for ConfiguredTargetNode {
+    fn target_set_ty() -> Ty {
+        static TY: OnceLock<Ty> = OnceLock::new();
+        TY.get_or_init(new_target_set_ty::<Self>).dupe()
+    }
+}
+
+impl TargetSetNode for ActionQueryNode {
+    fn target_set_ty() -> Ty {
+        static TY: OnceLock<Ty> = OnceLock::new();
+        TY.get_or_init(new_target_set_ty::<Self>).dupe()
+    }
+}
+
+/// All node kinds share one generic `StarlarkValue` impl, and with it the `target_set` type
+/// name, so the node kind is carried by this `TyUser` instead. That gives each kind a distinct
+/// name in signatures and type errors, and types iterating and indexing as the node.
+fn new_target_set_ty<Node: NodeLike>() -> Ty
+where
+    StarlarkTargetSet<Node>: HasTyVTable,
+{
+    let node_ty = Node::starlark_ty();
+    let name = format!("bxl.TargetSet[{node_ty}]");
+    let id = TypeInstanceId::from_identity(Buck2TypeIdDomain::BxlTargetSet, &name.as_str());
+    Ty::custom(
+        TyUser::new(
+            name,
+            TyStarlarkValue::new::<StarlarkTargetSet<Node>>(),
+            id,
+            TyUserParams {
+                index: Some(TyUserIndex::new(Ty::int(), node_ty.dupe())),
+                iter_item: Some(node_ty),
+                ..TyUserParams::default()
+            },
+        )
+        .expect("target_set is indexable and iterable"),
+    )
+}
 
 impl<Node: NodeLike> StarlarkSerialize for StarlarkTargetSet<Node> {
     fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> starlark::Result<()> {
@@ -153,8 +219,27 @@ where
 {
     type Canonical = Self;
 
+    fn get_type_starlark_repr() -> Ty {
+        Node::target_set_ty()
+    }
+
     fn get_methods() -> Option<&'static Methods> {
         Some(STARLARK_TARGET_SET_METHODS.methods())
+    }
+
+    fn bin_op_ty(op: TypingBinOp, rhs: &TyBasic) -> Option<Ty> {
+        match op {
+            TypingBinOp::Add | TypingBinOp::Sub | TypingBinOp::BitAnd => {
+                let set_ty = Node::target_set_ty();
+                // Like `add`/`sub`/`bit_and`, require the same node kind. An unknown (`Any`)
+                // right-hand side may still be one, so it is allowed.
+                let same_kind = matches!(rhs, TyBasic::Any)
+                    || set_ty.iter_union() == slice::from_ref(rhs)
+                    || *rhs == TyBasic::StarlarkValue(TyStarlarkValue::new::<Self>());
+                same_kind.then_some(set_ty)
+            }
+            _ => None,
+        }
     }
 
     fn iterate_collect(&self, heap: Heap<'v>) -> starlark::Result<Vec<Value<'v>>> {
@@ -240,13 +325,92 @@ where
     }
 }
 
+// Values of `bxl.TargetSet[...]` and the `bxl.*TargetSet` globals. Frozen modules can hold these,
+// and pagable serialization can only refer to statics registered by this macro.
+starlark::declare_starlark_value_as_type!(pub(crate) UNCONFIGURED_TARGET_SET_TYPE, StarlarkTargetSet<TargetNode>);
+starlark::declare_starlark_value_as_type!(pub(crate) CONFIGURED_TARGET_SET_TYPE, StarlarkTargetSet<ConfiguredTargetNode>);
+starlark::declare_starlark_value_as_type!(pub(crate) ACTION_QUERY_TARGET_SET_TYPE, StarlarkTargetSet<ActionQueryNode>);
+
+#[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
+enum TargetSetTypeError {
+    #[error(
+        "`bxl.TargetSet` expects one of [`bxl.UnconfiguredTargetNode`, `bxl.ConfiguredTargetNode`, `bxl.ActionQueryNode`], got `{0}`"
+    )]
+    UnsupportedNodeType(Ty),
+}
+
+/// The value of `bxl.TargetSet`. As a type it matches a target set of any node kind;
+/// `bxl.TargetSet[<node type>]` is the type of target sets of that kind.
+#[derive(
+    Debug,
+    Display,
+    ProvidesStaticType,
+    NoSerialize,
+    Allocative,
+    StarlarkPagable
+)]
+#[display("bxl.TargetSet")]
+pub(crate) struct StarlarkTargetSetType;
+
+starlark_simple_value!(StarlarkTargetSetType);
+
+impl StarlarkTargetSetType {
+    /// Type of a target set of any node kind.
+    fn any_kind_ty() -> Ty {
+        Ty::unions(vec![
+            TargetNode::target_set_ty(),
+            ConfiguredTargetNode::target_set_ty(),
+            ActionQueryNode::target_set_ty(),
+        ])
+    }
+}
+
+#[starlark_value(type = "bxl.TargetSet")]
+impl<'v> StarlarkValue<'v> for StarlarkTargetSetType {
+    fn eval_type(&self) -> Option<Ty> {
+        Some(Self::any_kind_ty())
+    }
+
+    fn at(&self, index: Value<'v>, heap: Heap<'v>) -> starlark::Result<Value<'v>> {
+        let node_ty = TypeCompiled::new(index, heap)?;
+        let node_ty = node_ty.as_ty();
+        if *node_ty == TargetNode::starlark_ty() {
+            Ok(heap.alloc(UNCONFIGURED_TARGET_SET_TYPE))
+        } else if *node_ty == ConfiguredTargetNode::starlark_ty() {
+            Ok(heap.alloc(CONFIGURED_TARGET_SET_TYPE))
+        } else if *node_ty == ActionQueryNode::starlark_ty() {
+            Ok(heap.alloc(ACTION_QUERY_TARGET_SET_TYPE))
+        } else {
+            Err(
+                buck2_error::Error::from(TargetSetTypeError::UnsupportedNodeType(node_ty.dupe()))
+                    .into(),
+            )
+        }
+    }
+
+    fn documentation(&self) -> DocItem {
+        // All node kinds share one methods table, so its docs describe every target set.
+        DocItem::Type(
+            STARLARK_TARGET_SET_METHODS
+                .methods()
+                .documentation(Self::any_kind_ty()),
+        )
+    }
+}
+
 /// A set-like object for managing buck2 target nodes.
 ///
 /// It can be obtained from several functions in [`bxl.Context`](../Context) and
 /// [`bxl.UqueryContext`](../UqueryContext)/[`bxl.CqueryContext`](../CqueryContext)/[`bxl.AqueryContext`](../AqueryContext),
 /// among other places.
 ///
-/// It can be either [`ConfiguredTargetSet`](../ConfiguredTargetSet) or [`UnconfiguredTargetSet`](../UnconfiguredTargetSet) which respectively contain either [`ConfiguredTargetNode`](../ConfiguredTargetNode) or [`UnconfiguredTargetNode`](../UnconfiguredTargetNode).
+/// The node kind is part of the type, written `bxl.TargetSet[<node type>]`:
+/// * `bxl.TargetSet[bxl.ConfiguredTargetNode]`, also available as [`bxl.ConfiguredTargetSet`](../ConfiguredTargetSet), contains [`ConfiguredTargetNode`](../ConfiguredTargetNode)s
+/// * `bxl.TargetSet[bxl.UnconfiguredTargetNode]`, also available as [`bxl.UnconfiguredTargetSet`](../UnconfiguredTargetSet), contains [`UnconfiguredTargetNode`](../UnconfiguredTargetNode)s
+/// * `bxl.TargetSet[bxl.ActionQueryNode]` contains [`ActionQueryNode`](../ActionQueryNode)s
+///
+/// `bxl.TargetSet` on its own matches a target set of any kind. `type()` returns `"target_set"` for all of them.
 ///
 /// It provides common set operations for target nodes.
 /// It supports iteration, indexing, addition (union), subtraction (difference), equality comparison, and intersection operations.
@@ -301,13 +465,62 @@ starlark::__starlark_pagable_only! {
         use buck2_core::execution_types::execution::ExecutionPlatformResolution;
         use buck2_core::provider::label::ConfiguredProvidersLabel;
         use buck2_core::target::label::label::TargetLabel;
-        use buck2_hash::StdBuckHashMap;
+        use buck2_hash::BuckFixedSortedMap;
+        use buck2_node::rule_type::RuleType;
         use pagable::PagableDeserialize;
         use pagable::PagableSerialize;
         use starlark::values::FrozenHeapName;
         use starlark::values::OwnedFrozen;
 
         use super::*;
+
+        #[test]
+        fn target_set_types_are_distinct_per_node_kind() {
+            let unconfigured = StarlarkTargetSet::<TargetNode>::starlark_type_repr();
+            let configured = StarlarkTargetSet::<ConfiguredTargetNode>::starlark_type_repr();
+            let action = StarlarkTargetSet::<ActionQueryNode>::starlark_type_repr();
+
+            assert_eq!(unconfigured.to_string(), "bxl.TargetSet[bxl.UnconfiguredTargetNode]");
+            assert_eq!(configured.to_string(), "bxl.TargetSet[bxl.ConfiguredTargetNode]");
+            assert_eq!(action.to_string(), "bxl.TargetSet[bxl.ActionQueryNode]");
+            assert_ne!(unconfigured, configured);
+
+            // Unions must be order-independent and deduplicated; this fails if the kinds sort as
+            // equal while comparing unequal.
+            assert_eq!(
+                Ty::unions(vec![unconfigured.dupe(), configured.dupe(), unconfigured.dupe()]),
+                Ty::unions(vec![configured, unconfigured]),
+            );
+        }
+
+        #[test]
+        fn target_set_bin_op_requires_same_kind() {
+            type Configured = StarlarkTargetSet<ConfiguredTargetNode>;
+            let configured = Configured::starlark_type_repr();
+            let unconfigured = StarlarkTargetSet::<TargetNode>::starlark_type_repr();
+            let single = |ty: &Ty| ty.iter_union()[0].dupe();
+            let bin_op_ty = <Configured as StarlarkValue<'static>>::bin_op_ty;
+
+            assert_eq!(bin_op_ty(TypingBinOp::Add, &single(&configured)), Some(configured.dupe()));
+            assert_eq!(bin_op_ty(TypingBinOp::Sub, &TyBasic::Any), Some(configured.dupe()));
+            assert_eq!(bin_op_ty(TypingBinOp::BitAnd, &single(&unconfigured)), None);
+            assert_eq!(bin_op_ty(TypingBinOp::Add, &single(&Ty::list(Ty::any()))), None);
+        }
+
+        #[test]
+        fn target_set_ty_round_trips() -> pagable::Result<()> {
+            let ty = StarlarkTargetSet::<ConfiguredTargetNode>::starlark_type_repr();
+
+            let mut serializer = pagable::testing::TestingSerializer::new();
+            ty.pagable_serialize(&mut serializer)?;
+            let bytes = serializer.finish();
+            let mut deserializer = pagable::testing::TestingDeserializer::new(&bytes);
+            let restored = Ty::pagable_deserialize(&mut deserializer)?;
+
+            assert_eq!(restored, ty);
+            assert_eq!(restored.to_string(), ty.to_string());
+            Ok(())
+        }
 
         #[test]
         fn configured_target_set_round_trips() -> pagable::Result<()> {
@@ -350,12 +563,13 @@ starlark::__starlark_pagable_only! {
                     RecordedActions::new(0),
                 ),
                 None,
-                StdBuckHashMap::default(),
+                BuckFixedSortedMap::default(),
                 0,
                 0,
                 None,
                 Vec::new(),
-            );
+                RuleType::Forward,
+            ).expect("test analysis should have valid providers");
             let node = ActionQueryNode::new_analysis(ConfiguredProvidersLabel::default_for(label), analysis);
             let owned: OwnedFrozen<Value<'static>> = OwnedFrozen::build(
                 FrozenHeapName::user("aquery_target_set_fails_page_out_without_panicking"),

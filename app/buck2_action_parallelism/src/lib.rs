@@ -54,9 +54,9 @@ pub struct ActionInterval {
 #[derive(Clone, Debug, PartialEq)]
 pub struct ParallelismResult {
     /// The concurrency distribution as `(percentile, concurrency_level)` pairs,
-    /// one per entry in [`PERCENTILES`]. Self-describing (each value carries its
-    /// percentile) so the reported set of percentiles can change over time
-    /// without misinterpreting historical data.
+    /// one per percentile requested from [`compute`]. Self-describing (each
+    /// value carries its percentile) so the reported set of percentiles can
+    /// change over time without misinterpreting historical data.
     pub percentiles: Vec<(u32, u64)>,
     /// Time-weighted mean concurrency over the time at least one action executed.
     pub avg_concurrency: f64,
@@ -68,9 +68,9 @@ pub struct ParallelismResult {
 
 impl ParallelismResult {
     /// Result for a build with no executed actions (or only zero-length ones).
-    fn empty(executed_action_count: u64) -> Self {
+    fn empty(executed_action_count: u64, percentiles: &[u32]) -> Self {
         Self {
-            percentiles: PERCENTILES.iter().map(|&p| (p, 0)).collect(),
+            percentiles: percentiles.iter().map(|&p| (p, 0)).collect(),
             avg_concurrency: 0.0,
             executed_action_count,
             total_active_duration_us: 0,
@@ -123,7 +123,7 @@ fn to_us(seconds: i64, nanos: i32) -> Option<i64> {
 /// exactly as another begins does not spuriously bump the count.
 pub fn compute(intervals: &[ActionInterval], percentiles: &[u32]) -> ParallelismResult {
     if intervals.is_empty() {
-        return ParallelismResult::empty(0);
+        return ParallelismResult::empty(0, percentiles);
     }
 
     // Two endpoint events per interval: +1 at start, -1 at end.
@@ -154,7 +154,7 @@ pub fn compute(intervals: &[ActionInterval], percentiles: &[u32]) -> Parallelism
 
     let total_active_duration_us: i64 = durations.values().copied().sum();
     if total_active_duration_us <= 0 {
-        return ParallelismResult::empty(intervals.len() as u64);
+        return ParallelismResult::empty(intervals.len() as u64, percentiles);
     }
 
     // Time-weighted average concurrency.
@@ -204,7 +204,7 @@ mod tests {
     #[test]
     fn empty_input() {
         let r = compute(&[], &PERCENTILES);
-        assert_eq!(r, ParallelismResult::empty(0));
+        assert_eq!(r, ParallelismResult::empty(0, &PERCENTILES));
     }
 
     #[test]
@@ -267,6 +267,13 @@ mod tests {
         assert_eq!(r.executed_action_count, 2);
         assert_eq!(r.total_active_duration_us, 0);
         assert!(r.percentiles.iter().all(|&(_, level)| level == 0));
+    }
+
+    #[test]
+    fn empty_result_reports_requested_percentiles() {
+        assert_eq!(compute(&[], &[50]).percentiles, vec![(50, 0)]);
+        assert_eq!(compute(&[iv(3, 3)], &[50]).percentiles, vec![(50, 0)]);
+        assert_eq!(compute(&[iv(0, 1)], &[50]).percentiles, vec![(50, 1)]);
     }
 
     fn local_action(start_s: i64, exec_s: i64) -> buck2_data::ActionExecutionEnd {

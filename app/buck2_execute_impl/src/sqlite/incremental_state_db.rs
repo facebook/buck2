@@ -17,7 +17,7 @@ use buck2_common::sqlite::sqlite_db::SqliteTables;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_core::soft_error;
+use buck2_core::soft_error_or_panic;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -70,16 +70,15 @@ impl IncrementalDbState {
 
                 self.state.insert(key.to_owned(), value.clone().into());
                 if let Err(e) = db.incremental_state_table().insert(key.to_owned(), value) {
-                    soft_error!(
+                    soft_error_or_panic!(
                         "insert_to_incremental_db",
                         buck2_error::buck2_error!(
                             buck2_error::ErrorTag::Tier0,
                             "Failed to insert {} into sqlite db. {}",
-                            key, e
-                        ),
-                        quiet: true
-                    )
-                    .unwrap();
+                            key,
+                            e
+                        )
+                    );
                 };
             }
             None => {
@@ -94,16 +93,14 @@ impl IncrementalDbState {
         {
             // This should be converted into a real error later, marking as a soft error for now as the row not existing
             // might show up as an error but doesn't actually matter in reality.
-            soft_error!(
+            soft_error_or_panic!(
                 "delete_from_incremental_db",
                 buck2_error::buck2_error!(
                     buck2_error::ErrorTag::Tier0,
                     "Failed to remove incremental path map from sqlite db. {}",
                     e
-                ),
-                quiet: true
-            )
-            .unwrap();
+                )
+            );
         }
 
         self.state.remove(key);
@@ -258,7 +255,6 @@ pub(crate) fn testing_incremental_state_sqlite_db(
 mod tests {
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_events::daemon_id::DaemonId;
-    use starlark_map::small_map::SmallMap;
 
     use super::*;
     use crate::incremental_actions_helper::IncrementalPathMap;
@@ -286,14 +282,16 @@ mod tests {
         let fs = ProjectRootTemp::new()?;
 
         let run_action_key = "test_action".to_owned();
-        let mut mapping = SmallMap::new();
-        mapping.insert(
-            buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf::unchecked_new(
-                "test_file".to_owned(),
-            ),
-            ProjectRelativePathBuf::unchecked_new("buck-out/content_hash/test_file".to_owned()),
+        let incremental_path_map = IncrementalPathMap::new(
+            [(
+                buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf::unchecked_new(
+                    "test_file".to_owned(),
+                ),
+                ProjectRelativePathBuf::unchecked_new("buck-out/content_hash/test_file".to_owned()),
+            )]
+            .into_iter()
+            .collect(),
         );
-        let incremental_path_map = IncrementalPathMap::new(mapping);
         let metadatas = testing_metadatas();
 
         let v0 = IntentionallyStdHashMap::from([("version".to_owned(), "0".to_owned())]);

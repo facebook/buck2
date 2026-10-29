@@ -641,6 +641,11 @@ impl FlushingBuckdClient<'_> {
         UnstableHeapDumpResponse
     );
     debug_method!(
+        unstable_recent_alloc_dump,
+        UnstableRecentAllocDumpRequest,
+        UnstableRecentAllocDumpResponse
+    );
+    debug_method!(
         unstable_flush_pgo_profile,
         UnstableFlushPgoProfileRequest,
         UnstableFlushPgoProfileResponse
@@ -649,6 +654,11 @@ impl FlushingBuckdClient<'_> {
         unstable_allocator_stats,
         UnstableAllocatorStatsRequest,
         UnstableAllocatorStatsResponse
+    );
+    debug_method!(
+        unstable_list_tenants,
+        UnstableListTenantsRequest,
+        UnstableListTenantsResponse
     );
     debug_method!(
         unstable_dice_dump,

@@ -12,10 +12,14 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
 
 use async_trait::async_trait;
+use buck2_agent_interactive::Advice;
+use buck2_agent_interactive::Decision;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
 use buck2_common::init::DEFAULT_RETAINED_EVENT_LOGS;
+use buck2_common::invocation_paths::DEFAULT_ISOLATION_DIR;
 use buck2_common::invocation_paths::InvocationPaths;
+use buck2_error::ErrorTag;
 use buck2_error::ExitCode;
 use buck2_event_observer::span_tracker::EventTimestamp;
 use dupe::Dupe;
@@ -72,7 +76,7 @@ fn update_events_ctx<T: StreamingCommand>(
         .immediate_config
         .daemon_startup_config()
         .map(|daemon_startup_config| {
-            daemon_startup_config
+            daemon_startup_config.startup_options
                 .health_check_config
                 .enable_health_checks
         })
@@ -243,6 +247,14 @@ impl<T: StreamingCommand> BuckSubcommand for T {
                 BuckdConnectOptions::Options(BuckdConnectDaemonOptions {
                     constraints: req,
                     daemon_startup_mode: T::daemon_startup_mode(),
+                    new_isolation_dir_advice: if ctx.paths()?.isolation.as_str()
+                        == DEFAULT_ISOLATION_DIR
+                    {
+                        Decision::Inactive
+                    } else {
+                        ctx.agent_advice(Advice::NewIsolationDir)?
+                    },
+                    trace_id: ctx.trace_id.dupe(),
                     #[cfg(all(fbcode_build, target_os = "linux"))]
                     allow_daemon_start_unsandboxed_via_wrapper: ctx
                         .immediate_config
@@ -265,6 +277,7 @@ impl<T: StreamingCommand> BuckSubcommand for T {
 
             let mut buckd = match buckd {
                 Ok(buckd) => buckd,
+                Err(e) if e.has_tag(ErrorTag::AgentAdviceBlocked) => return ExitResult::err(e),
                 Err(e) => {
                     return ExitResult::err_with_exit_code(e, ExitCode::ConnectError);
                 }
@@ -333,7 +346,7 @@ fn get_event_log_subscriber<T: StreamingCommand>(
         log_size_counter_bytes,
         ctx.immediate_config
             .daemon_startup_config()
-            .map(|daemon_startup_config| daemon_startup_config.retained_event_logs)
+            .map(|daemon_startup_config| daemon_startup_config.startup_options.retained_event_logs)
             .unwrap_or(DEFAULT_RETAINED_EVENT_LOGS),
     );
     Box::new(log)

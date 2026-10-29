@@ -16,6 +16,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.Reader;
 import java.io.Writer;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -34,10 +36,21 @@ class ListenableFileManager extends ForwardingStandardJavaFileManager {
 
   private final FileObjectWrapper fileTracker;
   private final List<FileManagerListener> listeners = new ArrayList<>();
+  @Nullable private final CompilerClassToSourceMap classToSourceMap;
+  private final Path sourceRoot;
 
   public ListenableFileManager(StandardJavaFileManager fileManager) {
+    this(fileManager, null, Paths.get(""));
+  }
+
+  public ListenableFileManager(
+      StandardJavaFileManager fileManager,
+      @Nullable CompilerClassToSourceMap classToSourceMap,
+      Path sourceRoot) {
     super(fileManager);
     fileTracker = new FileObjectWrapper();
+    this.classToSourceMap = classToSourceMap;
+    this.sourceRoot = sourceRoot;
   }
 
   public void addListener(FileManagerListener listener) {
@@ -128,6 +141,15 @@ class ListenableFileManager extends ForwardingStandardJavaFileManager {
       Location location, String className, JavaFileObject.Kind kind, FileObject sibling)
       throws IOException {
     JavaFileObject javaFileObject = super.getJavaFileForOutput(location, className, kind, sibling);
+    if (classToSourceMap != null
+        && location == StandardLocation.CLASS_OUTPUT
+        && kind == JavaFileObject.Kind.CLASS) {
+      List<Path> sources =
+          sibling != null && "file".equals(sibling.toUri().getScheme())
+              ? List.of(Paths.get(sibling.toUri()))
+              : List.of();
+      classToSourceMap.put(className.replace('.', '/') + kind.extension, sources, sourceRoot);
+    }
     if (location == StandardLocation.ANNOTATION_PROCESSOR_PATH) {
       return javaFileObject;
     } else {

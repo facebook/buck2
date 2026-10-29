@@ -124,7 +124,6 @@ pub struct DocsStarlarkBuiltinsRequest {
 pub enum DocsRequest {
     Starlark(DocsStarlarkRequest),
     StarlarkBuiltins(DocsStarlarkBuiltinsRequest),
-    Agent,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -133,6 +132,4 @@ pub enum DocsResponse {
     NoOutput,
     /// JSON documentation to print on stdout.
     Json(String),
-    /// Plain-text documentation to print on stdout.
-    Text(String),
 }

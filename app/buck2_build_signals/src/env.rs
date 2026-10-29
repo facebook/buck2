@@ -62,12 +62,23 @@ pub struct WaitingData(Option<Box<WaitingDataInitialized>>);
 
 #[derive(Clone, Debug)]
 struct WaitingDataInitialized {
+    /// Category of the time before the first entry of `categorized_waiting`.
+    initial_category: WaitingCategory,
     categorized_waiting: Vec<(Instant, WaitingCategory)>,
 }
 
 impl WaitingData {
     pub fn new() -> Self {
         Self(None)
+    }
+
+    /// Waiting data whose time before the first recorded category, back to when the node's
+    /// dependencies finished, is attributed to `category` rather than `Unknown`.
+    pub fn with_initial_category(category: WaitingCategory) -> Self {
+        Self(Some(Box::new(WaitingDataInitialized {
+            initial_category: category,
+            categorized_waiting: Vec::new(),
+        })))
     }
 
     /// Returns an iterator over categorized waiting time spans, starting at `start_time` and ending at `end_time`.
@@ -81,7 +92,7 @@ impl WaitingData {
                 let mut spans = Vec::with_capacity(1 + initialized.categorized_waiting.len());
                 spans.push((
                     TimeSpan::new_saturating(start_time, initialized.categorized_waiting[0].0),
-                    &WaitingCategory::Unknown,
+                    &initialized.initial_category,
                 ));
                 for (i, (start, category)) in initialized.categorized_waiting.iter().enumerate() {
                     let end = initialized
@@ -94,7 +105,12 @@ impl WaitingData {
 
                 spans.into_iter()
             }
-            _ => vec![(
+            Some(initialized) => vec![(
+                TimeSpan::new_saturating(start_time, end_time),
+                &initialized.initial_category,
+            )]
+            .into_iter(),
+            None => vec![(
                 TimeSpan::new_saturating(start_time, end_time),
                 &WaitingCategory::Unknown,
             )]
@@ -115,6 +131,7 @@ impl WaitingData {
     fn init(&mut self) -> &mut WaitingDataInitialized {
         self.0.get_or_insert_with(|| {
             Box::new(WaitingDataInitialized {
+                initial_category: WaitingCategory::Unknown,
                 categorized_waiting: Vec::new(),
             })
         })
@@ -140,6 +157,12 @@ pub enum WaitingCategory {
     LocalQueued,
     MaterializerPrepare,
     MaterializerStage2,
+    /// Time between a test's dependencies finishing and the test executor asking buck2 to run
+    /// it: the executor's own scheduling, which includes waiting for an executor slot.
+    TestExecutorScheduling,
+    /// Time between an install's dependencies finishing and the installer being launched and
+    /// connected.
+    InstallerStartup,
 }
 
 #[derive(Copy, Clone, Dupe, derive_more::Display, Allocative)]
@@ -226,7 +249,7 @@ where
         .await
         .buck_error_context("Error computing critical path")
     {
-        buck2_fs::fs_util::soft_error!("critical_path_computation_failed", e)?;
+        buck2_core::soft_error!("critical_path_computation_failed", e);
     }
     result
 }
@@ -266,6 +289,32 @@ mod tests {
         assert_eq!(spans.len(), 1);
         assert_eq!(spans[0].1, &WaitingCategory::Unknown);
         assert_eq!(spans[0].0.duration(), Duration::from_secs(10));
+    }
+
+    #[test]
+    fn test_iter_spans_initial_category() {
+        let base = Instant::now();
+        let end_time = base + Duration::from_secs(10);
+
+        let waiting_data =
+            WaitingData::with_initial_category(WaitingCategory::TestExecutorScheduling);
+        let spans: Vec<_> = waiting_data.iter_spans(base, end_time).collect();
+        assert_eq!(spans.len(), 1);
+        assert_eq!(spans[0].1, &WaitingCategory::TestExecutorScheduling);
+        assert_eq!(spans[0].0.duration(), Duration::from_secs(10));
+
+        let mut waiting_data =
+            WaitingData::with_initial_category(WaitingCategory::TestExecutorScheduling);
+        waiting_data.start_waiting_category_at(
+            WaitingCategory::PreparingAction,
+            base + Duration::from_secs(7),
+        );
+        let spans: Vec<_> = waiting_data.iter_spans(base, end_time).collect();
+        assert_eq!(spans.len(), 2);
+        assert_eq!(spans[0].1, &WaitingCategory::TestExecutorScheduling);
+        assert_eq!(spans[0].0.duration(), Duration::from_secs(7));
+        assert_eq!(spans[1].1, &WaitingCategory::PreparingAction);
+        assert_eq!(spans[1].0.duration(), Duration::from_secs(3));
     }
 
     #[test]

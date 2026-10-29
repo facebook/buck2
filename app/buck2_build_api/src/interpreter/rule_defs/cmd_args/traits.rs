@@ -15,7 +15,7 @@ use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact::fs::ExecutorFs;
-use buck2_hash::BuckIndexSet;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_hash::BuckMutMap;
 use buck2_interpreter::types::cell_root::CellRoot;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
@@ -33,8 +33,42 @@ use crate::interpreter::rule_defs::cmd_args::builder::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command_line_arg_like_impl;
 use crate::interpreter::rule_defs::resolved_macro::ResolvedMacro;
 
+/// How an input reaches the action. Leaves report the default; each enclosing
+/// `cmd_args` scope rewrites it on the way up to the action's visitor.
+///
+/// A visitor that branches on the properties must destructure it without `..` and match
+/// `requires` exhaustively, so that a new property or need is a compile error at every
+/// site that decides on it. Wrappers that only rewrite one property forward the rest
+/// with `..props`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct InputProperties {
+    /// Reached through some `cmd_args`'s `hidden` list; nothing renders it.
+    pub hidden: bool,
+    pub requires: Requires,
+}
+
+/// What the command requires of an input.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Requires {
+    /// The contents: a regular input, built and materialized.
+    #[default]
+    Contents,
+    /// Only the path, as under `ignore_artifacts`: built when the path embeds the
+    /// content hash and is rendered, never materialized. Hidden, nothing renders it,
+    /// so it is not an input at all.
+    Path,
+    /// Only the content hash: built, folded into the run action's salt, never
+    /// materialized.
+    Digest,
+}
+
 pub trait CommandLineArtifactVisitor<'v> {
-    fn visit_input(&mut self, input: ArtifactGroup, tags: Vec<&ArtifactTag>);
+    fn visit_input(
+        &mut self,
+        input: ArtifactGroup,
+        props: InputProperties,
+        tags: Vec<&ArtifactTag>,
+    );
 
     fn visit_declared_output(&mut self, artifact: OutputArtifact<'v>, tags: Vec<&ArtifactTag>);
 
@@ -50,10 +84,12 @@ pub trait CommandLineArtifactVisitor<'v> {
     fn visit_declared_artifact(
         &mut self,
         declared_artifact: DeclaredArtifact<'v>,
+        props: InputProperties,
         tags: Vec<&ArtifactTag>,
     ) -> buck2_error::Result<()> {
         self.visit_input(
             ArtifactGroup::Artifact(declared_artifact.ensure_bound()?.into_artifact()),
+            props,
             tags,
         );
         Ok(())
@@ -72,17 +108,17 @@ pub trait CommandLineArtifactVisitor<'v> {
 
 /// A CommandLineArtifactVisitor that gathers inputs and outputs.
 pub struct SimpleCommandLineArtifactVisitor<'v> {
-    pub inputs: BuckIndexSet<ArtifactGroup>,
-    pub declared_outputs: BuckIndexSet<OutputArtifact<'v>>,
-    pub frozen_outputs: BuckIndexSet<Artifact>,
+    pub inputs: BuckMutInsertionSet<ArtifactGroup>,
+    pub declared_outputs: BuckMutInsertionSet<OutputArtifact<'v>>,
+    pub frozen_outputs: BuckMutInsertionSet<Artifact>,
 }
 
 impl SimpleCommandLineArtifactVisitor<'_> {
     pub fn new() -> Self {
         Self {
-            inputs: BuckIndexSet::default(),
-            declared_outputs: BuckIndexSet::default(),
-            frozen_outputs: BuckIndexSet::default(),
+            inputs: BuckMutInsertionSet::default(),
+            declared_outputs: BuckMutInsertionSet::default(),
+            frozen_outputs: BuckMutInsertionSet::default(),
         }
     }
 
@@ -92,7 +128,19 @@ impl SimpleCommandLineArtifactVisitor<'_> {
 }
 
 impl<'v> CommandLineArtifactVisitor<'v> for SimpleCommandLineArtifactVisitor<'v> {
-    fn visit_input(&mut self, input: ArtifactGroup, _tags: Vec<&ArtifactTag>) {
+    fn visit_input(
+        &mut self,
+        input: ArtifactGroup,
+        props: InputProperties,
+        _tags: Vec<&ArtifactTag>,
+    ) {
+        let InputProperties { hidden, requires } = props;
+        match requires {
+            Requires::Contents => {}
+            Requires::Path if hidden => return,
+            Requires::Path => {}
+            Requires::Digest => {}
+        }
         self.inputs.insert(input);
     }
 

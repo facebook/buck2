@@ -11,41 +11,39 @@
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_build_artifact(buck: Buck) -> None:
-    res = await buck.bxl(
-        "//:lazy_build_artifact.bxl:build_artifact",
-    )
-    assert "foo.txt" in res.stdout
-    assert "bar.txt" in res.stdout
+class LazyBuildArtifactTest(BuckTestCase):
+    @buck_test()
+    async def test_build_artifact(self, buck: Buck) -> None:
+        res = await buck.bxl(
+            "//:lazy_build_artifact.bxl:build_artifact",
+        )
+        assert "foo.txt" in res.stdout
+        assert "bar.txt" in res.stdout
 
+    @buck_test()
+    async def test_build_artifact_catch_error(self, buck: Buck) -> None:
+        res = await buck.bxl(
+            "//:lazy_build_artifact.bxl:build_artifact_fail",
+        )
+        assert "foo.txt" in res.stdout
 
-@buck_test()
-async def test_build_artifact_catch_error(buck: Buck) -> None:
-    res = await buck.bxl(
-        "//:lazy_build_artifact.bxl:build_artifact_fail",
-    )
-    assert "foo.txt" in res.stdout
+    @buck_test()
+    async def test_cannot_build_dynmiac_action_output(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.bxl(
+                "//:lazy_build_artifact.bxl:dynamic",
+            ),
+            stderr_regex="does not accept declared artifact",
+        )
 
-
-@buck_test()
-async def test_cannot_build_dynmiac_action_output(buck: Buck) -> None:
-    await expect_failure(
-        buck.bxl(
-            "//:lazy_build_artifact.bxl:dynamic",
-        ),
-        stderr_regex="does not accept declared artifact",
-    )
-
-
-@buck_test()
-async def test_cannot_bxl_action_output(buck: Buck) -> None:
-    await expect_failure(
-        buck.bxl(
-            "//:lazy_build_artifact.bxl:bxl_action_output",
-        ),
-        stderr_regex="does not accept declared artifact",
-    )
+    @buck_test()
+    async def test_cannot_bxl_action_output(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.bxl(
+                "//:lazy_build_artifact.bxl:bxl_action_output",
+            ),
+            stderr_regex="does not accept declared artifact",
+        )

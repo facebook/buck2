@@ -6,7 +6,6 @@ rust_library(
     name = "buck2_event_log",
     srcs = glob(["src/**/*.rs"]),
     test_deps = [
-        "fbsource//third-party/rust:maplit",
         "fbsource//third-party/rust:tempfile",
         "//buck2/app/buck2_hash:buck2_hash",
     ],

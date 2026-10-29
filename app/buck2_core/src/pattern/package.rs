@@ -37,9 +37,7 @@ impl PackagePattern {
     pub fn matches(&self, package: PackageLabel) -> bool {
         match self {
             PackagePattern::Package(pattern) => pattern == &package,
-            PackagePattern::Recursive(cell_path) => {
-                package.as_cell_path().starts_with(cell_path.as_ref())
-            }
+            PackagePattern::Recursive(cell_path) => package.as_cell_path().starts_with(*cell_path),
         }
     }
 }

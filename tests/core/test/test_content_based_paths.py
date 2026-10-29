@@ -10,20 +10,20 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test, env
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase, env
 
 
-@buck_test()
-async def test_run_test_with_content_based_path(buck: Buck) -> None:
-    await buck.test("root//:run_test_with_content_based_path")
+class ContentBasedPathsTest(BuckTestCase):
+    @buck_test()
+    async def test_run_test_with_content_based_path(self, buck: Buck) -> None:
+        await buck.test("root//:run_test_with_content_based_path")
 
-
-@buck_test()
-@env("BUCK2_ALLOW_INTERNAL_TEST_RUNNER_DO_NOT_USE", "1")
-async def test_platform_resolution(buck: Buck) -> None:
-    await buck.test(
-        ":local_resources_test",
-        test_executor="",
-    )
-    res = await buck.log("what-ran")
-    assert "MY_RESOURCE_ID=42" in res.stdout
+    @buck_test()
+    @env("BUCK2_ALLOW_INTERNAL_TEST_RUNNER_DO_NOT_USE", "1")
+    async def test_platform_resolution(self, buck: Buck) -> None:
+        await buck.test(
+            ":local_resources_test",
+            test_executor="",
+        )
+        res = await buck.log("what-ran")
+        assert "MY_RESOURCE_ID=42" in res.stdout

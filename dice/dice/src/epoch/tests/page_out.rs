@@ -59,7 +59,9 @@ use crate::DiceKeyDyn;
 use crate::DiceProjectionDyn;
 use crate::DiceStorage;
 use crate::DynKey;
+use crate::EvictionPolicy;
 use crate::PagableStorageBackend;
+use crate::PageOutPolicy;
 use crate::api::activation_tracker::ActivationData;
 use crate::api::activation_tracker::ActivationTracker;
 use crate::api::computations::DiceComputations;
@@ -83,7 +85,6 @@ use crate::epoch::evaluator::VersionState;
 use crate::epoch::task::dice::testing_helpers::make_completed_task;
 use crate::epoch::task::dice::testing_helpers::make_completed_task_with_computed_value;
 use crate::key::ParentKey;
-use crate::user_cycle::UserCycleDetectorData;
 use crate::value::MaybeResident;
 use crate::value::MaybeResidentComputedValue;
 use crate::value::PageInOutcome;
@@ -1074,12 +1075,47 @@ impl Key for PageOutRaceRoot {
     }
 }
 
+/// Pages each key out once and evicts at page-out, the semantics the tests here are written
+/// against.
 async fn make_dice(storage: DiceStorage) -> (Arc<Dice>, BranchId) {
+    make_dice_under(storage, PageOutPolicy::OncePerKey).await
+}
+
+/// [`make_dice`] paging under `policy`.
+async fn make_dice_under(storage: DiceStorage, policy: PageOutPolicy) -> (Arc<Dice>, BranchId) {
+    make_dice_with(storage, policy, EvictionPolicy::OnIdle).await
+}
+
+/// [`make_dice`] paging under both policies.
+async fn make_dice_with(
+    mut storage: DiceStorage,
+    page_out: PageOutPolicy,
+    eviction: EvictionPolicy,
+) -> (Arc<Dice>, BranchId) {
+    storage.set_page_out_policy(page_out);
+    storage.set_eviction_policy(eviction);
     let mut builder = Dice::builder();
     builder.set_pagable_storage(storage);
     let dice = builder.build(DetectCycles::Disabled);
     let root = dice.new_root().await;
     (dice, root)
+}
+
+/// Computes `PagableKey(3)` at `root`, counting the computations that run in `counter`, and
+/// waits for the computation to settle.
+async fn compute_counted(
+    dice: &Arc<Dice>,
+    root: BranchId,
+    counter: &ComputeCounter,
+) -> anyhow::Result<u64> {
+    let tx = dice
+        .updater_with_data(root, user_data_with_counter(counter))
+        .commit()
+        .await;
+    let value: u64 = *tx.compute(&PagableKey(3)).await?;
+    drop(tx);
+    dice.wait_for_idle().await;
+    Ok(value)
 }
 
 fn user_data_with_counter(counter: &ComputeCounter) -> UserComputationData {
@@ -1719,12 +1755,11 @@ async fn equal_revisions_get_distinct_paged_out_descriptors_across_versions() ->
     let old_eval = TransactionData {
         version_state: old_state.dupe(),
         user_data: DiceArc::new(user_data_with_counter(&counter)),
+        global_data: dice.global_data.dupe(),
         dice: dice.dupe(),
     };
     let key = dice.key_index.index_key(PagableKey(1));
-    let old_value = old_eval
-        .bring_up_to_date(key, ParentKey::None, UserCycleDetectorData::testing_new())
-        .await;
+    let old_value = old_eval.bring_up_to_date(key, ParentKey::None).await?;
     let old_descriptor = old_value
         .try_as_resident()
         .err()
@@ -1744,11 +1779,10 @@ async fn equal_revisions_get_distinct_paged_out_descriptors_across_versions() ->
     let new_eval = TransactionData {
         version_state: new_state.dupe(),
         user_data: DiceArc::new(user_data_with_counter(&counter)),
+        global_data: dice.global_data.dupe(),
         dice: dice.dupe(),
     };
-    let new_value = new_eval
-        .bring_up_to_date(key, ParentKey::None, UserCycleDetectorData::testing_new())
-        .await;
+    let new_value = new_eval.bring_up_to_date(key, ParentKey::None).await?;
     let new_descriptor = new_value
         .try_as_resident()
         .err()
@@ -1768,7 +1802,6 @@ async fn equal_revisions_get_distinct_paged_out_descriptors_across_versions() ->
         .page_in(ValueDemand {
             key,
             parent_key: ParentKey::None,
-            cycles: UserCycleDetectorData::testing_new(),
         })
         .await?;
     let resident = old_value
@@ -1803,6 +1836,7 @@ async fn recovery_demands_use_the_transaction_cache() {
         TransactionData {
             version_state: VersionState::new(tx.0.get_version(), cache),
             user_data: DiceArc::new(UserComputationData::new()),
+            global_data: dice.global_data.dupe(),
             dice: dice.dupe(),
         }
     };
@@ -1811,9 +1845,7 @@ async fn recovery_demands_use_the_transaction_cache() {
 
     // Same key, version and serialized data, but distinct cache-local recoveries.
     for (eval, recovered) in [(&first_eval, 100), (&second_eval, 200)] {
-        let value = eval
-            .bring_up_to_date(key, ParentKey::None, UserCycleDetectorData::testing_new())
-            .await;
+        let value = eval.bring_up_to_date(key, ParentKey::None).await.unwrap();
         let descriptor = value.try_as_resident().err().expect("paged out");
         assert!(
             descriptor
@@ -1834,7 +1866,6 @@ async fn recovery_demands_use_the_transaction_cache() {
             eval.page_in(ValueDemand {
                 key,
                 parent_key: ParentKey::None,
-                cycles: UserCycleDetectorData::testing_new(),
             })
             .await
             .unwrap()
@@ -1873,12 +1904,11 @@ async fn validated_unreadable_value_fails_only_on_demand() -> anyhow::Result<()>
     let eval = TransactionData {
         version_state: version_state.dupe(),
         user_data: DiceArc::new(data),
+        global_data: dice.global_data.dupe(),
         dice: dice.dupe(),
     };
     let key = dice.key_index.index_key(UnreadableValidatedKey);
-    let validated = eval
-        .bring_up_to_date(key, ParentKey::None, UserCycleDetectorData::testing_new())
-        .await;
+    let validated = eval.bring_up_to_date(key, ParentKey::None).await?;
     assert!(validated.try_as_resident().is_err());
     assert_eq!(
         counter.count(),
@@ -1899,7 +1929,6 @@ async fn validated_unreadable_value_fails_only_on_demand() -> anyhow::Result<()>
         .page_in(ValueDemand {
             key,
             parent_key: ParentKey::None,
-            cycles: UserCycleDetectorData::testing_new(),
         })
         .await
     {
@@ -1918,9 +1947,7 @@ async fn validated_unreadable_value_fails_only_on_demand() -> anyhow::Result<()>
         [true],
         "a failed read must not activate the key again"
     );
-    let checked = eval
-        .bring_up_to_date(key, ParentKey::None, UserCycleDetectorData::testing_new())
-        .await;
+    let checked = eval.bring_up_to_date(key, ParentKey::None).await?;
     assert!(std::ptr::eq(validated, checked));
     Ok(())
 }
@@ -2264,6 +2291,161 @@ async fn page_out_does_not_evict_a_recomputed_value() {
             .expect("root should remain available"),
         0
     );
+}
+
+/// Under `OnMemoryPressure` a page-out writes but evicts nothing; only an eviction on demand
+/// drops the values, after which they read back.
+#[tokio::test]
+async fn page_out_under_memory_pressure_policy_evicts_nothing() -> anyhow::Result<()> {
+    let counter = ComputeCounter::new();
+    let tmp = tempdir()?;
+    let (dice, root) = make_dice_with(
+        DiceStorage::open(tmp.path(), PagableStorageBackend::Sqlite)?,
+        PageOutPolicy::OncePerKey,
+        EvictionPolicy::OnMemoryPressure,
+    )
+    .await;
+
+    let value = compute_counted(&dice, root, &counter).await?;
+    dice.page_out().await?;
+    let counts = dice.pagable_node_counts().await;
+    assert_eq!(
+        (counts.paged_out, counts.backed, counts.candidates),
+        (0, 1, 0),
+        "a page-out under OnMemoryPressure writes without evicting"
+    );
+    assert_eq!(compute_counted(&dice, root, &counter).await?, value);
+    assert_eq!(counter.count(), 1, "the value stayed resident");
+
+    assert_eq!(dice.evict_backed().await, 1);
+    assert_eq!(dice.pagable_node_counts().await.paged_out, 1);
+    assert_eq!(compute_counted(&dice, root, &counter).await?, value);
+    assert_eq!(counter.count(), 1, "an evicted value is read back");
+    Ok(())
+}
+
+/// A value read back from its row stays resident, backed by the row, until evicted on demand,
+/// which writes nothing; the next lookup reads it back rather than recomputing it.
+#[tokio::test]
+async fn evict_backed_drops_read_back_values_without_a_write() -> anyhow::Result<()> {
+    let counter = ComputeCounter::new();
+    let tmp = tempdir()?;
+    let (dice, root) = make_dice_under(
+        DiceStorage::open(tmp.path(), PagableStorageBackend::Sqlite)?,
+        PageOutPolicy::OncePerValue,
+    )
+    .await;
+
+    let value = compute_counted(&dice, root, &counter).await?;
+    dice.page_out().await?;
+    assert_eq!(dice.pagable_node_counts().await.paged_out, 1);
+
+    assert_eq!(compute_counted(&dice, root, &counter).await?, value);
+    let counts = dice.pagable_node_counts().await;
+    assert_eq!(
+        (counts.backed, counts.candidates, counts.paged_out),
+        (1, 0, 0)
+    );
+
+    let written_before = dice.storage_io_metrics().unwrap().data_keys_out;
+    assert_eq!(dice.evict_backed().await, 1);
+    assert_eq!(
+        dice.storage_io_metrics().unwrap().data_keys_out,
+        written_before
+    );
+    assert_eq!(dice.pagable_node_counts().await.paged_out, 1);
+
+    assert_eq!(compute_counted(&dice, root, &counter).await?, value);
+    assert_eq!(counter.count(), 1, "an evicted value is read back");
+    assert_eq!(dice.evict_backed().await, 1);
+    Ok(())
+}
+
+/// Eviction metrics count `evict_backed` passes and the values they drop, not what a page-out
+/// evicts.
+#[tokio::test]
+async fn eviction_metrics_count_only_evict_backed() -> anyhow::Result<()> {
+    let counter = ComputeCounter::new();
+    let tmp = tempdir()?;
+    let (dice, root) = make_dice_under(
+        DiceStorage::open(tmp.path(), PagableStorageBackend::Sqlite)?,
+        PageOutPolicy::OncePerValue,
+    )
+    .await;
+
+    compute_counted(&dice, root, &counter).await?;
+    let baseline = dice
+        .eviction_metrics()
+        .expect("pagable storage is configured");
+    assert_eq!((baseline.evictions, baseline.values_evicted), (0, 0));
+
+    dice.page_out().await?;
+    assert_eq!(dice.pagable_node_counts().await.paged_out, 1);
+    let after_page_out = dice.eviction_metrics().unwrap().since(baseline);
+    assert_eq!(
+        (after_page_out.evictions, after_page_out.values_evicted),
+        (0, 0),
+        "a page-out's evictions are not memory-pressure evictions"
+    );
+
+    compute_counted(&dice, root, &counter).await?;
+    assert_eq!(dice.evict_backed().await, 1);
+    assert_eq!(dice.evict_backed().await, 0, "nothing is left backed");
+    let delta = dice.eviction_metrics().unwrap().since(baseline);
+    assert_eq!(
+        (delta.evictions, delta.values_evicted),
+        (2, 1),
+        "both passes count, including the one that found nothing to evict"
+    );
+    Ok(())
+}
+
+/// A recomputed value is written by the next page-out but stays resident; only an eviction on
+/// demand drops it, after which it reads back.
+#[tokio::test]
+async fn page_out_writes_a_recomputed_value_and_keeps_it_resident() -> anyhow::Result<()> {
+    let tmp = tempdir()?;
+    let (dice, root) = make_dice_under(
+        DiceStorage::open(tmp.path(), PagableStorageBackend::Sqlite)?,
+        PageOutPolicy::OncePerValue,
+    )
+    .await;
+    let compute_root = |dice: &Arc<Dice>, input: <DeferredInput as Key>::Value| {
+        let dice = dice.dupe();
+        async move {
+            let mut updater = dice.updater(root);
+            updater.changed_to([(DeferredInput(0), input)])?;
+            let tx = updater.commit().await;
+            let value = *tx.compute(&PageOutRaceRoot).await?;
+            drop(tx);
+            dice.wait_for_idle().await;
+            anyhow::Ok(value)
+        }
+    };
+
+    assert_eq!(compute_root(&dice, 1).await?, 1);
+    dice.page_out().await?;
+    // The recompute may read the old value back to compare against.
+    assert_eq!(compute_root(&dice, 2).await?, 0);
+    let counts = dice.pagable_node_counts().await;
+    assert_eq!((counts.candidates, counts.backed), (1, 0));
+    let page_ins = page_in_count::<PageOutRaceRoot>(&dice);
+
+    let written_before = dice.storage_io_metrics().unwrap().data_keys_out;
+    dice.page_out().await?;
+    assert!(dice.storage_io_metrics().unwrap().data_keys_out > written_before);
+    let counts = dice.pagable_node_counts().await;
+    assert_eq!(
+        (counts.candidates, counts.backed, counts.paged_out),
+        (0, 1, 0)
+    );
+    assert_eq!(compute_root(&dice, 2).await?, 0);
+    assert_eq!(page_in_count::<PageOutRaceRoot>(&dice), page_ins);
+
+    assert_eq!(dice.evict_backed().await, 1);
+    assert_eq!(compute_root(&dice, 2).await?, 0);
+    assert_eq!(page_in_count::<PageOutRaceRoot>(&dice), page_ins + 1);
+    Ok(())
 }
 
 /// Keys whose `value_serialize` returns `NoValueSerialize` should silently be skipped

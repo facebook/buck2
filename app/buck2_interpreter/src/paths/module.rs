@@ -16,7 +16,6 @@ use buck2_core::bxl::BxlFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::name::CellName;
 use dupe::Dupe;
 use pagable::Pagable;
@@ -145,12 +144,12 @@ impl OwnedStarlarkModulePath {
         }
     }
 
-    pub fn path(&self) -> CellPathRef<'_> {
+    pub fn path(&self) -> CellPath {
         match self {
-            OwnedStarlarkModulePath::LoadFile(p) => p.path().as_ref(),
-            OwnedStarlarkModulePath::BxlFile(p) => p.path().as_ref(),
-            OwnedStarlarkModulePath::JsonFile(p) => p.path().as_ref(),
-            OwnedStarlarkModulePath::TomlFile(p) => p.path().as_ref(),
+            OwnedStarlarkModulePath::LoadFile(p) => *p.path(),
+            OwnedStarlarkModulePath::BxlFile(p) => *p.path(),
+            OwnedStarlarkModulePath::JsonFile(p) => *p.path(),
+            OwnedStarlarkModulePath::TomlFile(p) => *p.path(),
         }
     }
 

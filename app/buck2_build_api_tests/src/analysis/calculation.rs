@@ -44,6 +44,7 @@ use buck2_core::target::label::label::TargetLabel;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::SetDigestConfig;
+use buck2_hash::BuckFixedInsertionMap;
 use buck2_hash::IntentionallyStdHashMap;
 use buck2_interpreter::dice::starlark_debug::SetStarlarkDebugger;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
@@ -71,7 +72,6 @@ use dice::testing::DiceBuilder;
 use dupe::Dupe;
 use indoc::indoc;
 use itertools::Itertools;
-use starlark_map::ordered_map::OrderedMap;
 
 #[tokio::test]
 async fn test_analysis_calculation() -> buck2_error::Result<()> {
@@ -139,7 +139,7 @@ async fn test_analysis_calculation() -> buck2_error::Result<()> {
                 "#
         ),
         LoadedModules {
-            map: OrderedMap::from_iter([(
+            map: BuckFixedInsertionMap::from_iter([(
                 OwnedStarlarkModulePath::LoadFile(bzlfile.clone()),
                 module.dupe(),
             )]),
@@ -191,7 +191,7 @@ async fn test_analysis_calculation() -> buck2_error::Result<()> {
         .await
         .require_compatible()?;
 
-    assert_eq!(analysis.analysis_values().iter_actions().count(), 0);
+    assert_eq!(analysis.analysis_values()?.num_actions(), 0);
 
     assert_eq!(
         analysis
@@ -210,7 +210,7 @@ async fn test_analysis_calculation() -> buck2_error::Result<()> {
             .providers()
             .unwrap()
             .value()
-            .get_provider_raw(&ProviderId::testing_new(bzlfile.path().clone(), "FooInfo"))
+            .get_provider_raw(&ProviderId::testing_new(*bzlfile.path(), "FooInfo"))
             .unwrap()
             .is_some(),
         true
@@ -282,7 +282,7 @@ async fn test_audit_downgrades_only_default_layers() -> buck2_error::Result<()> 
         )?;
 
     let loaded_modules = LoadedModules {
-        map: OrderedMap::from_iter([(
+        map: BuckFixedInsertionMap::from_iter([(
             OwnedStarlarkModulePath::LoadFile(bzlfile.clone()),
             module.dupe(),
         )]),
@@ -351,6 +351,7 @@ foo_binary(
                     intersection.dupe(),
                     base.super_package().within_view_cap().dupe(),
                     base.super_package().cfg_constructor().cloned(),
+                    base.super_package().cfg_modifiers().cloned(),
                     base.super_package().test_config_unification_rollout(),
                 )
                 .unwrap(),
@@ -504,7 +505,7 @@ foo_binary(
                     .providers()
                     .unwrap()
                     .value()
-                    .get_provider_raw(&ProviderId::testing_new(bzlfile.path().clone(), "FooInfo"))
+                    .get_provider_raw(&ProviderId::testing_new(*bzlfile.path(), "FooInfo"))
                     .unwrap()
                     .is_some(),
                 "{case} must actually run analysis, not vacuously succeed"

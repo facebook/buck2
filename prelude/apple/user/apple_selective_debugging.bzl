@@ -39,6 +39,8 @@ AppleSelectiveDebuggingInfo = provider(
         "scrub_binary": provider_field(typing.Callable),
         "filter": provider_field(typing.Callable),
         "scrub_selected_debug_paths_file": provider_field(typing.Callable),
+        # Set when using the `dsym_allowlist` filtering strategy, `None` otherwise.
+        "generate_dsym_allowlist": provider_field(typing.Callable | None, default = None),
     },
 )
 
@@ -61,6 +63,19 @@ SelectiveDebuggingJsonTypes = [
 ]
 
 _SelectiveDebuggingJsonType = enum(*SelectiveDebuggingJsonTypes)
+
+# How the debug info of non-selected targets is excluded.
+SelectiveDebuggingFilteringStrategies = [
+    # Rewrite the debug map (`N_OSO` entries) of linked binaries, so that the
+    # debug info of non-selected targets cannot be found.
+    "scrub_binary",
+    # Leave linked binaries untouched and only restrict which objects get
+    # linked into dSYMs, using `dsymutil --allow`. Requires a `dsymutil`
+    # which supports that option.
+    "dsym_allowlist",
+]
+
+_SelectiveDebuggingFilteringStrategy = enum(*SelectiveDebuggingFilteringStrategies)
 
 _LOCAL_LINK_THRESHOLD = 0.2
 
@@ -95,6 +110,7 @@ def _generate_metadata_json_object(is_any_selected_target_linked: bool) -> dict[
 
 def apple_selective_debugging_impl(ctx: AnalysisContext) -> list[Provider]:
     json_type = _SelectiveDebuggingJsonType(ctx.attrs.json_type)
+    filtering_strategy = _SelectiveDebuggingFilteringStrategy(ctx.attrs.filtering_strategy)
 
     # process inputs and provide them up the graph with typing
     include_build_target_patterns = [parse_build_target_pattern(pattern) for pattern in ctx.attrs.include_build_target_patterns]
@@ -111,15 +127,16 @@ def apple_selective_debugging_impl(ctx: AnalysisContext) -> list[Provider]:
     ]
 
     scrubber = ctx.attrs._apple_tools[AppleToolsInfo].selective_debugging_scrubber
+    dsym_allowlist_tool = ctx.attrs._apple_tools[AppleToolsInfo].selective_debugging_dsym_allowlist_tool
 
     targets_json_file = None
-    cmd = cmd_args(scrubber)
+    selection_args = cmd_args()
     if json_type == _SelectiveDebuggingJsonType("targets"):
         targets_json_file = ctx.attrs.targets_json_file or ctx.actions.write_json("targets.json", {"targets": []}, has_content_based_path = False)
 
         # If a targets json file is not provided, write an empty json file:
-        cmd.add("--targets-file")
-        cmd.add(targets_json_file)
+        selection_args.add("--targets-file")
+        selection_args.add(targets_json_file)
     elif json_type == _SelectiveDebuggingJsonType("spec"):
         json_data = {
             "exclude_build_target_patterns": ctx.attrs.exclude_build_target_patterns,
@@ -128,10 +145,11 @@ def apple_selective_debugging_impl(ctx: AnalysisContext) -> list[Provider]:
             "include_regular_expressions": ctx.attrs.include_regular_expressions,
         }
         spec_file = ctx.actions.write_json("selective_debugging_spec.json", json_data, has_content_based_path = False)
-        cmd.add("--spec-file")
-        cmd.add(spec_file)
+        selection_args.add("--spec-file")
+        selection_args.add(spec_file)
     else:
         fail("Expected json_type to be either `targets` or `spec`.")
+    cmd = cmd_args(scrubber, selection_args)
 
     selection_criteria = _SelectionCriteria(
         include_build_target_patterns = include_build_target_patterns,
@@ -189,13 +207,7 @@ def apple_selective_debugging_impl(ctx: AnalysisContext) -> list[Provider]:
             inner_cmd.add(["--adhoc-codesign-tool", adhoc_codesign_tool])
         inner_cmd.add(["--input", executable])
         inner_cmd.add(["--output", output.as_output()])
-        if len(focused_targets_labels) > 0:
-            additional_labels_json = inner_ctx.actions.write_json(
-                inner_ctx.attrs.name + ".additional_labels.json",
-                {"targets": [label.raw_target() for label in focused_targets_labels]},
-                has_content_based_path = False,
-            )
-            inner_cmd.add(["--persisted-targets-file", additional_labels_json])
+        _add_persisted_targets_args(inner_ctx, inner_cmd, focused_targets_labels)
         inner_ctx.actions.run(
             inner_cmd,
             category = "scrub_binary",
@@ -297,6 +309,27 @@ def apple_selective_debugging_impl(ctx: AnalysisContext) -> list[Provider]:
             metadata = metadata_output,
         )
 
+    def generate_dsym_allowlist(
+        inner_ctx,
+        executable: Artifact,
+        executable_link_execution_preference: LinkExecutionPreference,
+        focused_targets_labels: list[Label],
+    ) -> Artifact:
+        output = inner_ctx.actions.declare_output("selective_debugging/{}.dsym_allowlist.yaml".format(executable.short_path), has_content_based_path = False)
+        inner_cmd = cmd_args(dsym_allowlist_tool, selection_args, "--input", executable, "--output", output.as_output())
+        _add_persisted_targets_args(inner_ctx, inner_cmd, focused_targets_labels)
+        action_execution_properties = get_action_execution_attributes(executable_link_execution_preference)
+        inner_ctx.actions.run(
+            inner_cmd,
+            category = "selective_debugging_dsym_allowlist",
+            identifier = output.short_path,
+            prefer_local = action_execution_properties.prefer_local,
+            prefer_remote = action_execution_properties.prefer_remote,
+            local_only = action_execution_properties.local_only,
+            force_full_hybrid_if_capable = action_execution_properties.full_hybrid,
+        )
+        return output
+
     def preference_for_links(links: list[Label], deps_preferences: list[LinkExecutionPreferenceInfo]) -> LinkExecutionPreference:
         # If any dependent links were run locally, prefer that the current link is also performed locally,
         # to avoid needing to upload the previous link.
@@ -323,9 +356,19 @@ def apple_selective_debugging_impl(ctx: AnalysisContext) -> list[Provider]:
             scrub_binary = scrub_binary,
             filter = filter_debug_info,
             scrub_selected_debug_paths_file = scrub_selected_debug_paths_file,
+            generate_dsym_allowlist = generate_dsym_allowlist if filtering_strategy == _SelectiveDebuggingFilteringStrategy("dsym_allowlist") else None,
         ),
         LinkExecutionPreferenceDeterminatorInfo(preference_for_links = preference_for_links),
     ]
+
+def _add_persisted_targets_args(ctx: AnalysisContext, cmd: cmd_args, focused_targets_labels: list[Label]):
+    if len(focused_targets_labels) > 0:
+        additional_labels_json = ctx.actions.write_json(
+            ctx.attrs.name + ".additional_labels.json",
+            {"targets": [label.raw_target() for label in focused_targets_labels]},
+            has_content_based_path = False,
+        )
+        cmd.add(["--persisted-targets-file", additional_labels_json])
 
 def _is_label_included(label: Label, selection_criteria: _SelectionCriteria) -> bool:
     # If no include criteria are provided, we then include everything, as long as it is not excluded.

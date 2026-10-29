@@ -11,106 +11,93 @@ import re
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test, env
-from buck2.tests.e2e_util.helper.golden import golden, strip_glog_lines
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase, env
+from buck2.tests.e2e_util.helper.golden import golden
 
 
-@buck_test()
-async def test_soft_error(buck: Buck) -> None:
-    await expect_failure(
-        buck.targets(":"), stderr_regex="starlark_raised_soft_error.*Will be reported"
-    )
-
-
-@buck_test()
-@env("BUCK2_HARD_ERROR", "false")
-async def test_soft_error_quiet(buck: Buck) -> None:
-    res = await buck.targets("quiet:", ":")
-    assert "starlark_raised_soft_error" in res.stderr
-    assert "starlark_quiet_soft_error" not in res.stderr
-
-
-@buck_test()
-@env("BUCK2_HARD_ERROR", "false")
-async def test_soft_error_no_stack(buck: Buck) -> None:
-    res = await buck.targets(":")
-    assert "Traceback" in res.stderr
-
-    res = await buck.targets("no_stack:")
-    assert "Traceback" not in res.stderr
-
-
-@buck_test(
-    # windows errors are slightly different, just skip for now
-    skip_for_os=["windows"],
-)
-@env("BUCK2_HARD_ERROR", "false")
-async def test_package_listing_errors(buck: Buck) -> None:
-    outs = []
-    for target in [
-        # //package_listing/missing does not exist
-        "//package_listing/missing/foo/x/y/lmnop:target",
-        # //package_listing/ignored is ignored
-        "//package_listing/ignored/foo/x/y/lmnop:target",
-        # //package_listing/cell is a cell
-        "//package_listing/cell/foo/x/y/lmnop:target",
-        # //package_listing/missing_targets_file has no TARGETS file
-        "//package_listing/missing_targets_file:target",
-        # //package_listing/data.file is a file
-        "//package_listing/data.file:target",
-        "//package_listing/data.file/subdir:target",
-        # Missing directory due to typo
-        "//package_listings:",
-        # Missing directory due to typo in subdirectory
-        "//package_listing/typo_test/subdirr:",
-        # Missing directory due to being in the wrong cell
-        "//something:",
-    ]:
-        out = await expect_failure(buck.uquery(target, "-v=0", "--console=none"))
-        stripped_stderr = re.sub(
-            "read_dir(.*)", "read_dir(<stripped absolute path>)", out.stderr
+class ErrorsTest(BuckTestCase):
+    @buck_test()
+    async def test_soft_error(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.targets(":"),
+            stderr_regex="starlark_raised_soft_error.*Will be reported",
         )
-        outs.append(stripped_stderr)
 
-    golden(
-        output=strip_glog_lines("\n\n\n".join(outs)),
-        rel_path="package_listing/expected.golden.out",
-    )
+    @buck_test()
+    @env("BUCK2_HARD_ERROR", "false")
+    async def test_soft_error_is_silent(self, buck: Buck) -> None:
+        res = await buck.targets(":", "no_stack:")
+        assert "starlark_raised_soft_error" not in res.stderr
+        assert "starlark_no_stack_soft_error" not in res.stderr
 
+    @buck_test()
+    @env("BUCK2_HARD_ERROR", "false")
+    async def test_soft_error_no_stack(self, buck: Buck) -> None:
+        await buck.targets(":")
+        log = await buck.log("show")
+        assert "Traceback" in log.stdout
 
-@buck_test(
-    # windows errors are slightly different, just skip for now
-    skip_for_os=["windows"],
-)
-async def test_configured_graph_deps_collapsed_in_errors(buck: Buck) -> None:
-    out = await expect_failure(
-        buck.cquery(
-            "//deps_collapsed:top",
-            "-v=0",
-            "--console=none",
-            "-c",
-            "build.execution_platforms=root//deps_collapsed:exec_platforms",
+        await buck.targets("no_stack:")
+        log = await buck.log("show")
+        assert "Traceback" not in log.stdout
+
+    @buck_test()
+    async def test_deprecation(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.targets("deprecation:"),
+            stderr_regex="starlark_deprecation_example.*Going away",
         )
-    )
-    stderr = re.sub("#[a-f0-9]*\\)", "#00000000)", out.stderr)
-    golden(output=stderr, rel_path="deps_collapsed/expected.golden.out")
 
+    @buck_test()
+    @env("BUCK2_HARD_ERROR", "false")
+    async def test_deprecation_is_silent(self, buck: Buck) -> None:
+        res = await buck.targets("deprecation:")
+        assert "starlark_deprecation_example" not in res.stderr
+        log = await buck.log("show")
+        assert "starlark_deprecation_example" in log.stdout
 
-@buck_test(
-    # windows errors are slightly different, just skip for now
-    skip_for_os=["windows"],
-)
-async def test_configured_graph_deps_collapsed_in_errors_2(buck: Buck) -> None:
-    out = await expect_failure(
-        buck.cquery(
-            "//deps_collapsed:top",
-            "-v=0",
-            "--console=none",
-            "-c",
-            "build.execution_platforms=root//deps_collapsed:exec_platforms",
-            "-c",
-            "core_test_errors.broken_select_in_toolchain=1",
+    @buck_test()
+    @env("BUCK2_HARD_ERROR", "false")
+    async def test_deprecation_start_must_be_a_day(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.targets("deprecation_bad_start:"),
+            stderr_regex="yesterday",
         )
+
+    @buck_test(
+        # windows errors are slightly different, just skip for now
+        skip_for_os=["windows"],
     )
-    stderr = re.sub("#[a-f0-9]*\\)", "#00000000)", out.stderr)
-    golden(output=stderr, rel_path="deps_collapsed/expected_2.golden.out")
+    async def test_configured_graph_deps_collapsed_in_errors(self, buck: Buck) -> None:
+        out = await expect_failure(
+            buck.cquery(
+                "//deps_collapsed:top",
+                "-v=0",
+                "--console=none",
+                "-c",
+                "build.execution_platforms=root//deps_collapsed:exec_platforms",
+            )
+        )
+        stderr = re.sub("#[a-f0-9]*\\)", "#00000000)", out.stderr)
+        golden(output=stderr, rel_path="deps_collapsed/expected.golden.out")
+
+    @buck_test(
+        # windows errors are slightly different, just skip for now
+        skip_for_os=["windows"],
+    )
+    async def test_configured_graph_deps_collapsed_in_errors_2(
+        self, buck: Buck
+    ) -> None:
+        out = await expect_failure(
+            buck.cquery(
+                "//deps_collapsed:top",
+                "-v=0",
+                "--console=none",
+                "-c",
+                "build.execution_platforms=root//deps_collapsed:exec_platforms",
+                "-c",
+                "core_test_errors.broken_select_in_toolchain=1",
+            )
+        )
+        stderr = re.sub("#[a-f0-9]*\\)", "#00000000)", out.stderr)
+        golden(output=stderr, rel_path="deps_collapsed/expected_2.golden.out")

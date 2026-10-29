@@ -15,13 +15,8 @@
  * limitations under the License.
  */
 
-use std::mem::MaybeUninit;
-use std::ptr;
-
 use allocative::Key;
 use allocative::Visitor;
-use pagable::PagableDeserialize;
-use pagable::PagableSerialize;
 
 use crate::collections::maybe_uninit_backport::maybe_uninit_write_slice;
 use crate::pagable::vtable_register::register_special_avalue_frozen;
@@ -33,9 +28,11 @@ use crate::values::Tracer;
 use crate::values::Value;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::avalue::AValueImpl;
+use crate::values::layout::avalue::heap_copy_with_extra;
+use crate::values::layout::avalue::heap_freeze_with_extra;
+use crate::values::layout::avalue::starlark_deserialize_with_extra;
+use crate::values::layout::avalue::starlark_serialize_with_extra;
 use crate::values::layout::heap::maybe_uninit_slice_util::maybe_uninit_write_from_exact_size_iter;
-use crate::values::layout::heap::repr::AValueForward;
-use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::types::tuple::value::Tuple;
 
@@ -81,21 +78,9 @@ impl<'v> AValue<'v> for AValueTuple {
                 (*me).payload.len() != 0,
                 "empty tuple is allocated statically"
             );
-
-            AValueForward::assert_does_not_overwrite_extra::<Self>();
-            let content = (*me).payload.content();
-
-            let (r, extra) = freezer
-                .frozen_heap()
-                .reserve_with_extra::<AValueFrozenTuple>(content.len());
-            AValueHeader::overwrite_with_forward::<Self::StarlarkValue>(me, r.forward_ptr());
-
-            let extra = &mut *extra;
-            assert_eq!(extra.len(), content.len());
-            for (elem_place, elem) in extra.iter_mut().zip(content) {
-                elem_place.write(freezer.freeze(*elem)?);
-            }
-            Ok(r.fill(Tuple::new(content.len())))
+            heap_freeze_with_extra::<Self, AValueFrozenTuple>(me, freezer, |_, _, len| {
+                Ok(Tuple::new(len))
+            })
         }
     }
 
@@ -108,23 +93,7 @@ impl<'v> AValue<'v> for AValueTuple {
                 (*me).payload.len() != 0,
                 "empty tuple is allocated statically"
             );
-
-            AValueForward::assert_does_not_overwrite_extra::<Self>();
-            let content = (*me).payload.content_mut();
-
-            let (r, extra) = tracer.reserve_with_extra::<Self>(content.len());
-            let x =
-                AValueHeader::overwrite_with_forward::<Self::StarlarkValue>(me, r.forward_ptr());
-
-            debug_assert_eq!(content.len(), x.len());
-
-            for elem in content.iter_mut() {
-                tracer.trace(elem);
-            }
-            let v = r.fill(x);
-            let extra = &mut *extra;
-            maybe_uninit_write_slice(extra, content);
-            v
+            heap_copy_with_extra::<Self>(me, tracer, |x, _| x)
         }
     }
 }
@@ -172,32 +141,18 @@ impl<'v> AValue<'v> for AValueFrozenTuple {
         me: *const AValueRepr<Self::StarlarkValue>,
         ctx: &mut dyn crate::pagable::StarlarkSerializeContext,
     ) -> crate::Result<()> {
-        let value = unsafe { &(*me).payload };
-        let content = value.content();
-        content.len().pagable_serialize(ctx.pagable())?;
-        for elem in content {
-            crate::pagable::StarlarkSerialize::starlark_serialize(elem, ctx)?;
-        }
-        Ok(())
+        starlark_serialize_with_extra::<Self>(me, ctx, |_, _| Ok(()))
     }
 
     fn starlark_deserialize<'fv>(
         me: *mut AValueRepr<Self::StarlarkValue>,
         ctx: &mut dyn crate::pagable::StarlarkDeserializeContext<'_, 'fv>,
     ) -> crate::Result<()> {
-        let len = usize::pagable_deserialize(ctx.pagable())?;
         unsafe {
-            ptr::write(&mut (*me).payload, Tuple::new(len));
-            let extra_offset = AValueRepr::<Self::StarlarkValue>::offset_of_payload()
-                + <Self as AValue>::offset_of_extra();
-            // The elements are deserialized at `'fv` into slots the heap types at `'v`: the
-            // brand erasure described on `AValue::starlark_deserialize`.
-            let extra_ptr = (me as *mut u8).add(extra_offset) as *mut MaybeUninit<Value<'fv>>;
-            for i in 0..len {
-                (*extra_ptr.add(i)).write(ctx.deserialize_value()?);
-            }
+            starlark_deserialize_with_extra::<Self, Tuple<'fv>>(me, ctx, |_, len| {
+                Ok(Tuple::new(len))
+            })
         }
-        Ok(())
     }
 }
 

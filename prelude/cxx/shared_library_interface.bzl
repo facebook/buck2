@@ -9,13 +9,19 @@
 load("@prelude//:paths.bzl", "paths")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(":cxx_library_utility.bzl", "EMPTY_DEFAULT_INFO")
-load(":cxx_toolchain_types.bzl", "CxxToolchainInfo")
+load(":cxx_toolchain_types.bzl", "CxxToolchainInfo", "LinkerInfo")
 
-def _shared_library_interface(ctx: AnalysisContext, output: str, identifier: str, shared_lib: [Artifact, Promise]) -> Artifact:
+def shared_library_interface_path(shared_lib_short_path: str) -> str:
     """
-    Convert the given shared library into an interface used for linking.
+    Where the interface derived from a shared library with the given short
+    path lives, relative to the rule's output directory.
     """
-    linker_info = get_cxx_toolchain_info(ctx).linker_info
+    return paths.join("__shlib_intfs__", shared_lib_short_path)
+
+def shared_library_interface_producer(linker_info: LinkerInfo) -> RunInfo:
+    """
+    The toolchain tool invoked as `<producer> <shared library> <interface>`.
+    """
     if linker_info.mk_shlib_intf == None:
         fail(
             'Shared library interface generation is enabled (shlib_interfaces != "disabled") '
@@ -23,13 +29,30 @@ def _shared_library_interface(ctx: AnalysisContext, output: str, identifier: str
             + "Either set `shared_library_interface_producer` in the toolchain or "
             + 'disable shared library interfaces by setting `shlib_interfaces = "disabled"`.',
         )
-    args = cmd_args(linker_info.mk_shlib_intf[RunInfo])
-    args.add(shared_lib)
-    output = ctx.actions.declare_output(output, has_content_based_path = True)
-    args.add(output.as_output())
+    return linker_info.mk_shlib_intf[RunInfo]
+
+def run_shared_library_interface_producer(
+    ctx: AnalysisContext, linker_info: LinkerInfo, shared_lib: [Artifact, Promise], interface: Artifact, identifier: [str, None]
+):
+    """
+    Derive `interface` from `shared_lib` in a standalone action.
+    """
     ctx.actions.run(
-        args,
+        cmd_args(shared_library_interface_producer(linker_info), shared_lib, interface.as_output()),
         category = "generate_shared_library_interface",
+        identifier = identifier,
+    )
+
+def _shared_library_interface(ctx: AnalysisContext, output: str, identifier: str, shared_lib: [Artifact, Promise]) -> Artifact:
+    """
+    Convert the given shared library into an interface used for linking.
+    """
+    output = ctx.actions.declare_output(output, has_content_based_path = True)
+    run_shared_library_interface_producer(
+        ctx = ctx,
+        linker_info = get_cxx_toolchain_info(ctx).linker_info,
+        shared_lib = shared_lib,
+        interface = output,
         identifier = identifier,
     )
     return output
@@ -64,7 +87,7 @@ _anon_shared_library_interface = anon_rule(
 )
 
 def shared_library_interface(ctx: AnalysisContext, shared_lib: Artifact, anonymous: bool = False) -> Artifact:
-    output = paths.join("__shlib_intfs__", shared_lib.short_path)
+    output = shared_library_interface_path(shared_lib.short_path)
 
     if anonymous:
         shared_lib_interface_artifact = ctx.actions.anon_target(

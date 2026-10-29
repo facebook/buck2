@@ -13,17 +13,19 @@ use std::time::Duration;
 
 use allocative::Allocative;
 use buck2_build_api_derive::internal_provider;
+use buck2_core::execution_types::execution_group::ExecutionGroup;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
 use buck2_error::buck2_error;
 use buck2_error::internal_error;
+use buck2_hash::BuckMutInsertionMap;
+use buck2_interpreter::execution_group::ExecutionGroupArg;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_test_api::data::TestListingEntry;
 use buck2_test_api::data::TestResultEntry;
 use buck2_test_api::data::TestStatus;
 use either::Either;
-use indexmap::IndexMap;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Module;
@@ -35,6 +37,7 @@ use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
+use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
 use starlark::values::dict::DictRef;
@@ -52,6 +55,7 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::command_executor_config::StarlarkCommandExecutorConfig;
 use crate::interpreter::rule_defs::provider::builtin::external_runner_test_info::TestCommandMember;
 use crate::interpreter::rule_defs::provider::builtin::external_runner_test_info::check_all;
+use crate::interpreter::rule_defs::provider::builtin::external_runner_test_info::default_executor_with_execution_group;
 use crate::interpreter::rule_defs::provider::builtin::external_runner_test_info::iter_executor_overrides;
 use crate::interpreter::rule_defs::provider::builtin::external_runner_test_info::iter_local_resources;
 use crate::interpreter::rule_defs::provider::builtin::external_runner_test_info::iter_opt_str_list;
@@ -113,6 +117,18 @@ pub struct InternalRunnerTestInfo<'v> {
     /// Default executor to use to run tests. If none is
     /// passed we will default to the execution platform.
     default_executor: Option<ValueTyped<'v, StarlarkCommandExecutorConfig>>,
+
+    /// The execution group whose execution platform runs the tests when the test runner does not
+    /// request an executor. When the analysis of a rule that declares the group creates the test
+    /// info, the group's executor is recorded in `default_executor`, so it still applies when
+    /// another rule returns the test info. Nothing is recorded when the group has no compatible
+    /// execution platform, when the rule does not declare the group, or outside rule analysis; the
+    /// test then resolves the group against the tested target when it runs. A passed
+    /// `default_executor` wins and the group is not resolved, so copying a test info field by
+    /// field works in any rule. A rule that declares named groups but not `DefaultExecGroup` must
+    /// set `exec_group` or `default_executor`; `executor_overrides` does not replace them, as the
+    /// tests run in the default group whenever no override is picked.
+    exec_group: ValueOfUnchecked<'v, NoneOr<ExecutionGroupArg>>,
 
     /// Executors that can be used to override the default executor.
     executor_overrides: ValueOfUnchecked<'v, DictType<String, StarlarkCommandExecutorConfig>>,
@@ -221,6 +237,14 @@ impl<'v> InternalRunnerTestInfo<'v> {
         self.default_executor.map(|v| v.as_ref())
     }
 
+    pub fn execution_group(&self) -> buck2_error::Result<Option<ExecutionGroup>> {
+        Ok(self
+            .exec_group
+            .unpack()?
+            .into_option()
+            .map(|ExecutionGroupArg { group }| group))
+    }
+
     pub fn has_executor_overrides(&self) -> bool {
         !self.executor_overrides.get().is_none()
     }
@@ -233,7 +257,9 @@ impl<'v> InternalRunnerTestInfo<'v> {
             .map(|v| StarlarkCommandExecutorConfig::from_value(v.to_value()).unwrap())
     }
 
-    pub fn local_resources(&self) -> IndexMap<&'v str, Option<&'v ConfiguredProvidersLabel>> {
+    pub fn local_resources(
+        &self,
+    ) -> BuckMutInsertionMap<&'v str, Option<&'v ConfiguredProvidersLabel>> {
         unwrap_all(iter_local_resources(self.local_resources.get())).collect()
     }
 
@@ -518,9 +544,10 @@ fn validate_internal_runner_test_info<'v>(
     check_all(iter_opt_str_list(info.contacts.get(), "contacts"))?;
     check_all(iter_executor_overrides(info.executor_overrides.get()))?;
 
-    let provided_local_resources =
-        iter_local_resources(info.local_resources.get())
-            .collect::<buck2_error::Result<IndexMap<&str, Option<&ConfiguredProvidersLabel>>>>()?;
+    let provided_local_resources = iter_local_resources(info.local_resources.get())
+        .collect::<buck2_error::Result<
+        BuckMutInsertionMap<&str, Option<&ConfiguredProvidersLabel>>,
+    >>()?;
 
     let required_local_resources = info.required_local_resources.get();
     if !required_local_resources.is_none() {
@@ -592,7 +619,17 @@ fn internal_runner_test_info_creator(globals: &mut GlobalsBuilder) {
         #[starlark(default = NoneType)] local_resources: Value<'v>,
         #[starlark(default = NoneType)] required_local_resources: Value<'v>,
         #[starlark(default = NoneOr::None)] worker: NoneOr<ValueTyped<'v, WorkerInfo<'v>>>,
+        #[starlark(require = named, default = NoneOr::None)] exec_group: NoneOr<
+            ValueOf<'v, ExecutionGroupArg>,
+        >,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<InternalRunnerTestInfo<'v>> {
+        let exec_group = exec_group.into_option();
+        let default_executor = default_executor_with_execution_group(
+            exec_group.as_ref().map(|g| &g.typed.group),
+            default_executor.into_option(),
+            eval,
+        )?;
         let res = InternalRunnerTestInfo {
             test_type: ValueOfUnchecked::new(r#type),
             command: ValueOfUnchecked::new(command),
@@ -602,7 +639,8 @@ fn internal_runner_test_info_creator(globals: &mut GlobalsBuilder) {
             contacts: ValueOfUnchecked::new(contacts),
             use_project_relative_paths: ValueOfUnchecked::new(use_project_relative_paths),
             run_from_project_root: ValueOfUnchecked::new(run_from_project_root),
-            default_executor: default_executor.into_option(),
+            default_executor,
+            exec_group: ValueOfUnchecked::new(exec_group.map_or(Value::new_none(), |g| g.value)),
             executor_overrides: ValueOfUnchecked::new(executor_overrides),
             local_resources: ValueOfUnchecked::new(local_resources),
             required_local_resources: ValueOfUnchecked::new(required_local_resources),

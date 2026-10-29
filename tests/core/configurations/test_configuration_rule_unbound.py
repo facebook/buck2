@@ -10,15 +10,16 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_configuration_rule_unbound(buck: Buck) -> None:
-    result = await buck.cquery(
-        # platform argument is ignored
-        "--target-platforms=root//:p",
-        "root//:the-test",
-    )
-    # Note configuration is unbound here.
-    assert "root//:the-test (<unbound>)\n" == result.stdout
+class ConfigurationRuleUnboundTest(BuckTestCase):
+    @buck_test()
+    async def test_configuration_rule_unbound(self, buck: Buck) -> None:
+        result = await buck.cquery(
+            # platform argument is ignored
+            "--target-platforms=root//:p",
+            "root//:the-test",
+        )
+        # Note configuration is unbound here.
+        assert "root//:the-test (<unbound>)\n" == result.stdout

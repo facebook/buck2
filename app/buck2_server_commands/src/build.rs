@@ -11,6 +11,7 @@
 use std::hash::Hash;
 use std::sync::Arc;
 use std::time::Instant;
+use std::time::SystemTime;
 
 use async_trait::async_trait;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
@@ -44,6 +45,7 @@ use buck2_common::liveliness_observer::TimeoutLivelinessObserver;
 use buck2_common::pattern::parse_from_cli::parse_patterns_with_modifiers_from_cli_args;
 use buck2_common::pattern::resolve::ResolveTargetPatterns;
 use buck2_common::pattern::resolve::ResolvedPattern;
+use buck2_core::deprecation;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::package::PackageLabelWithModifiers;
 use buck2_core::pattern::pattern::Modifiers;
@@ -56,7 +58,6 @@ use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
-use buck2_core::soft_error;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_data::BuildResult;
 use buck2_data::ToProtoMessage;
@@ -75,6 +76,7 @@ use buck2_node::configured_universe::CqueryUniverse;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
+use buck2_server_ctx::commands::send_build_phase_end;
 use buck2_server_ctx::commands::send_target_cfg_event;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
@@ -164,13 +166,11 @@ async fn build(
     request: &buck2_cli_proto::BuildRequest,
 ) -> buck2_error::Result<buck2_cli_proto::BuildResponse> {
     if request.run_args_missing_separator {
-        soft_error!(
+        deprecation!(
             "run_args_without_separator",
             RunArgsMissingSeparator.into(),
-            quiet: false,
-            deprecation: true,
-            error_on_oss: true,
-        )?;
+            owner: "mattpayne", started: "2026-02-17",
+        );
     }
 
     let cwd = server_ctx.working_dir();
@@ -419,6 +419,13 @@ async fn build(
             .await
         }
         .boxed()
+    });
+
+    let event_dispatcher = server_ctx.events().dupe();
+    let build_future = build_future.map(move |result| {
+        let build_succeeded = result.as_ref().is_ok_and(|r| !r.build_failed);
+        send_build_phase_end(&event_dispatcher, SystemTime::now(), build_succeeded);
+        result
     });
 
     let build_result = build::build_report::maybe_stream_build_reports(

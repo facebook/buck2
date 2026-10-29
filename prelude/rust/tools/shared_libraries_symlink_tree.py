@@ -119,7 +119,7 @@ def main():
             has_dwp = dwp is not None
             if has_dwp:
                 symlink_relative(
-                    link=(args.dwp_symlink_tree / link_name).with_suffix(".dwp"),
+                    link=args.dwp_symlink_tree / (link_name + ".dwp"),
                     target=dwp,
                 )
 

@@ -1011,6 +1011,7 @@ mod tests {
     /// thread and cannot be interrupted by a same-task timeout, so the timeout
     /// must live on a separate task to observe it.
     #[test]
+    #[cfg_attr(miri, ignore = "stress test, far too slow interpreted")]
     fn stress_join_all_concurrent_completion() {
         let rt = tokio::runtime::Builder::new_multi_thread()
             .worker_threads(8)
@@ -1058,6 +1059,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(miri, ignore = "stress test, far too slow interpreted")]
     fn stress_try_join_all_error_cancels() {
         let rt = tokio::runtime::Builder::new_multi_thread()
             .worker_threads(8)
@@ -1174,6 +1176,7 @@ mod tests {
     ///
     /// A dropped wake shows up as a hang rather than a wrong answer, hence the timeouts.
     #[test]
+    #[cfg_attr(miri, ignore = "stress test, far too slow interpreted")]
     fn stress_wide_join_scaling_and_contention() {
         const SELF_WAKES: u32 = 2;
         const DRIVER_THREADS: usize = 8;

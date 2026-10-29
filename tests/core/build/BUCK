@@ -3,6 +3,7 @@ load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_core_tests")
 oncall("build_infra")
 
 buck2_core_tests(
+    materializer_variants = ["test_error_categorization", "test_unhashed_outputs"],
     target_extra_attrs = {
         "test_artifact_path_sketch": {
             # TODO(scottcao): Extend these to mac/windows

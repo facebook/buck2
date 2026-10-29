@@ -12,6 +12,7 @@ use std::borrow::Borrow;
 
 use allocative::Allocative;
 use buck2_core::plugins::PluginKind;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_interpreter::plugins::PLUGIN_KIND_FROM_VALUE;
 use derive_more::Display;
 use dupe::Dupe;
@@ -28,7 +29,6 @@ use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::starlark_value;
 use starlark_map::Hashed;
-use starlark_map::small_map::SmallMap;
 
 /// Wrapper around `PluginKind` to impl `Trace` and `Freeze`
 #[derive(
@@ -81,7 +81,7 @@ impl Borrow<PluginKind> for PluginKindWrapper {
 #[display("<ctx.plugins>")]
 #[repr(transparent)]
 pub struct AnalysisPlugins<'v> {
-    plugins: SmallMap<PluginKindWrapper, Value<'v>>,
+    plugins: BuckMutInsertionMap<PluginKindWrapper, Value<'v>>,
 }
 
 starlark_complex_value!(pub AnalysisPlugins);
@@ -112,7 +112,7 @@ impl<'v> StarlarkValue<'v> for AnalysisPlugins<'v> {
 }
 
 impl<'v> AnalysisPlugins<'v> {
-    pub fn new(plugins: SmallMap<PluginKind, Value<'v>>) -> Self {
+    pub fn new(plugins: BuckMutInsertionMap<PluginKind, Value<'v>>) -> Self {
         Self {
             plugins: plugins
                 .into_iter()

@@ -15,7 +15,6 @@ use std::iter;
 
 use allocative::Allocative;
 use buck2_util::arc_str::ArcSlice;
-use buck2_util::arc_str::ArcStr;
 use buck2_util::size_assert;
 use derive_more::Display;
 use dupe::Dupe;
@@ -107,13 +106,6 @@ impl ProviderName {
 )]
 pub enum NonDefaultProvidersName {
     Named(ArcSlice<ProviderName>),
-    // For some flavors from buck1, we can translate them to ProvidersName::Named
-    // as we know that we can implement them as a subtarget. For many flavored targets,
-    // we can't do that. For those cases, we parse them to this "UnrecognizedFlavor" so
-    // that we can defer any errors related to us not supporting it.
-    UnrecognizedFlavor(ArcStr),
-    // TODO(cjhopman): We should add an InferredNamed for flavors where we infer a name
-    // so that we can display them in their original form.
 }
 
 ///
@@ -160,9 +152,6 @@ impl Display for ProvidersName {
                     }
                     Ok(())
                 }
-                NonDefaultProvidersName::UnrecognizedFlavor(s) => {
-                    write!(f, "#{s}")
-                }
             },
         }
     }
@@ -176,7 +165,6 @@ impl ProvidersName {
                 NonDefaultProvidersName::Named(xs) => {
                     xs.iter().cloned().chain(iter::once(name)).collect()
                 }
-                NonDefaultProvidersName::UnrecognizedFlavor(_) => return self.dupe(),
             },
         };
         ProvidersName::NonDefault(Arc::new(NonDefaultProvidersName::Named(
@@ -285,13 +273,27 @@ impl Serialize for ProvidersLabel {
 ///
 /// A configured 'ProvidersLabel'.
 #[derive(
-    Clone, Dupe, Debug, Display, Hash, StrongHash, Eq, PartialEq, Ord, PartialOrd, Allocative,
-    Pagable
+    Clone, Dupe, Debug, Hash, StrongHash, Eq, PartialEq, Ord, PartialOrd, Allocative, Pagable
 )]
-#[display("{}{} ({})", target.unconfigured(), name, target.cfg())]
 pub struct ConfiguredProvidersLabel {
     target: ConfiguredTargetLabel,
     name: ProvidersName,
+}
+
+impl Display for ConfiguredProvidersLabel {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}{} ({})",
+            self.target.unconfigured(),
+            self.name,
+            self.target.cfg()
+        )?;
+        if let Some(exec_cfg) = self.target.exec_cfg() {
+            write!(f, " ({exec_cfg})")?;
+        }
+        Ok(())
+    }
 }
 
 impl ConfiguredProvidersLabel {
@@ -396,7 +398,15 @@ pub mod testing {
 
 #[cfg(test)]
 mod tests {
+    use dupe::Dupe;
+
+    use crate::configuration::data::ConfigurationData;
+    use crate::configuration::data::ConfigurationDataData;
+    use crate::configuration::data::ExecPlatformMarking;
+    use crate::provider::label::ConfiguredProvidersLabel;
     use crate::provider::label::ProviderName;
+    use crate::provider::label::ProvidersLabel;
+    use crate::provider::label::testing::ProvidersLabelTestExt;
 
     #[test]
     fn providers_name_validation() {
@@ -404,5 +414,42 @@ mod tests {
         ProviderName::new("foo_-,.=+/1".to_owned()).unwrap();
         assert!(ProviderName::new("foo bar".to_owned()).is_err());
         assert!(ProviderName::new("foo@bar".to_owned()).is_err());
+    }
+
+    fn plain_and_with_exec() -> (ConfiguredProvidersLabel, ConfiguredProvidersLabel) {
+        let label = ProvidersLabel::testing_new("root", "pkg", "tc", Some(&["sub"]));
+        let cfg = ConfigurationData::testing_new();
+        let exec = ConfigurationData::from_platform(
+            "<exec>".to_owned(),
+            ConfigurationDataData::empty(),
+            ExecPlatformMarking::Unmarked,
+        )
+        .unwrap();
+        (
+            label.configure(cfg.dupe()),
+            label.configure_with_exec(cfg, exec),
+        )
+    }
+
+    /// The configured providers label prints its execution configuration after the target
+    /// configuration, like the configured target label does.
+    #[test]
+    fn configured_providers_label_display_keeps_exec_cfg() {
+        let (plain, with_exec) = plain_and_with_exec();
+        assert_ne!(plain, with_exec);
+
+        let cfg = plain.cfg().to_string();
+        assert_eq!(plain.to_string(), format!("root//pkg:tc[sub] ({cfg})"));
+        assert!(
+            with_exec
+                .to_string()
+                .starts_with(&format!("root//pkg:tc[sub] ({cfg}) (<exec>#")),
+            "{with_exec}"
+        );
+        assert_ne!(plain.to_string(), with_exec.to_string());
+        assert_ne!(
+            serde_json::to_string(&plain).unwrap(),
+            serde_json::to_string(&with_exec).unwrap()
+        );
     }
 }

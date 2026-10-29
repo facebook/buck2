@@ -15,7 +15,7 @@ import typing
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
 # Obtain hashes of `<astrologer>` and `<vagabond>` configurations.
@@ -35,47 +35,45 @@ async def _obtain_cfg_hashes(buck: Buck) -> typing.Tuple[str, str]:
     return (astrologer_hash, vagabond_hash)
 
 
-@buck_test()
-async def test_build_configured_full_configuration(buck: Buck) -> None:
-    (astrologer_hash, _) = await _obtain_cfg_hashes(buck)
+class BuildConfiguredTest(BuckTestCase):
+    @buck_test()
+    async def test_build_configured_full_configuration(self, buck: Buck) -> None:
+        (astrologer_hash, _) = await _obtain_cfg_hashes(buck)
 
-    result = await buck.build(
-        f"root//:simple (<astrologer>#{astrologer_hash})",
-        "--target-universe",
-        "root//:universe",
-    )
-    out = result.get_build_report().output_for_target("root//:simple").read_text()
-    assert f"$$$root//:simple (<astrologer>#{astrologer_hash})$$$" == out
+        result = await buck.build(
+            f"root//:simple (<astrologer>#{astrologer_hash})",
+            "--target-universe",
+            "root//:universe",
+        )
+        out = result.get_build_report().output_for_target("root//:simple").read_text()
+        assert f"$$$root//:simple (<astrologer>#{astrologer_hash})$$$" == out
 
-
-@buck_test()
-async def test_build_configured_no_hash(buck: Buck) -> None:
-    (_, vagabond_hash) = await _obtain_cfg_hashes(buck)
-    result = await buck.build(
-        "root//:simple (<vagabond>)",
-        "--target-universe",
-        "root//:universe",
-    )
-    out = result.get_build_report().output_for_target("root//:simple").read_text()
-    assert f"$$$root//:simple (<vagabond>#{vagabond_hash})$$$" == out
-
-
-@buck_test()
-async def test_build_configured_wrong_hash(buck: Buck) -> None:
-    result = await buck.build(
-        "root//:simple (<vagabond>#0123456789abcdef)",
-        "--target-universe",
-        "root//:universe",
-    )
-    # TODO(nga): this should either fail or emit a warning.
-    assert "root//:simple" not in json.loads(result.stdout)["results"]
-
-
-@buck_test()
-async def test_build_configured_no_universe(buck: Buck) -> None:
-    await expect_failure(
-        buck.build(
+    @buck_test()
+    async def test_build_configured_no_hash(self, buck: Buck) -> None:
+        (_, vagabond_hash) = await _obtain_cfg_hashes(buck)
+        result = await buck.build(
             "root//:simple (<vagabond>)",
-        ),
-        stderr_regex="Targets with explicit configuration can only be built when the",
-    )
+            "--target-universe",
+            "root//:universe",
+        )
+        out = result.get_build_report().output_for_target("root//:simple").read_text()
+        assert f"$$$root//:simple (<vagabond>#{vagabond_hash})$$$" == out
+
+    @buck_test()
+    async def test_build_configured_wrong_hash(self, buck: Buck) -> None:
+        result = await buck.build(
+            "root//:simple (<vagabond>#0123456789abcdef)",
+            "--target-universe",
+            "root//:universe",
+        )
+        # TODO(nga): this should either fail or emit a warning.
+        assert "root//:simple" not in json.loads(result.stdout)["results"]
+
+    @buck_test()
+    async def test_build_configured_no_universe(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.build(
+                "root//:simple (<vagabond>)",
+            ),
+            stderr_regex="Targets with explicit configuration can only be built when the",
+        )

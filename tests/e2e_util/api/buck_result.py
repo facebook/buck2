@@ -8,6 +8,7 @@
 
 
 import json
+import re
 import textwrap
 import xml.etree.ElementTree as ET
 from asyncio import subprocess
@@ -100,6 +101,20 @@ class InvocationRecord:
         return errors[0]
 
 
+# The line buck2's simple console prints when a command starts. A restarted command prints one
+# per attempt, so the last match is the trace id of the attempt that produced the result.
+_TRACE_ID_LINE = re.compile(
+    r"^(?:\[[^\]]*\] )?(?:Buck UI: https://www\.internalfb\.com/buck2/|Build ID: )"
+    r"([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\s*$",
+    re.MULTILINE,
+)
+
+
+def parse_trace_id(stderr: str) -> Optional[str]:
+    matches = _TRACE_ID_LINE.findall(stderr)
+    return matches[-1] if matches else None
+
+
 class BuckResult(Result):
     """
     Represents a buck process that has finished running and succeeded.
@@ -111,14 +126,26 @@ class BuckResult(Result):
         process: subprocess.Process,
         stdout: str,
         stderr: str,
-        buck_build_id: str,
         invocation_record_path: Optional[Path] = None,
         buck_args: str = "",
     ) -> None:
         super().__init__(process, stdout, stderr)
-        self.buck_build_id = buck_build_id
         self.buck_args = buck_args
         self.invocation_record_path = invocation_record_path
+
+    @property
+    def buck_build_id(self) -> str:
+        """
+        The trace id buck2 used for this command, as printed on stderr. It is not the
+        `BUCK_WRAPPER_UUID` the harness sets: a launcher in front of the client (deployed buck2)
+        replaces it, and a restarted command gets a new one.
+        """
+        trace_id = parse_trace_id(self.stderr)
+        if trace_id is None:
+            raise Exception(
+                "No `Buck UI:` or `Build ID:` line on stderr; the command printed no trace id"
+            )
+        return trace_id
 
     def invocation_record(self) -> InvocationRecord:
         if self.invocation_record_path is None:
@@ -139,7 +166,6 @@ class BuckException(Exception, BuckResult):
         process: subprocess.Process,
         stdout: str,
         stderr: str,
-        buck_build_id: str,
         invocation_record_path: Optional[Path] = None,
     ) -> None:
         cmd = " ".join(str(e) for e in cmd_to_run)
@@ -165,9 +191,7 @@ class BuckException(Exception, BuckResult):
             self,
             error_msg,
         )
-        BuckResult.__init__(
-            self, process, stdout, stderr, buck_build_id, invocation_record_path
-        )
+        BuckResult.__init__(self, process, stdout, stderr, invocation_record_path)
 
     def check_returncode(self) -> None:
         assert self.process.returncode != 0

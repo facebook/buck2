@@ -11,8 +11,10 @@
 use buck2_build_api::actions::query::ActionQueryNode;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
+use starlark::typing::Ty;
 use starlark::values::Heap;
 use starlark::values::Value;
+use starlark::values::type_repr::StarlarkTypeRepr;
 
 use super::nodes::action::StarlarkActionQueryNode;
 use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
@@ -20,22 +22,37 @@ use crate::bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode;
 
 /// BXL-specific node allocator.
 pub(crate) trait AllocNode {
+    /// Starlark type of the values [`AllocNode::alloc`] returns.
+    fn starlark_ty() -> Ty;
+
     fn alloc(self, heap: Heap<'_>) -> Value<'_>;
 }
 
 impl AllocNode for TargetNode {
+    fn starlark_ty() -> Ty {
+        StarlarkTargetNode::starlark_type_repr()
+    }
+
     fn alloc(self, heap: Heap<'_>) -> Value<'_> {
         heap.alloc(StarlarkTargetNode(self))
     }
 }
 
 impl AllocNode for ConfiguredTargetNode {
+    fn starlark_ty() -> Ty {
+        StarlarkConfiguredTargetNode::starlark_type_repr()
+    }
+
     fn alloc(self, heap: Heap<'_>) -> Value<'_> {
         heap.alloc(StarlarkConfiguredTargetNode(self))
     }
 }
 
 impl AllocNode for ActionQueryNode {
+    fn starlark_ty() -> Ty {
+        StarlarkActionQueryNode::starlark_type_repr()
+    }
+
     fn alloc(self, heap: Heap<'_>) -> Value<'_> {
         heap.alloc(StarlarkActionQueryNode(self))
     }

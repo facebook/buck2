@@ -25,6 +25,7 @@ use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
+use std::ptr::NonNull;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::MutexGuard;
@@ -53,7 +54,6 @@ use crate::values::layout::heap::arena::Arena;
 use crate::values::layout::heap::arena::FrozenReservation;
 use crate::values::layout::heap::name::FrozenHeapName;
 use crate::values::layout::heap::profile::by_type::HeapSummary;
-use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::layout::heap::sealed::FrozenHeapArc;
 use crate::values::layout::heap::send::HeapSyncable;
 use crate::values::layout::value::Value;
@@ -230,8 +230,9 @@ impl<'fh> FrozenHeap<'fh> {
         T::StarlarkValue: HeapSendable<'fh>,
         T::StarlarkValue: HeapSyncable<'fh>,
     {
-        let v: &'fh AValueRepr<AValueImpl<T>> = self.0.arena.alloc(x);
-        ValueTyped::new_frozen_repr(v)
+        let v = self.0.arena.alloc(x);
+        // SAFETY: just allocated in this heap, by the allocation's pointer.
+        unsafe { ValueTyped::new_frozen_repr(v) }
     }
 
     pub(in crate::values::layout) fn alloc_raw_extra<T>(
@@ -247,7 +248,8 @@ impl<'fh> FrozenHeap<'fh> {
         T::StarlarkValue: HeapSyncable<'fh>,
     {
         let (v, extra) = self.0.arena.alloc_extra(x);
-        let v = unsafe { ValueTyped::new_frozen_repr(&*v) };
+        // SAFETY: just allocated in this heap, by the allocation's pointer.
+        let v = unsafe { ValueTyped::new_frozen_repr(NonNull::new_unchecked(v)) };
         (v, extra)
     }
 
@@ -260,7 +262,10 @@ impl<'fh> FrozenHeap<'fh> {
     ) -> StringValue<'fh> {
         let v = self.0.arena.alloc_str_init(len, hash, init);
 
-        unsafe { StringValue::new_unchecked(Value::new_frozen_ptr(&*v, true)) }
+        // SAFETY: just allocated in this heap, by the allocation's pointer.
+        unsafe {
+            StringValue::new_unchecked(Value::new_frozen_ptr(NonNull::new_unchecked(v), true))
+        }
     }
 
     /// Allocate a new value on this heap.

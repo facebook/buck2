@@ -33,17 +33,16 @@ use buck2_common::target_aliases::HasTargetAliasResolver;
 use buck2_core::bxl::BxlFilePath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
-use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedRelativeDir;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::package::PackageLabel;
-use buck2_core::soft_error;
 use buck2_data::BxlEnsureArtifactsEnd;
 use buck2_data::BxlEnsureArtifactsStart;
 use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
 use buck2_events::dispatch::get_dispatcher;
+use buck2_hash::BuckFixedInsertionMap;
 use buck2_hash::BuckMutMap;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::parse_import::ParseImportOptions;
@@ -63,7 +62,6 @@ use dupe::IterDupedExt;
 use futures::StreamExt;
 use futures::stream::FuturesUnordered;
 use itertools::Itertools;
-use starlark_map::ordered_map::OrderedMap;
 
 use crate::bxl;
 use crate::bxl::calculation::eval_bxl;
@@ -230,8 +228,7 @@ impl BxlServerCommand {
         ctx: &BxlCommandContext<'_>,
         dice_ctx: &DiceTransaction,
     ) -> buck2_error::Result<BxlResolvedCliArgs> {
-        let cur_package =
-            PackageLabel::from_cell_path(ctx.cell_resolver.get_cell_path(ctx.cwd).as_ref())?;
+        let cur_package = PackageLabel::from_cell_path(ctx.cell_resolver.get_cell_path(ctx.cwd))?;
         let cell_name = ctx.cell_resolver.find(ctx.cwd);
         let cell_alias_resolver = dice_ctx.ctx().get_cell_alias_resolver(cell_name).await?;
 
@@ -266,7 +263,7 @@ impl BxlServerCommand {
         &self,
         ctx: &BxlCommandContext<'_>,
         dice_ctx: &DiceTransaction,
-        bxl_args: Arc<OrderedMap<String, CliArgValue>>,
+        bxl_args: Arc<BuckFixedInsertionMap<String, CliArgValue>>,
     ) -> bxl::eval::Result<Arc<BxlResult>> {
         let bxl_key = BxlKey::new(
             ctx.bxl_label.clone(),
@@ -511,7 +508,7 @@ pub(crate) async fn get_bxl_cli_args(
     cell_resolver: &CellResolver,
     global_cfg_options: &GlobalCfgOptions,
 ) -> buck2_error::Result<BxlResolvedCliArgs> {
-    let cur_package = PackageLabel::from_cell_path(cell_resolver.get_cell_path(&cwd).as_ref())?;
+    let cur_package = PackageLabel::from_cell_path(cell_resolver.get_cell_path(&cwd))?;
     let cell_name = cell_resolver.find(&cwd);
     let cell_alias_resolver = ctx.ctx().get_cell_alias_resolver(cell_name).await?;
 
@@ -542,10 +539,6 @@ enum BxlLabelError {
         "bxl label should be of format `<cell>//path/to/file.bxl:function_name`, but got `{0}`"
     )]
     Format(String),
-    #[error(
-        "The bxl function path `{got}` should use the canonical name `{wanted}`. If your bxl changes aren't being detected, this is probably why"
-    )]
-    WrongCell { got: String, wanted: CellPath },
 }
 
 /// Parse the bxl function label out of cli pattern
@@ -572,20 +565,8 @@ pub(crate) fn parse_bxl_label_from_cli(
     };
     let import_path = parse_import_with_config(cell_alias_resolver, bxl_path, &opts)?;
 
-    let project_path = cell_resolver.resolve_path(import_path.as_ref())?;
-    let reformed_path = cell_resolver.get_cell_path(&project_path);
-    if reformed_path.cell() != import_path.cell() {
-        soft_error!(
-            "bxl_label_wrong_cell",
-            BxlLabelError::WrongCell {
-                got: bxl_path.to_owned(),
-                wanted: reformed_path,
-            }
-            .into(),
-            error_on_oss: true
-        )?;
-    }
-
+    // FIXME(JakobDegen): A bxl path that resolves into a cell other than the one it names should
+    // be an error; as it is, changes to the file may go unnoticed.
     Ok(BxlFunctionLabel {
         bxl_path: BxlFilePath::new(import_path)?,
         name: bxl_fn.to_owned(),
@@ -643,7 +624,7 @@ mod tests {
     use buck2_artifact::artifact::build_artifact::BuildArtifact;
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-    use buck2_hash::BuckIndexSet;
+    use buck2_hash::BuckMutInsertionSet;
 
     use super::*;
 
@@ -663,12 +644,15 @@ mod tests {
         let a2 = new_test_artifact_group(2);
         let a3 = new_test_artifact_group(3);
         let p1 = PendingStreamingOutput::new(
-            BuckIndexSet::from([a1.dupe(), a2.dupe()]),
+            BuckMutInsertionSet::from([a1.dupe(), a2.dupe()]),
             b"output1".to_vec(),
         );
-        let p2 = PendingStreamingOutput::new(BuckIndexSet::from([a1.dupe()]), b"output2".to_vec());
+        let p2 = PendingStreamingOutput::new(
+            BuckMutInsertionSet::from([a1.dupe()]),
+            b"output2".to_vec(),
+        );
         let p3 = PendingStreamingOutput::new(
-            BuckIndexSet::from([a2.dupe(), a3.dupe()]),
+            BuckMutInsertionSet::from([a2.dupe(), a3.dupe()]),
             b"output3".to_vec(),
         );
 

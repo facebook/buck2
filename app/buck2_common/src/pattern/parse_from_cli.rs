@@ -58,7 +58,7 @@ impl<'d> PatternParser<'d> {
     ) -> buck2_error::Result<ParsedPattern<T>> {
         ParsedPattern::parse_relaxed(
             self.target_alias_resolver,
-            self.cwd.as_ref(),
+            self.cwd,
             pattern,
             &self.cell_resolver,
             &self.cell_alias_resolver,
@@ -71,7 +71,7 @@ impl<'d> PatternParser<'d> {
     ) -> buck2_error::Result<ParsedPatternWithModifiers<T>> {
         ParsedPatternWithModifiers::parse_relaxed(
             self.target_alias_resolver,
-            self.cwd.as_ref(),
+            self.cwd,
             pattern,
             &self.cell_resolver,
             &self.cell_alias_resolver,

@@ -11,11 +11,11 @@
 
 import json
 from pathlib import Path
-from typing import List
+from typing import Any, Callable, List
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 from buck2.tests.e2e_util.helper.golden import (
     golden,
     GOLDEN_DIRECTORY,
@@ -29,8 +29,10 @@ from buck2.tests.e2e_util.helper.utils import (
 )
 
 
-def build_report_test(name: str, command: List[str], should_fail: bool) -> None:
-    async def impl(buck: Buck, tmp_path: Path) -> None:
+def build_report_test(
+    name: str, command: List[str], should_fail: bool
+) -> Callable[..., Any]:
+    async def impl(self: BuckTestCase, buck: Buck, tmp_path: Path) -> None:
         report = tmp_path / "build-report.json"
         if should_fail:
             await expect_failure(
@@ -58,65 +60,13 @@ def build_report_test(name: str, command: List[str], should_fail: bool) -> None:
         )
         pass
 
-    globals()[name] = impl
-
     return buck_test()(impl)
-
-
-build_report_test(
-    "test_build_report_format_all_ok",
-    ["//:ok?root//:macos", "//:ok?root//:linux", "//:ok?root//:macos+root//:arm"],
-    False,
-)
-
-build_report_test(
-    "test_build_report_format_all_fail",
-    ["//:fail?root//:macos", "//:fail?root//:linux", "//:fail?root//:macos+root//:arm"],
-    True,
-)
-
-build_report_test(
-    "test_build_report_fail_build",
-    ["//:fail_build?root//:linux", "//:fail_build?root//:macos"],
-    True,
-)
-
-build_report_test(
-    "test_build_report_mixed",
-    ["//:ok?root//:macos", "//:fail?root//:linux", "//:fail_build?root//:arm"],
-    True,
-)
-
-build_report_test("test_build_report_package", ["//:?root//:macos"], True)
-
-build_report_test(
-    "test_build_report_recursive",
-    ["//...?root//:macos"],
-    True,
-)
-
-build_report_test("test_build_report_ambiguous", ["//subdir?root//:macos"], False)
-
-build_report_test(
-    "test_build_report_deduplicate",
-    ["//:?root//:macos", "//:ok?root//:macos", "//:ok?root//:linux"],
-    True,
-)
-
-build_report_test(
-    "test_build_report_modifiers_that_result_in_same_configured",
-    [
-        "//:ok?root//:linux+root//:arm",
-        "//:ok?root//:arm+root//:linux",
-    ],
-    False,
-)
 
 
 def modifiers_match_test(
     name: str, command: List[str], expected_configurations: int, should_fail: bool
-) -> None:
-    async def impl(buck: Buck, tmp_path: Path) -> None:
+) -> Callable[..., Any]:
+    async def impl(self: BuckTestCase, buck: Buck, tmp_path: Path) -> None:
         report = tmp_path / "build-report.json"
         if should_fail:
             await expect_failure(
@@ -151,140 +101,192 @@ def modifiers_match_test(
 
         assert num_configurations == expected_configurations
 
-    globals()[name] = impl
-
     return buck_test()(impl)
 
 
-modifiers_match_test(
-    "test_single_modifier_single_pattern", ["//:ok?root//:macos"], 1, False
-)
-
-modifiers_match_test(
-    "test_multiple_modifiers_single_pattern",
-    ["//:ok?root//:macos+root//:arm"],
-    1,
-    False,
-)
-
-modifiers_match_test(
-    "test_single_modifier_multiple_patterns",
-    ["//:ok?root//:macos", "//:fail?root//:macos"],
-    2,
-    True,
-)
-
-modifiers_match_test(
-    "test_multiple_modifiers_multiple_patterns",
-    ["//:ok?root//:macos+root//:arm", "//:fail?root//:linux"],
-    2,
-    True,
-)
-
-modifiers_match_test(
-    "test_recursive_modifiers",
-    ["//...?root//:arm"],
-    4,
-    True,
-)
-
-modifiers_match_test(
-    "test_package_modifiers",
-    ["//:?root//:arm"],
-    3,
-    True,
-)
-
-modifiers_match_test(
-    "test_ambiguous_modifiers",
-    ["//subdir?root//:arm"],
-    1,
-    False,
-)
-
-modifiers_match_test(
-    "test_modifiers_complex",
-    ["//...?root//:macos+root//:arm", "//:?root//:linux", "//:ok?root//:linux"],
-    7,
-    True,
-)
-
-
-@buck_test()
-async def test_order_of_modifiers(buck: Buck, tmp_path: Path) -> None:
-    target_with_modifiers = "root//:ok?root//:linux+root//:macos"
-    report = tmp_path / "build-report.json"
-
-    await buck.test("--build-report", str(report), target_with_modifiers)
-
-    with open(report) as file:
-        report = json.loads(file.read())
-
-    [configuration] = report["results"][target_with_modifiers]["configured"].keys()
-
-    cfg = await buck.audit_configurations(configuration)
-
-    assert "root//:macos" in cfg.stdout
-    assert "root//:linux" not in cfg.stdout
-
-
-@buck_test()
-async def test_modifiers_that_end_up_with_same_configuration(
-    buck: Buck, tmp_path: Path
-) -> None:
-    mac_first = "root//:ok?root//:macos+root//:arm"
-    arm_first = "root//:ok?root//:arm+root//:macos"
-    report = tmp_path / "build-report.json"
-
-    await buck.test("--build-report", str(report), mac_first, arm_first)
-
-    with open(report) as file:
-        report = json.loads(file.read())
-
-    assert (
-        report["results"][mac_first]["configured"]
-        == report["results"][arm_first]["configured"]
+class ModifiersTest(BuckTestCase):
+    test_build_report_package = build_report_test(
+        "test_build_report_package", ["//:?root//:macos"], True
     )
 
-    [configuration] = report["results"][mac_first]["configured"].keys()
-
-    cfg = await buck.audit_configurations(configuration)
-
-    assert "root//:macos" in cfg.stdout
-    assert "root//:arm" in cfg.stdout
-
-
-@buck_test()
-async def test_streaming_build_report_target_completion_with_modifiers(
-    buck: Buck, tmp_path: Path
-) -> None:
-    """Each `?modifier` entry, and its configuration, finishes with its own label."""
-    streaming_report = tmp_path / "streaming-build-report.jsonl"
-
-    await buck.test(
-        "//:ok?root//:macos",
-        "//:ok?root//:linux",
-        "--streaming-build-report",
-        str(streaming_report),
+    test_build_report_ambiguous = build_report_test(
+        "test_build_report_ambiguous", ["//subdir?root//:macos"], False
     )
 
-    reports = read_streaming_report(streaming_report)
-    assert streaming_status_history(reports) == {
-        "root//:ok?root//:macos": ["IN_PROGRESS", "SUCCESS"],
-        "root//:ok?root//:linux": ["IN_PROGRESS", "SUCCESS"],
-    }
-    assert {
-        key: [configured["success"] for configured in entry["configured"].values()]
-        for key, entry in replay_streaming_report(reports).items()
-    } == {
-        "root//:ok?root//:macos": ["SUCCESS"],
-        "root//:ok?root//:linux": ["SUCCESS"],
-    }
-
-
-@buck_test()
-async def test_fails_with_global_modifiers(buck: Buck) -> None:
-    await expect_failure(
-        buck.test("--modifier", "root//:macos", "//:ok?root//:linux"),
-        stderr_regex=r"Cannot specify modifiers with \?modifier syntax when global CLI modifiers are set with --modifier flag",
+    test_single_modifier_single_pattern = modifiers_match_test(
+        "test_single_modifier_single_pattern", ["//:ok?root//:macos"], 1, False
     )
+
+    test_build_report_format_all_ok = build_report_test(
+        "test_build_report_format_all_ok",
+        ["//:ok?root//:macos", "//:ok?root//:linux", "//:ok?root//:macos+root//:arm"],
+        False,
+    )
+
+    test_build_report_format_all_fail = build_report_test(
+        "test_build_report_format_all_fail",
+        [
+            "//:fail?root//:macos",
+            "//:fail?root//:linux",
+            "//:fail?root//:macos+root//:arm",
+        ],
+        True,
+    )
+
+    test_build_report_fail_build = build_report_test(
+        "test_build_report_fail_build",
+        ["//:fail_build?root//:linux", "//:fail_build?root//:macos"],
+        True,
+    )
+
+    test_build_report_mixed = build_report_test(
+        "test_build_report_mixed",
+        ["//:ok?root//:macos", "//:fail?root//:linux", "//:fail_build?root//:arm"],
+        True,
+    )
+
+    test_build_report_recursive = build_report_test(
+        "test_build_report_recursive",
+        ["//...?root//:macos"],
+        True,
+    )
+
+    test_build_report_deduplicate = build_report_test(
+        "test_build_report_deduplicate",
+        ["//:?root//:macos", "//:ok?root//:macos", "//:ok?root//:linux"],
+        True,
+    )
+
+    test_build_report_modifiers_that_result_in_same_configured = build_report_test(
+        "test_build_report_modifiers_that_result_in_same_configured",
+        [
+            "//:ok?root//:linux+root//:arm",
+            "//:ok?root//:arm+root//:linux",
+        ],
+        False,
+    )
+
+    test_multiple_modifiers_single_pattern = modifiers_match_test(
+        "test_multiple_modifiers_single_pattern",
+        ["//:ok?root//:macos+root//:arm"],
+        1,
+        False,
+    )
+
+    test_single_modifier_multiple_patterns = modifiers_match_test(
+        "test_single_modifier_multiple_patterns",
+        ["//:ok?root//:macos", "//:fail?root//:macos"],
+        2,
+        True,
+    )
+
+    test_multiple_modifiers_multiple_patterns = modifiers_match_test(
+        "test_multiple_modifiers_multiple_patterns",
+        ["//:ok?root//:macos+root//:arm", "//:fail?root//:linux"],
+        2,
+        True,
+    )
+
+    test_recursive_modifiers = modifiers_match_test(
+        "test_recursive_modifiers",
+        ["//...?root//:arm"],
+        4,
+        True,
+    )
+
+    test_package_modifiers = modifiers_match_test(
+        "test_package_modifiers",
+        ["//:?root//:arm"],
+        3,
+        True,
+    )
+
+    test_ambiguous_modifiers = modifiers_match_test(
+        "test_ambiguous_modifiers",
+        ["//subdir?root//:arm"],
+        1,
+        False,
+    )
+
+    test_modifiers_complex = modifiers_match_test(
+        "test_modifiers_complex",
+        ["//...?root//:macos+root//:arm", "//:?root//:linux", "//:ok?root//:linux"],
+        7,
+        True,
+    )
+
+    @buck_test()
+    async def test_order_of_modifiers(self, buck: Buck, tmp_path: Path) -> None:
+        target_with_modifiers = "root//:ok?root//:linux+root//:macos"
+        report = tmp_path / "build-report.json"
+
+        await buck.test("--build-report", str(report), target_with_modifiers)
+
+        with open(report) as file:
+            report = json.loads(file.read())
+
+        [configuration] = report["results"][target_with_modifiers]["configured"].keys()
+
+        cfg = await buck.audit_configurations(configuration)
+
+        assert "root//:macos" in cfg.stdout
+        assert "root//:linux" not in cfg.stdout
+
+    @buck_test()
+    async def test_modifiers_that_end_up_with_same_configuration(
+        self, buck: Buck, tmp_path: Path
+    ) -> None:
+        mac_first = "root//:ok?root//:macos+root//:arm"
+        arm_first = "root//:ok?root//:arm+root//:macos"
+        report = tmp_path / "build-report.json"
+
+        await buck.test("--build-report", str(report), mac_first, arm_first)
+
+        with open(report) as file:
+            report = json.loads(file.read())
+
+        assert (
+            report["results"][mac_first]["configured"]
+            == report["results"][arm_first]["configured"]
+        )
+
+        [configuration] = report["results"][mac_first]["configured"].keys()
+
+        cfg = await buck.audit_configurations(configuration)
+
+        assert "root//:macos" in cfg.stdout
+        assert "root//:arm" in cfg.stdout
+
+    @buck_test()
+    async def test_streaming_build_report_target_completion_with_modifiers(
+        self, buck: Buck, tmp_path: Path
+    ) -> None:
+        """Each `?modifier` entry, and its configuration, finishes with its own label."""
+        streaming_report = tmp_path / "streaming-build-report.jsonl"
+
+        await buck.test(
+            "//:ok?root//:macos",
+            "//:ok?root//:linux",
+            "--streaming-build-report",
+            str(streaming_report),
+        )
+
+        reports = read_streaming_report(streaming_report)
+        assert streaming_status_history(reports) == {
+            "root//:ok?root//:macos": ["IN_PROGRESS", "SUCCESS"],
+            "root//:ok?root//:linux": ["IN_PROGRESS", "SUCCESS"],
+        }
+        assert {
+            key: [configured["success"] for configured in entry["configured"].values()]
+            for key, entry in replay_streaming_report(reports).items()
+        } == {
+            "root//:ok?root//:macos": ["SUCCESS"],
+            "root//:ok?root//:linux": ["SUCCESS"],
+        }
+
+    @buck_test()
+    async def test_fails_with_global_modifiers(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.test("--modifier", "root//:macos", "//:ok?root//:linux"),
+            stderr_regex=r"Cannot specify modifiers with \?modifier syntax when global CLI modifiers are set with --modifier flag",
+        )

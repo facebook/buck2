@@ -12,7 +12,7 @@
 import re
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
 def _replace_hash(s: str) -> str:
@@ -23,27 +23,27 @@ def _parse_audit_configurations(output: str) -> list[str]:
     return [x.rstrip(":") for x in output.splitlines() if not x.startswith(" ")]
 
 
-@buck_test()
-async def test_audit_configurations_all(buck: Buck) -> None:
-    # Evaluate a target to make sure configuration is loaded.
-    await buck.cquery("//:genrule")
+class AuditConfigurationsTest(BuckTestCase):
+    @buck_test()
+    async def test_audit_configurations_all(self, buck: Buck) -> None:
+        # Evaluate a target to make sure configuration is loaded.
+        await buck.cquery("//:genrule")
 
-    result = await buck.audit("configurations")
-    configurations = _parse_audit_configurations(result.stdout)
-    configurations = [_replace_hash(x) for x in configurations]
-    assert "root//:p#<HASH>" in configurations
+        result = await buck.audit("configurations")
+        configurations = _parse_audit_configurations(result.stdout)
+        configurations = [_replace_hash(x) for x in configurations]
+        assert "root//:p#<HASH>" in configurations
 
+    @buck_test()
+    async def test_audit_configurations_specific(self, buck: Buck) -> None:
+        # Evaluate a target to make sure configuration is loaded.
+        await buck.cquery("//:genrule")
 
-@buck_test()
-async def test_audit_configurations_specific(buck: Buck) -> None:
-    # Evaluate a target to make sure configuration is loaded.
-    await buck.cquery("//:genrule")
+        # Load configurations so we can learn the hash.
+        result = await buck.audit("configurations")
+        configurations = _parse_audit_configurations(result.stdout)
+        [configuration] = [c for c in configurations if c.startswith("root//:p#")]
 
-    # Load configurations so we can learn the hash.
-    result = await buck.audit("configurations")
-    configurations = _parse_audit_configurations(result.stdout)
-    [configuration] = [c for c in configurations if c.startswith("root//:p#")]
-
-    # Now audit the specific configuration.
-    result = await buck.audit("configurations", configuration)
-    assert [configuration] == _parse_audit_configurations(result.stdout)
+        # Now audit the specific configuration.
+        result = await buck.audit("configurations", configuration)
+        assert [configuration] == _parse_audit_configurations(result.stdout)

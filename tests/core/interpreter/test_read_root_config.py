@@ -10,19 +10,20 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_read_root_config(buck: Buck) -> None:
-    output = await buck.build("//:")
-    assert "<<root=regular>>" in output.stderr
-    assert "<<root_ignore_default=regular>>" in output.stderr
-    assert "<<root_use_default=predict>>" in output.stderr
-    assert "<<local=regular>>" in output.stderr
+class ReadRootConfigTest(BuckTestCase):
+    @buck_test()
+    async def test_read_root_config(self, buck: Buck) -> None:
+        output = await buck.build("//:")
+        assert "<<root=regular>>" in output.stderr
+        assert "<<root_ignore_default=regular>>" in output.stderr
+        assert "<<root_use_default=predict>>" in output.stderr
+        assert "<<local=regular>>" in output.stderr
 
-    output = await buck.build("other//:")
-    assert "{{root=regular}}" in output.stderr
-    assert "{{root_ignore_default=regular}}" in output.stderr
-    assert "{{root_use_default=quantity}}" in output.stderr
-    assert "{{local=guerrilla}}" in output.stderr
+        output = await buck.build("other//:")
+        assert "{{root=regular}}" in output.stderr
+        assert "{{root_ignore_default=regular}}" in output.stderr
+        assert "{{root_use_default=quantity}}" in output.stderr
+        assert "{{local=guerrilla}}" in output.stderr

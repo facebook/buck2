@@ -17,6 +17,7 @@ from .info_plist_metadata import InfoPlistMetadata
 from .provisioning_profile_diagnostics import IProvisioningProfileDiagnostics
 from .provisioning_profile_metadata import ProvisioningProfileMetadata
 from .provisioning_profile_selection import (
+    _matches_or_array_is_subset_of,
     select_best_provisioning_profile_core,
     SelectedProvisioningProfileInfo,
 )
@@ -288,6 +289,10 @@ class TestSelection(unittest.TestCase):
                 "keychain-access-groups": ["AAAAAAAAAA.*"],
                 "aps-environment": "production",
                 "com.apple.security.application-groups": ["foo", "bar", "baz"],
+                "com.apple.developer.devicecheck.appattest-environment": [
+                    "development",
+                    "production",
+                ],
             },
         )
         unexpected = ProvisioningProfileMetadata(
@@ -315,6 +320,7 @@ class TestSelection(unittest.TestCase):
                 "keychain-access-groups": ["AAAAAAAAAA.*"],
                 "aps-environment": "production",
                 "com.apple.security.application-groups": ["foo", "bar"],
+                "com.apple.developer.devicecheck.appattest-environment": "production",
             },
             platform=ApplePlatform.ios_device,
             strict_search=False,
@@ -329,6 +335,7 @@ class TestSelection(unittest.TestCase):
             entitlements={
                 "aps-environment": "production",
                 "com.apple.security.application-groups": ["foo", "bar"],
+                "com.apple.developer.devicecheck.appattest-environment": "development",
             },
             platform=ApplePlatform.ios_device,
             strict_search=False,
@@ -657,3 +664,100 @@ class TestSelection(unittest.TestCase):
         self.assertEqual(selected.profile, profile)
         self.assertEqual(selected.identity.fingerprint, "some_fingerprint")
         self.assertEqual(selected.identity.subject_common_name, "Unknown")
+
+
+class TestEntitlementMatching(unittest.TestCase):
+    def test_app_attest_environment_matches_allowed_values(self):
+        key = "com.apple.developer.devicecheck.appattest-environment"
+        for requested, permitted, expected in [
+            ("development", ["development", "production"], True),
+            ("production", ["development", "production"], True),
+            ("development", ["development"], True),
+            ("production", ["production"], True),
+            ("development", ["production"], False),
+            ("production", ["development"], False),
+            ("unsupported", ["development", "production"], False),
+            ("development", [], False),
+            ("development", None, False),
+            ("development", "development", True),
+            ("production", "production", True),
+            ("development", "production", False),
+        ]:
+            with self.subTest(requested=requested, permitted=permitted):
+                self.assertEqual(
+                    _matches_or_array_is_subset_of(
+                        key, requested, permitted, ApplePlatform.ios_device
+                    ),
+                    expected,
+                )
+
+    def test_other_string_entitlements_match_allowed_values(self):
+        for key in ["aps-environment", "another-entitlement"]:
+            for requested, permitted, expected in [
+                ("development", ["development", "production"], True),
+                ("production", ["development", "production"], True),
+                ("development", ["production"], False),
+                ("unsupported", ["development", "production"], False),
+                ("development", [], False),
+            ]:
+                with self.subTest(key=key, requested=requested, permitted=permitted):
+                    self.assertEqual(
+                        _matches_or_array_is_subset_of(
+                            key, requested, permitted, ApplePlatform.ios_device
+                        ),
+                        expected,
+                    )
+
+    def test_string_entitlements_reject_non_string_allowlists(self):
+        for key in [
+            "com.apple.developer.devicecheck.appattest-environment",
+            "aps-environment",
+        ]:
+            for permitted in [
+                ["development", 1],
+                ["development", True],
+                ["development", None],
+                ["development", ["production"]],
+                ["development", {"environment": "production"}],
+                [1, 2],
+            ]:
+                with self.subTest(key=key, permitted=permitted):
+                    self.assertFalse(
+                        _matches_or_array_is_subset_of(
+                            key, "development", permitted, ApplePlatform.ios_device
+                        )
+                    )
+
+    def test_non_string_scalar_entitlements_do_not_match_profile_arrays(self):
+        for requested, permitted in [(1, [1]), (True, [True]), (None, [None])]:
+            with self.subTest(requested=requested, permitted=permitted):
+                self.assertFalse(
+                    _matches_or_array_is_subset_of(
+                        "another-entitlement",
+                        requested,
+                        permitted,
+                        ApplePlatform.ios_device,
+                    )
+                )
+
+    def test_existing_matching_behavior_is_preserved(self):
+        for requested, permitted, expected in [
+            (["foo"], ["foo", "bar"], True),
+            (["foo", "baz"], ["foo", "bar"], False),
+            ("development", "development", True),
+            ("development", "production", False),
+            ("development", "*", True),
+            (True, True, True),
+            (True, False, False),
+            (None, None, True),
+        ]:
+            with self.subTest(requested=requested, permitted=permitted):
+                self.assertEqual(
+                    _matches_or_array_is_subset_of(
+                        "another-entitlement",
+                        requested,
+                        permitted,
+                        ApplePlatform.ios_device,
+                    ),
+                    expected,
+                )

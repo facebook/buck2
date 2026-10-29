@@ -25,6 +25,7 @@ use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
 use buck2_events::dispatch::get_dispatcher;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::factory::BuckStarlarkModule;
 use buck2_interpreter::factory::ReentrantStarlarkEvaluator;
@@ -35,17 +36,16 @@ use buck2_node::cfg_constructor::CFG_CONSTRUCTOR_CALCULATION_IMPL;
 use buck2_node::cfg_constructor::CfgConstructorImpl;
 use buck2_node::metadata::key::MetadataKey;
 use buck2_node::metadata::key::MetadataKeyRef;
-use buck2_node::metadata::value::MetadataValue;
-use buck2_node::modifiers::PackageCfgModifiersValue;
+use buck2_node::modifiers::CfgModifiers;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::RuleKind;
 use buck2_node::rule_type::RuleType;
 use calculation::CfgConstructorCalculationInstance;
 use dice::DiceComputations;
 use dice_futures::cancellation::CancellationContext;
+use dupe::Dupe;
 use pagable::Pagable;
 use pagable::pagable_typetag;
-use starlark::collections::SmallMap;
 use starlark::values::OwnedFrozen;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
@@ -76,8 +76,8 @@ async fn eval_pre_constraint_analysis<'v, 'a>(
     cfg_constructor_pre_constraint_analysis: Value<'v>,
     reentrant_eval: &mut ReentrantStarlarkEvaluator<'v, 'a, '_>,
     cfg: &ConfigurationData,
-    package_cfg_modifiers: Option<&PackageCfgModifiersValue>,
-    target_cfg_modifiers: Option<&MetadataValue>,
+    package_cfg_modifiers: Option<&CfgModifiers>,
+    target_cfg_modifiers: Option<&CfgModifiers>,
     cli_modifiers: &[String],
     rule_type: &RuleType,
     aliases: Option<Value<'v>>,
@@ -96,14 +96,12 @@ async fn eval_pre_constraint_analysis<'v, 'a>(
             Value::new_none()
         };
 
-        let package_cfg_modifiers = eval.heap().alloc(match package_cfg_modifiers {
-            Some(v) => NoneOr::Other(v.json()),
-            None => NoneOr::None,
-        });
-        let target_cfg_modifiers = eval.heap().alloc(match target_cfg_modifiers {
-            Some(v) => NoneOr::Other(v.as_json()),
-            None => NoneOr::None,
-        });
+        let package_cfg_modifiers = eval
+            .heap()
+            .alloc(NoneOr::from_option(package_cfg_modifiers.copied()));
+        let target_cfg_modifiers = eval
+            .heap()
+            .alloc(NoneOr::from_option(target_cfg_modifiers.copied()));
         let cli_modifiers = eval.heap().alloc(cli_modifiers);
         let rule_name = eval.heap().alloc(rule_type.name());
         let aliases = match aliases {
@@ -144,7 +142,7 @@ async fn eval_pre_constraint_analysis<'v, 'a>(
 async fn analyze_constraints(
     ctx: &mut DiceComputations<'_>,
     refs: Vec<String>,
-) -> buck2_error::Result<SmallMap<String, FrozenProviderCollectionValue>> {
+) -> buck2_error::Result<BuckMutInsertionMap<String, FrozenProviderCollectionValue>> {
     let cell_resolver = &ctx.get_cell_resolver().await?;
     let cell_alias_resolver = &ctx
         .get_cell_alias_resolver(cell_resolver.root_cell())
@@ -181,10 +179,9 @@ fn eval_post_constraint_analysis<'v>(
     cfg_constructor_post_constraint_analysis: Value<'v>,
     params: Value<'v>,
     eval: &mut ReentrantStarlarkEvaluator<'v, '_, '_>,
-    refs_providers_map: SmallMap<String, FrozenProviderCollectionValue>,
-    is_marked_as_exec_platform: bool,
-) -> buck2_error::Result<ConfigurationData> {
-    eval.with_evaluator(|eval| -> buck2_error::Result<ConfigurationData> {
+    refs_providers_map: BuckMutInsertionMap<String, FrozenProviderCollectionValue>,
+) -> buck2_error::Result<&'v PlatformInfo<'v>> {
+    eval.with_evaluator(|eval| {
         let post_constraint_analysis_args = vec![
             (
                 "refs",
@@ -194,7 +191,7 @@ fn eval_post_constraint_analysis<'v>(
                         .map(|(label, providers)| {
                             (label, providers.add_heap_ref(eval.heap()).to_value())
                         })
-                        .collect::<SmallMap<String, Value<'_>>>(),
+                        .collect::<BuckMutInsertionMap<String, Value<'_>>>(),
                 ),
             ),
             ("params", params),
@@ -207,8 +204,9 @@ fn eval_post_constraint_analysis<'v>(
         )?;
 
         // Type check + unpack
-        <&PlatformInfo>::unpack_value_err(post_constraint_analysis_result)?
-            .to_configuration(is_marked_as_exec_platform)
+        Ok(<&PlatformInfo>::unpack_value_err(
+            post_constraint_analysis_result,
+        )?)
     })
 }
 
@@ -216,8 +214,8 @@ async fn eval_underlying(
     cfg_constructor: &CfgConstructor,
     ctx: &mut DiceComputations<'_>,
     cfg: &ConfigurationData,
-    package_cfg_modifiers: Option<&PackageCfgModifiersValue>,
-    target_cfg_modifiers: Option<&MetadataValue>,
+    package_cfg_modifiers: Option<&CfgModifiers>,
+    target_cfg_modifiers: Option<&CfgModifiers>,
     cli_modifiers: &[String],
     rule_type: &RuleType,
     configuring_exec_dep: bool,
@@ -264,8 +262,8 @@ async fn eval_underlying(
             params,
             &mut reentrant_eval,
             refs_providers_map,
-            cfg.is_marked_as_exec_platform(),
-        )?;
+        )?
+        .to_configuration(cfg.exec_marking().dupe())?;
 
         let finished_eval = reentrant_eval.finish_evaluation();
         let (token, _) = finished_eval.finish()?;
@@ -282,8 +280,8 @@ impl CfgConstructorImpl for CfgConstructor {
         &'a self,
         ctx: &'a mut DiceComputations,
         cfg: &'a ConfigurationData,
-        package_cfg_modifiers: Option<&'a PackageCfgModifiersValue>,
-        target_cfg_modifiers: Option<&'a MetadataValue>,
+        package_cfg_modifiers: Option<&'a CfgModifiers>,
+        target_cfg_modifiers: Option<&'a CfgModifiers>,
         cli_modifiers: &'a [String],
         rule_type: &'a RuleType,
         configuring_exec_dep: bool,

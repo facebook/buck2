@@ -19,14 +19,17 @@ use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileName;
 #[cfg(fbcode_build)]
 use buck2_http::ProxyHostAllowlist;
+use dice::EvictionPolicy;
 use dice::PagableStorageBackend;
+use dice::PageOutPolicy;
 use dupe::Dupe;
 use serde::Deserialize;
 use serde::Serialize;
 
 use crate::legacy_configs::configs::LegacyBuckConfig;
 use crate::legacy_configs::key::BuckconfigKeyRef;
-use crate::settings::BuckSettings;
+use crate::settings::BuckSettingChange;
+use crate::settings::DaemonBuckSettings;
 
 pub const DEFAULT_RETAINED_EVENT_LOGS: usize = 12;
 
@@ -541,8 +544,8 @@ impl HealthCheckConfig {
 }
 
 /// Pagable DICE storage settings, present (`Some`) only when paging is enabled by
-/// the `hydration` Buck settings or their legacy `buck2_hydration` fallbacks.
-/// `page_out_on_idle` also implies paging is enabled. When present, the daemon
+/// the `hydration` Buck settings. `page_out_on_idle` also implies paging is
+/// enabled. When present, the daemon
 /// sets up on-disk storage during construction so `buck2 debug hydration` can
 /// page node values out to / in from disk. Read at startup because it gates that
 /// setup.
@@ -555,63 +558,32 @@ pub struct HydrationConfig {
     /// Idle page-out only runs when at least this many GiB of disk are free to
     /// write the paged-out values to.
     pub page_out_min_free_disk_gb: u64,
+    /// Which values a page-out writes; see [`PageOutPolicy`].
+    pub page_out_policy: PageOutPolicy,
+    /// When the values a page-out writes leave memory; see [`EvictionPolicy`].
+    pub eviction_policy: EvictionPolicy,
 }
 
 impl HydrationConfig {
-    /// Returns `None` when neither the Buck settings nor their legacy fallbacks
-    /// enable paging.
-    fn from_config(
-        config: &LegacyBuckConfig,
-        settings: &BuckSettings,
-    ) -> buck2_error::Result<Option<Self>> {
-        fn resolve_bool(
-            setting: Option<bool>,
-            config: &LegacyBuckConfig,
-            property: &'static str,
-        ) -> buck2_error::Result<bool> {
-            if let Some(setting) = setting {
-                return Ok(setting);
-            }
-
-            Ok(config
-                .parse(BuckconfigKeyRef {
-                    section: "buck2_hydration",
-                    property,
-                })?
-                .unwrap_or(false))
+    /// Returns `None` when the Buck settings do not enable paging.
+    fn from_settings(settings: &DaemonBuckSettings) -> Option<Self> {
+        let hydration = &settings.hydration;
+        let page_out_on_idle = hydration.page_out_on_idle();
+        if !(page_out_on_idle || hydration.enable_paging()) {
+            return None;
         }
-
-        let page_out_on_idle = resolve_bool(
-            settings.hydration.page_out_on_idle(),
-            config,
-            "page_out_on_idle",
-        )?;
-        // `page_out_on_idle` implies pagable storage, so it enables it too.
-        let enabled = page_out_on_idle
-            || resolve_bool(settings.hydration.enable_paging(), config, "enable_paging")?;
-        if !enabled {
-            return Ok(None);
-        }
-        Ok(Some(Self {
-            pagable_storage_backend: config
-                .parse::<PagableStorageBackend>(BuckconfigKeyRef {
-                    section: "buck2_hydration",
-                    property: "pagable_storage_backend",
-                })?
-                .unwrap_or_default(),
+        Some(Self {
+            pagable_storage_backend: hydration.pagable_storage_backend(),
             page_out_on_idle,
-            page_out_min_free_disk_gb: config
-                .parse(BuckconfigKeyRef {
-                    section: "buck2_hydration",
-                    property: "page_out_min_free_disk_gb",
-                })?
-                .unwrap_or(100),
-        }))
+            page_out_min_free_disk_gb: hydration.page_out_min_free_disk_gb(),
+            page_out_policy: hydration.page_out_policy(),
+            eviction_policy: hydration.eviction_policy(),
+        })
     }
 }
 
-/// Configurations that are used at startup by the daemon. Those are actually read by the client,
-/// and passed on to the daemon.
+/// Startup options and Buck Settings read by the client and passed to the daemon.
+/// Reusing a daemon requires equal startup options and daemon-compatible Buck Settings.
 ///
 /// The fields here are often raw String we get from the buckconfig, the daemon will do
 /// deserialization once it receives them. That said, this is not a requirement.
@@ -620,15 +592,27 @@ impl HydrationConfig {
 /// the DaemonStartupConfig provided by the daemon when it tries to connect, it will reject that
 /// daemon and restart (and in fact it will probably not get that far since a version check is done
 /// before parsing DaemonStartupConfig).
-#[derive(Allocative, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Allocative, Clone, Debug, Serialize, Deserialize)]
 pub struct DaemonStartupConfig {
-    pub buck_settings: BuckSettings,
+    buck_settings: DaemonBuckSettings,
+    // Keep the fields exposed by `buck2 status` at their existing JSON paths.
+    #[serde(flatten)]
+    pub startup_options: DaemonStartupOptions,
+}
+
+/// Effective startup values derived from buckconfig and Buck Settings.
+/// Any difference requires a new daemon; Buck Settings have a separate compatibility check.
+#[derive(Allocative, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DaemonStartupOptions {
     pub num_tokio_workers: Option<usize>,
     pub daemon_buster: Option<String>,
     pub digest_algorithms: Option<String>,
     pub source_digest_algorithm: Option<String>,
     pub paranoid: bool,
     pub materializations: Option<String>,
+    /// Which materializer implementation the daemon runs (`buck2.materializer`); `None` is the
+    /// deferred one.
+    pub materializer: Option<String>,
     pub http: HttpConfig,
     pub resource_control: ResourceControlConfig,
     pub log_download_method: LogDownloadMethod,
@@ -641,18 +625,26 @@ pub struct DaemonStartupConfig {
 }
 
 impl DaemonStartupConfig {
+    pub fn daemon_buck_settings(&self) -> &DaemonBuckSettings {
+        &self.buck_settings
+    }
+
+    pub fn buck_settings_changes_from(&self, previous: &Self) -> Vec<BuckSettingChange> {
+        self.buck_settings.changes_from(&previous.buck_settings)
+    }
+
     pub fn new(
         config: &LegacyBuckConfig,
-        settings: &BuckSettings,
+        settings: &DaemonBuckSettings,
         paranoid: bool,
     ) -> buck2_error::Result<Self> {
         // Intepreted client side because we need the value here.
 
         let log_download_method = {
+            let log_download = &settings.log_download;
             // Determine the log download method to use. Only default to
             // manifold in fbcode contexts, or when specifically asked.
-            let use_manifold = settings
-                .log_download
+            let use_manifold = log_download
                 .log_use_manifold()
                 .map(Ok::<_, buck2_error::Error>)
                 .unwrap_or_else(|| {
@@ -667,7 +659,7 @@ impl DaemonStartupConfig {
             if use_manifold {
                 Ok(LogDownloadMethod::Manifold)
             } else {
-                let log_url = settings.log_download.log_url().or_else(|| {
+                let log_url = log_download.log_url().or_else(|| {
                     config.get(BuckconfigKeyRef {
                         section: "buck2",
                         property: "log_url",
@@ -688,8 +680,7 @@ impl DaemonStartupConfig {
             }
         }?;
 
-        Ok(Self {
-            buck_settings: settings.dupe(),
+        let startup_options = DaemonStartupOptions {
             num_tokio_workers: config
                 .parse(BuckconfigKeyRef {
                     section: "build",
@@ -721,6 +712,12 @@ impl DaemonStartupConfig {
                     property: "materializations",
                 })
                 .map(ToOwned::to_owned),
+            materializer: config
+                .get(BuckconfigKeyRef {
+                    section: "buck2",
+                    property: "materializer",
+                })
+                .map(ToOwned::to_owned),
             http: HttpConfig::from_config(config)?,
             resource_control: ResourceControlConfig::from_config(config)?,
             log_download_method,
@@ -740,28 +737,23 @@ impl DaemonStartupConfig {
                     })
                     .map(ToOwned::to_owned);
                 if buck2_env!("BUCK2_DISABLE_MACOS_QOS", bool)? {
-                    buck2_core::soft_error!(
-                        "disable_macos_qos_env_var",
-                        buck2_error::buck2_error!(
-                            buck2_error::ErrorTag::Input,
-                            "BUCK2_DISABLE_MACOS_QOS is deprecated. \
-                             Use `[buck2] macos_qos_class = skip_lowering` in buckconfig instead. \
-                             This will be the default very soon."
-                        ),
-                        deprecation: true,
-                        quiet: false,
-                        error_on_oss: true
-                    )?;
-                    Some(from_config.unwrap_or_else(|| "skip_lowering".to_owned()))
-                } else {
-                    from_config
+                    return Err(buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::Input,
+                        "`BUCK2_DISABLE_MACOS_QOS` is not supported, set \
+                         `[buck2] macos_qos_class = skip_lowering` in buckconfig instead"
+                    ));
                 }
+                from_config
             },
             daemon_idle_timeout_s: config.parse(BuckconfigKeyRef {
                 section: "buck2",
                 property: "daemon_idle_timeout_s",
             })?,
-            hydration: HydrationConfig::from_config(config, settings)?,
+            hydration: HydrationConfig::from_settings(settings),
+        };
+        Ok(Self {
+            buck_settings: settings.dupe(),
+            startup_options,
         })
     }
 
@@ -771,7 +763,7 @@ impl DaemonStartupConfig {
         &self,
         isolation_dir: &FileName,
     ) -> Option<&HydrationConfig> {
-        self.hydration.as_ref().filter(|hydration| {
+        self.startup_options.hydration.as_ref().filter(|hydration| {
             hydration.page_out_on_idle
                 && self
                     .buck_settings
@@ -790,14 +782,14 @@ impl DaemonStartupConfig {
     }
 
     pub fn testing_empty() -> Self {
-        Self {
-            buck_settings: BuckSettings::empty(),
+        let startup_options = DaemonStartupOptions {
             num_tokio_workers: None,
             daemon_buster: None,
             digest_algorithms: None,
             source_digest_algorithm: None,
             paranoid: false,
             materializations: None,
+            materializer: None,
             http: HttpConfig::default(),
             resource_control: ResourceControlConfig::testing_default(),
             log_download_method: if cfg!(fbcode_build) {
@@ -810,6 +802,10 @@ impl DaemonStartupConfig {
             macos_qos_class: None,
             daemon_idle_timeout_s: None,
             hydration: None,
+        };
+        Self {
+            buck_settings: DaemonBuckSettings::default(),
+            startup_options,
         }
     }
 }
@@ -824,10 +820,37 @@ mod tests {
     use crate::settings::parser::table;
 
     #[test]
+    fn test_startup_config_serialization() -> buck2_error::Result<()> {
+        let settings = resolve_setting_flags(vec![table(
+            "[agent_materialization]\nenabled = true\n[analysis]\nrecord_requested_anon_targets = false",
+        )])?;
+        let mut config =
+            DaemonStartupConfig::new(&LegacyBuckConfig::empty(), &settings.daemon, false)?;
+        config.startup_options.daemon_buster = Some("test".to_owned());
+
+        let serialized = config.serialize()?;
+        let json: serde_json::Value = serde_json::from_str(&serialized)?;
+        assert_eq!(json["daemon_buster"], "test");
+        assert_eq!(
+            json["buck_settings"]["analysis"]["record_requested_anon_targets"],
+            false
+        );
+        assert!(json["buck_settings"].get("agent_materialization").is_none());
+        assert!(json["buck_settings"].get("agent_interactive").is_none());
+        assert!(json.get("startup_options").is_none());
+
+        let deserialized = DaemonStartupConfig::deserialize(&serialized)?;
+        assert_eq!(deserialized.startup_options, config.startup_options);
+        assert_eq!(deserialized.daemon_buck_settings(), &settings.daemon);
+        Ok(())
+    }
+
+    #[test]
     fn test_daemon_idle_timeout_s_default() -> buck2_error::Result<()> {
         let config = parse(&[("config", indoc!(r#""#))], "config")?;
-        let startup_config = DaemonStartupConfig::new(&config, &BuckSettings::empty(), false)?;
-        assert_eq!(startup_config.daemon_idle_timeout_s, None);
+        let startup_config =
+            DaemonStartupConfig::new(&config, &DaemonBuckSettings::default(), false)?;
+        assert_eq!(startup_config.startup_options.daemon_idle_timeout_s, None);
         Ok(())
     }
 
@@ -845,8 +868,12 @@ mod tests {
             )],
             "config",
         )?;
-        let startup_config = DaemonStartupConfig::new(&config, &BuckSettings::empty(), false)?;
-        assert_eq!(startup_config.daemon_idle_timeout_s, Some(10800));
+        let startup_config =
+            DaemonStartupConfig::new(&config, &DaemonBuckSettings::default(), false)?;
+        assert_eq!(
+            startup_config.startup_options.daemon_idle_timeout_s,
+            Some(10800)
+        );
         Ok(())
     }
 
@@ -855,7 +882,7 @@ mod tests {
         let config = parse(&[("config", "")], "config")?;
         let settings = resolve_setting_flags(vec![table("[hydration]\npage_out_on_idle = true")])?;
 
-        let startup_config = DaemonStartupConfig::new(&config, &settings, false)?;
+        let startup_config = DaemonStartupConfig::new(&config, &settings.daemon, false)?;
         let hydration = startup_config
             .idle_page_out_config_for_isolation_dir(
                 FileName::new("v2").expect("The default isolation dir should be valid"),
@@ -866,30 +893,24 @@ mod tests {
     }
 
     #[test]
-    fn test_hydration_settings_fall_back_to_legacy_config() -> buck2_error::Result<()> {
-        let config = parse(
-            &[(
-                "config",
-                indoc!(
-                    r#"
-                    [buck2_hydration]
-                    page_out_on_idle = true
-                    "#
-                ),
-            )],
-            "config",
-        )?;
+    fn test_hydration_settings_page_out_policy() -> buck2_error::Result<()> {
+        let config = parse(&[("config", "")], "config")?;
+        let settings = resolve_setting_flags(vec![table(
+            "[hydration]\nenable_paging = true\npage_out_policy = \"once_per_key\"\neviction_policy = \"on_idle\"",
+        )])?;
 
-        let startup_config = DaemonStartupConfig::new(&config, &BuckSettings::empty(), false)?;
+        let startup_config = DaemonStartupConfig::new(&config, &settings.daemon, false)?;
         let hydration = startup_config
+            .startup_options
             .hydration
-            .expect("Legacy idle page-out config should enable hydration");
-        assert!(hydration.page_out_on_idle);
+            .expect("enable_paging should enable pagable storage");
+        assert_eq!(hydration.page_out_policy, PageOutPolicy::OncePerKey);
+        assert_eq!(hydration.eviction_policy, EvictionPolicy::OnIdle);
         Ok(())
     }
 
     #[test]
-    fn test_hydration_settings_override_legacy_config() -> buck2_error::Result<()> {
+    fn test_legacy_hydration_buckconfig_is_ignored() -> buck2_error::Result<()> {
         let config = parse(
             &[(
                 "config",
@@ -903,63 +924,26 @@ mod tests {
             )],
             "config",
         )?;
-        let settings = resolve_setting_flags(vec![table(
-            "[hydration]\nenable_paging = true\npage_out_on_idle = false",
-        )])?;
 
-        let startup_config = DaemonStartupConfig::new(&config, &settings, false)?;
-        let hydration = startup_config
-            .hydration
-            .expect("Explicit Buck settings should keep hydration enabled");
-        assert!(!hydration.page_out_on_idle);
-        Ok(())
-    }
-
-    #[test]
-    fn test_hydration_settings_can_disable_legacy_config() -> buck2_error::Result<()> {
-        let config = parse(
-            &[(
-                "config",
-                indoc!(
-                    r#"
-                    [buck2_hydration]
-                    enable_paging = true
-                    page_out_on_idle = true
-                    "#
-                ),
-            )],
-            "config",
-        )?;
-        let settings = resolve_setting_flags(vec![table(
-            "[hydration]\nenable_paging = false\npage_out_on_idle = false",
-        )])?;
-
-        let startup_config = DaemonStartupConfig::new(&config, &settings, false)?;
-        assert_eq!(startup_config.hydration, None);
+        let startup_config =
+            DaemonStartupConfig::new(&config, &DaemonBuckSettings::default(), false)?;
+        assert_eq!(
+            startup_config.startup_options.hydration, None,
+            "Only the `hydration` Buck settings enable paging"
+        );
         Ok(())
     }
 
     #[test]
     fn test_non_default_idle_page_out_scope() -> buck2_error::Result<()> {
-        let config = parse(
-            &[(
-                "config",
-                indoc!(
-                    r#"
-                    [buck2_hydration]
-                    page_out_on_idle = true
-                    "#
-                ),
-            )],
-            "config",
-        )?;
+        let config = parse(&[("config", "")], "config")?;
         let settings = resolve_setting_flags(vec![table(
-            "[hydration]\npage_out_on_idle_isolation_dir_scope = \"non_default\"",
+            "[hydration]\npage_out_on_idle = true\npage_out_on_idle_isolation_dir_scope = \"non_default\"",
         )])?;
-        let startup_config = DaemonStartupConfig::new(&config, &settings, false)?;
+        let startup_config = DaemonStartupConfig::new(&config, &settings.daemon, false)?;
 
         assert!(
-            startup_config.hydration.is_some(),
+            startup_config.startup_options.hydration.is_some(),
             "The isolation scope must not disable pagable storage"
         );
         assert_eq!(

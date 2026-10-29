@@ -31,6 +31,8 @@ app_info.json format:
  }
 """.
 
+-export([main/1]).
+
 -type application_resource() :: {application, atom(), proplists:proplist()}.
 -type mod() :: {atom(), [term()]} | undefined.
 -type filename() :: binary().
@@ -47,8 +49,6 @@ app_info.json format:
     env := [{atom(), term()}] | undefined,
     metadata := metadata()
 }.
-
--export([main/1]).
 
 -spec main(Args) -> ok when Args :: [string()].
 main([AppInfoFile, Output]) ->
@@ -560,12 +560,12 @@ format_item(Item) ->
 
 %% longest common subsequence from http://rosettacode.org/wiki/Longest_common_subsequence#Erlang
 lcs_length([] = S, T, Cache) ->
-    {0, maps:put({S, T}, 0, Cache)};
+    {0, Cache#{{S, T} => 0}};
 lcs_length(S, [] = T, Cache) ->
-    {0, maps:put({S, T}, 0, Cache)};
+    {0, Cache#{{S, T} => 0}};
 lcs_length([H | ST] = S, [H | TT] = T, Cache) ->
     {L, C} = lcs_length(ST, TT, Cache),
-    {L + 1, maps:put({S, T}, L + 1, C)};
+    {L + 1, C#{{S, T} => L + 1}};
 lcs_length([_SH | ST] = S, [_TH | TT] = T, Cache) ->
     case maps:is_key({S, T}, Cache) of
         true ->
@@ -574,7 +574,7 @@ lcs_length([_SH | ST] = S, [_TH | TT] = T, Cache) ->
             {L1, C1} = lcs_length(S, TT, Cache),
             {L2, C2} = lcs_length(ST, T, C1),
             L = max(L1, L2),
-            {L, maps:put({S, T}, L, C2)}
+            {L, C2#{{S, T} => L}}
     end.
 
 lcs(S, T) ->

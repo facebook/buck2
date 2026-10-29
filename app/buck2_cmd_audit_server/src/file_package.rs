@@ -19,7 +19,7 @@ use buck2_common::package_listing::dice::DicePackageListingResolver;
 use buck2_common::package_listing::resolver::PackageListingResolver;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_fs::working_dir::AbsWorkingDir;
-use buck2_hash::BuckIndexMap;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -73,10 +73,10 @@ async fn audit_build_package(
     paths: &[String],
     cwd_abs: &AbsWorkingDir,
     project_root: &ProjectRoot,
-) -> buck2_error::Result<BuckIndexMap<String, Package>> {
+) -> buck2_error::Result<BuckMutInsertionMap<String, Package>> {
     let cells = ctx.get_cell_resolver().await?;
 
-    let mut mappings = BuckIndexMap::default();
+    let mut mappings = BuckMutInsertionMap::default();
 
     for path_str in paths {
         // Resolve path to absolute (handles both relative and absolute inputs),
@@ -86,7 +86,7 @@ async fn audit_build_package(
         let val = match cells.get_cell_path_from_abs_path(&abs_path, project_root) {
             Ok(cell_path) => {
                 match DicePackageListingResolver(ctx)
-                    .get_enclosing_package(cell_path.as_ref())
+                    .get_enclosing_package(cell_path)
                     .await
                 {
                     Ok(package) => Package::Package(package.to_string()),

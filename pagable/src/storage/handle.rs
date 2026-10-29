@@ -9,6 +9,7 @@
  */
 
 use std::any::TypeId;
+use std::convert::Infallible;
 use std::sync::Arc;
 use std::sync::Weak;
 
@@ -122,7 +123,8 @@ impl PagableStorageHandle {
         PagableDeserializerImpl::new(data, self)
     }
 
-    /// Snapshot initialized deserialized arcs of one concrete type.
+    /// Snapshot the live arcs of one concrete type that are bound to a stored
+    /// key.
     ///
     /// The returned strong references keep the snapshot stable after the cache
     /// locks are released.
@@ -147,13 +149,7 @@ impl PagableStorageHandle {
         ) -> crate::Result<Box<dyn ArcEraseDyn>>,
     ) -> crate::Result<Box<dyn ArcEraseDyn>> {
         let storage = self.backing_storage();
-        if let Some(arc) = storage.arc_cache().get(&type_id, &key) {
-            return Ok(arc);
-        }
-        let cell = storage.arc_cache().get_or_create_cell(type_id, key);
-
-        // First thread to reach here deserializes; others block.
-        let arc = cell.get_or_try_init(|| -> crate::Result<Box<dyn ArcEraseDyn>> {
+        storage.arc_cache().get_or_page_in(type_id, key, || {
             let _held = HeldCell::enter();
             let data = storage.fetch_data_blocking(&key)?;
             let mut deserializer = PagableDeserializerImpl::new(&data, self);
@@ -162,8 +158,7 @@ impl PagableStorageHandle {
             let arc = deserialize_fn(&mut deserializer, recipe)?;
             storage.associate_arc_with_data_key(&*arc, key);
             Ok(arc)
-        })?;
-        Ok(arc.clone_dyn())
+        })
     }
 
     /// Bind an arc under `key` without fetching its row: the cached arc if one
@@ -181,20 +176,18 @@ impl PagableStorageHandle {
         make: impl FnOnce() -> Box<dyn ArcEraseDyn>,
     ) -> Box<dyn ArcEraseDyn> {
         let storage = self.backing_storage();
-        if let Some(arc) = storage.arc_cache().get(&type_id, &key) {
-            return arc;
-        }
-        let cell = storage.arc_cache().get_or_create_cell(type_id, key);
-        // Keyed before it is published: a lookup that finds the arc must find
-        // its row's key on it, or a page-out in that window would serialize
-        // the arc itself in place of the row.
-        let arc = cell.get_or_init(|| {
-            let _held = HeldCell::enter();
-            let arc = make();
-            storage.associate_arc_with_data_key(&*arc, key);
-            arc
-        });
-        arc.clone_dyn()
+        storage
+            .arc_cache()
+            .get_or_page_in(type_id, key, || {
+                let _held = HeldCell::enter();
+                let arc = make();
+                // Keyed before it is published: a lookup that finds the arc must
+                // find its row's key on it, or a page-out in that window would
+                // serialize the arc itself in place of the row.
+                storage.associate_arc_with_data_key(&*arc, key);
+                Ok::<_, Infallible>(arc)
+            })
+            .unwrap_or_else(|never| match never {})
     }
 
     /// Fetch the data under `key` as a reopenable recipe, for a caller that
@@ -206,6 +199,11 @@ impl PagableStorageHandle {
     ) -> crate::Result<Arc<dyn PagableDeserializerRecipe>> {
         let data = self.backing_storage().fetch_data_blocking(&key)?;
         Ok(Arc::new(PagableDeserializerRecipeImpl::new(data)))
+    }
+
+    /// Entries in the arc cache, live or not yet swept.
+    pub fn arc_cache_entries(&self) -> usize {
+        self.backing_storage.arc_cache().len()
     }
 
     /// Storage-lifetime state, for a caller holding a handle rather than a

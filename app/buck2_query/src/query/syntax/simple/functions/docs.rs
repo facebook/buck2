@@ -11,7 +11,7 @@
 use std::borrow::Cow;
 use std::fmt::Write;
 
-use buck2_hash::BuckIndexMap;
+use buck2_hash::BuckMutInsertionMap;
 use itertools::Itertools;
 
 use crate::query::syntax::simple::functions::helpers::QueryArgType;
@@ -97,8 +97,7 @@ impl FunctionDescription {
 
 // Instances created by #[query_module]
 pub struct ModuleDescription {
-    /// Note: Uses raw `indexmap::IndexMap` because the proc-macro generates `indexmap!`.
-    pub functions: indexmap::IndexMap<&'static str, FunctionDescription>,
+    pub functions: BuckMutInsertionMap<&'static str, FunctionDescription>,
 
     pub short_help: Option<String>,
     pub details: Option<String>,
@@ -114,7 +113,7 @@ impl QueryEnvironmentDescription {
         let merged_sorted_functions = self
             .mods
             .iter()
-            .fold(BuckIndexMap::default(), |acc, module| {
+            .fold(BuckMutInsertionMap::default(), |acc, module| {
                 acc.into_iter().chain(module.functions.iter()).collect()
             })
             .into_iter()

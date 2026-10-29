@@ -11,14 +11,15 @@
 use std::borrow::Cow;
 use std::fmt;
 use std::ops::Deref;
-use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_common::file_ops::metadata::SimpleDirEntry;
+use buck2_common::file_ops::metadata::FileType;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_hash::BuckIndexSet;
+use buck2_fs::paths::file_name::FileName;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_query::query::syntax::simple::eval::file_set::FileNode;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
+use buck2_util::arc_str::PackedStringSlice;
 use derive_more::Display;
 use display_container::fmt_container;
 use starlark::any::ProvidesStaticType;
@@ -58,7 +59,7 @@ impl<'a> FileSetExpr<'a> {
                 bxl.parse_query_file_literal(val)?,
             )])),
             FileSetExpr::Literals(val) => {
-                let mut file_set = FileSet::new(BuckIndexSet::default());
+                let mut file_set = FileSet::new(BuckMutInsertionSet::default());
                 for arg in &val {
                     file_set.insert(FileNode(bxl.parse_query_file_literal(arg)?));
                 }
@@ -97,7 +98,7 @@ impl OwnedFileSetExpr {
                 core_data.parse_query_file_literal(val)?,
             )])),
             OwnedFileSetExpr::Literals(val) => {
-                let mut file_set = FileSet::new(BuckIndexSet::default());
+                let mut file_set = FileSet::new(BuckMutInsertionSet::default());
                 for arg in val {
                     file_set.insert(FileNode(core_data.parse_query_file_literal(arg)?));
                 }
@@ -125,7 +126,7 @@ impl<'v> StarlarkValue<'v> for StarlarkFileSet {
         Ok(self
             .0
             .iter()
-            .map(|cell_path| heap.alloc(StarlarkFileNode(cell_path.clone())))
+            .map(|cell_path| heap.alloc(StarlarkFileNode(*cell_path)))
             .collect())
     }
 
@@ -233,7 +234,7 @@ pub(crate) struct StarlarkReadDirSet {
     pub(crate) cell_path: CellPath,
     /// Files that are not ignored within the buckconfig.
     /// Sorted.
-    pub(crate) included: Arc<[SimpleDirEntry]>,
+    pub(crate) included: PackedStringSlice<FileName, FileType>,
     /// Only return directories when iterating or printing.
     pub(crate) dirs_only: bool,
 }
@@ -243,13 +244,17 @@ starlark_simple_value!(StarlarkReadDirSet);
 impl StarlarkReadDirSet {
     fn children(&self) -> buck2_error::Result<Vec<CellPath>> {
         let mut result: Vec<CellPath> = Vec::with_capacity(self.included.len());
-        result.extend(self.included.iter().filter_map(|e| {
-            if !self.dirs_only || e.file_type.is_dir() {
-                Some(self.cell_path.join(&e.file_name))
-            } else {
-                None
-            }
-        }));
+        result.extend(
+            self.included
+                .iter_with_tag()
+                .filter_map(|(name, file_type)| {
+                    if !self.dirs_only || file_type.is_dir() {
+                        Some(self.cell_path.join(name))
+                    } else {
+                        None
+                    }
+                }),
+        );
         result.sort();
         Ok(result)
     }

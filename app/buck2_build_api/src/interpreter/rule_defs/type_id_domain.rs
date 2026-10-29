@@ -8,16 +8,16 @@
  * above-listed licenses.
  */
 
-//! buck2's [`TypeIdDomain`]s (providers, transitive sets). Kept in buck2 rather
-//! than starlark-rust, which is buck2-agnostic and only knows its own
-//! `record`/`enum` domains.
+//! buck2's [`TypeIdDomain`]s (providers, transitive sets, BXL target sets).
+//! Kept in buck2 rather than starlark-rust, which is buck2-agnostic and only
+//! knows its own `record`/`enum` domains.
 
 use dupe::Dupe;
 use starlark::values::typing::TypeIdDomain;
 
 /// [`TypeIdDomain`]s for buck2-defined nominal types.
 #[derive(Copy, Clone, Dupe, Debug, Eq, PartialEq)]
-pub(crate) enum Buck2TypeIdDomain {
+pub enum Buck2TypeIdDomain {
     /// A user-defined `provider(...)` type.
     UserProvider,
     /// A transitive set definition.
@@ -27,6 +27,8 @@ pub(crate) enum Buck2TypeIdDomain {
     BuiltinProvider,
     /// The singleton `Provider` type that matches any provider instance.
     ProviderSingleton,
+    /// A BXL `bxl.TargetSet[...]` type; the identity is the node kind.
+    BxlTargetSet,
 }
 
 impl TypeIdDomain for Buck2TypeIdDomain {
@@ -36,6 +38,7 @@ impl TypeIdDomain for Buck2TypeIdDomain {
             Buck2TypeIdDomain::TransitiveSet => "buck2.transitive_set",
             Buck2TypeIdDomain::BuiltinProvider => "buck2.builtin_provider",
             Buck2TypeIdDomain::ProviderSingleton => "buck2.provider_singleton",
+            Buck2TypeIdDomain::BxlTargetSet => "buck2.bxl_target_set",
         }
     }
 }

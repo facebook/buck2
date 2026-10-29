@@ -1320,12 +1320,7 @@ mod tests {
 
     /// The body of `test_garbage_collect_between_evaluations`, run in a child process because
     /// the failure under test aborts the process.
-    #[test]
-    #[ignore = "run only as the child of test_garbage_collect_between_evaluations"]
-    fn child_garbage_collect_between_evaluations() {
-        if std::env::var_os("STARLARK_GC_CHILD").is_none() {
-            return;
-        }
+    fn gc_between_evaluations() {
         let globals = Globals::standard();
         Module::with_temp_heap(|module| {
             let ast = AstModule::parse("test.bzl", "x = [1, 2, 3]".to_owned(), &Dialect::Standard)
@@ -1340,12 +1335,13 @@ mod tests {
         });
     }
 
+    /// Re-runs this test binary on `test_garbage_collect_between_evaluations` alone, with the
+    /// marker that makes it run `gc_between_evaluations` in place of spawning again.
     fn run_gc_child() -> (bool, String) {
         let out = std::process::Command::new(std::env::current_exe().unwrap())
             .args([
-                "eval::runtime::evaluator::tests::child_garbage_collect_between_evaluations",
+                "eval::runtime::evaluator::tests::test_garbage_collect_between_evaluations",
                 "--exact",
-                "--ignored",
                 "--nocapture",
                 "--test-threads=1",
             ])
@@ -1364,6 +1360,10 @@ mod tests {
     /// the module's values.
     #[test]
     fn test_garbage_collect_between_evaluations() {
+        if std::env::var_os("STARLARK_GC_CHILD").is_some() {
+            gc_between_evaluations();
+            return;
+        }
         let (success, output) = run_gc_child();
         assert!(success, "{output}");
         assert!(output.contains("STARLARK_GC_CHILD_COMPLETED"), "{output}");

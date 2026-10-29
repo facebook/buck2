@@ -402,7 +402,7 @@ pub trait StarlarkValue<'v>:
     fn get_hash(&self, _private: Private) -> crate::Result<StarlarkHashValue> {
         let mut hasher = StarlarkHasher::new();
         self.write_hash(&mut hasher)?;
-        Ok(hasher.finish_small())
+        Ok(hasher.finish_short())
     }
 
     /// Compare `self` with `other` for equality.

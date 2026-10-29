@@ -14,6 +14,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_node::rule_type::RuleType;
 use derive_more::Display;
 use dice::CancellationContext;
 use dice::DiceComputations;
@@ -35,12 +36,19 @@ use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
 use crate::interpreter::rule_defs::provider::test_provider::test_provider_from_collection;
 
-/// Gets the list of outputs for a top-level build/run/install/test/etc target.
+/// Metadata needed to prepare a build without restoring its configured graph.
+#[derive(Debug, Clone, Dupe, Allocative, Pagable)]
+pub struct TopLevelTargetOutputs {
+    pub outputs: Arc<Vec<(ArtifactGroup, BuildProviderType)>>,
+    pub rule_type: RuleType,
+}
+
+/// Gets the outputs and rule metadata for a top-level build/run/install/test/etc target.
 pub async fn get_outputs_for_top_level_target(
     ctx: &mut DiceComputations<'_>,
     providers_label: &ConfiguredProvidersLabel,
     providers_to_build: &ProvidersToBuild,
-) -> buck2_error::Result<MaybeCompatible<Arc<Vec<(ArtifactGroup, BuildProviderType)>>>> {
+) -> buck2_error::Result<MaybeCompatible<TopLevelTargetOutputs>> {
     #[derive(Allocative, Debug, Display, Clone, Eq, PartialEq, Hash, Pagable)]
     #[display("TopLevelTargetOutputsKey({}, {:?})", &self.0, &self.1)]
     #[pagable_typetag(dice::DiceKeyDyn)]
@@ -48,8 +56,7 @@ pub async fn get_outputs_for_top_level_target(
 
     #[async_trait]
     impl Key for TopLevelTargetOutputsKey {
-        type Value =
-            buck2_error::Result<MaybeCompatible<Arc<Vec<(ArtifactGroup, BuildProviderType)>>>>;
+        type Value = buck2_error::Result<MaybeCompatible<TopLevelTargetOutputs>>;
 
         async fn compute(
             &self,
@@ -58,12 +65,17 @@ pub async fn get_outputs_for_top_level_target(
         ) -> Self::Value {
             let providers_label = &self.0;
             let providers_to_build = &self.1;
-            let providers = match ctx.get_providers(providers_label).await? {
+            let analysis = match ctx
+                .get_analysis_result(providers_label.target())
+                .await
+                .ok()?
+            {
                 MaybeCompatible::Incompatible(reason) => {
                     return Ok(MaybeCompatible::Incompatible(reason));
                 }
                 MaybeCompatible::Compatible(v) => v,
             };
+            let providers = analysis.lookup_inner(providers_label)?;
             let mut outputs = Vec::new();
             let collection = providers.provider_collection();
             if providers_to_build.default {
@@ -104,7 +116,10 @@ pub async fn get_outputs_for_top_level_target(
                     }
                 }
             }
-            Ok(MaybeCompatible::Compatible(Arc::new(outputs)))
+            Ok(MaybeCompatible::Compatible(TopLevelTargetOutputs {
+                outputs: Arc::new(outputs),
+                rule_type: analysis.rule_type().dupe(),
+            }))
         }
 
         fn equality_behavior() -> EqualityBehavior<Self::Value> {

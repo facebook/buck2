@@ -95,6 +95,7 @@ def encode_target_type(target_type: TargetType) -> str:
 OutputPaths = record(
     jar = Artifact,
     annotations = Artifact | None,
+    compiler_class_to_source_map = field(Artifact | None, default = None),
 )
 
 def qualified_name_with_subtarget(label: Label) -> str:
@@ -120,12 +121,16 @@ def define_output_paths(
     label: Label,
     uses_content_based_paths: bool,
     declare_annotations: bool = True,
+    emit_compiler_class_to_source_map: bool = False,
 ) -> OutputPaths:
     # currently, javacd requires that at least some outputs are in the root
     # output dir. so we put all of them there. If javacd is updated we
     # could consolidate some of these into one subdir.
     return OutputPaths(
         jar = declare_prefixed_output(actions, prefix, "jar/{}.jar".format(label.name), uses_content_based_paths),
+        compiler_class_to_source_map = declare_prefixed_output(actions, prefix, "compiler-class-to-source.json", uses_content_based_paths)
+        if emit_compiler_class_to_source_map
+        else None,
         annotations = declare_prefixed_output(actions, prefix, "__gen__", uses_content_based_paths, dir = True) if declare_annotations else None,
     )
 
@@ -134,6 +139,7 @@ def encode_output_paths(label: Label, paths: OutputPaths, target_type: TargetTyp
         outputJarDirPath = cmd_args(paths.jar.as_output(), parent = 1),
         annotationPath = paths.annotations.as_output() if paths.annotations else None,
         outputJarPath = paths.jar.as_output(),
+        compilerClassToSourceMap = paths.compiler_class_to_source_map.as_output() if paths.compiler_class_to_source_map else None,
     )
 
     return struct(

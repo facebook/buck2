@@ -380,6 +380,61 @@ class SortPreDexedFilesTest(unittest.TestCase):
                 all_classes.extend(entry["class_names"])
         self.assertCountEqual(all_classes, classes)
 
+    def test_oversized_lib_pair_stride_splits_clustered_tail(self):
+        """An oversized lib whose heavy classes cluster at the tail of lib
+        order must have them interleaved across chunks, while even-aligned
+        adjacent pairs stay in the same chunk."""
+        # The last 4 classes model consecutive heavy classes, each large
+        # enough that all 4 packed in one chunk would exceed DEX_REF_LIMIT.
+        classes = ["com.Class{}".format(i) for i in range(24)] + [
+            "com.Heavy{}".format(i) for i in range(4)
+        ]
+        filter_data = {
+            "lib1": {
+                "primary_dex_class_names": [],
+                "secondary_dex_class_names": classes,
+                "weight_estimate": "100",
+                "method_ref_count": "0",
+                "field_ref_count": "72369",
+                "type_ref_count": "0",
+            },
+        }
+        result = _sort(
+            filter_data, {"lib1": "//apps:lib1"}, weight_limit=_DEFAULT_WEIGHT_LIMIT
+        )
+
+        # NOTE: the pre-existing chunking tests only assert that a split
+        # happened and no classes were lost, so they pass under both old
+        # and new logic; this pins the chunk geometry itself.
+        # ceil(72369 / 65536) = 2 chunks, each forcing its own group
+        groups = result["dex"]["secondary_groups"]
+        self.assertEqual(len(groups), 2)
+        chunked = [entry["class_names"] for group in groups for entry in group]
+        self.assertEqual(sorted(len(c) for c in chunked), [14, 14])
+
+        def group_of(cls):
+            for i, group in enumerate(groups):
+                for entry in group:
+                    if cls in entry["class_names"]:
+                        return i
+            self.fail("class {} missing from all groups".format(cls))
+
+        # The 4 consecutive heavy classes would exceed DEX_REF_LIMIT if
+        # packed in one chunk, so they must split 2+2 across chunks ...
+        heavy = classes[24:]
+        self.assertEqual(group_of(heavy[0]), group_of(heavy[1]))
+        self.assertEqual(group_of(heavy[2]), group_of(heavy[3]))
+        self.assertNotEqual(group_of(heavy[0]), group_of(heavy[2]))
+        # ... while every adjacent pair stays in the same chunk.
+        for i in range(0, 28, 2):
+            self.assertEqual(group_of(classes[i]), group_of(classes[i + 1]))
+
+        all_classes = []
+        for group in groups:
+            for entry in group:
+                all_classes.extend(entry["class_names"])
+        self.assertCountEqual(all_classes, classes)
+
     # --- Ordering and skipping ---
 
     def test_iteration_order_follows_lib_metadata_keys(self):

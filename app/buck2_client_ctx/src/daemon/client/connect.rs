@@ -21,6 +21,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 use std::time::Instant;
 
+use buck2_agent_interactive::Decision;
 use buck2_cli_proto::DaemonProcessInfo;
 use buck2_cli_proto::daemon_api_client::DaemonApiClient;
 use buck2_common::buckd_connection::BUCK_AUTH_TOKEN_HEADER;
@@ -32,6 +33,7 @@ use buck2_common::client_utils::retrying;
 use buck2_common::daemon_dir::DaemonDir;
 use buck2_common::init::DaemonStartupConfig;
 use buck2_common::invocation_paths::InvocationPaths;
+use buck2_common::settings::BuckSettingChange;
 use buck2_core::buck2_env;
 use buck2_data::DaemonWasStartedReason;
 use buck2_error::BuckErrorContext;
@@ -44,6 +46,7 @@ use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_resource_control::spawn_daemon::create_daemon_spawn_command;
 use buck2_util::truncate::truncate;
+use buck2_wrapper_common::invocation_id::TraceId;
 use buck2_wrapper_common::kill::process_exists;
 use buck2_wrapper_common::pid::Pid;
 use dupe::Dupe;
@@ -74,6 +77,7 @@ use crate::immediate_config::ImmediateConfigContext;
 use crate::startup_deadline::StartupDeadline;
 use crate::subscribers::classify_server_stderr::classify_server_stderr;
 use crate::subscribers::stdout_stderr_forwarder::StdoutStderrForwarder;
+use crate::subscribers::system_warning::is_disk_near_full;
 
 #[cfg(all(fbcode_build, target_os = "linux"))]
 mod linux_unsandbox;
@@ -115,6 +119,8 @@ pub(crate) enum ConstraintUnsatisfiedReason {
     UserVersion,
     #[display("Startup config mismatch")]
     StartupConfig,
+    #[display("Buck settings changed ({})", changes.iter().map(ToString::to_string).collect::<Vec<_>>().join("; "))]
+    BuckSettings { changes: Vec<BuckSettingChange> },
     #[display("Reject daemon id")]
     RejectDaemonId,
     #[display("Trace IO mismatch")]
@@ -132,7 +138,8 @@ impl ConstraintUnsatisfiedReason {
             ConstraintUnsatisfiedReason::UserVersion => {
                 buck2_data::DaemonWasStartedReason::ConstraintMismatchUserVersion
             }
-            ConstraintUnsatisfiedReason::StartupConfig => {
+            ConstraintUnsatisfiedReason::StartupConfig
+            | ConstraintUnsatisfiedReason::BuckSettings { .. } => {
                 buck2_data::DaemonWasStartedReason::ConstraintMismatchStartupConfig
             }
             ConstraintUnsatisfiedReason::RejectDaemonId => {
@@ -190,7 +197,18 @@ impl DaemonConstraintsRequest {
             server.ok()
         });
 
-        if Some(&self.daemon_startup_config) != server_daemon_startup_config.as_ref() {
+        let Some(server_config) = server_daemon_startup_config else {
+            return Err(ConstraintUnsatisfiedReason::StartupConfig);
+        };
+
+        let changes = self
+            .daemon_startup_config
+            .buck_settings_changes_from(&server_config);
+        if !changes.is_empty() {
+            return Err(ConstraintUnsatisfiedReason::BuckSettings { changes });
+        }
+
+        if self.daemon_startup_config.startup_options != server_config.startup_options {
             return Err(ConstraintUnsatisfiedReason::StartupConfig);
         }
 
@@ -252,6 +270,8 @@ pub enum BuckdConnectOptions {
 pub struct BuckdConnectDaemonOptions {
     pub(crate) constraints: DaemonConstraintsRequest,
     pub(crate) daemon_startup_mode: DaemonStartupMode,
+    pub(crate) new_isolation_dir_advice: Decision,
+    pub(crate) trace_id: TraceId,
     /// Start the daemon by asking the installed Buck wrapper to re-exec it
     /// outside of the AI sandbox.
     ///
@@ -439,6 +459,7 @@ impl<'a> BuckdLifecycle<'a> {
         #[cfg(fbcode_build)]
         if !constraints
             .daemon_startup_config
+            .startup_options
             .http
             .proxy_env_allowlist
             .is_empty()
@@ -516,7 +537,7 @@ impl<'a> BuckdLifecycle<'a> {
         );
 
         let (cmd, resource_control_args) = create_daemon_spawn_command(
-            &daemon_startup_config.resource_control,
+            &daemon_startup_config.startup_options.resource_control,
             executable,
             unit_name,
             project_dir.root(),
@@ -696,6 +717,10 @@ impl BootstrapBuckdClient {
             };
 
             if let Err(e) = res {
+                // Advice is an intentional rejection, not a failed daemon startup.
+                if e.has_tag(ErrorTag::AgentAdviceBlocked) {
+                    return Err(e);
+                }
                 Err(daemon_connect_error(e, paths)
                     .await
                     .tag([ErrorTag::DaemonConnect]))
@@ -761,7 +786,9 @@ pub async fn connect_buckd(
     match BootstrapBuckdClient::connect(paths, options, events_ctx).await {
         Ok(client) => Ok(client.to_connector()),
         Err(e) => {
-            events_ctx.handle_daemon_connection_failure();
+            if !e.has_tag(ErrorTag::AgentAdviceBlocked) {
+                events_ctx.handle_daemon_connection_failure();
+            }
             Err(e)
         }
     }
@@ -873,7 +900,8 @@ async fn establish_connection_inner(
                         ) {
                             match reason {
                                 ConstraintUnsatisfiedReason::TraceIo
-                                | ConstraintUnsatisfiedReason::StartupConfig => {
+                                | ConstraintUnsatisfiedReason::StartupConfig
+                                | ConstraintUnsatisfiedReason::BuckSettings { .. } => {
                                     return Err(BuckdConnectError::NestedConstraintMismatch {
                                         reason,
                                     }
@@ -883,11 +911,15 @@ async fn establish_connection_inner(
                             }
                         }
 
-                        events_ctx
-                            .eprintln(&format!(
+                        let message = match reason {
+                            ConstraintUnsatisfiedReason::BuckSettings { .. } => {
+                                format!("{reason}; restarting daemon...")
+                            }
+                            _ => format!(
                                 "buck2 daemon constraint mismatch: {reason}; killing daemon..."
-                            ))
-                            .await?;
+                            ),
+                        };
+                        events_ctx.eprintln(&message).await?;
 
                         deadline
                             .run(
@@ -910,6 +942,17 @@ async fn establish_connection_inner(
 
                         // The recorded daemon is unusable either way, so start a new one rather
                         // than leaving buckd.info in place for the next invocation to trip over.
+                        //
+                        // This kill can fail with EPERM when the recorded pid belongs to another
+                        // uid, or was recorded inside a pid namespace and resolves to an unrelated
+                        // host process. A privileged helper (e.g. a verb on the setuid Buck
+                        // wrapper) could kill such daemons from the host side, but exposing "kill
+                        // a process" through a setuid binary is severe-incident territory: it
+                        // would have to verify on the host that the target really is a Buck2
+                        // daemon for this project root and isolation dir (unit name, /proc cwd,
+                        // cmdline) before signalling, and any gap in that check is a
+                        // cross-user kill primitive. Until that is designed carefully, we accept
+                        // that these daemons cannot be removed from here.
                         if let Err(error) = hard_kill_until(&buckd_info.info, &deadline).await {
                             events_ctx
                                 .eprintln(&format!(
@@ -924,11 +967,19 @@ async fn establish_connection_inner(
                 }
             }
             Ok(None) => {
+                // Check under the lifecycle lock after retrying the connection: another
+                // invocation may have initialized this isolation directory while we waited.
+                events_ctx
+                    .handle_agent_advice(options.trace_id.dupe(), options.new_isolation_dir_advice)
+                    .await?;
                 events_ctx.eprintln("Starting new buck2 daemon...").await?;
 
                 buck2_data::DaemonWasStartedReason::NoBuckdInfo
             }
             Err(e) => {
+                events_ctx
+                    .handle_agent_advice(options.trace_id.dupe(), options.new_isolation_dir_advice)
+                    .await?;
                 events_ctx
                     .eprintln(&format!(
                         "Could not load buckd.info: {e}, starting new buck2 daemon..."
@@ -1296,7 +1347,10 @@ async fn daemon_connect_error(
             ))
             .tag([ErrorTag::DaemonConnect]);
 
-        classify_server_stderr(error, &stderr)
+        let disk_near_full = fs_util::disk_space_stats(paths.buck_out_path())
+            .is_ok_and(|stats| is_disk_near_full(stats.free_space, stats.total_space));
+
+        classify_server_stderr(error, &stderr, disk_near_full)
     };
     let delete_command = if cfg!(windows) {
         "rmdir /s /q %USERPROFILE%\\.buck\\buckd"
@@ -1442,6 +1496,7 @@ fn is_nested_invocation(
 
 #[cfg(test)]
 mod tests {
+    use buck2_common::settings::BuckSettings;
     use buck2_error::internal_error;
 
     use super::*;
@@ -1473,11 +1528,89 @@ mod tests {
         }
     }
 
+    fn request_with_settings(settings: &str) -> DaemonConstraintsRequest {
+        let mut req = request(DesiredTraceIoState::Existing);
+        let mut startup = serde_json::to_value(&req.daemon_startup_config).unwrap();
+        let settings: BuckSettings = serde_json::from_str(settings).unwrap();
+        startup["buck_settings"] = serde_json::to_value(settings.daemon).unwrap();
+        req.daemon_startup_config = serde_json::from_value(startup).unwrap();
+        req
+    }
+
     #[test]
     fn test_constraints_equal_for_same_constraints() {
         let req = request(DesiredTraceIoState::Enabled);
         let daemon = constraints(true);
         assert!(req.satisfied(&daemon).is_ok());
+    }
+
+    #[test]
+    fn test_buck_settings_mismatch() {
+        for settings in [
+            r#"{"analysis":{"record_requested_anon_targets":false}}"#,
+            r#"{"hydration":{"enable_paging":true}}"#,
+            r#"{"log_download":{"log_url":"https://example.com/"}}"#,
+            r#"{"package_visibility":{"default_intersection":"enforce"}}"#,
+        ] {
+            let req = request_with_settings(settings);
+            let daemon = constraints(false);
+
+            let reason = req.satisfied(&daemon).unwrap_err();
+            assert!(matches!(
+                reason,
+                ConstraintUnsatisfiedReason::BuckSettings { .. }
+            ));
+            assert_eq!(
+                reason.to_daemon_was_started_reason(),
+                DaemonWasStartedReason::ConstraintMismatchStartupConfig,
+            );
+        }
+    }
+
+    #[test]
+    fn test_buck_settings_details_survive_error_chain() {
+        let req = request_with_settings(
+            r#"{"hydration":{"enable_paging":true},"agent_materialization":{"enabled":true}}"#,
+        );
+        let daemon = constraints(false);
+
+        let reason = req.satisfied(&daemon).unwrap_err();
+        let expected = "Buck settings changed (hydration.enable_paging: null -> true)";
+        assert_eq!(reason.to_string(), expected);
+        let error: buck2_error::Error =
+            BuckdConnectError::NestedConstraintMismatch { reason }.into();
+        assert!(format!("{error:#}").contains(expected));
+    }
+
+    #[test]
+    fn test_invocation_sections_reuse_daemon() {
+        for settings in [
+            r#"{"agent_materialization":{"enabled":true}}"#,
+            r#"{"agent_materialization":{"enabled":false}}"#,
+            r#"{"agent_interactive":{"enabled":true,"killall_enabled":true,"clean_enabled":true,"new_isolation_dir_enabled":true}}"#,
+            r#"{"agent_interactive":{"enabled":false}}"#,
+        ] {
+            let req = request_with_settings(settings);
+            let mut daemon = constraints(false);
+            assert!(req.satisfied(&daemon).is_ok(), "{settings}");
+
+            daemon.daemon_startup_config = Some(req.daemon_startup_config.serialize().unwrap());
+            let req = request(DesiredTraceIoState::Existing);
+            assert!(req.satisfied(&daemon).is_ok(), "{settings}");
+        }
+    }
+
+    #[test]
+    fn test_missing_or_invalid_startup_config() {
+        let req = request(DesiredTraceIoState::Existing);
+        for config in [None, Some("{}"), Some("invalid json")] {
+            let mut daemon = constraints(false);
+            daemon.daemon_startup_config = config.map(str::to_owned);
+            assert!(matches!(
+                req.satisfied(&daemon),
+                Err(ConstraintUnsatisfiedReason::StartupConfig)
+            ));
+        }
     }
 
     #[test]
@@ -1590,8 +1723,11 @@ mod tests {
         };
 
         assert!(req.satisfied(&daemon).is_ok());
-        req.daemon_startup_config.daemon_buster = Some("1".to_owned());
-        assert!(req.satisfied(&daemon).is_err());
+        req.daemon_startup_config.startup_options.daemon_buster = Some("1".to_owned());
+        assert!(matches!(
+            req.satisfied(&daemon),
+            Err(ConstraintUnsatisfiedReason::StartupConfig)
+        ));
     }
 
     #[cfg(not(windows))]
@@ -1603,6 +1739,7 @@ mod tests {
             endpoint: "tcp:44805".to_owned(),
             version: "92ca877522e06be7580a7ea2d622a3c06712322a".to_owned(),
             auth_token: "redacted".to_owned(),
+            pid_start_time: 0,
         };
         let daemon_dir = DaemonDir {
             path: AbsNormPathBuf::new("/tmp/buckd".into()).expect("daemon dir should be valid"),
@@ -1629,6 +1766,7 @@ mod tests {
             endpoint: "tcp:44805".to_owned(),
             version: "92ca877522e06be7580a7ea2d622a3c06712322a".to_owned(),
             auth_token: "redacted".to_owned(),
+            pid_start_time: 0,
         };
         let daemon_dir = DaemonDir {
             path: AbsNormPathBuf::new("/tmp/buckd".into()).expect("daemon dir should be valid"),

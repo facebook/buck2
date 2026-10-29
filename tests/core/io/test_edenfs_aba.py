@@ -11,9 +11,10 @@
 
 from buck2.tests.core.common.io.file_watcher_tests import run_aba_test
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test(setup_eden=True)
-async def test_edenfs_aba_eden(buck: Buck) -> None:
-    await run_aba_test(buck)
+class EdenfsAbaTest(BuckTestCase):
+    @buck_test(setup_eden=True)
+    async def test_edenfs_aba_eden(self, buck: Buck) -> None:
+        await run_aba_test(buck)

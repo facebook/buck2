@@ -17,6 +17,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 /**
@@ -29,6 +30,9 @@ public class VideoRecordingReportLayer extends ReportLayer {
       "/sdcard/test_result/video_recordings/";
   private static final String VIDEO_RECORDING_SCRIPT_NAME = "test-video-record.sh";
   private static final String VIDEO_RECORDING_FILE_NAME = "test-video-record.mp4";
+  private static final int SCREENRECORD_STOP_GRACE_SECONDS = 10;
+  private static final long RECORDING_PROCESS_STOP_TIMEOUT_SECONDS = 60;
+  private static final long KILL_SCREENRECORD_TIMEOUT_SECONDS = 10;
 
   public static final String ARG = "--record-video";
 
@@ -63,13 +67,20 @@ public class VideoRecordingReportLayer extends ReportLayer {
               "exec 2>&1  # merge stdout and stderr",
               "set -xue",
               String.format(
-                  "screenrecord --verbose --bugreport %s &",
+                  "screenrecord --verbose %s &",
                   String.format(
                       "%s/%s", this.getVideoRecordingStoragePath(), VIDEO_RECORDING_FILE_NAME)),
               "pid=$!  # screenrecord pid",
               "read  # wait for stopword (any input)",
               "kill -INT $pid  # request screenrecord to stop gracefully",
-              "wait $pid"));
+              "# screenrecord can hang while stopping: force-kill it if it outlives the grace"
+                  + " period",
+              String.format(
+                  "(sleep %d; kill -KILL $pid) </dev/null >/dev/null 2>&1 &",
+                  SCREENRECORD_STOP_GRACE_SECONDS),
+              "watchdog=$!",
+              "wait $pid",
+              "kill $watchdog 2>/dev/null || true"));
       scriptFile.deleteOnExit();
       scriptFileWriter.close();
       // push script to device
@@ -91,15 +102,16 @@ public class VideoRecordingReportLayer extends ReportLayer {
       videoRecordingProcess.getOutputStream().write("STOP".getBytes());
       videoRecordingProcess.getOutputStream().write(System.lineSeparator().getBytes());
       videoRecordingProcess.getOutputStream().flush();
-      StringBuilder output = new StringBuilder();
-      try (InputStream is = videoRecordingProcess.getInputStream()) {
-        byte[] allOutput = readAllBytes(is);
-        output.append(new String(allOutput));
-      } catch (IOException e) {
-        output.append("IOError: ");
-        output.append(e.getMessage());
-        output.append("\n");
+      if (!videoRecordingProcess.waitFor(
+          RECORDING_PROCESS_STOP_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+        videoRecordingProcess.destroyForcibly();
+        killScreenrecordOnDevice();
+        throw new Exception(
+            String.format(
+                "Video recording process did not exit within %d seconds, Output: %s",
+                RECORDING_PROCESS_STOP_TIMEOUT_SECONDS, readOutput(videoRecordingProcess)));
       }
+      String output = readOutput(videoRecordingProcess);
       int exitCode = videoRecordingProcess.waitFor();
       if (exitCode != 0) {
         // check whether screenrecord terminated before we tried to kill it. We don't want to throw
@@ -109,7 +121,7 @@ public class VideoRecordingReportLayer extends ReportLayer {
           throw new Exception(
               String.format(
                   "Failed to stop video recording process with exit code %d, Output: %s",
-                  exitCode, output.toString()));
+                  exitCode, output));
         }
       }
       // pull file to TRA
@@ -124,6 +136,26 @@ public class VideoRecordingReportLayer extends ReportLayer {
           video_artifact.toString());
     } catch (Exception e) {
       System.err.printf("Failed to collect video recording process with error: %s", e);
+    }
+  }
+
+  private static String readOutput(Process process) {
+    try (InputStream is = process.getInputStream()) {
+      return new String(readAllBytes(is));
+    } catch (IOException e) {
+      return "IOError: " + e.getMessage() + "\n";
+    }
+  }
+
+  private void killScreenrecordOnDevice() {
+    try {
+      this.runner
+          .exec("adb shell pkill -KILL screenrecord")
+          .waitFor(KILL_SCREENRECORD_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+    } catch (IOException e) {
+      System.err.printf("Failed to kill screenrecord on device: %s\n", e);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
     }
   }
 

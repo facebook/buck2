@@ -16,6 +16,7 @@ use allocative::Allocative;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::provider::ty::abstract_provider::AbstractProvider;
 use buck2_error::BuckErrorContext;
+use buck2_hash::BuckMutInsertionMap;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
@@ -46,7 +47,6 @@ use starlark::values::starlark_value;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::typing::StarlarkCallable;
 use starlark::values::typing::StarlarkCallableParamSpec;
-use starlark_map::small_map::SmallMap;
 
 use crate::attrs::DynamicAttrType;
 use crate::attrs::DynamicAttrValues;
@@ -111,7 +111,7 @@ pub struct DynamicActionsCallable<'v> {
     pub self_ty: Ty,
     pub implementation:
         StarlarkCallable<'v, DynamicActionsCallbackParamSpec, DynamicActionsCallbackReturnType>,
-    pub attrs: SmallMap<String, DynamicAttrType<'v>>,
+    pub attrs: BuckMutInsertionMap<String, DynamicAttrType<'v>>,
     pub name: OnceCell<String>,
 }
 
@@ -129,7 +129,7 @@ pub struct FrozenStarlarkDynamicActionsCallable<'v> {
     pub self_ty: Ty,
     pub implementation:
         StarlarkCallable<'v, DynamicActionsCallbackParamSpec, DynamicActionsCallbackReturnType>,
-    pub attrs: SmallMap<String, DynamicAttrType<'v>>,
+    pub attrs: BuckMutInsertionMap<String, DynamicAttrType<'v>>,
     name: String,
     signature: ParametersSpec<Value<'v>>,
 }
@@ -190,7 +190,7 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkDynamicActionsCallable<'v> {
                     attr_values.push(value);
                 }
                 Ok(DynamicAttrValues {
-                    values: attr_values.into_boxed_slice(),
+                    values: attr_values.into(),
                 })
             })?;
         Ok(eval.heap().alloc(StarlarkDynamicActions {
@@ -239,7 +239,8 @@ impl<'v> Freeze<'v> for DynamicActionsCallable<'v> {
             self_ty,
             implementation: implementation.freeze(freezer)?,
             name,
-            attrs: attrs.freeze(freezer)?,
+            // `Freeze::freeze` by name: the map's inherent `freeze` would be picked otherwise.
+            attrs: Freeze::freeze(attrs, freezer)?,
             signature,
         })
     }

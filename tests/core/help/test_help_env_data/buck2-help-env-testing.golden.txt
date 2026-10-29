@@ -57,6 +57,7 @@ BUCK2_TEST_INIT_DAEMON_ERROR                   bool                   false
 BUCK2_TEST_INIT_DATA_SLEEP_SECS                u64
 BUCK2_TEST_INJECTED_MISSING_DIGESTS            Vec<FileDigest>
 BUCK2_TEST_INJECTED_RE_EXCEEDED_QUOTAS         Vec<String>
+BUCK2_TEST_LOW_PASS_FILTER_CAPACITY            usize
 BUCK2_TEST_MANIFOLD_CHUNK_BYTES                u64
 BUCK2_TEST_MANIFOLD_TTL_S                      u64
 BUCK2_TEST_ONLY_REMOTE_DEP_FILE_CACHE          bool                   false
@@ -69,6 +70,7 @@ BUCK2_TEST_SKIP_DICE_CLEAR_ON_MERGEBASE_CHANGE bool                   false
 BUCK2_TEST_STDIN_BUFFER_SIZE                   usize
 BUCK2_TEST_TOMBSTONED_DIGESTS                  BuckMutSet<FileDigest>
 BUCK2_TEST_TPX_USE_TCP                         bool                   false
+BUCK2_TEST_WRITE_ACTION_CACHE_KEY_DUMP         String
 BUCK2_WATCHMAN_TIMEOUT                         u64                    57
 BUCKD_STARTUP_INIT_TIMEOUT                     u64
 BUCKD_STARTUP_TIMEOUT                          u64
@@ -86,7 +88,6 @@ BUCK_WRAPPER_START_TIME                        u64
 CI                                             bool                   false
 CODING_AGENT_METADATA                          String
 COMPLETION_VERIFY_LOCKFILE                     String
-DICE_DETECT_CYCLES_UNSTABLE                    DetectCycles
 ENFORCE_DISPATCHER_SET                         bool                   false
 FORCE_WANT_RESTART                             bool                   false
 SANDCASTLE                                     String

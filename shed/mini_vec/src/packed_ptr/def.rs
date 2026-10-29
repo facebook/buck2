@@ -155,6 +155,30 @@ where
             PhantomData,
         ))
     }
+
+    /// The pointer and the metadata byte as the one pointer the packed representation stores
+    /// them in: the original pointer with the metadata in the high bits of its address, so it
+    /// is not for dereferencing. Round-trips through
+    /// [`from_packed_ptr`](Self::from_packed_ptr).
+    ///
+    /// Only the packed representation has this. Code that needs its handles to be one word (to
+    /// store them in a lock-free table, say) uses it, and thereby does not build with
+    /// `mini_vec_no_ptr_packing`; that is the intended way of stating the requirement.
+    #[cfg(not(mini_vec_no_ptr_packing))]
+    pub fn to_packed_ptr(self) -> NonNull<u8> {
+        self.0.0
+    }
+
+    /// Recover a `PackedPtr` from [`to_packed_ptr`](Self::to_packed_ptr).
+    ///
+    /// # Safety
+    ///
+    /// `ptr` must have been returned by `to_packed_ptr` on a `PackedPtr<P>`, and whatever
+    /// requirements `P` places on its pointee must still hold.
+    #[cfg(not(mini_vec_no_ptr_packing))]
+    pub unsafe fn from_packed_ptr(ptr: NonNull<u8>) -> Self {
+        Self(PackedStorageRef(ptr, PhantomData))
+    }
 }
 
 impl<P: PointerValue> Copy for PackedPtr<P> where P::Storage: Copy {}

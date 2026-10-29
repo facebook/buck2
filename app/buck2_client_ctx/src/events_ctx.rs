@@ -16,6 +16,7 @@ use std::time::Instant;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
+use buck2_agent_interactive::Decision;
 use buck2_cli_proto::CommandResult;
 use buck2_cli_proto::command_result;
 use buck2_error::BuckErrorContext;
@@ -426,10 +427,9 @@ impl<'a> DaemonEventsCtx<'a> {
 // impl<'a> Drop for DaemonEventsCtx<'a> {
 //     fn drop(&mut self) {
 //         if self.tailers.stream.is_some() {
-//             let _unused = soft_error!(
+//             soft_error!(
 //                 "daemon_tailers_not_flushed",
 //                 internal_error!("DaemonEventsCtx should have been flushed before being dropped"),
-//                 quiet: true,
 //             );
 //         }
 //     }
@@ -532,6 +532,32 @@ impl EventsCtx {
             subscriber.handle_console_interaction(interaction)
         })
         .await
+    }
+
+    /// Records advice through the invocation's subscribers and rejects blocked operations.
+    pub async fn handle_agent_advice(
+        &mut self,
+        trace_id: TraceId,
+        decision: Decision,
+    ) -> buck2_error::Result<()> {
+        if let Some(tag) = decision.tag() {
+            self.instant_event(
+                trace_id,
+                buck2_data::TagEvent {
+                    tags: vec![tag.to_owned()],
+                },
+            )
+            .await?;
+        }
+        match decision {
+            Decision::Inactive | Decision::Acknowledged(_) => Ok(()),
+            Decision::Block(advice) => Err(buck2_error::buck2_error!(
+                ErrorTag::AgentAdviceBlocked,
+                "Buck advice [{}]\n{}",
+                advice.id(),
+                advice.message(),
+            )),
+        }
     }
 
     /// Records and displays a client event through the same subscribers as daemon events.

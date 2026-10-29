@@ -41,13 +41,23 @@ impl SetIoProvider for DiceDataBuilder {
     }
 }
 
+impl SetIoProvider for DiceData {
+    fn set_io_provider(&mut self, fs: Arc<dyn IoProvider>) {
+        self.set(fs)
+    }
+}
+
 pub mod testing {
     use buck2_core::fs::project::ProjectRootTemp;
 
     use super::*;
+    use crate::ignores::ignore_set::IgnoreSet;
+    use crate::ignores::ignore_set::SetIgnoreSet;
     use crate::io::fs::FsIoProvider;
 
     pub trait SetTestingIoProvider {
+        /// Reads come from `fs`, with nothing ignored. A test that wants ignores sets its own
+        /// `IgnoreSet` afterwards.
         fn set_testing_io_provider(&mut self, fs: &ProjectRootTemp);
     }
 
@@ -57,7 +67,8 @@ pub mod testing {
                 fs.path().dupe(),
                 CasDigestConfig::testing_default(),
                 false,
-            )))
+            )));
+            self.set_ignore_set(Arc::new(IgnoreSet::testing_empty()));
         }
     }
 }

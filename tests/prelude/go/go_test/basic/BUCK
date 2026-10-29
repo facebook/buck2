@@ -10,7 +10,7 @@ prelude.go_test(
         "bar_test.go",
         "foo_test.go",
     ],
-    # @oss-disable[end= ]: env = {"GO_TEST2JSON_TOOL": "$(exe_target fbsource//third-party/go:test2json)"},
+    # @oss-disable[end= ]: env = {"GO_TEST2JSON_TOOL": "$(exe_target fbsource//third-party/go-toolchain:test2json)"},
 )
 
 py_assertion(

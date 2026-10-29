@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+use std::cmp;
 use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::Display;
@@ -167,7 +168,10 @@ impl Display for StarlarkBytes {
                 }
                 i += 1;
             } else {
-                match std::str::from_utf8(&content[i..]) {
+                // A UTF-8 character is at most 4 bytes, so only validate that far;
+                // validating the whole remainder for every character is quadratic.
+                let end = cmp::min(content.len(), i + 4);
+                match std::str::from_utf8(&content[i..end]) {
                     Ok(s) => {
                         let c = s.chars().next().unwrap();
                         write_non_ascii_char(f, c)?;

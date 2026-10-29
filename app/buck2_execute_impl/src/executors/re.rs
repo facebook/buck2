@@ -21,7 +21,7 @@ use buck2_core::execution_types::revision::LazyVcsRevision;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_core::soft_error;
+use buck2_core::soft_error_or_panic;
 use buck2_events::dispatch::span_async;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::action_digest::ActionDigest;
@@ -53,7 +53,7 @@ use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
 use buck2_execute::re::remote_action_result::ExecuteResponseWithQueueStats;
 use buck2_execute::re::remote_action_result::RemoteActionResult;
-use buck2_hash::BuckIndexMap;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_util::time_span::TimeSpan;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
@@ -130,6 +130,7 @@ impl ReExecutor {
                         digests_uploaded: Some(stats.total.digests_uploaded),
                         bytes_uploaded: Some(stats.total.bytes_uploaded),
                         stats_by_extension: stats.by_extension,
+                        stats: None,
                     },
                 ),
                 Err(e) => (Err(e), buck2_data::ReUploadEnd::default()),
@@ -191,7 +192,7 @@ impl ReExecutor {
             re_gang_workers,
             identity,
             &mut manager,
-            self.skip_cache_read,
+            self.skip_cache_read || request.induced_cache_miss(),
             self.skip_cache_write,
             self.re_max_queue_time,
             self.re_resource_units,
@@ -294,7 +295,7 @@ impl ReExecutor {
                 // do here is just pass on the error.
                 manager.failure(
                     execution_kind,
-                    BuckIndexMap::default(),
+                    BuckMutInsertionMap::default(),
                     CommandStdStreams::Local {
                         stdout: Vec::new(),
                         stderr: out.to_owned().into(),
@@ -310,7 +311,7 @@ impl ReExecutor {
             {
                 manager.timeout(
                     execution_kind,
-                    BuckIndexMap::default(),
+                    BuckMutInsertionMap::default(),
                     // Checked above: we fallthrough to the error path if we didn't set a timeout
                     // and yet received one.
                     request.timeout().unwrap(),
@@ -342,7 +343,7 @@ impl ReExecutor {
             let execution_time = response.timing().execution_time;
 
             if execution_time > timeout {
-                let res = soft_error!(
+                soft_error_or_panic!(
                     "re_timeout_exceeded",
                     buck2_error::buck2_error!(
                         buck2_error::ErrorTag::Tier0,
@@ -352,10 +353,6 @@ impl ReExecutor {
                         timeout.as_secs(),
                     )
                 );
-
-                if let Err(e) = res {
-                    return ControlFlow::Break(manager.error("re_timeout_exceeded", e));
-                }
             }
         }
 

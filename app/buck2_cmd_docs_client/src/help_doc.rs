@@ -505,6 +505,7 @@ mod tests {
         const ABOUT: &str = "`1 + select({\"//:a\": 1, \"DEFAULT\": 2})` will be encoded as:\n\n\
             `{\"__type\": \"concat\", \"items\": [1, {\"__type\": \"selector\", \
             \"entries\": {\"//:a\": 1, \"DEFAULT\": 2}}]}`\n";
+        // ast-grep-ignore: rust/buck2-no-command-new
         let md = cmd_markdown_help(&Command::new("uquery").long_about(ABOUT));
         assert!(md.contains(ABOUT), "{md}");
         assert!(md.contains("**Usage**: `buck2 uquery`"), "{md}");
@@ -513,6 +514,7 @@ mod tests {
     /// Text that looks like a template tag inside an option's help is printed literally.
     #[test]
     fn template_tags_in_option_help_are_literal() {
+        // ast-grep-ignore: rust/buck2-no-command-new
         let cmd = Command::new("tagdemo").arg(
             Arg::new("fmt")
                 .long("fmt")

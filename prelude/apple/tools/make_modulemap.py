@@ -73,6 +73,10 @@ class Module:
             if sanitized_name[0].isdigit():
                 sanitized_name = "_" + sanitized_name
 
+            # a reserved keyword is renamed, so collisions must be checked against that name
+            if sanitized_name in _RESERVED_KEYWORDS:
+                sanitized_name = f"{sanitized_name}_"
+
             # avoid any collisions with other files
             while sanitized_name in submodule_names:
                 sanitized_name += "_"

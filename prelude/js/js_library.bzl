@@ -7,11 +7,13 @@
 # above-listed licenses.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
 load("@prelude//js:js_providers.bzl", "JsLibraryInfo", "get_transitive_outputs")
 load("@prelude//js:js_utils.bzl", "TRANSFORM_PROFILES", "get_canonical_src_name", "get_flavors", "run_worker_commands")
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:utils.bzl", "map_idx")
+load(":attrs.bzl", "js_library_attrs")
 
 # A group of sources that all have the same canonical name. The main_source is arbitrary but
 # consistent (it is just the first source encountered when processing the src files).
@@ -294,3 +296,15 @@ def js_library_impl(ctx: AnalysisContext) -> list[Provider]:
     return [
         DefaultInfo(default_output = None, sub_targets = sub_targets),
     ]
+
+js_library = prelude_rule(
+    name = "js_library",
+    impl = js_library_impl,
+    docs = """
+        A `js_library()` rule groups together JavaScript source files and assets so they
+        can be consumed by a `js_bundle()`.
+    """,
+    examples = None,
+    further = None,
+    attrs = js_library_attrs(),
+)

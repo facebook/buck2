@@ -10,14 +10,15 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_sub_packages(buck: Buck) -> None:
-    res = await buck.targets("root//:")
-    assert 'Pkgs: ["cat/x", "dog"]' in res.stderr
-    res = await buck.targets("root//dog:")
-    assert 'Pkgs: ["y"]' in res.stderr
-    res = await buck.targets("root//cat/x:")
-    assert "Pkgs: []" in res.stderr
+class SubPackagesTest(BuckTestCase):
+    @buck_test()
+    async def test_sub_packages(self, buck: Buck) -> None:
+        res = await buck.targets("root//:")
+        assert 'Pkgs: ["cat/x", "dog"]' in res.stderr
+        res = await buck.targets("root//dog:")
+        assert 'Pkgs: ["y"]' in res.stderr
+        res = await buck.targets("root//cat/x:")
+        assert "Pkgs: []" in res.stderr

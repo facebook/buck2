@@ -123,14 +123,14 @@ def load_debug_symbols(f: BinaryIO, offset: int, n_symbol: int) -> list[Symbol]:
     """
     f.seek(offset)
     data = f.read(n_symbol * _LC_SYMTAB_STRUCT.size)
-    return [
-        Symbol(strtab_index, sym_type, section_idx, desc, value)
-        for (
-            strtab_index,
-            sym_type,
-            section_idx,
-            desc,
-            value,
-        ) in _LC_SYMTAB_STRUCT.iter_unpack(data)
-        if sym_type == N_OSO
-    ]
+    # N_OSO entries are a tiny fraction of the symbols, so find them by searching the
+    # type bytes (offset 4 of each entry) rather than unpacking every entry.
+    types = data[4 :: _LC_SYMTAB_STRUCT.size]
+    symbols = []
+    index = types.find(N_OSO)
+    while index != -1:
+        symbols.append(
+            Symbol(*_LC_SYMTAB_STRUCT.unpack_from(data, index * _LC_SYMTAB_STRUCT.size))
+        )
+        index = types.find(N_OSO, index + 1)
+    return symbols

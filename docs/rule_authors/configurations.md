@@ -234,7 +234,8 @@ for them can only be performed at that point).
 
 For the normal use case, a particular configured target node performs execution
 platform resolution a single time. The execution platform **is not** encoded in
-output paths.
+output paths. A rule that declares [execution groups](execution_groups.md)
+resolves one execution platform per group.
 
 Regarding target compatibility, imagine the following pseudo-code for the
 `target_compatible_with()` function above:

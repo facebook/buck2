@@ -21,9 +21,16 @@ passing testcase. Consumers remain responsible for checking expected test names.
 """.
 -compile(warn_missing_spec_all).
 
--export([write/5]).
+-export([write/5, output_file/1, status_name/1]).
 
 -import(common_util, [unicode_characters_to_binary/1]).
+
+-spec output_file(file:filename_all()) -> file:filename().
+output_file(OutputDir) ->
+    case os:getenv("TEST_RESULTS_OUTPUT_FILE") of
+        false -> filename:join(OutputDir, "test_results.json");
+        OutputFile -> OutputFile
+    end.
 
 -spec write(
     file:filename_all(),
@@ -33,37 +40,33 @@ passing testcase. Consumers remain responsible for checking expected test names.
     [cth_tpx_test_tree:collected_result()]
 ) -> ok.
 write(OutputDir, SuiteStatus, FailureTime, SuiteDetails, Results) ->
-    case os:getenv("TEST_RESULTS_OUTPUT_FILE") of
-        false ->
-            ok;
-        OutputFile ->
-            {ok, File} = file:open(OutputFile, [write, raw, binary]),
-            try
-                Footer = footer(OutputDir),
-                FooterIndex = local_footer_index(Results),
-                IsSandcastle = os:getenv("SANDCASTLE") =/= false,
-                lists:foreach(
-                    fun({Index, #{main := Main}}) ->
-                        write_case(
-                            File,
-                            Main,
-                            case IsSandcastle orelse Index =:= FooterIndex of
-                                true -> Footer;
-                                false -> <<>>
-                            end
-                        )
-                    end,
-                    lists:enumerate(Results)
-                ),
-                RunFooter =
-                    case {IsSandcastle, SuiteStatus, Results} of
-                        {false, failed, [_ | _]} -> <<>>;
-                        _ -> Footer
-                    end,
-                write_run_failure(File, SuiteStatus, FailureTime, SuiteDetails, RunFooter)
-            after
-                ok = file:close(File)
-            end
+    OutputFile = output_file(OutputDir),
+    {ok, File} = file:open(OutputFile, [write, raw, binary]),
+    try
+        Footer = footer(OutputDir),
+        FooterIndex = local_footer_index(Results),
+        IsSandcastle = os:getenv("SANDCASTLE") =/= false,
+        lists:foreach(
+            fun({Index, #{main := Main}}) ->
+                write_case(
+                    File,
+                    Main,
+                    case IsSandcastle orelse Index =:= FooterIndex of
+                        true -> Footer;
+                        false -> <<>>
+                    end
+                )
+            end,
+            lists:enumerate(Results)
+        ),
+        RunFooter =
+            case {IsSandcastle, SuiteStatus, Results} of
+                {false, failed, [_ | _]} -> <<>>;
+                _ -> Footer
+            end,
+        write_run_failure(File, SuiteStatus, FailureTime, SuiteDetails, RunFooter)
+    after
+        ok = file:close(File)
     end.
 
 %% TPX's print-passing-details option is not exposed to the test binary. Prefer
@@ -115,6 +118,13 @@ status(timeout) -> 1;
 status(skipped) -> 2;
 status(omitted) -> 4;
 status(infra_failure) -> 5.
+
+-spec status_name(non_neg_integer()) -> passed | failed | skipped | omitted | infra_failure.
+status_name(0) -> passed;
+status_name(1) -> failed;
+status_name(2) -> skipped;
+status_name(4) -> omitted;
+status_name(5) -> infra_failure.
 
 -spec write_run_failure(file:io_device(), passed | failed | timeout, integer(), unicode:chardata(), binary()) -> ok.
 write_run_failure(_File, passed, _Time, _Details, _Footer) ->

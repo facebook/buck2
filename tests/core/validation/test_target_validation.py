@@ -10,112 +10,110 @@
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test, env
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase, env
 
 
-@buck_test()
-async def test_validation_affects_build_command(buck: Buck) -> None:
-    await expect_failure(
-        buck.build(":plate"),
-        stderr_regex="""
+class TargetValidationTest(BuckTestCase):
+    @buck_test()
+    async def test_validation_affects_build_command(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.build(":plate"),
+            stderr_regex="""
 Validation for `prelude//:mate \\(<unspecified>\\)` failed:
 
 Here I am describing the failure reason
 
 Full validation result is located at""",
-    )
-    await buck.build(":date")
+        )
+        await buck.build(":date")
 
-
-@buck_test(write_invocation_record=True)
-async def test_validation_affects_run_command(buck: Buck) -> None:
-    res = await expect_failure(
-        buck.run(
-            ":plate",
-        ),
-        stderr_regex="""
+    @buck_test(write_invocation_record=True)
+    async def test_validation_affects_run_command(self, buck: Buck) -> None:
+        res = await expect_failure(
+            buck.run(
+                ":plate",
+            ),
+            stderr_regex="""
 Validation for `prelude//:mate \\(<unspecified>\\)` failed:
 
 Here I am describing the failure reason
 
 Full validation result is located at""",
-    )
+        )
 
-    record = res.invocation_record()
-    assert len(record["errors"]) == 1
+        record = res.invocation_record()
+        assert len(record["errors"]) == 1
 
-    await buck.run(":date")
+        await buck.run(":date")
 
-
-@buck_test(write_invocation_record=True)
-@env("BUCK2_ALLOW_INTERNAL_TEST_RUNNER_DO_NOT_USE", "1")
-async def test_validation_affects_test_command(buck: Buck) -> None:
-    res = await expect_failure(
-        buck.test(
-            ":plate",
-            test_executor="",
-        ),
-        stderr_regex="""
+    @buck_test(write_invocation_record=True)
+    @env("BUCK2_ALLOW_INTERNAL_TEST_RUNNER_DO_NOT_USE", "1")
+    async def test_validation_affects_test_command(self, buck: Buck) -> None:
+        res = await expect_failure(
+            buck.test(
+                ":plate",
+                test_executor="",
+            ),
+            stderr_regex="""
 Validation for `prelude//:mate \\(<unspecified>\\)` failed:
 
 Here I am describing the failure reason
 
 Full validation result is located at""",
-    )
+        )
 
-    record = res.invocation_record()
-    assert len(record["errors"]) == 1
+        record = res.invocation_record()
+        assert len(record["errors"]) == 1
 
-    await buck.test(":date", test_executor="")
+        await buck.test(":date", test_executor="")
 
+    @buck_test(write_invocation_record=True)
+    async def test_validation_affects_install_command(self, buck: Buck) -> None:
+        res = await expect_failure(
+            buck.install(
+                ":plate",
+            ),
+            stderr_regex="Validation for `prelude//:mate \\(<unspecified>\\)` failed",
+        )
 
-@buck_test(write_invocation_record=True)
-async def test_validation_affects_install_command(buck: Buck) -> None:
-    res = await expect_failure(
-        buck.install(
-            ":plate",
-        ),
-        stderr_regex="Validation for `prelude//:mate \\(<unspecified>\\)` failed",
-    )
+        record = res.invocation_record()
+        assert len(record["errors"]) == 1
 
-    record = res.invocation_record()
-    assert len(record["errors"]) == 1
+        # It's too complicated to set up installer properly.
+        # We intentionally fail on the installer side, but interpret
+        # an attempt to run it as a successful verification.
+        res = await expect_failure(
+            buck.install(
+                ":date",
+            ),
+            stderr_regex="Installer: Incoming connection accepted, now closing it",
+        )
 
-    # It's too complicated to set up installer properly.
-    # We intentionally fail on the installer side, but interpret
-    # an attempt to run it as a successful verification.
-    res = await expect_failure(
-        buck.install(
-            ":date",
-        ),
-        stderr_regex="Installer: Incoming connection accepted, now closing it",
-    )
+        record = res.invocation_record()
+        assert len(record["errors"]) == 1
 
-    record = res.invocation_record()
-    assert len(record["errors"]) == 1
+    @buck_test()
+    async def test_optional_validation(self, buck: Buck) -> None:
+        await buck.build(":optional_passing")
 
+        # Optional validations are not run by default.
+        await buck.build(":optional_failing")
 
-@buck_test()
-async def test_optional_validation(buck: Buck) -> None:
-    await buck.build(":optional_passing")
+        # Expect a failure when run with --enable-optional-validations.
+        await expect_failure(
+            buck.build(":optional_failing", "--enable-optional-validations", "whistle"),
+            stderr_regex="Validation for `.+` failed",
+        )
 
-    # Optional validations are not run by default.
-    await buck.build(":optional_failing")
-
-    # Expect a failure when run with --enable-optional-validations.
-    await expect_failure(
-        buck.build(":optional_failing", "--enable-optional-validations", "whistle"),
-        stderr_regex="Validation for `.+` failed",
-    )
-
-
-@buck_test()
-async def test_malformed_validation_result_names_target_and_file(buck: Buck) -> None:
-    # The parse error of a malformed result file names the target that owns the validation
-    # and the result file, like a failing validation does.
-    res = await expect_failure(
-        buck.build(":consumer"),
-        stderr_regex="JSON content doesn't match schema",
-    )
-    assert "prelude//:broken" in res.stderr
-    assert "flute.json" in res.stderr
+    @buck_test()
+    async def test_malformed_validation_result_names_target_and_file(
+        self, buck: Buck
+    ) -> None:
+        # The parse error of a malformed result file names the target that owns the validation
+        # and the result file, like a failing validation does.
+        res = await expect_failure(
+            buck.build(":consumer"),
+            stderr_regex="JSON content doesn't match schema",
+        )
+        assert "prelude//:broken" in res.stderr
+        assert "flute.json" in res.stderr

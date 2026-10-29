@@ -9,7 +9,6 @@
  */
 
 #![feature(try_blocks)]
-#![feature(used_with_arg)]
 
 pub mod active_commands;
 mod agent_context_validation;

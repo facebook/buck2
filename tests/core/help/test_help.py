@@ -13,7 +13,7 @@ import asyncio
 import re
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 from buck2.tests.e2e_util.helper.golden import golden
 
 
@@ -56,7 +56,8 @@ async def _test_help(buck: Buck, command_stack: list[str]) -> int:
     return sum(subresults) + 1
 
 
-@buck_test()
-async def test_help(buck: Buck) -> None:
-    total = await _test_help(buck, [])
-    assert total > 4
+class HelpTest(BuckTestCase):
+    @buck_test()
+    async def test_help(self, buck: Buck) -> None:
+        total = await _test_help(buck, [])
+        assert total > 4

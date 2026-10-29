@@ -24,6 +24,13 @@ message DaemonProcessInfo {
   // can't be removed.
   string version = 3;
   string auth_token = 4;
+  // Start time of the daemon process, in seconds since the unix epoch, as
+  // reported by `buck2_wrapper_common::kill::process_start_time`. Lets
+  // readers tell the recorded daemon apart from an unrelated process that
+  // ended up with its pid: `pid` alone is ambiguous both through ordinary
+  // pid reuse and when it was recorded inside a pid namespace. 0 when
+  // unknown (files written by older daemons).
+  uint64 pid_start_time = 5;
 }
 
 // Controls whether we will use a given daemon or not.
@@ -204,6 +211,10 @@ message ClientContext {
 
   // Stable address of the repository state selected by this client.
   optional TenantIdentity tenant_identity = 28;
+
+  // JSON containing only InvocationBuckSettings. Missing overrides use the
+  // setting's defaults for this command.
+  optional string invocation_settings = 29;
 }
 
 message TargetsRequest {
@@ -836,6 +847,14 @@ message UnstableHeapDumpRequest {
 
 message UnstableHeapDumpResponse {}
 
+message UnstableRecentAllocDumpRequest {
+  // The path to write the recent-allocations JSON dump to. If relative, it is
+  // made absolute relative to the working directory of the daemon.
+  string destination_path = 1;
+}
+
+message UnstableRecentAllocDumpResponse {}
+
 message UnstableFlushPgoProfileRequest {}
 
 message UnstableFlushPgoProfileResponse {
@@ -854,6 +873,19 @@ message UnstableAllocatorStatsRequest {
 message UnstableAllocatorStatsResponse {
   // The returned stats
   string response = 1;
+}
+
+message UnstableListTenantsRequest {}
+
+message UnstableTenantInfo {
+  string project_root = 1;
+  string isolation = 2;
+  uint64 generation = 3;
+  bool initialized = 4;
+}
+
+message UnstableListTenantsResponse {
+  repeated UnstableTenantInfo tenants = 1;
 }
 
 message UnstableDiceDumpRequest {
@@ -1000,6 +1032,8 @@ enum HydrationSubcommand {
   PAGE_OUT = 0;
   PAGE_IN = 1;
   STATUS = 2;
+  // Drop the resident values a row already holds, as memory pressure would.
+  EVICT = 3;
 }
 
 message HydrationRequest {
@@ -1010,7 +1044,7 @@ message HydrationRequest {
 }
 
 message HydrationResponse {
-  // Human-readable status report. Set only for `status`;
+  // Human-readable report. Set for `status` and `evict`;
   // absent for page-out / page-in.
   optional string summary = 1;
   // What the page-out moved. Set only for `page-out`, and only on success —
@@ -1106,6 +1140,10 @@ service DaemonApi {
   rpc Unstable_HeapDump(UnstableHeapDumpRequest)
       returns (UnstableHeapDumpResponse);
 
+  // Requests the daemon to dump jemalloc's recent-allocations ring to a file.
+  rpc Unstable_RecentAllocDump(UnstableRecentAllocDumpRequest)
+      returns (UnstableRecentAllocDumpResponse);
+
   // Flushes PGO profile data to disk. Only useful when the daemon was built
   // with -Cprofile-generate.
   rpc Unstable_FlushPgoProfile(UnstableFlushPgoProfileRequest)
@@ -1114,6 +1152,8 @@ service DaemonApi {
   // Requests allocator stats from the daemon.
   rpc Unstable_AllocatorStats(UnstableAllocatorStatsRequest)
       returns (UnstableAllocatorStatsResponse);
+  rpc Unstable_ListTenants(UnstableListTenantsRequest)
+      returns (UnstableListTenantsResponse);
 
   /// Requests the daemon dump the DICE graph to a directory.
   rpc Unstable_DiceDump(UnstableDiceDumpRequest)

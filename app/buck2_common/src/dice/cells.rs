@@ -117,7 +117,8 @@ impl<'d> HasCellResolver<'d> for DiceComputations<'d> {
     }
 }
 
-/// Only used for cell alias resolvers parsed within dice, currently those for external cells
+/// A cell's alias resolver, built within DICE from the alias sections of its buckconfig. Any
+/// computation that resolves a cell alias depends on it.
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
 #[pagable_typetag(dice::DiceKeyDyn)]
 struct CellAliasResolverKey(CellName);

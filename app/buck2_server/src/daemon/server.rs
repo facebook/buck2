@@ -29,12 +29,15 @@ use async_trait::async_trait;
 use buck2_build_api::configure_dice::configure_dice_for_buck;
 use buck2_build_api::spawner::BuckSpawner;
 use buck2_certs::validate::CertState;
-use buck2_certs::validate::check_cert_state;
+use buck2_certs::validate::CertStateReport;
+use buck2_certs::validate::INVALID_CERTS_TAG;
+use buck2_certs::validate::check_cert_state_for;
 use buck2_certs::validate::validate_certs;
 use buck2_cli_proto::daemon_api_server::*;
 use buck2_cli_proto::*;
 use buck2_common::buckd_connection::BUCK_AUTH_TOKEN_HEADER;
 use buck2_common::events::HasEvents;
+use buck2_common::ignores::ignore_set::IgnoreSet;
 use buck2_common::init::DaemonStartupConfig;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::IoProvider;
@@ -86,7 +89,6 @@ use buck2_util::system_stats::num_cores;
 use buck2_util::system_stats::system_memory_stats;
 use buck2_util::threads::thread_spawn;
 use dice::BranchId;
-use dice::DetectCycles;
 use dice::Dice;
 use dice_futures::cancellation::CancellationContext;
 use dice_futures::drop::DropTogether;
@@ -237,7 +239,6 @@ impl DaemonShutdown {
 
 #[derive(Allocative)]
 pub struct BuckdServerInitPreferences {
-    pub detect_cycles: Option<DetectCycles>,
     pub enable_trace_io: bool,
     pub reject_materializer_state: Option<SqliteIdentity>,
     pub daemon_startup_config: DaemonStartupConfig,
@@ -247,7 +248,6 @@ pub struct BuckdServerInitPreferences {
 
 #[derive(Allocative)]
 pub(crate) struct TenantStateInitPreferences {
-    pub(crate) detect_cycles: Option<DetectCycles>,
     pub(crate) enable_trace_io: bool,
     pub(crate) reject_materializer_state: Option<SqliteIdentity>,
     pub(crate) daemon_startup_config: DaemonStartupConfig,
@@ -256,7 +256,6 @@ pub(crate) struct TenantStateInitPreferences {
 impl BuckdServerInitPreferences {
     pub(crate) fn split(self) -> (TenantStateInitPreferences, Option<String>) {
         let Self {
-            detect_cycles,
             enable_trace_io,
             reject_materializer_state,
             daemon_startup_config,
@@ -265,7 +264,6 @@ impl BuckdServerInitPreferences {
         } = self;
         (
             TenantStateInitPreferences {
-                detect_cycles,
                 enable_trace_io,
                 reject_materializer_state,
                 daemon_startup_config,
@@ -280,24 +278,31 @@ impl TenantStateInitPreferences {
         &self,
         io: Arc<dyn IoProvider>,
         digest_config: DigestConfig,
+        ignore_set: Arc<IgnoreSet>,
         root_config: &LegacyBuckConfig,
         tenting_acl_provider: Option<Arc<dyn TentingAclProvider>>,
         dice_state_path: &Path,
     ) -> buck2_error::Result<(Arc<Dice>, BranchId)> {
         // `hydration` is `Some` when paging is enabled (via `enable_paging` or
         // `page_out_on_idle`), which is what gates setting up on-disk storage.
-        let hydration = self.daemon_startup_config.hydration.as_ref();
+        let hydration = self
+            .daemon_startup_config
+            .startup_options
+            .hydration
+            .as_ref();
         configure_dice_for_buck(
             io,
             digest_config,
+            ignore_set,
             Some(root_config),
-            self.detect_cycles,
             tenting_acl_provider,
-            self.daemon_startup_config.buck_settings.dupe(),
+            self.daemon_startup_config.daemon_buck_settings().dupe(),
             hydration.map(|_| dice_state_path),
             hydration.map_or_else(Default::default, |h| h.pagable_storage_backend),
+            hydration.map_or_else(Default::default, |h| h.page_out_policy),
+            hydration.map_or_else(Default::default, |h| h.eviction_policy),
             self.daemon_startup_config
-                .buck_settings
+                .daemon_buck_settings()
                 .hydration
                 .defer_field_reads(),
         )
@@ -372,6 +377,7 @@ impl BuckdServer {
         listener: Pin<Box<dyn Stream<Item = Result<tokio::net::TcpStream, io::Error>> + Send>>,
         rt: Handle,
         daemon_id: DaemonId,
+        ready: Box<dyn FnOnce() + Send>,
     ) -> buck2_error::Result<()> {
         let now = SystemTime::now();
         let now = now.duration_since(SystemTime::UNIX_EPOCH)?;
@@ -382,7 +388,11 @@ impl BuckdServer {
 
         let final_artifact_materialization =
             FinalArtifactMaterialization::try_new_from_config_value(
-                init_ctx.daemon_startup_config.materializations.as_deref(),
+                init_ctx
+                    .daemon_startup_config
+                    .startup_options
+                    .materializations
+                    .as_deref(),
             )?;
 
         let tenant_paths = paths.tenant_paths();
@@ -402,7 +412,10 @@ impl BuckdServer {
             Some(
                 BuckCgroupTree::set_up(
                     prepped_cgroups,
-                    &init_ctx.daemon_startup_config.resource_control,
+                    &init_ctx
+                        .daemon_startup_config
+                        .startup_options
+                        .resource_control,
                 )
                 .await?,
             )
@@ -414,7 +427,10 @@ impl BuckdServer {
         certs_validation_background_job(cert_state.dupe()).await;
 
         let inactivity_config = DaemonInactivityConfig::try_new(
-            init_ctx.daemon_startup_config.daemon_idle_timeout_s,
+            init_ctx
+                .daemon_startup_config
+                .startup_options
+                .daemon_idle_timeout_s,
             init_ctx.started_for_clean_stale,
         )?;
 
@@ -483,6 +499,9 @@ impl BuckdServer {
             tokio::time::sleep(Duration::from_secs(sleep_secs)).await;
         }
 
+        // The listener accepted connections since before the daemon state existed, but answers
+        // them only from here on.
+        ready();
         let server_result = server.await;
 
         let shutdown_deadline = shutdown_deadline
@@ -753,6 +772,7 @@ impl BuckdServer {
                                     soft_error_category: Some(buck2_data::SoftError {
                                         category: "paging_deferred_read_failed".to_owned(),
                                         is_quiet: false,
+                                        is_deprecation: false,
                                     }),
                                     daemon_in_memory_state_is_corrupted: true,
                                     ..Default::default()
@@ -768,6 +788,7 @@ impl BuckdServer {
                                     soft_error_category: Some(buck2_data::SoftError {
                                         category: "paging_heap_indexed_under_two_keys".to_owned(),
                                         is_quiet: false,
+                                        is_deprecation: false,
                                     }),
                                     ..Default::default()
                                 });
@@ -785,12 +806,23 @@ impl BuckdServer {
                         drop(memory_reporter);
                         match result {
                             Ok(_) => dispatch.command_result(result_to_command_result(result)),
-                            Err(e) => match check_cert_state(cert_state).await {
-                                Some(err) => dispatch.command_result(error_to_command_result(
-                                    err.context(format!("{e:?}")),
-                                )),
-                                _ => dispatch.command_result(error_to_command_result(e)),
-                            },
+                            Err(e) => {
+                                let report = check_cert_state_for(cert_state, [&e]).await;
+                                if report.cert_error().is_some() {
+                                    dispatch.instant_event(buck2_data::TagEvent {
+                                        tags: vec![INVALID_CERTS_TAG.to_owned()],
+                                    });
+                                }
+                                let e = match report {
+                                    CertStateReport::Valid => e,
+                                    CertStateReport::Explains(err) => err.context(format!("{e:?}")),
+                                    CertStateReport::Hint(err) => {
+                                        dispatch.console_warning(err.to_string());
+                                        e
+                                    }
+                                };
+                                dispatch.command_result(error_to_command_result(e))
+                            }
                         }
                     }
                     .boxed()
@@ -833,10 +865,16 @@ impl BuckdServer {
 
         match self.run_streaming_erased(command).await {
             Ok(resp) => Ok(resp),
-            Err(e) => match check_cert_state(self.0.cert_state.dupe()).await {
-                Some(err) => Ok(error_to_response_stream(err.context(format!("{e:?}")))),
-                _ => Ok(error_to_response_stream(e)),
-            },
+            Err(e) => {
+                // There is no event stream to send a hint on yet, so a user error gets the cert
+                // error as context, which does not change its classification.
+                let e = match check_cert_state_for(self.0.cert_state.dupe(), [&e]).await {
+                    CertStateReport::Valid => e,
+                    CertStateReport::Explains(err) => err.context(format!("{e:?}")),
+                    CertStateReport::Hint(err) => e.context(err.to_string()),
+                };
+                Ok(error_to_response_stream(e))
+            }
         }
     }
 
@@ -1610,6 +1648,34 @@ impl DaemonApi for BuckdServer {
         Ok(Response::new(UnstableHeapDumpResponse {}))
     }
 
+    async fn unstable_recent_alloc_dump(
+        &self,
+        req: Request<UnstableRecentAllocDumpRequest>,
+    ) -> Result<Response<UnstableRecentAllocDumpResponse>, Status> {
+        self.check_if_accepting_requests()?;
+        let req = req.into_inner();
+
+        // Producing the dump and streaming it to disk are blocking; run them off
+        // the async runtime so a large dump can't stall the daemon.
+        tokio::task::spawn_blocking(move || {
+            memory::write_recent_alloc_to_file(&req.destination_path)
+        })
+        .await
+        .map_err(|e| Status::internal(format!("recent alloc dump task failed: {e}")))?
+        .map_err(|e| {
+            // `Input`-tagged errors are unmet preconditions (jemalloc isn't the
+            // allocator, or profiling / the recent-alloc ring isn't enabled);
+            // anything else (mallctl or file-IO failure) is an internal error.
+            let msg = format!("failed to dump recent allocations: {e:#}");
+            if e.has_tag(buck2_error::ErrorTag::Input) {
+                Status::failed_precondition(msg)
+            } else {
+                Status::internal(msg)
+            }
+        })?;
+        Ok(Response::new(UnstableRecentAllocDumpResponse {}))
+    }
+
     async fn unstable_flush_pgo_profile(
         &self,
         _req: Request<UnstableFlushPgoProfileRequest>,
@@ -1641,6 +1707,27 @@ impl DaemonApi for BuckdServer {
             Ok(response) => Ok(Response::new(UnstableAllocatorStatsResponse { response })),
             Err(e) => Err(Status::invalid_argument(format!("{e:#}"))),
         }
+    }
+
+    async fn unstable_list_tenants(
+        &self,
+        _req: Request<UnstableListTenantsRequest>,
+    ) -> Result<Response<UnstableListTenantsResponse>, Status> {
+        self.check_if_accepting_requests()?;
+        let tenants = self
+            .0
+            .daemon_state
+            .data()
+            .tenants()
+            .into_iter()
+            .map(|tenant| UnstableTenantInfo {
+                project_root: tenant.key.project_root().display().to_string(),
+                isolation: tenant.key.isolation().as_str().to_owned(),
+                generation: tenant.generation,
+                initialized: tenant.initialized,
+            })
+            .collect();
+        Ok(Response::new(UnstableListTenantsResponse { tenants }))
     }
 
     async fn unstable_dice_dump(
@@ -2167,7 +2254,7 @@ pub(crate) mod eden_health {
     use std::time::Duration;
 
     use buck2_core::fs::project::ProjectRoot;
-    use buck2_core::soft_error;
+    use buck2_core::soft_error_or_panic;
     use buck2_eden::connection::EdenConnectionManager;
     use buck2_eden::connection::EdenDaemonIdentity;
     use buck2_eden::error::EdenDaemonRestarted;
@@ -2210,7 +2297,7 @@ pub(crate) mod eden_health {
                                 let identity = EdenDaemonIdentity::from_daemon_info(&info);
                                 if let Some(last) = &last_identity {
                                     if !last.is_same_daemon(&identity) {
-                                        soft_error!(
+                                        soft_error_or_panic!(
                                             "eden_restart_detected",
                                             EdenDaemonRestarted {
                                                 old_pid: last.pid(),
@@ -2219,8 +2306,7 @@ pub(crate) mod eden_health {
                                                 new_start_time: identity.start_time(),
                                             }
                                             .into()
-                                        )
-                                        .ok();
+                                        );
                                     }
                                 }
                                 last_identity = Some(identity);
@@ -2230,12 +2316,14 @@ pub(crate) mod eden_health {
                                     "check hit an EdenFS error caused by a hanging mount: {:#}",
                                     e
                                 );
-                                soft_error!(
+                                soft_error_or_panic!(
                                     "eden_thrift_health_check_failed",
-                                    buck2_error!(buck2_error::ErrorTag::Input, "check failed with: {:#}", e),
-                                    quiet: true
-                                )
-                                .ok();
+                                    buck2_error!(
+                                        buck2_error::ErrorTag::Input,
+                                        "check failed with: {:#}",
+                                        e
+                                    )
+                                );
                             }
                             Err(e) => {
                                 tracing::debug!("check failed with a non-hanging error: {:#}", e);
@@ -2251,12 +2339,14 @@ pub(crate) mod eden_health {
                     // This _could_ signal a hanging mount, so we'll report a possible hang.
                     Err(e) => {
                         tracing::error!("check failed to create an EdenFS client: {:#}", e);
-                        soft_error!(
+                        soft_error_or_panic!(
                             "eden_thrift_client_creation_failed",
-                            buck2_error!(buck2_error::ErrorTag::Input, "client creation failed with: {:#}", e),
-                            quiet: true
-                        )
-                        .ok();
+                            buck2_error!(
+                                buck2_error::ErrorTag::Input,
+                                "client creation failed with: {:#}",
+                                e
+                            )
+                        );
                     }
                 }
             }

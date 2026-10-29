@@ -162,6 +162,12 @@ impl DocString {
 
     /// Do common work to parse a docstring (dedenting, splitting summary and details, etc)
     pub fn from_docstring(kind: DocStringKind, user_docstring: &str) -> Option<DocString> {
+        if cfg!(miri) {
+            // Building the standard globals parses every stdlib docstring, which takes ten
+            // minutes interpreted, almost all of it in the regexes. Docs are never what a Miri
+            // run is after.
+            return None;
+        }
         let trimmed_docs = user_docstring.trim();
         if trimmed_docs.is_empty() {
             None

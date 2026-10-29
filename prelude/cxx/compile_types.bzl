@@ -134,6 +134,8 @@ CxxSrcCompileCommand = record(
     error_handler = field([typing.Callable, None], None),
     # Whether to set expect_eligible_for_dedupe on compile actions.
     expect_eligible_for_dedupe = field(bool, False),
+    # Local executor slots the compile action takes.
+    weight = field(int),
 )
 
 CxxSrcPrecompileCommand = record(

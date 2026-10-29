@@ -93,8 +93,7 @@ public class JUnitTpxStandardOutputTestListenerTest {
 
   @Test
   public void testStdoutStderrSurfacedInlineOnPassingTest() throws IOException {
-    // A test's own System.out/System.err prints should be surfaced inline in the per-test result
-    // so they are visible in the terminal, not only in artifact files.
+    // A test's own System.out/System.err prints should be surfaced inline in the per-test result.
     try (FileOutputStream fileOutputStream = new FileOutputStream(tempFile)) {
       JUnitTpxStandardOutputListener listener = createListener(fileOutputStream);
 

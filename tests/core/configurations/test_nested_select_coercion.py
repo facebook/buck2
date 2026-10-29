@@ -10,10 +10,11 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_nested_select_coercion(buck: Buck) -> None:
-    res = await buck.uquery("//:foo")
-    assert res.stdout.startswith("root//:foo")
+class NestedSelectCoercionTest(BuckTestCase):
+    @buck_test()
+    async def test_nested_select_coercion(self, buck: Buck) -> None:
+        res = await buck.uquery("//:foo")
+        assert res.stdout.startswith("root//:foo")

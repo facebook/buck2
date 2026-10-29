@@ -72,12 +72,15 @@ mod tests {
     fn test_concurrent_interning_is_canonical() {
         // Race many threads interning the same small label set to exercise
         // the losing side of concurrent inserts.
+        const DISTINCT: usize = if cfg!(miri) { 10 } else { 100 };
         let labels: Vec<TargetLabel> = std::thread::scope(|s| {
             let handles: Vec<_> = (0..8)
                 .map(|_| {
                     s.spawn(|| {
-                        (0..1000)
-                            .map(|i| TargetLabel::testing_parse(&format!("foo//pkg:t{}", i % 100)))
+                        (0..10 * DISTINCT)
+                            .map(|i| {
+                                TargetLabel::testing_parse(&format!("foo//pkg:t{}", i % DISTINCT))
+                            })
                             .collect::<Vec<_>>()
                     })
                 })
@@ -96,7 +99,7 @@ mod tests {
                 "equal labels must share one allocation"
             );
         }
-        assert_eq!(100, canonical.len(), "expected 100 distinct labels");
+        assert_eq!(DISTINCT, canonical.len());
     }
 
     #[test]

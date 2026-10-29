@@ -123,6 +123,9 @@ AppleBundleBinaryOutput = record(
     # Otherwise, `unstripped_binary` is distinct from `binary` and is unstripped.
     unstripped_binary = field([Artifact, None]),
     debuggable_info = field([AppleDebuggableInfo, None], None),
+    # When set, the binary is not scrubbed and its dSYMs must be generated
+    # with this `dsymutil --allow` file instead.
+    dsym_allowlist = field([Artifact, None], None),
 )
 
 AppleBundleTypeDefault = AppleBundleType("default")

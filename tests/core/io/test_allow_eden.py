@@ -11,7 +11,7 @@
 import json
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 # This file acts as both a test of `buck2.allow_eden_io` as well as a self-test
 # of the `setup_eden` logic in the test runner
@@ -25,49 +25,47 @@ async def _check_io_provider(buck: Buck, name: str) -> None:
     assert io_provider == name
 
 
-@buck_test(
-    setup_eden=False,
-    extra_buck_config={
-        "buck2": {
-            "allow_eden_io": "false",
-        }
-    },
-)
-async def test_no_eden(buck: Buck) -> None:
-    await _check_io_provider(buck, "fs")
+class AllowEdenTest(BuckTestCase):
+    @buck_test(
+        setup_eden=False,
+        extra_buck_config={
+            "buck2": {
+                "allow_eden_io": "false",
+            }
+        },
+    )
+    async def test_no_eden(self, buck: Buck) -> None:
+        await _check_io_provider(buck, "fs")
 
+    @buck_test(
+        setup_eden=False,
+        extra_buck_config={
+            "buck2": {
+                "allow_eden_io": "true",
+            }
+        },
+    )
+    async def test_allow_eden_io_ignored_on_fs_io(self, buck: Buck) -> None:
+        await _check_io_provider(buck, "fs")
 
-@buck_test(
-    setup_eden=False,
-    extra_buck_config={
-        "buck2": {
-            "allow_eden_io": "true",
-        }
-    },
-)
-async def test_allow_eden_io_ignored_on_fs_io(buck: Buck) -> None:
-    await _check_io_provider(buck, "fs")
+    @buck_test(
+        setup_eden=True,
+        extra_buck_config={
+            "buck2": {
+                "allow_eden_io": "false",
+            }
+        },
+    )
+    async def test_allow_eden_io_respected(self, buck: Buck) -> None:
+        await _check_io_provider(buck, "fs")
 
-
-@buck_test(
-    setup_eden=True,
-    extra_buck_config={
-        "buck2": {
-            "allow_eden_io": "false",
-        }
-    },
-)
-async def test_allow_eden_io_respected(buck: Buck) -> None:
-    await _check_io_provider(buck, "fs")
-
-
-@buck_test(
-    setup_eden=True,
-    extra_buck_config={
-        "buck2": {
-            "allow_eden_io": "true",
-        }
-    },
-)
-async def test_eden_io(buck: Buck) -> None:
-    await _check_io_provider(buck, "eden")
+    @buck_test(
+        setup_eden=True,
+        extra_buck_config={
+            "buck2": {
+                "allow_eden_io": "true",
+            }
+        },
+    )
+    async def test_eden_io(self, buck: Buck) -> None:
+        await _check_io_provider(buck, "eden")

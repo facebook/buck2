@@ -72,6 +72,7 @@ struct FnParamAttrs {
     named_only: bool,
     args: bool,
     kwargs: bool,
+    doc_hidden: bool,
 }
 
 impl FnParamAttrs {
@@ -83,8 +84,15 @@ impl FnParamAttrs {
             named_only,
             args,
             kwargs,
+            doc_hidden,
         } = self;
-        default.is_none() && !*this && !*pos_only && !*named_only && !*args && !*kwargs
+        default.is_none()
+            && !*this
+            && !*pos_only
+            && !*named_only
+            && !*args
+            && !*kwargs
+            && !*doc_hidden
     }
 }
 
@@ -120,6 +128,14 @@ fn parse_starlark_fn_param_attr(
             } else if ident == "kwargs" {
                 param_attrs.kwargs = true;
                 continue;
+            } else if ident == "doc_hidden" {
+                param_attrs.doc_hidden = if parser.peek(Token![=]) {
+                    parser.parse::<Token![=]>()?;
+                    parser.parse::<syn::LitBool>()?.value
+                } else {
+                    true
+                };
+                continue;
             } else if ident == "require" {
                 parser.parse::<Token!(=)>()?;
                 let require = parser.parse::<Ident>()?;
@@ -138,6 +154,7 @@ fn parse_starlark_fn_param_attr(
                 `#[starlark(default = expr)]`, \
                 `#[starlark(require = pos)]`, \
                 `#[starlark(require = named)]`, \
+                `#[starlark(doc_hidden)]`, \
                 `#[starlark(this)]` attribute",
             ));
         }
@@ -635,6 +652,7 @@ fn parse_this_param(param: &SimpleParam, attrs: &FnParamAttrs) -> syn::Result<Th
         named_only,
         args,
         kwargs,
+        doc_hidden,
     } = attrs;
 
     if !this && &param.ident != "this" {
@@ -645,7 +663,7 @@ fn parse_this_param(param: &SimpleParam, attrs: &FnParamAttrs) -> syn::Result<Th
         ));
     }
 
-    if default.is_some() || *pos_only || *named_only || *args || *kwargs {
+    if default.is_some() || *pos_only || *named_only || *args || *kwargs || *doc_hidden {
         return Err(syn::Error::new_spanned(
             param,
             "Attributes are not compatible with receiver parameter",
@@ -666,8 +684,10 @@ fn is_arguments(param: &SimpleParam, attrs: &FnParamAttrs) -> syn::Result<Option
             named_only,
             args,
             kwargs,
+            doc_hidden,
         } = attrs;
-        if default.is_some() || *this || *pos_only || *named_only || *args || *kwargs {
+        if default.is_some() || *this || *pos_only || *named_only || *args || *kwargs || *doc_hidden
+        {
             return Err(syn::Error::new_spanned(
                 param,
                 "Attributes are not compatible with `&Arguments` parameter",
@@ -782,11 +802,19 @@ fn parse_arg(
         (false, false, false, true, false) => StarArgPassStyle::PosOnly,
         (false, false, false, false, true) => StarArgPassStyle::NamedOnly,
     };
+    if param_attrs.doc_hidden && pass_style != StarArgPassStyle::NamedOnly {
+        return Err(syn::Error::new(
+            span,
+            "`doc_hidden` parameter must be named-only, \
+                so that the documented signature stays callable as rendered",
+        ));
+    }
     Ok(StarArgOrSpecial::StarArg(StarArg {
         span,
         param,
         pass_style,
         default: param_attrs.default,
+        doc_hidden: param_attrs.doc_hidden,
         source: StarArgSource::Unknown,
     }))
 }

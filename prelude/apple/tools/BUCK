@@ -22,6 +22,7 @@ apple_tools(
     make_vfsoverlay = ":make_vfsoverlay",
     provisioning_manifest = "prelude//apple/tools/bundling:provisioning_manifest",
     resolve_signing_context = "prelude//apple/tools/bundling:resolve_signing_context",
+    selective_debugging_dsym_allowlist_tool = "prelude//apple/tools/selective_debugging:dsym_allowlist_tool",
     selective_debugging_scrubber = apple_oso_scrubber_target(),
     signing_context_tree_postprocessor = "prelude//apple/tools/signing_context_tree_postprocessor:signing_context_tree_postprocessor",
     signing_info = "prelude//apple/tools/bundling:signing_info",
@@ -70,6 +71,12 @@ python_bootstrap_binary(
     name = "make_modulemap",
     main = "make_modulemap.py",
     visibility = ["PUBLIC"],
+)
+
+python_library(
+    name = "make_modulemap_lib",
+    srcs = ["make_modulemap.py"],
+    visibility = ["prelude//apple/tools/..."],
 )
 
 python_bootstrap_binary(
@@ -147,4 +154,13 @@ python_library(
         "xcframework_maker.py",
     ],
     typing = True,
+)
+
+python_test(
+    name = "make_swift_interface_test",
+    srcs = [
+        "make_swift_interface.py",
+        "make_swift_interface_test.py",
+    ],
+    base_module = "",
 )

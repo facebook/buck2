@@ -208,6 +208,7 @@ impl ChromeTraceFirstPass {
                             Some(Stage::Execute(..)) => true,
                             Some(Stage::MaterializeInputs(..)) => false,
                             Some(Stage::PrepareOutputs(..)) => false,
+                            Some(Stage::FinalizeOutputs(..)) => false,
                             Some(Stage::AcquireLocalResource(..)) => false,
                             Some(Stage::WorkerInit(..)) => false,
                             Some(Stage::WorkerExecute(..)) => true,
@@ -1648,6 +1649,16 @@ impl ChromeTraceWriter {
                         event.timestamp(),
                         "blocking_executor_io_queue_size",
                         snapshot.blocking_executor_io_queue_size,
+                    )?;
+                    self.snapshot_counters.set(
+                        event.timestamp(),
+                        "blocking_executor_io_inline_in_flight",
+                        snapshot.blocking_executor_io_inline_in_flight,
+                    )?;
+                    self.snapshot_counters.set(
+                        event.timestamp(),
+                        "blocking_executor_io_inline_waiting",
+                        snapshot.blocking_executor_io_inline_waiting,
                     )?;
                     self.snapshot_counters.set(
                         event.timestamp(),

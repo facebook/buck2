@@ -15,12 +15,12 @@ use std::path::PathBuf;
 
 use allocative::Allocative;
 use buck2_fs::paths::file_name::FileName;
+use buck2_fs::paths::fmt::quoted_display;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathIter;
 use buck2_fs::paths::relative_path::RelativePath;
 use buck2_fs::paths::relative_path::RelativePathBuf;
-use buck2_util::arc_str::ArcS;
 use buck2_util::arc_str::StringInside;
 use pagable::Pagable;
 use pagable::PagableBoxDeserialize;
@@ -30,8 +30,6 @@ use pagable::PagableSerialize;
 use ref_cast::RefCast;
 use serde::Deserialize;
 use serde::Serialize;
-
-use crate::package::quoted_display;
 
 /// A 'PackageRelativePath' is a normalized, platform-agnostic path relative to
 /// the base directory of the 'Package'.
@@ -413,11 +411,6 @@ impl PackageRelativePath {
     #[inline]
     pub fn to_box(&self) -> Box<PackageRelativePath> {
         self.to_buf().into_box()
-    }
-
-    #[inline]
-    pub fn to_arc(&self) -> ArcS<PackageRelativePath> {
-        ArcS::from(self)
     }
 }
 

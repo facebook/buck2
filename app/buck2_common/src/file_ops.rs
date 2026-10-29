@@ -14,5 +14,6 @@ pub mod dice;
 pub mod error;
 pub mod io;
 pub mod metadata;
+pub mod path_check;
 pub mod testing;
 pub mod trait_;

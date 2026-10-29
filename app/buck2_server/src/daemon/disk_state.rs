@@ -88,9 +88,6 @@ fn sqlite_db_setup_metadata_and_versions(
     })? {
         versions.insert("buckconfig_version".to_owned(), buckconfig_version);
     }
-    if let Some(hostname) = metadata.get("hostname") {
-        versions.insert("hostname".to_owned(), hostname.to_owned());
-    }
 
     Ok((metadata, versions))
 }
@@ -232,14 +229,13 @@ pub(crate) async fn maybe_initialize_dep_file_sqlite_db(
             })
             .await;
         if let Err(e) = removed {
-            let _unused = soft_error!(
+            soft_error!(
                 "dep_file_state_db_remove",
                 buck2_error::buck2_error!(
                     buck2_error::ErrorTag::Tier0,
                     "Failed to delete the disabled dep-file state db. {}",
                     e
-                ),
-                quiet: true
+                )
             );
         }
         return Ok(None);
@@ -295,14 +291,13 @@ pub(crate) async fn maybe_initialize_dep_file_sqlite_db(
     {
         Ok(db) => db,
         Err(e) => {
-            let _unused = soft_error!(
+            soft_error!(
                 "dep_file_state_db_init",
                 buck2_error::buck2_error!(
                     buck2_error::ErrorTag::Tier0,
                     "Failed to open the dep-file state db; continuing without persistence. {}",
                     e
-                ),
-                quiet: true
+                )
             );
             return Ok(None);
         }

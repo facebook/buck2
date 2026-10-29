@@ -198,6 +198,16 @@ pub trait QueryEnvironment: Send + Sync {
         node_ref: &<Self::Target as LabeledNode>::Key,
     ) -> buck2_error::Result<Self::Target>;
 
+    /// `get_node`, told which node's expansion is asking for it. Environments
+    /// that load packages on demand can credit the load to the requester.
+    async fn get_node_from(
+        &self,
+        node_ref: &<Self::Target as LabeledNode>::Key,
+        _requester: Option<&<Self::Target as LabeledNode>::Key>,
+    ) -> buck2_error::Result<Self::Target> {
+        self.get_node(node_ref).await
+    }
+
     async fn get_node_for_default_configured_target(
         &self,
         node_ref: &<Self::Target as LabeledNode>::Key,
@@ -504,6 +514,14 @@ impl<'q, Q: QueryEnvironment + ?Sized> AsyncNodeLookup<Q::Target>
 {
     async fn get(&self, label: &<Q::Target as LabeledNode>::Key) -> buck2_error::Result<Q::Target> {
         self.env.get_node(label).await
+    }
+
+    async fn get_from(
+        &self,
+        label: &<Q::Target as LabeledNode>::Key,
+        requester: Option<&<Q::Target as LabeledNode>::Key>,
+    ) -> buck2_error::Result<Q::Target> {
+        self.env.get_node_from(label, requester).await
     }
 }
 

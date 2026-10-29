@@ -23,6 +23,7 @@ use crate::classify::best_tag;
 use crate::classify::error_tag_category;
 use crate::classify::tag_is_generic;
 use crate::classify::tag_is_hidden;
+use crate::classify::tag_is_root_cause;
 use crate::context_value::ContextValue;
 use crate::context_value::StarlarkContext;
 use crate::context_value::StringTag;
@@ -97,6 +98,11 @@ impl Error {
         self.root().action_error()
     }
 
+    /// The root error message, without contextual messages or late formatting.
+    pub fn root_message(&self) -> &str {
+        self.root().description()
+    }
+
     pub(crate) fn iter_context(&self) -> impl Iterator<Item = &ContextValue> {
         self.iter_kinds().filter_map(|kind| match kind {
             ErrorKind::WithContext(ctx, _) => Some(ctx),
@@ -153,6 +159,10 @@ impl Error {
     pub fn category_key(&self) -> String {
         let tags = self.tags();
 
+        if let Some(root_cause) = best_tag(tags.iter().copied().filter(tag_is_root_cause)) {
+            return root_cause.as_str_name().to_owned();
+        }
+
         let non_generic_tags: Vec<ErrorTag> = tags
             .clone()
             .into_iter()
@@ -198,6 +208,10 @@ impl Error {
         Self(Arc::new(ErrorKind::WithContext(context.into(), self)))
     }
 
+    /// Attaches a free-form tag. String tags are part of `category_key()` as well as
+    /// of the `error_tags` telemetry column, so adding one to an existing error moves
+    /// its events to a new category (a new Logview MID). Use one to split an error
+    /// family on purpose, not for a telemetry-only annotation.
     pub fn string_tag(self, context: &str) -> Self {
         Self(Arc::new(ErrorKind::WithContext(
             ContextValue::StringTag(StringTag {
@@ -398,6 +412,31 @@ mod tests {
             crate::ErrorTag::ReInternal,
         ]);
         assert_eq!(err.category_key(), "RE_INTERNAL");
+    }
+
+    #[test]
+    fn test_category_key_root_cause() {
+        let err: crate::Error = TestError.into();
+        let err = err
+            .tag([
+                crate::ErrorTag::IoEden,
+                crate::ErrorTag::IoNotConnected,
+                crate::ErrorTag::StarlarkValue,
+            ])
+            .string_tag("cxx_no_such_file_or_directory");
+        assert_eq!(err.category_key(), "IO_NOT_CONNECTED");
+
+        // With several root causes, the best-ranked one is the key.
+        let err = err.tag([crate::ErrorTag::IoStorageFull]);
+        assert_eq!(
+            err.category_key(),
+            crate::classify::best_tag([
+                crate::ErrorTag::IoNotConnected,
+                crate::ErrorTag::IoStorageFull
+            ])
+            .unwrap()
+            .as_str_name()
+        );
     }
 
     #[test]

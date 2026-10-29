@@ -10,7 +10,7 @@
 
 use buck2_core::buck2_env;
 use buck2_core::buck2_env_name;
-use buck2_core::soft_error;
+use buck2_core::soft_error_or_panic;
 use buck2_event_observer::event_observer::NoopEventObserverExtra;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_health_check::report::DisplayReport;
@@ -25,6 +25,7 @@ use crate::subscribers::errorconsole::ErrorConsole;
 use crate::subscribers::simpleconsole::SimpleConsole;
 use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::superconsole::BUCK_NO_INTERACTIVE_CONSOLE;
+use crate::subscribers::superconsole::ConsoleCanvas;
 use crate::subscribers::superconsole::StatefulSuperConsole;
 use crate::subscribers::superconsole::SuperConsoleConfig;
 use crate::subscribers::superconsole::timekeeper::Timekeeper;
@@ -118,7 +119,7 @@ pub fn get_console_with_root(
             Ok(Some(sc)) => StatefulSuperConsole::new(
                 command_name,
                 trace_id.dupe(),
-                sc,
+                ConsoleCanvas::Terminal(sc),
                 verbosity,
                 expect_spans,
                 timekeeper,
@@ -143,7 +144,7 @@ pub fn get_console_with_root(
         Ok(pair) => pair,
         Err(e) => {
             eprintln!("Falling back to simple console, super console initialization failed: {e}");
-            let _unused = soft_error!("console_init_failed", e);
+            soft_error_or_panic!("console_init_failed", e);
             (
                 Box::new(SimpleConsole::<NoopEventObserverExtra>::autodetect(
                     trace_id,

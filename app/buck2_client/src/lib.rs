@@ -8,7 +8,5 @@
  * above-listed licenses.
  */
 
-#![feature(used_with_arg)]
-
 pub mod commands;
 pub mod print;

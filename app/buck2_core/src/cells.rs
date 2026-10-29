@@ -82,12 +82,12 @@ pub mod cell_path;
 pub mod cell_path_with_allowed_relative_dir;
 pub mod cell_root_path;
 pub mod external;
+pub mod i_cell_relative_path;
 pub mod instance;
 pub mod name;
 pub mod nested;
 pub mod paths;
 pub(crate) mod sequence_trie_allocative;
-pub mod unchecked_cell_rel_path;
 
 use std::collections::hash_map;
 use std::fmt::Debug;
@@ -107,10 +107,12 @@ use sequence_trie::SequenceTrie;
 use crate::cells::alias::CellAlias;
 use crate::cells::alias::NonEmptyCellAlias;
 use crate::cells::cell_path::CellPath;
-use crate::cells::cell_path::CellPathRef;
+use crate::cells::cell_path::set_optimization_hint_cell_resolver;
 use crate::cells::cell_root_path::CellRootPathBuf;
 use crate::cells::name::CellName;
 use crate::cells::nested::NestedCells;
+use crate::cells::paths::CellRelativePath;
+use crate::fs::i_project_rel_path::IProjectRelativePath;
 use crate::fs::project::ProjectRoot;
 use crate::fs::project_rel_path::ProjectRelativePath;
 use crate::fs::project_rel_path::ProjectRelativePathBuf;
@@ -260,12 +262,14 @@ impl CellResolver {
         }
 
         let root_cell = root_cell.ok_or(CellError::NoRootCell)?;
-        Ok(CellResolver(Arc::new(CellResolverInternals {
+        let r = CellResolver(Arc::new(CellResolverInternals {
             cells: cells_map,
             root_cell,
             path_mappings,
             root_cell_alias_resolver,
-        })))
+        }));
+        set_optimization_hint_cell_resolver(&r);
+        Ok(r)
     }
 
     /// Get a `Cell` from the `CellMap`
@@ -308,14 +312,24 @@ impl CellResolver {
     }
 
     pub fn get_cell_path<P: AsRef<ProjectRelativePath> + ?Sized>(&self, path: &P) -> CellPath {
-        let path = path.as_ref();
+        let (cell, relative) = self.split_cell_path(path.as_ref());
+        CellPath::new(cell, relative)
+    }
+
+    /// The cell containing the path, and the path relative to that cell's root. Unlike
+    /// `get_cell_path`, this does not intern anything, so it is the one to use on paths that are
+    /// looked at once, such as directory entries.
+    pub fn split_cell_path<'a>(
+        &self,
+        path: &'a ProjectRelativePath,
+    ) -> (CellName, &'a CellRelativePath) {
         let cell = self.find(path);
         // Both of these unwraps are ok by construction of the `CellResolver`
         let instance = self.get(cell).unwrap();
         let relative = path
             .strip_prefix(instance.path().as_project_relative_path())
             .unwrap();
-        CellPath::new(cell, relative.to_owned().into())
+        (cell, CellRelativePath::new(relative))
     }
 
     pub fn get_cell_path_from_abs_path(
@@ -343,7 +357,7 @@ impl CellResolver {
     /// use buck2_core::cells::cell_path::CellPath;
     /// use buck2_core::cells::cell_root_path::CellRootPathBuf;
     /// use buck2_core::cells::name::CellName;
-    /// use buck2_core::cells::paths::CellRelativePathBuf;
+    /// use buck2_core::cells::paths::CellRelativePath;
     /// use buck2_core::fs::project_rel_path::ProjectRelativePath;
     /// use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     ///
@@ -355,21 +369,26 @@ impl CellResolver {
     ///
     /// let cell_path = CellPath::new(
     ///     CellName::testing_new("mycell"),
-    ///     CellRelativePathBuf::unchecked_new("some/path".to_owned()),
+    ///     CellRelativePath::unchecked_new("some/path"),
     /// );
     ///
     /// assert_eq!(
-    ///     cells.resolve_path(cell_path.as_ref())?,
+    ///     cells.resolve_path(cell_path)?,
     ///     ProjectRelativePathBuf::unchecked_new("my/cell/some/path".into()),
     /// );
     ///
     /// # buck2_error::Ok(())
     /// ```
-    pub fn resolve_path(
-        &self,
-        cell_path: CellPathRef,
-    ) -> buck2_error::Result<ProjectRelativePathBuf> {
+    pub fn resolve_path(&self, cell_path: CellPath) -> buck2_error::Result<ProjectRelativePathBuf> {
         Ok(self.get(cell_path.cell())?.path().join(cell_path.path()))
+    }
+
+    pub fn resolve_ipath(&self, cell_path: CellPath) -> buck2_error::Result<IProjectRelativePath> {
+        let root = self.get(cell_path.cell())?.path();
+        Ok(IProjectRelativePath::intern_concat_directly([
+            root.as_forward_relative_path(),
+            cell_path.path().as_forward_relative_path(),
+        ]))
     }
 
     // These are constructors for tests.
@@ -459,97 +478,5 @@ impl CellResolver {
         let root_aliases = CellAliasResolver::new(root.unwrap(), root_cell_aliases).unwrap();
 
         CellResolver::new(instances, root_aliases).unwrap()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
-    use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
-
-    use super::*;
-    use crate::cells::cell_root_path::CellRootPath;
-
-    #[test]
-    fn test_of_names_and_paths() -> buck2_error::Result<()> {
-        use crate::fs::project_rel_path::ProjectRelativePathBuf;
-
-        let cell_resolver = CellResolver::testing_with_name_and_path(
-            CellName::testing_new("foo"),
-            CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("bar".into())),
-        );
-
-        let cell = cell_resolver.get(CellName::testing_new("foo"))?;
-        assert_eq!(CellName::testing_new("foo"), cell.name());
-        assert_eq!("bar", cell.path().as_str());
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_cells() -> buck2_error::Result<()> {
-        let cell1_path = CellRootPath::new(ProjectRelativePath::new("my/cell1")?);
-        let cell2_path = CellRootPath::new(ProjectRelativePath::new("cell2")?);
-        let cell3_path = CellRootPath::new(ProjectRelativePath::new("my/cell3")?);
-
-        let cells = CellResolver::testing_with_names_and_paths(&[
-            (
-                CellName::testing_new("root"),
-                CellRootPathBuf::testing_new(""),
-            ),
-            (CellName::testing_new("cell1"), cell1_path.to_buf()),
-            (CellName::testing_new("cell2"), cell2_path.to_buf()),
-            (CellName::testing_new("cell3"), cell3_path.to_buf()),
-        ]);
-
-        assert_eq!(cells.find(cell1_path), CellName::testing_new("cell1"));
-        assert_eq!(cells.find(cell2_path), CellName::testing_new("cell2"));
-        assert_eq!(cells.find(cell3_path), CellName::testing_new("cell3"));
-        assert_eq!(
-            cells.find(
-                &cell2_path
-                    .as_project_relative_path()
-                    .join(ForwardRelativePath::new("fake/cell3")?)
-            ),
-            CellName::testing_new("cell2")
-        );
-        assert_eq!(
-            cells.find(
-                &cell3_path
-                    .as_project_relative_path()
-                    .join(ForwardRelativePath::new("more/foo")?)
-            ),
-            CellName::testing_new("cell3")
-        );
-
-        assert_eq!(
-            cells.get_cell_path(cell1_path),
-            CellPath::new(
-                CellName::testing_new("cell1"),
-                ForwardRelativePathBuf::unchecked_new("".to_owned()).into()
-            )
-        );
-
-        assert_eq!(
-            cells.get_cell_path(cell2_path),
-            CellPath::new(
-                CellName::testing_new("cell2"),
-                ForwardRelativePathBuf::unchecked_new("".to_owned()).into()
-            )
-        );
-
-        assert_eq!(
-            cells.get_cell_path(
-                &cell2_path
-                    .as_project_relative_path()
-                    .join(ForwardRelativePath::new("fake/cell3")?)
-            ),
-            CellPath::new(
-                CellName::testing_new("cell2"),
-                ForwardRelativePathBuf::unchecked_new("fake/cell3".to_owned()).into()
-            )
-        );
-
-        Ok(())
     }
 }

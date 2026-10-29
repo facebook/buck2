@@ -10,45 +10,49 @@
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_transition_success_if_attr_value_has_not_changed(buck: Buck) -> None:
-    await buck.build("root//:target_where_transition_does_not_change_attr")
+class SelectInTransitionAttrTest(BuckTestCase):
+    @buck_test()
+    async def test_transition_success_if_attr_value_has_not_changed(
+        self, buck: Buck
+    ) -> None:
+        await buck.build("root//:target_where_transition_does_not_change_attr")
 
+    @buck_test()
+    async def test_transition_dep_success_if_attr_value_has_not_changed(
+        self, buck: Buck
+    ) -> None:
+        await buck.build("root//:target_with_transition_dep")
 
-@buck_test()
-async def test_transition_dep_success_if_attr_value_has_not_changed(buck: Buck) -> None:
-    await buck.build("root//:target_with_transition_dep")
+    @buck_test()
+    async def test_transition_failed_if_attr_value_has_changed(
+        self, buck: Buck
+    ) -> None:
+        err_msg = (
+            r"Target root//:target_where_transition_changes_attr configuration transitioned\n"
+            r"\s+old: root//:iphone#.*\n"
+            r"\s+new: <transitioned-from-watch>#.*\n"
+            r"\s+but attribute: extra\n"
+            r"\s+resolved with old configuration to: \"phone\"\n"
+            r"\s+resolved with new configuration to: \"watch\""
+        )
 
+        await expect_failure(
+            buck.build("root//:target_where_transition_changes_attr"),
+            stderr_regex=err_msg,
+        )
 
-@buck_test()
-async def test_transition_failed_if_attr_value_has_changed(buck: Buck) -> None:
-    err_msg = (
-        r"Target root//:target_where_transition_changes_attr configuration transitioned\n"
-        r"\s+old: root//:iphone#.*\n"
-        r"\s+new: <transitioned-from-watch>#.*\n"
-        r"\s+but attribute: extra\n"
-        r"\s+resolved with old configuration to: \"phone\"\n"
-        r"\s+resolved with new configuration to: \"watch\""
-    )
+    @buck_test()
+    async def test_transition_failed_if_attr_value_cycle(self, buck: Buck) -> None:
+        err_msg = (
+            r"Dependency cycle detected \(`->` means \"depends on\"\):\n"
+            r"\s+root//:target_where_transition_cycles_via_changed_attrs \(<transitioned-from-.*>#.*\) ->.*\n"
+            r"\s+root//:target_where_transition_cycles_via_changed_attrs \(<transitioned-from-.*>#.*\) ->.*\n"
+        )
 
-    await expect_failure(
-        buck.build("root//:target_where_transition_changes_attr"),
-        stderr_regex=err_msg,
-    )
-
-
-@buck_test()
-async def test_transition_failed_if_attr_value_cycle(buck: Buck) -> None:
-    err_msg = (
-        r"Configured target cycle detected \(`->` means \"depends on\"\):\n"
-        r"\s+root//:target_where_transition_cycles_via_changed_attrs \(<transitioned-from-.*>#.*\) ->.*\n"
-        r"\s+root//:target_where_transition_cycles_via_changed_attrs \(<transitioned-from-.*>#.*\) ->.*\n"
-    )
-
-    await expect_failure(
-        buck.build("root//:target_where_transition_cycles_via_changed_attrs"),
-        stderr_regex=err_msg,
-    )
+        await expect_failure(
+            buck.build("root//:target_where_transition_cycles_via_changed_attrs"),
+            stderr_regex=err_msg,
+        )

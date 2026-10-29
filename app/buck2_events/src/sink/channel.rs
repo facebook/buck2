@@ -8,7 +8,7 @@
  * above-listed licenses.
  */
 
-use buck2_core::soft_error;
+use buck2_core::soft_error_or_panic;
 use buck2_error::conversion::from_any_with_tag;
 use dupe::Dupe;
 
@@ -38,7 +38,10 @@ impl EventSink for ChannelEventSink {
             if should_panic {
                 // TODO iguridi: this panic was here before. We probably should just ignore these errors
                 // but first, let's check how often this happens.
-                let _res = soft_error!("event_sink_send_panic", from_any_with_tag(e.clone(), buck2_error::ErrorTag::Tier0), quiet: true);
+                soft_error_or_panic!(
+                    "event_sink_send_panic",
+                    from_any_with_tag(e.clone(), buck2_error::ErrorTag::Tier0)
+                );
                 panic!("failed to send control event to ChannelEventSink: {e}");
             }
         }

@@ -122,7 +122,6 @@ impl BuildInterpreterConfiguror {
         buildfile_path: BuildFilePath,
         package_listing: PackageListing,
         super_package: SuperPackage,
-        package_boundary_exception: bool,
         loaded_modules: &LoadedModules,
         implicit_import: Option<&Arc<ImplicitImport>>,
         current_dir_with_allowed_relative_dirs: CellPathWithAllowedRelativeDir,
@@ -149,7 +148,6 @@ impl BuildInterpreterConfiguror {
             cell_info.cell_resolver().dupe(),
             cell_info.cell_alias_resolver().dupe(),
             (buildfile_path.package().dupe(), package_listing.dupe()),
-            package_boundary_exception,
             current_dir_with_allowed_relative_dirs,
             self.infer_target_names,
         );

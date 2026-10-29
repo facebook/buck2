@@ -216,7 +216,7 @@ async fn write_to_manifold(buf: &[u8], name: &str) -> Option<String> {
     let ttl = Ttl::from_days(14); // 14 days should be plenty of time to take action
 
     let bucket = Bucket::RAGE_DUMPS;
-    let mut cursor = &mut std::io::Cursor::new(buf);
+    let mut cursor = std::io::Cursor::new(buf);
 
     manifold
         .read_and_upload(bucket, &filename, ttl, &mut cursor)

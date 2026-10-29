@@ -104,6 +104,12 @@ pub(crate) fn check_remaining_disk_space(
     }
 }
 
+/// Whether less than 1% of the disk is free. Unlike `check_remaining_disk_space`, this is not
+/// configurable: it identifies a disk that is effectively full, where writes may fail.
+pub(crate) fn is_disk_near_full(free_disk_space: u64, total_disk_space: u64) -> bool {
+    free_disk_space < total_disk_space / 100
+}
+
 pub(crate) fn check_remaining_disk_space_snapshot(
     last_snapshot: Option<&buck2_data::Snapshot>,
     system_info: &buck2_data::SystemInfo,

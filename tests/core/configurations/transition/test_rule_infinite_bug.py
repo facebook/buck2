@@ -11,14 +11,15 @@
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_configuration_transition_rule_infinite_bug(buck: Buck) -> None:
-    result = await expect_failure(
-        buck.cquery(
-            "deps(root//:xx)",
+class RuleInfiniteBugTest(BuckTestCase):
+    @buck_test()
+    async def test_configuration_transition_rule_infinite_bug(self, buck: Buck) -> None:
+        result = await expect_failure(
+            buck.cquery(
+                "deps(root//:xx)",
+            )
         )
-    )
-    assert "did not produce identical" in result.stderr
+        assert "did not produce identical" in result.stderr

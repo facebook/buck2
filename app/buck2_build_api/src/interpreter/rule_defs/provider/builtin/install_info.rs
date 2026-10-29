@@ -13,9 +13,9 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_build_api_derive::internal_provider;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_error::BuckErrorContext;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use starlark::any::ProvidesStaticType;
-use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::Freeze;
 use starlark::values::FreezeError;
@@ -93,7 +93,7 @@ impl<'v> InstallInfo<'v> {
         })
     }
 
-    pub fn get_files(&self) -> buck2_error::Result<SmallMap<String, Artifact>> {
+    pub fn get_files(&self) -> buck2_error::Result<BuckMutInsertionMap<String, Artifact>> {
         Self::get_files_iter(&self.get_files_dict())
             .map(|x| {
                 let (k, v) = x?;

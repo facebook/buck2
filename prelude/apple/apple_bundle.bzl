@@ -22,6 +22,7 @@ load(
     "ModularizationDependencyGraphInfo",  # @unused Used as a type
     "create_modularization_dep_graph_subtargets_and_provider",
 )
+# @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_bundle_meta_validation.bzl", "apple_bundle_meta_validation")
 # @oss-disable[end= ]: load("@prelude//apple/meta_only:linker_outputs.bzl", "subtargets_for_apple_bundle_extra_outputs")
 load("@prelude//apple/user:apple_selected_debug_path_file.bzl", "SELECTED_DEBUG_PATH_FILE_NAME")
 load("@prelude//apple/user:apple_selective_debugging.bzl", "AppleSelectiveDebuggingInfo")
@@ -228,7 +229,7 @@ def _maybe_scrub_binary(ctx, binary_dep: Dependency) -> AppleBundleBinaryOutput:
         # For debug symbols we take the unstripped unscrubbed binary
         debug_binaries = [unstripped_binary] if unstripped_binary else [binary]
         binary = _scrub_binary(ctx, binary, binary_dep.get(LinkExecutionPreferenceInfo), filtered_debug_info.swift_modules_labels)
-        dsym_artifact = _get_scrubbed_binary_dsym(ctx, binary, debug_info_tset)
+        dsym_artifact = _get_binary_dsym(ctx, binary, debug_info_tset, dsym_allowlist = None)
 
         filtered_map = {}
         for selected_target_info in filtered_debug_info.selected_target_infos:
@@ -251,7 +252,7 @@ def _maybe_scrub_binary(ctx, binary_dep: Dependency) -> AppleBundleBinaryOutput:
         binary = _scrub_binary(ctx, binary, binary_dep.get(LinkExecutionPreferenceInfo))
         return AppleBundleBinaryOutput(binary = binary, unstripped_binary = unstripped_binary)
 
-def _get_scrubbed_binary_dsym(ctx, binary: Artifact, debug_info_tset: ArtifactTSet) -> Artifact:
+def _get_binary_dsym(ctx, binary: Artifact, debug_info_tset: ArtifactTSet, dsym_allowlist: [Artifact, None]) -> Artifact:
     debug_info = project_artifacts(
         actions = ctx.actions,
         tsets = debug_info_tset,
@@ -261,6 +262,10 @@ def _get_scrubbed_binary_dsym(ctx, binary: Artifact, debug_info_tset: ArtifactTS
         executable = binary,
         debug_info = debug_info,
         action_identifier = binary.short_path,
+        # The binary is an output of another target when it's not scrubbed, so
+        # its short path could conflict with outputs of this bundle.
+        output_path_override = "selective_debugging/{}.dSYM".format(binary.short_path) if dsym_allowlist != None else None,
+        dsym_allowlist = dsym_allowlist,
     )
     return dsym_artifact
 
@@ -288,10 +293,10 @@ def _get_binary_bundle_parts(
     )
 
 def _get_dsym_input_binary_arg(ctx: AnalysisContext, binary_output: AppleBundleBinaryOutput, primary_binary_path_arg: cmd_args) -> cmd_args:
-    # We've already scrubbed the default binary, we only want to scrub the unstripped one if present.
+    # The default binary has already been scrubbed if needed, only the unstripped one is left.
     unstripped_binary = binary_output.unstripped_binary
     if unstripped_binary:
-        if ctx.attrs.selective_debugging != None:
+        if ctx.attrs.selective_debugging != None and binary_output.dsym_allowlist == None:
             unstripped_binary = _scrub_binary(
                 ctx, unstripped_binary, get_default_binary_dep(ctx.attrs.binary).get(LinkExecutionPreferenceInfo), identifier = "unstripped"
             )
@@ -324,6 +329,7 @@ def _get_bundle_binary_dsym_artifacts(ctx: AnalysisContext, binary_output: Apple
             ),
             action_identifier = get_bundle_dir_name(ctx),
             output_path = _get_bundle_dsym_name(ctx),
+            dsym_allowlist = binary_output.dsym_allowlist,
         )
         return [bundle_binary_dsym_artifact]
     else:
@@ -556,22 +562,21 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx,
         aggregated_debug_info.debug_info.debug_info_tset,
     )
+    validation_specs = []
     if required_reasons_validator_output != None:
         sub_targets["required-reasons-validation"] = [
             DefaultInfo(default_output = required_reasons_validator_output),
         ]
-        validation_providers = [
-            ValidationInfo(
-                validations = [
-                    ValidationSpec(
-                        name = "required_reasons_usage",
-                        validation_result = required_reasons_validator_output,
-                    ),
-                ],
+        validation_specs.append(
+            ValidationSpec(
+                name = "required_reasons_usage",
+                validation_result = required_reasons_validator_output,
             ),
-        ]
-    else:
-        validation_providers = []
+        )
+    # @oss-disable[end= ]: meta_validation = apple_bundle_meta_validation(ctx, apple_bundle_part_list_output)
+    # @oss-disable[end= ]: sub_targets.update(meta_validation.sub_targets)
+    # @oss-disable[end= ]: validation_specs.extend(meta_validation.validation_specs)
+    validation_providers = [ValidationInfo(validations = validation_specs)] if validation_specs else []
 
     diagnostics_info = cxx_transitive_diagnostics_combine(
         ctx = ctx,
@@ -627,6 +632,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         + validation_providers
     )
     providers += xcassets_bundle_catalogs_providers(ctx, apple_bundle_part_list_output.xcassets_catalogs)
+    # @oss-disable[end= ]: providers += meta_validation.providers
     if xplugins_debug_info:
         providers.append(xplugins_debug_info)
     providers.append(xplugins_function_mapping_manifest_info)

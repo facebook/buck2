@@ -22,6 +22,7 @@ use buck2_certs::validate::CertState;
 use buck2_cli_proto::client_context::ExitWhen;
 use buck2_cli_proto::client_context::PreemptibleWhen;
 use buck2_common::legacy_configs::dice::HasInjectedLegacyConfigs;
+use buck2_common::settings::BuckSettings;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::pattern::pattern::ParsedPattern;
@@ -190,6 +191,10 @@ impl CommandTransactionObserver for BuckconfigTelemetry<'_> {
 
 #[async_trait]
 pub trait ServerCommandContextTrait: Send + Sync {
+    /// Daemon-scoped startup sections combined with this request's invocation sections.
+    /// Reads are untracked; cached computations must track invocation values they depend on.
+    fn buck_settings(&self) -> &BuckSettings;
+
     fn working_dir(&self) -> &ProjectRelativePath;
 
     fn working_dir_abs(&self) -> &AbsWorkingDir;

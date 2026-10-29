@@ -16,14 +16,29 @@ EXTENDED_DSYM_INFO_SUBTARGET = "extended-dsym-info"
 DWARF_AND_DSYM_SUBTARGET = "dwarf-and-dsym"
 
 def get_apple_dsym(
-    ctx: AnalysisContext, executable: Artifact, debug_info: list[ArgLike], action_identifier: str, output_path_override: [str, None] = None
+    ctx: AnalysisContext,
+    executable: Artifact,
+    debug_info: list[ArgLike],
+    action_identifier: str,
+    output_path_override: [str, None] = None,
+    dsym_allowlist: [Artifact, None] = None,
 ) -> Artifact:
     output_path = output_path_override or "{}.dSYM".format(executable.short_path)
-    return get_apple_dsym_ext(ctx, executable, debug_info, action_identifier, output_path)
+    return get_apple_dsym_ext(ctx, executable, debug_info, action_identifier, output_path, dsym_allowlist)
 
 # TODO(T110672942): Things which are still unsupported:
 # - oso_prefix
-def get_apple_dsym_ext(ctx: AnalysisContext, executable: [ArgLike, Artifact], debug_info: list[ArgLike], action_identifier: str, output_path: str) -> Artifact:
+#
+# `dsym_allowlist` is an optional file in the format accepted by
+# `dsymutil --allow`: only the debug info of the objects it lists is linked.
+def get_apple_dsym_ext(
+    ctx: AnalysisContext,
+    executable: [ArgLike, Artifact],
+    debug_info: list[ArgLike],
+    action_identifier: str,
+    output_path: str,
+    dsym_allowlist: [Artifact, None] = None,
+) -> Artifact:
     dsymutil = ctx.attrs._apple_toolchain[AppleToolchainInfo].dsymutil
     output = ctx.actions.declare_output(output_path, dir = True, has_content_based_path = False)
     cmd = cmd_args(
@@ -37,6 +52,10 @@ def get_apple_dsym_ext(ctx: AnalysisContext, executable: [ArgLike, Artifact], de
         # So, those object files are needed for dsymutil to be to create the dSYM bundle.
         hidden = debug_info,
     )
+    if dsym_allowlist != None:
+        # The separate form makes a `dsymutil` without `--allow` fail instead
+        # of silently linking all debug info.
+        cmd.add("--allow", dsym_allowlist)
     cmd.add(
         "-o",
         output.as_output(),

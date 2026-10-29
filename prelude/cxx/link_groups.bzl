@@ -9,18 +9,20 @@
 load("@prelude//:paths.bzl", "paths")
 load(
     "@prelude//cxx:groups_types.bzl",
-    "Group",  # @unused Used as a type
+    "Group",
 )
 load(
     "@prelude//cxx:link_groups_types.bzl",
     "LinkGroupDefinitions",
     "LinkGroupInfo",
+    "LinkGroupsDebugLinkInfo",
     "LinkGroupsDebugLinkableEntry",
+    "LinkGroupsDebugLinkableEntryExtras",
     "LinkGroupsDebugLinkableItem",
 )
 load(
     "@prelude//cxx:transformation_spec.bzl",
-    "TransformationSpecContext",  # @unused Used as a type
+    "TransformationSpecContext",
 )
 load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
 load(
@@ -34,10 +36,11 @@ load(
     "LinkInfo",
     "LinkInfos",
     "LinkStrategy",
-    "LinkedObject",  # @unused Used as a type
+    "LinkedObject",
     "SharedLibLinkable",
     "get_lib_output_style",
     "get_link_info_for_transformation",
+    "link_info_outputs",
     "set_link_info_link_whole",
     "wrap_link_info",
     "wrap_with_no_as_needed_shared_libs_flags",
@@ -45,9 +48,9 @@ load(
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
-    "LinkableGraph",  # @unused Used as a type
+    "LinkableGraph",
     "LinkableNode",  # @unused Used as a type
-    "LinkableRootInfo",  # @unused Used as a type
+    "LinkableRootInfo",
     "ReducedLinkableGraph",
     "create_linkable_graph",
     "get_deps_for_link",
@@ -93,7 +96,7 @@ load(
 load(":hip_debug_extract.bzl", "PRE_EXTRACT_SUFFIX", "hip_debug_extract_available")
 load(
     ":link.bzl",
-    "CxxLinkerMapData",  # @unused Used as a type
+    "CxxLinkerMapData",
     "collect_hip_debug_from_links",
     "cxx_link_shared_library",
     "link_args_have_hip_device_debug",
@@ -130,6 +133,9 @@ load(
 LINK_GROUP_MAP_DATABASE_SUB_TARGET = "link-group-map-database"
 LINK_GROUP_MAP_DATABASE_FILENAME = "link_group_map_database.json"
 
+# Returns the linkables of the link in link order (`LinkGroupsDebugLinkInfo`).
+LINK_GROUPS_INFO_SUB_TARGET = "link-groups-info"
+
 # Returns a mapping from link group names to its constituent targets.
 LINK_GROUP_MAPPINGS_SUB_TARGET = "link-group-mappings"
 LINK_GROUP_MAPPINGS_FILENAME_SUFFIX = ".link_group_map.json"
@@ -140,6 +146,9 @@ LinkGroupLinkInfo = record(
     # Where this link info is originated from.
     # Either target label or link group name
     link_name = field(Label | str),
+    # For a link group entry, the target owning the group's library (`LinkGroupLib.label`);
+    # None for a target entry and for a link group the link creates itself.
+    owner = field(Label | None, None),
 )
 
 LinkGroupLibSpec = record(
@@ -353,19 +362,54 @@ def _transitively_update_shared_linkage(
         process_dependency,
     )
 
-def create_debug_linkable_entries(labels_to_links_map: dict[Label, LinkGroupLinkInfo], root: Label | None) -> list[LinkGroupsDebugLinkableEntry]:
+def _entry_label(key: Label, link_info: LinkGroupLinkInfo) -> TargetLabel | None:
+    """
+    The target a `[link-groups-info]` entry stands for. A target entry is its
+    own target. A link group entry is keyed by whichever mapped target the
+    traversal met first (a member as readily as the group's library), so it
+    stands for the target owning the group's library instead, and for none when
+    the link created the group itself.
+    """
+    if type(link_info.link_name) == "string":
+        return link_info.owner.raw_target() if link_info.owner else None
+    return key.raw_target()
+
+def create_debug_linkable_entries(
+    labels_to_links_map: dict[Label, LinkGroupLinkInfo],
+    root: Label | None,
+    with_extras: bool = False,
+    root_link_info: LinkInfo | None = None,
+) -> list[LinkGroupsDebugLinkableEntry]:
+    """
+    The entries of `[link-groups-info]`. With `with_extras` (xcode data
+    enabled) each entry also carries the target it stands for and the artifacts
+    the linker is given for it (`root_link_info` is what the root is linked
+    with, when there is a root); otherwise `extras` is None.
+    """
     entries = []
     if root:
         root_entry = LinkGroupsDebugLinkableEntry(
             name = root,
             output_style = LibOutputStyle("pic_archive"),
+            extras = LinkGroupsDebugLinkableEntryExtras(
+                label = root.raw_target(),
+                outputs = link_info_outputs(root_link_info) if root_link_info else [],
+            )
+            if with_extras
+            else None,
         )
         entries.append(root_entry)
 
-    for link_info in labels_to_links_map.values():
+    for key, link_info in labels_to_links_map.items():
         link_groups_linkable_info = LinkGroupsDebugLinkableEntry(
             name = link_info.link_name if type(link_info.link_name) == "string" else link_info.link_name.raw_target(),
             output_style = link_info.output_style,
+            extras = LinkGroupsDebugLinkableEntryExtras(
+                label = _entry_label(key, link_info),
+                outputs = link_info_outputs(link_info.link_info),
+            )
+            if with_extras
+            else None,
         )
         entries.append(link_groups_linkable_info)
 
@@ -546,7 +590,7 @@ def get_filtered_labels_to_links_map(
         link_group_lib = build_context.link_group_libs.get(target_group)
         if link_group_lib == None:
             return
-        _, shared_link_infos = link_group_lib
+        owner, shared_link_infos = link_group_lib
 
         expect(target_group != link_group)
         link_group_added.add(target_group)
@@ -554,6 +598,7 @@ def get_filtered_labels_to_links_map(
             link_info = get_link_info_from_link_infos(shared_link_infos),
             output_style = LibOutputStyle("shared_lib"),
             link_name = target_group,
+            owner = owner,
         )
 
     filtered_groups = [None, NO_MATCH_LABEL, MATCH_ALL_LABEL, MATCH_DIRECT_DEPS_LABEL]
@@ -734,19 +779,40 @@ def get_filtered_links(labels_to_links_map: dict[Label, LinkGroupLinkInfo], publ
             infos.append(info)
     return infos
 
-def get_filtered_targets(labels_to_links_map: dict[Label, LinkGroupLinkInfo]):
+def get_filtered_targets(labels_to_links_map: dict[Label, LinkGroupLinkInfo]) -> set[TargetLabel]:
     # labels_to_links_map will include entries for shared link group libraries
     # as well as libraries being statically linked into this link unit.
-    statically_linked_targets = []
+    statically_linked_targets = set()
     for label, info in labels_to_links_map.items():
         if info.output_style != LibOutputStyle("shared_lib"):
-            statically_linked_targets.append(label.raw_target())
+            statically_linked_targets.add(label.raw_target())
 
     return statically_linked_targets
 
-def get_link_group_map_json(ctx: AnalysisContext, targets: list[TargetLabel]) -> DefaultInfo:
+def get_link_group_map_json(ctx: AnalysisContext, targets: set[TargetLabel]) -> DefaultInfo:
     json_map = ctx.actions.write_json(LINK_GROUP_MAP_DATABASE_FILENAME, sorted(targets), pretty = True, has_content_based_path = False)
     return DefaultInfo(default_output = json_map)
+
+def get_link_groups_info_json(ctx: AnalysisContext, labels_to_links_map: dict[Label, LinkGroupLinkInfo], with_extras: bool) -> DefaultInfo:
+    """
+    The `[link-groups-info]` of a link unit that creates no link groups of its
+    own (a shared library linked with link groups): the record the executable
+    writes, every linkable in link order under `binary`, with its extras when
+    `with_extras`, and no `libs`.
+    """
+    info = LinkGroupsDebugLinkInfo(
+        binary = LinkGroupsDebugLinkableItem(
+            ordered_linkables = create_debug_linkable_entries(labels_to_links_map, root = None, with_extras = with_extras),
+        ),
+        libs = {},
+    )
+    return DefaultInfo(
+        default_output = ctx.actions.write_json(
+            ctx.label.name + "." + LINK_GROUPS_INFO_SUB_TARGET + ".json",
+            info,
+            has_content_based_path = False,
+        )
+    )
 
 def _find_all_relevant_roots(
     specs: list[LinkGroupLibSpec],
@@ -865,6 +931,8 @@ _CreatedLinkGroup = record(
     linked_object = field(LinkedObject),
     labels_to_links = field(FinalLabelsToLinks),
     linker_map_data = field([CxxLinkerMapData, None], None),
+    # What the root was linked with, when the spec has a root.
+    root_link_info = field(LinkInfo | None, None),
 )
 
 _CreateLinkGroupParams = record(
@@ -909,16 +977,16 @@ def _create_link_group(
         )
     )
 
+    root_link_info = None
     if spec.root != None:
         # If there's a linkable root attached to the spec, use that to guide
         # linking, as that will contain things like private linker flags that
         # might be required to link the given link group.
-        inputs.append(
-            get_link_info_from_link_infos(
-                spec.root.link_infos,
-                prefer_stripped = params.build_groups_context.prefer_stripped,
-            )
+        root_link_info = get_link_info_from_link_infos(
+            spec.root.link_infos,
+            prefer_stripped = params.build_groups_context.prefer_stripped,
         )
+        inputs.append(root_link_info)
 
     # Add roots...
     filtered_labels_to_links = get_filtered_labels_to_links_map(
@@ -991,6 +1059,7 @@ def _create_link_group(
         linked_object = linked_obj,
         labels_to_links = filtered_labels_to_links,
         linker_map_data = link_result.linker_map_data,
+        root_link_info = root_link_info,
     )
 
 def _stub_library(
@@ -1118,6 +1187,8 @@ def create_link_groups(
     allow_cache_upload = False,
     transformation_spec_context: TransformationSpecContext | None = None,
     error_handler: [typing.Callable, None] = None,
+    # Write the link groups' `[link-groups-info]` entries with their extras (xcode data enabled).
+    debug_linkable_extras: bool = False,
 ) -> _LinkedLinkGroups:
     # We linking libraries here so we need pic
     if link_strategy == LinkStrategy("static"):
@@ -1230,7 +1301,12 @@ def create_link_groups(
 
         root_label = link_group_spec.root.label if link_group_spec.root else None
         link_groups_debug_info[link_group_spec.name] = LinkGroupsDebugLinkableItem(
-            ordered_linkables = create_debug_linkable_entries(created_link_group.labels_to_links.map, root_label),
+            ordered_linkables = create_debug_linkable_entries(
+                created_link_group.labels_to_links.map,
+                root_label,
+                debug_linkable_extras,
+                root_link_info = created_link_group.root_link_info,
+            ),
         )
 
         for linked_target, link_info in created_link_group.labels_to_links.map.items():

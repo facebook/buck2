@@ -32,6 +32,7 @@
  ].
 ```
 """.
+-compile(warn_missing_spec_all).
 
 -export([main/1]).
 

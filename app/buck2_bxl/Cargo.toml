@@ -50,7 +50,6 @@ pagable.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 starlark.workspace = true
-starlark_map.workspace = true
 strong_hash.workspace = true
 tokio.workspace = true
 variant_name.workspace = true
@@ -60,7 +59,6 @@ buck2_action_impl.workspace = true
 buck2_anon_target.workspace = true
 buck2_transition.workspace = true
 ctor.workspace = true
-maplit.workspace = true
 
 [lints]
 workspace = true

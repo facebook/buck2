@@ -12,6 +12,7 @@ load(
     "@prelude//cxx:cxx_library_utility.bzl",
     "cxx_is_gnu",
 )
+load("@prelude//utils:actions.bzl", "ActionExecutionAttributes")
 
 # Sections are added after BOLT but before build info stamping, so a target
 # with `elf_sections` carries this suffix outside of `PRE_STAMPED_SUFFIX`.
@@ -23,7 +24,14 @@ def _validate_section_name(name: str):
     if "=" in name:
         fail("ELF section names must not contain `=`: `{}`".format(name))
 
-def add_elf_sections(ctx: AnalysisContext, obj: Artifact, sections: dict[str, Artifact], output: Artifact, category: str) -> Artifact:
+def add_elf_sections(
+    ctx: AnalysisContext,
+    obj: Artifact,
+    sections: dict[str, Artifact],
+    output: Artifact,
+    category: str,
+    action_execution_properties: ActionExecutionAttributes | None = None,
+) -> Artifact:
     """
     Copy `obj` to `output`, adding each entry of `sections` as an ELF section
     named by its key holding the contents of its value.
@@ -39,17 +47,22 @@ def add_elf_sections(ctx: AnalysisContext, obj: Artifact, sections: dict[str, Ar
         cmd.add("--add-section", cmd_args(content, format = "{}={{}}".format(name)))
     cmd.add(obj, output.as_output())
 
-    # objcopy rewrites the whole file. This can be run remotely, but it's often
-    # cheaper to do it locally for large binaries, especially on CI using
-    # limited hybrid.
-    prefer_local = not getattr(ctx.attrs, "optimize_for_action_throughput", False)
+    if getattr(ctx.attrs, "optimize_for_action_throughput", False):
+        action_execution_properties = ActionExecutionAttributes(prefer_remote = True)
+    elif action_execution_properties == None:
+        # objcopy rewrites the whole file. This can be run remotely, but it's often
+        # cheaper to do it locally for large binaries, especially on CI using
+        # limited hybrid.
+        action_execution_properties = ActionExecutionAttributes(prefer_local = True)
 
     ctx.actions.run(
         cmd,
         identifier = obj.short_path,
         category = category,
-        prefer_local = prefer_local,
-        prefer_remote = not prefer_local,
+        prefer_local = action_execution_properties.prefer_local,
+        prefer_remote = action_execution_properties.prefer_remote,
+        local_only = action_execution_properties.local_only,
+        force_full_hybrid_if_capable = action_execution_properties.full_hybrid,
         allow_cache_upload = toolchain.cxx_compiler_info.allow_cache_upload,
     )
 
@@ -80,7 +93,12 @@ def get_elf_sections(ctx: AnalysisContext) -> dict[str, Artifact]:
     """
     return getattr(ctx.attrs, "elf_sections", None) or {}
 
-def add_elf_sections_to_executable(ctx: AnalysisContext, obj: Artifact, has_content_based_path: bool = False) -> Artifact:
+def add_elf_sections_to_executable(
+    ctx: AnalysisContext,
+    obj: Artifact,
+    action_execution_properties: ActionExecutionAttributes,
+    has_content_based_path: bool = False,
+) -> Artifact:
     """
     Add the rule's `elf_sections` to a linked executable, if it has any.
 
@@ -105,4 +123,5 @@ def add_elf_sections_to_executable(ctx: AnalysisContext, obj: Artifact, has_cont
         sections,
         ctx.actions.declare_output(stem.removesuffix(PRE_ADD_ELF_SECTIONS_SUFFIX) + ext, has_content_based_path = has_content_based_path),
         category = "add_elf_sections",
+        action_execution_properties = action_execution_properties,
     )

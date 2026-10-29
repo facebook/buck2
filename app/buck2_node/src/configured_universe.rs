@@ -305,7 +305,7 @@ mod tests {
     use buck2_core::provider::label::ProvidersName;
     use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
     use buck2_core::target::name::TargetName;
-    use buck2_query::__derive_refs::indexmap::IndexMap;
+    use buck2_hash::BuckMutInsertionMap;
     use buck2_query::query::syntax::simple::eval::set::TargetSet;
     use dupe::Dupe;
 
@@ -324,7 +324,7 @@ mod tests {
             cfg: ConfigurationPredicate,
         ) -> ResolvedPattern<ConfiguredProvidersPatternExtra> {
             ResolvedPattern {
-                specs: IndexMap::from_iter([(
+                specs: BuckMutInsertionMap::from_iter([(
                     PackageLabelWithModifiers {
                         package: PackageLabel::testing_parse("foo//bar"),
                         modifiers: Modifiers::new(None),

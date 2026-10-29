@@ -8,8 +8,8 @@
  * above-listed licenses.
  */
 
+use buck2_node::attrs::arena::AttrToken;
 use buck2_node::attrs::attr_type::source::SourceAttrType;
-use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use starlark::typing::Ty;
@@ -35,12 +35,12 @@ fn cleanup_path(value: &str) -> &str {
 }
 
 impl AttrTypeCoerce for SourceAttrType {
-    fn coerce_item(
+    fn coerce_item<'v>(
         &self,
         _configurable: AttrIsConfigurable,
-        ctx: &dyn AttrCoercionContext,
-        value: Value,
-    ) -> buck2_error::Result<CoercedAttr> {
+        ctx: &dyn AttrCoercionContext<'v>,
+        value: Value<'v>,
+    ) -> buck2_error::Result<AttrToken> {
         let source_label = value.unpack_str_err()?;
 
         // A label needs a `:` (`//foo:bar`, `:bar`) unless the target name is being inferred from
@@ -48,7 +48,7 @@ impl AttrTypeCoerce for SourceAttrType {
         // valid path, so testing for it doesn't cost us any path coercions.
         let label_err = if source_label.contains(':') || source_label.contains("//") {
             match ctx.coerce_providers_label(source_label) {
-                Ok(l) => return Ok(CoercedAttr::SourceLabel(l)),
+                Ok(l) => return ctx.attr_arena().encode_source_label(&l),
                 Err(e) => Some(e),
             }
         } else {
@@ -57,7 +57,7 @@ impl AttrTypeCoerce for SourceAttrType {
         };
 
         let path_err = match ctx.coerce_path(cleanup_path(source_label), self.allow_directory) {
-            Ok(path) => return Ok(CoercedAttr::SourceFile(path)),
+            Ok(path) => return ctx.attr_arena().encode_source_file(&path),
             Err(path_err) => path_err,
         };
 

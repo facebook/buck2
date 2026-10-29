@@ -15,17 +15,19 @@ use std::sync::LazyLock;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_core::fs::i_project_rel_path::IProjectRelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
-use buck2_error::BuckErrorOptionContext;
 use buck2_fs::IoResultExt;
 use buck2_fs::async_fs_util::spawn_blocking;
+use buck2_fs::error::tag_eden_io_error;
 use buck2_fs::fs_util;
 use buck2_fs::paths::RelativePathBuf;
+use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_path::AbsPath;
 use buck2_fs::paths::abs_path::AbsPathBuf;
-use buck2_fs::paths::file_name::FileName;
+use buck2_fs::paths::file_name::FileNameBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use compact_str::CompactString;
@@ -45,6 +47,7 @@ use crate::file_ops::metadata::Symlink;
 use crate::file_ops::metadata::TrackedFileDigest;
 use crate::io::IoProvider;
 use crate::io::ReadDirOutcome;
+use crate::io::report_invalid_file_names;
 
 #[derive(Clone, Dupe, Allocative, Pagable)]
 pub struct FsIoProvider {
@@ -105,6 +108,60 @@ enum FsIoError {
     NotUtf8(OsString),
 }
 
+/// Classify an I/O error from a project path when the project is known to be on EdenFS.
+///
+/// `is_eden` was detected when the daemon started and the mount was healthy. That beats probing
+/// the mount again once a read has failed: an `EIO`/`ENOTCONN` mount fails the probe too, so
+/// EdenFS failures ended up filed as plain buck2 I/O errors exactly when EdenFS was broken.
+/// `path` lets the mount table rule out paths that are inside the checkout but on another
+/// filesystem, such as a `buck-out` redirection.
+fn classify_eden_error(is_eden: bool, path: &AbsPath, e: buck2_error::Error) -> buck2_error::Error {
+    if is_eden {
+        tag_eden_io_error(path, e)
+    } else {
+        e
+    }
+}
+
+/// The listing, and the names of entries left out of it for not being valid buck2 file names.
+fn read_dir_entries(
+    path: &AbsNormPath,
+    is_eden: bool,
+) -> buck2_error::Result<(ReadDirOutcome, Vec<String>)> {
+    let dir_entries = match fs_util::read_dir(path) {
+        Ok(entries) => entries,
+        Err(e) if is_eden && e.io_error_kind() == Some(std::io::ErrorKind::PermissionDenied) => {
+            tracing::debug!(
+                "read_dir({}): permission denied on Eden repo, treating as restricted directory",
+                path.display()
+            );
+            return Ok((ReadDirOutcome::EdenPermissionDenied, Vec::new()));
+        }
+        Err(e) => return Err(e.categorize_input()),
+    };
+
+    let mut entries = Vec::new();
+    let mut invalid_names = Vec::new();
+
+    for entry in dir_entries {
+        let e = entry.buck_error_context("Error accessing directory entry")?;
+        let file_name = e.file_name();
+        let file_name = file_name
+            .to_str()
+            .ok_or_else(|| FsIoError::NotUtf8(file_name.clone()))?;
+        let Ok(file_name) = FileNameBuf::try_from(CompactString::from(file_name)) else {
+            invalid_names.push(file_name.to_owned());
+            continue;
+        };
+        entries.push(RawDirEntry {
+            file_type: e.file_type()?.into(),
+            file_name,
+        });
+    }
+
+    Ok((ReadDirOutcome::Entries(entries), invalid_names))
+}
+
 /// i/o operations use tokio's blocking threads to not block the cpu threads on i/o. This avoids a lot of bottlenecks
 /// and is especially important when fs operations are particularly slow (when using a network fs or something like
 /// edenfs, for example).
@@ -112,9 +169,10 @@ enum FsIoError {
 impl IoProvider for FsIoProvider {
     async fn read_file_if_exists_impl(
         &self,
-        path: ProjectRelativePathBuf,
+        path: IProjectRelativePath,
     ) -> buck2_error::Result<Option<String>> {
-        let path = self.fs.resolve(&path);
+        let path = self.fs.resolve(path);
+        let is_eden = self.is_eden;
 
         // Don't want to totally saturate the executor with these so that some other work can progress.
         // For normal fs (or warm eden), something smaller would probably be fine, for eden this is probably
@@ -122,12 +180,16 @@ impl IoProvider for FsIoProvider {
         static SEMAPHORE: LazyLock<Semaphore> = LazyLock::new(|| Semaphore::new(100));
         let _permit = SEMAPHORE.acquire().await.unwrap();
 
-        spawn_blocking(move || fs_util::read_to_string_if_exists(path)).await?
+        spawn_blocking(move || {
+            fs_util::read_to_string_if_exists(&path)
+                .map_err(|e| classify_eden_error(is_eden, path.as_abs_path(), e))
+        })
+        .await?
     }
 
     async fn read_dir_impl(
         &self,
-        path: ProjectRelativePathBuf,
+        path: IProjectRelativePath,
     ) -> buck2_error::Result<ReadDirOutcome> {
         // Don't want to totally saturate the executor with these so that some other work can progress.
         // For normal fs (or warm eden), something smaller would probably be fine, for eden couple hundred is probably
@@ -135,53 +197,44 @@ impl IoProvider for FsIoProvider {
         static SEMAPHORE: LazyLock<Semaphore> = LazyLock::new(|| Semaphore::new(400));
         let _permit = SEMAPHORE.acquire().await.unwrap();
 
-        let path = self.fs.resolve(&path);
+        let abs_path = self.fs.resolve(path);
         let is_eden = self.is_eden;
 
-        spawn_blocking(move || {
-            let dir_entries = match fs_util::read_dir(&path) {
-                Ok(entries) => entries,
-                Err(e) if is_eden && e.io_error_kind() == Some(std::io::ErrorKind::PermissionDenied) => {
-                    tracing::debug!(
-                        "read_dir({}): permission denied on Eden repo, treating as restricted directory",
-                        path.display()
-                    );
-                    return Ok(ReadDirOutcome::EdenPermissionDenied);
-                }
-                Err(e) => return Err(e.categorize_input()),
-            };
-
-            let mut entries = Vec::new();
-
-            for entry in dir_entries {
-                let e = entry.buck_error_context("Error accessing directory entry")?;
-                let file_name = e.file_name();
-                let file_name = file_name
-                    .to_str()
-                    .ok_or_else(|| FsIoError::NotUtf8(file_name.clone()))?;
-                entries.push(RawDirEntry {
-                    file_type: e.file_type()?.into(),
-                    file_name: CompactString::from(file_name),
-                });
-            }
-
-            buck2_error::Ok(ReadDirOutcome::Entries(entries))
+        let (outcome, invalid_names) = spawn_blocking(move || {
+            read_dir_entries(&abs_path, is_eden)
+                .map_err(|e| classify_eden_error(is_eden, abs_path.as_abs_path(), e))
         })
         .await?
-        .buck_error_context("Error listing directory")
+        .buck_error_context("Error listing directory")?;
+        report_invalid_file_names(&path, &invalid_names);
+        Ok(outcome)
     }
 
     async fn read_path_metadata_if_exists_impl(
         &self,
-        path: ProjectRelativePathBuf,
+        path: IProjectRelativePath,
     ) -> buck2_error::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>> {
         let fs = self.fs.dupe();
-        let path = path.into_forward_relative_path_buf();
         let file_digest_config = FileDigestConfig::source(self.cas_digest_config);
+        let is_eden = self.is_eden;
         spawn_blocking(move || {
-            let meta = read_path_metadata(fs.root(), &path, file_digest_config)?.map(
-                |raw_meta_or_redirection| raw_meta_or_redirection.map(ProjectRelativePathBuf::from),
-            );
+            let meta = read_path_metadata(
+                fs.root(),
+                path.as_forward_relative_path(),
+                file_digest_config,
+            )
+            .map_err(|e| {
+                classify_eden_error(
+                    is_eden,
+                    fs.root()
+                        .join(path.as_forward_relative_path())
+                        .as_abs_path(),
+                    e,
+                )
+            })?
+            .map(|raw_meta_or_redirection| {
+                raw_meta_or_redirection.map(ProjectRelativePathBuf::from)
+            });
 
             Ok(meta)
         })
@@ -219,64 +272,24 @@ struct PathAndAbsPath {
     abspath: AbsPathBuf,
 }
 
-impl PathAndAbsPath {
-    fn push(&mut self, name: &FileName) {
-        self.path.push(name);
-        self.abspath.push(name);
-    }
-}
-
 fn read_path_metadata<P: AsRef<AbsPath>>(
     root: P,
     relpath: &ForwardRelativePath,
     file_digest_config: FileDigestConfig,
 ) -> buck2_error::Result<Option<RawPathMetadata<ForwardRelativePathBuf>>> {
-    let root = root.as_ref();
-
-    let mut relpath_components = relpath.iter();
-    let mut meta = None;
-
-    let curr_path_capacity = relpath.as_str().len();
-
-    let mut curr_abspath = root.to_owned();
-    curr_abspath.reserve(relpath.as_path().as_os_str().len());
-
-    let curr_abspath_capacity = curr_abspath.capacity();
-
-    let curr_path = ForwardRelativePathBuf::with_capacity(curr_path_capacity);
-
-    let mut curr = PathAndAbsPath {
-        path: curr_path,
-        abspath: curr_abspath,
+    let curr = PathAndAbsPath {
+        path: relpath.to_buf(),
+        abspath: root.as_ref().join(relpath.as_path()),
     };
-
-    while let Some(c) = relpath_components.next() {
-        // We track both paths so we don't need to convert the abspath back to a relative path if
-        // we hit a symlink.
-        curr.push(c);
-
-        match ExactPathMetadata::from_exact_path(&curr)? {
-            ExactPathMetadata::DoesNotExist => return Ok(None),
-            ExactPathMetadata::Symlink(symlink) => {
-                let rest: ForwardRelativePathBuf = relpath_components.collect();
-                return Ok(Some(symlink.into_raw_path_metadata(curr, rest)?));
-            }
-            ExactPathMetadata::FileOrDirectory(path_meta) => {
-                meta = Some(path_meta);
-            }
-        };
-    }
-
-    // If we get here that means we never hit a symlink. So, the metadata we have
-    let meta = meta.internal_error("Attempted to access empty path")?;
-    let meta = convert_metadata(&curr, meta, file_digest_config)?;
-
-    if cfg!(test) {
-        assert!(curr.abspath.as_os_str().len() <= curr_abspath_capacity);
-        assert!(curr.path.as_str().len() <= curr_path_capacity);
-    }
-
-    Ok(Some(meta))
+    Ok(Some(match ExactPathMetadata::from_exact_path(&curr)? {
+        ExactPathMetadata::DoesNotExist => return Ok(None),
+        ExactPathMetadata::Symlink(symlink) => {
+            symlink.into_raw_path_metadata(curr, ForwardRelativePathBuf::default())?
+        }
+        ExactPathMetadata::FileOrDirectory(meta) => {
+            convert_metadata(&curr, meta, file_digest_config)?
+        }
+    }))
 }
 
 fn convert_metadata(
@@ -488,30 +501,13 @@ mod tests {
     }
 
     #[test]
-    fn test_read_symlink_remaining_path() -> buck2_error::Result<()> {
-        let t = TempDir::new()?;
-
-        unix::fs::symlink("y", t.path().join("x"))?;
-
-        assert_matches!(
-            read_path_metadata(AbsPath::new(t.path())?, ForwardRelativePath::new("x/z/zz")?, FileDigestConfig::source(CasDigestConfig::testing_default())),
-            Ok(Some(RawPathMetadata::Symlink{at:_, to: RawSymlink::Relative(r, r_rel)})) => {
-                assert_eq!(r.as_str(), "y/z/zz");
-                assert_eq!(r_rel.target().as_str(), "y/z/zz");
-            }
-        );
-
-        Ok(())
-    }
-
-    #[test]
     fn test_read_symlink_out_of_project() -> buck2_error::Result<()> {
         let t = TempDir::new()?;
 
         unix::fs::symlink("../y", t.path().join("x"))?;
 
         assert_matches!(
-            read_path_metadata(AbsPath::new(t.path())?, ForwardRelativePath::new("x/xx/xxx")?, FileDigestConfig::source(CasDigestConfig::testing_default())),
+            read_path_metadata(AbsPath::new(t.path())?, ForwardRelativePath::new("x")?, FileDigestConfig::source(CasDigestConfig::testing_default())),
             Err(e) if format!("{e:#}").contains("Invalid symlink")
         );
 

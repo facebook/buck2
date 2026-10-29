@@ -26,11 +26,13 @@ use dice::DiceEventListener;
 use dice::DiceKeyDyn;
 use dice::DiceStorage;
 use dice::EqualityBehavior;
+use dice::EvictionPolicy;
 use dice::InjectedKey;
 use dice::Key;
 use dice::NoValueSerialize;
 use dice::PagableStorageBackend;
 use dice::PagableValueSerialize;
+use dice::PageOutPolicy;
 use dice::UserComputationData;
 use dice::ValueSerialize;
 use dupe::Dupe;
@@ -390,7 +392,9 @@ async fn page_in_scopes_starlark_heaps_by_dice_root() {
 async fn page_in_scopes_starlark_heaps_by_dice_root_impl()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let tmp = tempdir()?;
-    let storage = DiceStorage::open(tmp.path(), PagableStorageBackend::Sqlite)?;
+    let mut storage = DiceStorage::open(tmp.path(), PagableStorageBackend::Sqlite)?;
+    storage.set_page_out_policy(PageOutPolicy::OncePerKey);
+    storage.set_eviction_policy(EvictionPolicy::OnIdle);
     let mut builder = Dice::builder();
     builder.set_pagable_storage(storage);
     let dice = builder.build(DetectCycles::Disabled);
@@ -706,7 +710,9 @@ async fn page_in_prefers_resident_heap_for_consistent_dice_root() {
 async fn page_in_prefers_resident_heap_for_consistent_dice_root_impl()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let tmp = tempdir()?;
-    let storage = DiceStorage::open(tmp.path(), PagableStorageBackend::Sqlite)?;
+    let mut storage = DiceStorage::open(tmp.path(), PagableStorageBackend::Sqlite)?;
+    storage.set_page_out_policy(PageOutPolicy::OncePerKey);
+    storage.set_eviction_policy(EvictionPolicy::OnIdle);
     let mut builder = Dice::builder();
     builder.set_pagable_storage(storage);
     let dice = builder.build(DetectCycles::Disabled);

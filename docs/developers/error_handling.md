@@ -110,6 +110,29 @@ use buck2_error::conversion::from_any_with_tag;
 some_result.map_err(|e| from_any_with_tag(e, ErrorTag::Tier0))?;
 ```
 
+## Soft errors and deprecations
+
+Both report through the event log to Logview without failing the command. They differ in who
+the report is for, and that decides everything else, so pick by audience:
+
+- `soft_error!("category", err)`: something went wrong but the command can go on. The buck2
+  oncall watches these per category. It is not shown to the user.
+- `warn_user!("category", err)`: the same, and the person running the command is told, because
+  they can act on it: their checkout, their environment, their invocation. Buck2 does not print
+  warnings that are really addressed to someone else, so this is the only thing it prints.
+- `deprecation!("category", err, owner: "unixname", started: "YYYY-MM-DD")`: a use of something
+  that is being removed. Only `owner`, the person driving the removal, cares about the count;
+  nothing is shown to anyone. Once the count is zero the call site becomes a hard error.
+  `started` is the day the deprecation went in: one that is six months old with nobody driving
+  it gets deleted and replaced with a `FIXME`.
+
+Under `BUCK2_HARD_ERROR=true`, which buck2's integration tests set, a report fails the command:
+the macro returns the error from the enclosing function, the way `?` would, so the condition
+fails the test. A call site with nowhere to return an error to uses the `_or_panic` form of the
+macro (`soft_error_or_panic!` and so on), and the report panics there instead. A test that
+expects the condition opts out with `allow_soft_errors=True`. Open source builds report nothing
+and fail nothing.
+
 ## Worked example
 
 ```rust

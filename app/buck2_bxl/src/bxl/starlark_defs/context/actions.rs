@@ -23,10 +23,10 @@ use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_core::soft_error;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_core::target::target_configured_target_label::TargetConfiguredTargetLabel;
 use buck2_error::buck2_error;
+use buck2_hash::BuckFixedSortedMap;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_node::configuration::calculation::CONFIGURATION_CALCULATION;
 use buck2_node::configuration::calculation::CellNameForConfigurationResolution;
@@ -52,7 +52,6 @@ use starlark::values::ValueTyped;
 use starlark::values::dict::AllocDict;
 use starlark::values::dict::DictType;
 use starlark::values::starlark_value;
-use starlark_map::ordered_map::OrderedMap;
 use strong_hash::StrongHash;
 
 use crate::bxl::starlark_defs::context::BxlContext;
@@ -122,7 +121,7 @@ pub(crate) async fn resolve_bxl_execution_platform(
 
     // Finalize the partial resolution with empty exec_dep_cfgs
     // (BXL doesn't use modifiers for exec_deps)
-    let resolved_execution = resolved_execution.finalize(OrderedMap::new());
+    let resolved_execution = resolved_execution.finalize(BuckFixedSortedMap::new());
 
     Ok(BxlExecutionResolution {
         resolved_execution,
@@ -299,12 +298,11 @@ fn bxl_actions_methods(builder: &mut MethodsBuilder) {
     ) -> starlark::Result<ValueOfUnchecked<'v, DictType<StarlarkProvidersLabel, Dependency<'v>>>>
     {
         if this.is_anon_target_or_dyn_action()? {
-            soft_error!(
-                "bxl_acessing_exec_platform",
-                buck2_error!(buck2_error::ErrorTag::Input, "Anon target or dynamic action accesses bxl.Actions.exec_deps."),
-                quiet: true,
-                error_on_oss: true
-            )?;
+            return Err(buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "Anon targets and dynamic actions cannot access `bxl.Actions.exec_deps`"
+            )
+            .into());
         }
 
         Ok(this.exec_deps)
@@ -317,12 +315,11 @@ fn bxl_actions_methods(builder: &mut MethodsBuilder) {
     ) -> starlark::Result<ValueOfUnchecked<'v, DictType<StarlarkProvidersLabel, Dependency<'v>>>>
     {
         if this.is_anon_target_or_dyn_action()? {
-            soft_error!(
-                "bxl_acessing_exec_platform",
-                buck2_error!(buck2_error::ErrorTag::Input, "Anon target or dynamic action accesses bxl.Actions.toolchains."),
-                quiet: true,
-                error_on_oss: true
-            )?;
+            return Err(buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "Anon targets and dynamic actions cannot access `bxl.Actions.toolchains`"
+            )
+            .into());
         }
         Ok(this.toolchains)
     }

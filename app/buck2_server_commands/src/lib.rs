@@ -10,8 +10,6 @@
 
 //! Implementation of several server commands.
 
-#![feature(used_with_arg)]
-
 pub(crate) mod build;
 pub(crate) mod complete;
 pub(crate) mod debug_anon_targets;

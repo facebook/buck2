@@ -64,6 +64,7 @@ class Ksp2Step(
     private val javaBinary: Optional<String>,
     private val kotlinCDAnalytics: KotlinCDAnalytics,
     private val kspCachesOutput: RelPath,
+    private val friendPaths: Collection<AbsPath> = emptyList(),
 ) : IsolatedStep {
 
   private val noOpDetector = Ksp2NoOpDetector()
@@ -150,6 +151,8 @@ class Ksp2Step(
 
     // Build processor options
     val apOptions = getApOptions()
+    val (kspLibraries, kspFriends) =
+        librariesAndFriends(allClasspaths.map { it.toFile() }, friendPaths.map { it.toFile() })
 
     // Expand source paths
     val sourceFilePathsExpanded = getExpandedSourcePathsOrThrow(
@@ -182,7 +185,8 @@ class Ksp2Step(
               javaSourceRoots = sourceFilePathsResolved
               languageVersion = this@Ksp2Step.languageVersion.value
               apiVersion = this@Ksp2Step.languageVersion.value
-              libraries = allClasspaths.map { it.toFile() }
+              libraries = kspLibraries
+              friends = kspFriends
               jvmDefaultMode = this@Ksp2Step.jvmDefaultMode
               resolveJdkHome(this@Ksp2Step.javaBinary)?.let { jdkHome = it }
 
@@ -210,6 +214,7 @@ class Ksp2Step(
               |  languageVersion = ${kspConfig.languageVersion}
               |  apiVersion = ${kspConfig.apiVersion}
               |  libraries = ${kspConfig.libraries}
+              |  friends = ${kspConfig.friends}
               |  jvmDefaultMode = ${kspConfig.jvmDefaultMode}
               |  jdkHome = ${kspConfig.jdkHome}
               |]"""
@@ -277,6 +282,23 @@ class Ksp2Step(
       }
 
   companion object {
+    /**
+     * The KSP2 libraries and friends: the friend jars are passed as friends and left out of the
+     * libraries, because a jar that is also a library hides the friend module's `internal`
+     * declarations from KSP2.
+     */
+    @JvmStatic
+    fun librariesAndFriends(
+        classpath: List<File>,
+        friendPaths: List<File>,
+    ): Pair<List<File>, List<File>> {
+      if (friendPaths.isEmpty()) {
+        return classpath to emptyList()
+      }
+      val friends = friendPaths.toSet()
+      return classpath.filterNot { it in friends } to friendPaths
+    }
+
     private val LOG: Logger = Logger.get(Ksp2Step::class.java)
 
     private const val PROCESSOR_OUTPUT_EXTRAS_KEY = "ksp2_processor_generated_files"

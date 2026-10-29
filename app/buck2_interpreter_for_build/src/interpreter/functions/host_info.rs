@@ -97,9 +97,8 @@ fn new_host_info(
             &[
                 ("os", os),
                 ("arch", arch),
-                // TODO(cjhopman): Remove in favour of version_info() in Buck v1 and v2
-                // We want to be able to determine if we are on Buck v2 or not, this mechanism
-                // is quick, cheap and Buck v1 compatible.
+                // Always true. Kept because user Starlark probes it to tell Buck2 apart
+                // from other evaluators of the same files.
                 ("buck2", Value::new_bool(true)),
                 ("xcode", xcode),
             ],

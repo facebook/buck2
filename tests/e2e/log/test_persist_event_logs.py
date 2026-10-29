@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test, env
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase, env
 from manifold.clients.python.manifold_client_deprecated import Client as ManifoldClient
 
 TEST_TRACE_ID = "f115b5da-7d81-47cc-9c4a-57e283bfa384"
@@ -48,54 +48,56 @@ def random_name() -> str:
     return "".join(random.choice(alphabet) for _ in range(8))
 
 
-@buck_test(inplace=True)
-@env("BUCK2_TEST_MANIFOLD_CHUNK_BYTES", str(32))
-@env("BUCK2_TEST_MANIFOLD_TTL_S", str(84_000))  # 1 day
-async def test_persist_event_logs(buck: Buck, tmp_path: Path) -> None:
-    local_log = tmp_path / "test.txt"
+class PersistEventLogsTest(BuckTestCase):
+    @buck_test(inplace=True)
+    @env("BUCK2_TEST_MANIFOLD_CHUNK_BYTES", str(32))
+    @env("BUCK2_TEST_MANIFOLD_TTL_S", str(84_000))  # 1 day
+    async def test_persist_event_logs(self, buck: Buck, tmp_path: Path) -> None:
+        local_log = tmp_path / "test.txt"
 
-    manifold_name = f"test_{random_name()}.txt"
-    await buck.debug(
-        "persist-event-logs",
-        "--manifold-name",
-        manifold_name,
-        "--local-path",
-        str(local_log),
-        "--trace-id",
-        TEST_TRACE_ID,
-        input=EVENT_LOG_PLACEHOLDER.encode(),
-    )
+        manifold_name = f"test_{random_name()}.txt"
+        await buck.debug(
+            "persist-event-logs",
+            "--manifold-name",
+            manifold_name,
+            "--local-path",
+            str(local_log),
+            "--trace-id",
+            TEST_TRACE_ID,
+            input=EVENT_LOG_PLACEHOLDER.encode(),
+        )
 
-    assert Path(local_log).exists()
+        assert Path(local_log).exists()
 
-    with open(local_log, "r") as f:
-        assert f.read() == EVENT_LOG_PLACEHOLDER
+        with open(local_log, "r") as f:
+            assert f.read() == EVENT_LOG_PLACEHOLDER
 
-    manifold_size = await manifold_file_size(path=f"flat/{manifold_name}")
-    # Some OSs return str, others int. Just enforce str to compare
-    assert str(manifold_size) == str(len(EVENT_LOG_PLACEHOLDER))
+        manifold_size = await manifold_file_size(path=f"flat/{manifold_name}")
+        # Some OSs return str, others int. Just enforce str to compare
+        assert str(manifold_size) == str(len(EVENT_LOG_PLACEHOLDER))
 
+    @buck_test(inplace=True)
+    async def test_persist_event_logs_not_uploaded(
+        self, buck: Buck, tmp_path: Path
+    ) -> None:
+        local_log = tmp_path / "test.txt"
 
-@buck_test(inplace=True)
-async def test_persist_event_logs_not_uploaded(buck: Buck, tmp_path: Path) -> None:
-    local_log = tmp_path / "test.txt"
+        manifold_name = f"test_{random_name()}.txt"
+        await buck.debug(
+            "persist-event-logs",
+            "--manifold-name",
+            manifold_name,
+            "--local-path",
+            str(local_log),
+            "--no-upload",
+            "--trace-id",
+            TEST_TRACE_ID,
+            input=EVENT_LOG_PLACEHOLDER.encode(),
+        )
 
-    manifold_name = f"test_{random_name()}.txt"
-    await buck.debug(
-        "persist-event-logs",
-        "--manifold-name",
-        manifold_name,
-        "--local-path",
-        str(local_log),
-        "--no-upload",
-        "--trace-id",
-        TEST_TRACE_ID,
-        input=EVENT_LOG_PLACEHOLDER.encode(),
-    )
+        assert Path(local_log).exists()
 
-    assert Path(local_log).exists()
+        with open(local_log, "r") as f:
+            assert f.read() == EVENT_LOG_PLACEHOLDER
 
-    with open(local_log, "r") as f:
-        assert f.read() == EVENT_LOG_PLACEHOLDER
-
-    assert await manifold_exists(path=f"flat/{manifold_name}") is False
+        assert await manifold_exists(path=f"flat/{manifold_name}") is False

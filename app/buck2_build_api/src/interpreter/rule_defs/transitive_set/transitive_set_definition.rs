@@ -16,6 +16,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_core::bzl::ImportPath;
 use buck2_error::BuckErrorOptionContext;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_interpreter::build_context::starlark_path_from_build_context;
 use buck2_interpreter::paths::path::StarlarkPath;
 use derive_more::Display;
@@ -24,7 +25,6 @@ use pagable::Pagable;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
-use starlark::collections::SmallMap;
 use starlark::collections::StarlarkHasher;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
@@ -138,11 +138,11 @@ pub struct TransitiveSetDefinition<'v> {
 pub struct TransitiveSetOperations<'v> {
     /// Callables that will project the values contained in transitive sets of this type to
     /// cmd_args or json. This can be used to include a transitive set into a command or json file.
-    pub(crate) projections: SmallMap<String, TransitiveSetProjectionSpec<'v>>,
+    pub(crate) projections: BuckMutInsertionMap<String, TransitiveSetProjectionSpec<'v>>,
 
     /// Callables that will reduce the values contained in transitive sets to a single value per
     /// node. This can be used to e.g. aggregate flags throughout a transitive set;
-    pub(crate) reductions: SmallMap<
+    pub(crate) reductions: BuckMutInsertionMap<
         String,
         ValueOfUnchecked<
             'v,
@@ -436,20 +436,20 @@ impl<'v> TransitiveSetDefinitionLike<'v> for FrozenTransitiveSetDefinition<'v> {
 pub fn register_transitive_set(builder: &mut GlobalsBuilder) {
     fn transitive_set<'v>(
         #[starlark(require = named)] args_projections: Option<
-            SmallMap<String, StarlarkCallableChecked<'v, (Value<'v>,), Value<'v>>>,
+            BuckMutInsertionMap<String, StarlarkCallableChecked<'v, (Value<'v>,), Value<'v>>>,
         >,
         #[starlark(require = named)] json_projections: Option<
-            SmallMap<String, StarlarkCallableChecked<'v, (Value<'v>,), Value<'v>>>,
+            BuckMutInsertionMap<String, StarlarkCallableChecked<'v, (Value<'v>,), Value<'v>>>,
         >,
         #[starlark(require = named)] reductions: Option<
-            SmallMap<
+            BuckMutInsertionMap<
                 String,
                 StarlarkCallableChecked<'v, (ListType<Value<'v>>, Value<'v>), Value<'v>>,
             >,
         >,
         eval: &mut Evaluator,
     ) -> starlark::Result<TransitiveSetDefinition<'v>> {
-        let projections: SmallMap<_, _> = args_projections
+        let projections: BuckMutInsertionMap<_, _> = args_projections
             .into_iter()
             .flat_map(|v| v.into_iter())
             .map(|(k, v)| {

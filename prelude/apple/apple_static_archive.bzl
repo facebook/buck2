@@ -11,6 +11,7 @@ load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//apple:apple_library.bzl", "AppleLibraryForDistributionInfo")
 load("@prelude//apple:apple_library_types.bzl", "AppleLibraryInfo")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
+load("@prelude//apple:xcassets_asset_symbols.bzl", "xcassets_asset_symbol_usage_from_deps")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load("@prelude//linking:link_info.bzl", "LinkStrategy", "get_link_args_for_strategy", "unpack_link_args_object_files_and_lazy_archives_only")
 load("@prelude//linking:linkables.bzl", "linkables")
@@ -30,6 +31,7 @@ def apple_static_archive_impl(ctx: AnalysisContext) -> list[Provider]:
     ctx.actions.run(cmd, category = "static_archive_linker", identifier = output.short_path)
 
     providers = [DefaultInfo(default_output = output), _get_apple_library_info(ctx)] + _get_apple_library_for_distribution_info(ctx)
+    providers += xcassets_asset_symbol_usage_from_deps(ctx, ctx.attrs.deps + filter(None, ctx.attrs.flat_deps + [ctx.attrs.distribution_flat_dep]))
 
     return providers
 

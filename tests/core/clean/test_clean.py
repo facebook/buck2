@@ -15,67 +15,7 @@ from typing import Iterable
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
-
-
-@buck_test()
-async def test_clean(buck: Buck) -> None:
-    build_result = await buck.build("root//:trivial_build")
-    build_report = build_result.get_build_report()
-    build_report_outputs = [
-        str(output)
-        for output in build_report.outputs_for_target("root//:trivial_build")
-    ]
-
-    clean_result = await buck.clean()
-    clean_paths = tuple(filter(None, clean_result.stderr.split("\n")))
-
-    for output in build_report_outputs:
-        assert output.startswith(clean_paths)
-
-    _assert_all_paths_do_not_exist(build_report_outputs)
-
-
-@buck_test()
-async def test_clean_dry_run(buck: Buck) -> None:
-    build_result = await buck.build("root//:trivial_build", "--show-output")
-    build_report = build_result.get_build_report()
-    build_report_outputs = [
-        str(output)
-        for output in build_report.outputs_for_target("root//:trivial_build")
-    ]
-
-    dry_clean_result = await buck.clean("--dry-run")
-
-    dry_clean_paths = set(
-        filter(
-            is_buck_path,
-            dry_clean_result.stderr.split("\n"),
-        )
-    )
-    _assert_all_paths_exist(dry_clean_paths)
-
-    dry_clean_paths = tuple(i for i in dry_clean_paths)
-    for output in build_report_outputs:
-        assert output.startswith(dry_clean_paths)
-
-    _assert_all_paths_exist(build_report_outputs)
-
-    # Run clean without dry-run and make sure all files are removed now
-    clean_result = await buck.clean()
-    clean_paths = set(
-        filter(
-            is_buck_path,
-            clean_result.stderr.split("\n"),
-        )
-    )
-    # dry_clean_paths and clean_paths should be the same
-    for clean_path in clean_paths:
-        assert clean_path in dry_clean_paths
-    for dry_clean_path in dry_clean_paths:
-        assert dry_clean_path in clean_paths
-
-    _assert_all_paths_do_not_exist(clean_paths)
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
 def is_buck_path(x: str) -> bool:
@@ -104,39 +44,98 @@ def _assert_all_paths_do_not_exist(paths: Iterable[str]) -> None:
             assert os.path.exists(path) is False
 
 
-@buck_test()
-async def test_isolation_dir_reserved_prefix_rejected(buck: Buck) -> None:
-    buck.set_isolation_prefix("._buck2_anything")
-    try:
-        await expect_failure(
-            buck.build("root//:trivial_build"),
-            stderr_regex="reserved for buck2",
+class CleanTest(BuckTestCase):
+    @buck_test()
+    async def test_clean(self, buck: Buck) -> None:
+        build_result = await buck.build("root//:trivial_build")
+        build_report = build_result.get_build_report()
+        build_report_outputs = [
+            str(output)
+            for output in build_report.outputs_for_target("root//:trivial_build")
+        ]
+
+        clean_result = await buck.clean()
+        clean_paths = tuple(filter(None, clean_result.stderr.split("\n")))
+
+        for output in build_report_outputs:
+            assert output.startswith(clean_paths)
+
+        _assert_all_paths_do_not_exist(build_report_outputs)
+
+    @buck_test()
+    async def test_clean_dry_run(self, buck: Buck) -> None:
+        build_result = await buck.build("root//:trivial_build", "--show-output")
+        build_report = build_result.get_build_report()
+        build_report_outputs = [
+            str(output)
+            for output in build_report.outputs_for_target("root//:trivial_build")
+        ]
+
+        dry_clean_result = await buck.clean("--dry-run")
+
+        dry_clean_paths = set(
+            filter(
+                is_buck_path,
+                dry_clean_result.stderr.split("\n"),
+            )
         )
-    finally:
-        # The fixture teardown runs `buck clean`, which would itself trip the
-        # reserved-name rejection with the prefix still set.
-        buck.set_isolation_prefix("v2")
+        _assert_all_paths_exist(dry_clean_paths)
 
+        dry_clean_paths = tuple(i for i in dry_clean_paths)
+        for output in build_report_outputs:
+            assert output.startswith(dry_clean_paths)
 
-@buck_test()
-async def test_clean_background(buck: Buck) -> None:
-    """Test that buck2 clean --background moves buck-out to trash and deletes it."""
-    build_result = await buck.build("root//:trivial_build")
-    build_report = build_result.get_build_report()
-    build_report_outputs = [
-        str(output)
-        for output in build_report.outputs_for_target("root//:trivial_build")
-    ]
+        _assert_all_paths_exist(build_report_outputs)
 
-    # Run clean with --background flag
-    clean_result = await buck.clean("--background")
+        # Run clean without dry-run and make sure all files are removed now
+        clean_result = await buck.clean()
+        clean_paths = set(
+            filter(
+                is_buck_path,
+                clean_result.stderr.split("\n"),
+            )
+        )
+        # dry_clean_paths and clean_paths should be the same
+        for clean_path in clean_paths:
+            assert clean_path in dry_clean_paths
+        for dry_clean_path in dry_clean_paths:
+            assert dry_clean_path in clean_paths
 
-    # Check that the output contains the expected messages
-    assert "Buck-out moved to trash. Now cleaning up..." in clean_result.stderr
-    assert "Tip: Use Ctrl-Z to put this in the background" in clean_result.stderr
-    assert (
-        "You can run other buck2 commands while this completes." in clean_result.stderr
-    )
+        _assert_all_paths_do_not_exist(clean_paths)
 
-    # Verify all build outputs are eventually deleted
-    _assert_all_paths_do_not_exist(build_report_outputs)
+    @buck_test()
+    async def test_isolation_dir_reserved_prefix_rejected(self, buck: Buck) -> None:
+        buck.set_isolation_prefix("._buck2_anything")
+        try:
+            await expect_failure(
+                buck.build("root//:trivial_build"),
+                stderr_regex="reserved for buck2",
+            )
+        finally:
+            # The fixture teardown runs `buck clean`, which would itself trip the
+            # reserved-name rejection with the prefix still set.
+            buck.set_isolation_prefix("v2")
+
+    @buck_test()
+    async def test_clean_background(self, buck: Buck) -> None:
+        """Test that buck2 clean --background moves buck-out to trash and deletes it."""
+        build_result = await buck.build("root//:trivial_build")
+        build_report = build_result.get_build_report()
+        build_report_outputs = [
+            str(output)
+            for output in build_report.outputs_for_target("root//:trivial_build")
+        ]
+
+        # Run clean with --background flag
+        clean_result = await buck.clean("--background")
+
+        # Check that the output contains the expected messages
+        assert "Buck-out moved to trash. Now cleaning up..." in clean_result.stderr
+        assert "Tip: Use Ctrl-Z to put this in the background" in clean_result.stderr
+        assert (
+            "You can run other buck2 commands while this completes."
+            in clean_result.stderr
+        )
+
+        # Verify all build outputs are eventually deleted
+        _assert_all_paths_do_not_exist(build_report_outputs)

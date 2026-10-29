@@ -28,6 +28,7 @@ use crate::content_hash::ContentBasedPathHash;
 use crate::deferred::base_deferred_key::BaseDeferredKey;
 use crate::deferred::key::DeferredHolderKey;
 use crate::fs::dynamic_actions_action_key::DynamicActionsActionKey;
+use crate::fs::i_project_rel_path::IProjectRelativePath;
 use crate::fs::project_rel_path::ProjectRelativePath;
 use crate::fs::project_rel_path::ProjectRelativePathBuf;
 use crate::provider::label::ConfiguredProvidersLabel;
@@ -251,21 +252,28 @@ impl BuckOutTestPath {
 
 #[derive(Clone, Dupe, PartialEq, Eq, Allocative, Pagable)]
 pub struct BuckOutPathResolver {
-    buck_out_v2: Arc<ProjectRelativePathBuf>,
+    buck_out_v2: Arc<BuckOutRoot>,
 }
+
+/// The buck-out root, on its own cache line: the resolver is duped for every action executor
+/// while the root is read for every artifact path, and the `Arc` counts the dupes bump must
+/// not sit in the line those reads need.
+#[derive(PartialEq, Eq, Allocative, Pagable)]
+#[repr(align(128))]
+struct BuckOutRoot(ProjectRelativePathBuf);
 
 impl BuckOutPathResolver {
     /// creates a 'BuckOutPathResolver' that will resolve outputs to the provided buck-out root.
     /// If not set, buck_out defaults to "buck-out/v2"
     pub fn new(buck_out_v2: ProjectRelativePathBuf) -> Self {
         BuckOutPathResolver {
-            buck_out_v2: Arc::new(buck_out_v2),
+            buck_out_v2: Arc::new(BuckOutRoot(buck_out_v2)),
         }
     }
 
     /// Returns the buck-out root.
     pub fn root(&self) -> &ProjectRelativePath {
-        &self.buck_out_v2
+        &self.buck_out_v2.0
     }
 
     /// Resolves a 'BuckOutPath' into a 'ProjectRelativePath' based on the base
@@ -329,9 +337,9 @@ impl BuckOutPathResolver {
         &self,
         path: &CellRelativePath,
         origin: ExternalCellOrigin,
-    ) -> ProjectRelativePathBuf {
-        ProjectRelativePathBuf::from(ForwardRelativePathBuf::concat([
-            self.buck_out_v2.as_forward_relative_path(),
+    ) -> IProjectRelativePath {
+        IProjectRelativePath::intern_concat_directly([
+            self.buck_out_v2.0.as_forward_relative_path(),
             ForwardRelativePath::new("external_cells").unwrap(),
             match origin {
                 ExternalCellOrigin::Bundled(_) => ForwardRelativePath::new("bundled").unwrap(),
@@ -346,7 +354,7 @@ impl BuckOutPathResolver {
                 }
             },
             path.as_ref(),
-        ]))
+        ])
     }
 
     pub fn resolve_scratch(
@@ -405,16 +413,14 @@ impl BuckOutPathResolver {
         label: &ConfiguredProvidersLabel,
         extra_path: Option<&ForwardRelativePath>,
     ) -> buck2_error::Result<ProjectRelativePathBuf> {
-        let path = match label.name() {
-            ProvidersName::Default => "default".into(),
+        let path: String = match label.name() {
+            ProvidersName::Default => "default".to_owned(),
             ProvidersName::NonDefault(nd) => match nd.as_ref() {
                 NonDefaultProvidersName::Named(names) => names
                     .iter()
                     // Replacing / with + to avoid the path clash for ["foo/bar"] and ["foo", "bar"]
                     .map(|name| name.as_str().replace("/", "+"))
-                    .join("/")
-                    .into(),
-                NonDefaultProvidersName::UnrecognizedFlavor(s) => s.dupe(),
+                    .join("/"),
             },
         };
         let path = ForwardRelativePath::unchecked_new(&path);
@@ -445,7 +451,7 @@ impl BuckOutPathResolver {
         content_hash: Option<&ContentBasedPathHash>,
     ) -> buck2_error::Result<ProjectRelativePathBuf> {
         owner.make_hashed_path(
-            &self.buck_out_v2,
+            &self.buck_out_v2.0,
             prefix,
             action_key,
             path,
@@ -461,7 +467,7 @@ impl BuckOutPathResolver {
     pub fn unhashed_gen(&self, path: &BuildArtifactPath) -> Option<ProjectRelativePathBuf> {
         Some(ProjectRelativePathBuf::from(
             ForwardRelativePathBuf::concat([
-                self.buck_out_v2.as_forward_relative_path(),
+                self.buck_out_v2.0.as_forward_relative_path(),
                 ForwardRelativePath::unchecked_new("gen"),
                 &*path.0.owner.owner().make_unhashed_path()?,
                 path.path(),

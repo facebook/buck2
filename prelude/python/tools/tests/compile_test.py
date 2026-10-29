@@ -53,9 +53,9 @@ def _two_sources(tmp: Path) -> list[list[str]]:
 
 
 class PycPathTest(unittest.TestCase):
-    def test_a_dotted_file_name_takes_another_modules_bytecode_path(self) -> None:
+    def test_a_dotted_file_name_keeps_its_own_bytecode_path(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp = Path(tmpdir)
             dests = _compile(tmp, _two_sources(tmp))
         self.assertEqual(dests[0], importlib.util.cache_from_source("a/b/c.py"))
-        self.assertEqual(dests[1], dests[0])
+        self.assertEqual(dests[1], importlib.util.cache_from_source("a/b.c.py"))

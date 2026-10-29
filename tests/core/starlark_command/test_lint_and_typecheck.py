@@ -9,23 +9,51 @@
 # pyre-strict
 
 
+import os
+import shutil
+
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_lint_fails(buck: Buck) -> None:
-    await expect_failure(
-        buck.starlark("lint", "bad_warning.bzl"),
-        stderr_regex="Found 3 lints",
-    )
+class LintAndTypecheckTest(BuckTestCase):
+    @buck_test()
+    async def test_lint_fails(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.starlark("lint", "bad_warning.bzl"),
+            stderr_regex="Found 3 lints",
+        )
 
+    @buck_test()
+    async def test_exclude(self, buck: Buck) -> None:
+        for d in ["dir/keep", "dir/skip"]:
+            (buck.cwd / d).mkdir(parents=True)
+            shutil.copy(buck.cwd / "bad_warning.bzl", buck.cwd / d)
+        await expect_failure(buck.starlark("lint", "dir"), stderr_regex="Found 6 lints")
+        await expect_failure(
+            buck.starlark("lint", "dir", "-X", "dir/skip"), stderr_regex="Found 3 lints"
+        )
+        await buck.starlark(
+            "lint", "dir", "-X", "dir/skip", "-X", "dir/keep/bad_warning.bzl"
+        )
 
-@buck_test()
-async def test_typecheck_fails(buck: Buck) -> None:
-    await buck.starlark("typecheck", "good.bzl")
-    await expect_failure(
-        buck.starlark("typecheck", "bad.bzl"),
-        stderr_regex="Detected 2 errors",
-    )
+    @buck_test()
+    async def test_typecheck_fails(self, buck: Buck) -> None:
+        await buck.starlark("typecheck", "good.bzl")
+        await expect_failure(
+            buck.starlark("typecheck", "bad.bzl"),
+            stderr_regex="Detected 2 errors",
+        )
+
+    @buck_test()
+    async def test_explicit_path_goes_through_the_path_check(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.starlark("lint", "nope.bzl"),
+            stderr_regex="File `nope.bzl` does not exist",
+        )
+        os.symlink(".", buck.cwd / "linkdir")
+        await expect_failure(
+            buck.starlark("lint", "linkdir/good.bzl"),
+            stderr_regex="is behind the symlink `linkdir`, which buck2 does not follow",
+        )

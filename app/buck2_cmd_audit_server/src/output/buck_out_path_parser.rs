@@ -236,7 +236,7 @@ fn get_cell_path<'v>(
         } else {
             (cell_relative_path.to_buf(), None)
         };
-        let cell_path = CellPath::new(cell_name, cell_relative_path);
+        let cell_path = CellPath::new(cell_name, &cell_relative_path);
 
         let buck_out_path_data = BuckOutPathData {
             cell_path,
@@ -251,7 +251,7 @@ fn get_cell_path<'v>(
 
     if is_test {
         let buck_out_path_data = BuckOutPathData {
-            cell_path: CellPath::new(cell_name, cell_relative_path.to_buf()),
+            cell_path: CellPath::new(cell_name, &cell_relative_path),
             config_hash,
             content_hash,
             anon_hash: None,
@@ -308,7 +308,7 @@ fn get_target_label<'v>(
     path: CellPath,
 ) -> buck2_error::Result<TargetLabel> {
     let target_name = get_target_name(iter)?;
-    let package = PackageLabel::from_cell_path(path.as_ref())?;
+    let package = PackageLabel::from_cell_path(path)?;
     let target = TargetNameRef::new(target_name.as_str())?;
     let target_label = TargetLabel::new(package.dupe(), target);
     Ok(target_label)
@@ -361,7 +361,7 @@ impl BuckOutPathParser {
                         let buck_out_path_data =
                             get_cell_path(&mut iter, &self.cell_resolver, "tmp")?;
                         let target_label =
-                            get_target_label(&mut iter, buck_out_path_data.cell_path.clone())?;
+                            get_target_label(&mut iter, buck_out_path_data.cell_path)?;
 
                         let common_attrs = BuckOutPathTypeCommon {
                             config_hash: buck_out_path_data.config_hash,
@@ -394,7 +394,7 @@ impl BuckOutPathParser {
                         let buck_out_path_data =
                             get_cell_path(&mut iter, &self.cell_resolver, part.as_str())?;
                         let target_label =
-                            get_target_label(&mut iter, buck_out_path_data.cell_path.clone())?;
+                            get_target_label(&mut iter, buck_out_path_data.cell_path)?;
                         if let Some(potential_config_hash) = iter.peek() {
                             if is_hash(potential_config_hash.as_str()) {
                                 iter.next();
@@ -419,7 +419,7 @@ impl BuckOutPathParser {
                         let buck_out_path_data =
                             get_cell_path(&mut iter, &self.cell_resolver, part.as_str())?;
                         let target_label =
-                            get_target_label(&mut iter, buck_out_path_data.cell_path.clone())?;
+                            get_target_label(&mut iter, buck_out_path_data.cell_path)?;
                         let common_attrs = BuckOutPathTypeCommon {
                             config_hash: buck_out_path_data.config_hash,
                             content_hash: buck_out_path_data.content_hash,
@@ -488,6 +488,7 @@ mod tests {
     use buck2_core::cells::paths::CellRelativePath;
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::configuration::data::ConfigurationDataData;
+    use buck2_core::configuration::data::ExecPlatformMarking;
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use buck2_core::package::PackageLabel;
     use buck2_core::target::label::label::TargetLabel;
@@ -511,7 +512,7 @@ mod tests {
             ConfigurationDataData {
                 constraints: BTreeMap::new(),
             },
-            false,
+            ExecPlatformMarking::Unmarked,
         )
         .unwrap();
         let config_hash = configuration.output_hash().to_string();
@@ -523,10 +524,7 @@ mod tests {
         .unwrap();
         let expected_target_label =
             TargetLabel::new(pkg, TargetNameRef::new("target_name").unwrap());
-        let expected_cell_path = CellPath::new(
-            CellName::testing_new("bar"),
-            CellRelativePath::unchecked_new("path/to/target").to_owned(),
-        );
+        let expected_cell_path = CellPath::testing_new("bar//path/to/target");
 
         (
             parser,
@@ -828,10 +826,7 @@ mod tests {
         let test_path =
             format!("buck-out/v2/test/bar/{expected_config_hash}/path/to/target/test/output");
 
-        let expected_test_cell_path = CellPath::new(
-            CellName::testing_new("bar"),
-            CellRelativePath::unchecked_new("path/to/target/test/output").to_owned(),
-        );
+        let expected_test_cell_path = CellPath::testing_new("bar//path/to/target/test/output");
 
         let res = buck_out_parser.parse(&test_path)?;
 
@@ -937,10 +932,7 @@ mod tests {
                 bxl_function_label,
                 common_attrs,
             } => {
-                let path = CellPath::new(
-                    CellName::testing_new("bar"),
-                    CellRelativePath::unchecked_new("path/to/function.bxl").to_owned(),
-                );
+                let path = CellPath::testing_new("bar//path/to/function.bxl");
 
                 let bxl_path = BxlFilePath::new(path)?;
                 let expected_bxl_function_label = BxlFunctionLabel {
@@ -977,10 +969,7 @@ mod tests {
                 bxl_function_label,
                 common_attrs,
             } => {
-                let path = CellPath::new(
-                    CellName::testing_new("bar"),
-                    CellRelativePath::unchecked_new("path/to/function.bxl").to_owned(),
-                );
+                let path = CellPath::testing_new("bar//path/to/function.bxl");
 
                 let bxl_path = BxlFilePath::new(path)?;
                 let expected_bxl_function_label = BxlFunctionLabel {

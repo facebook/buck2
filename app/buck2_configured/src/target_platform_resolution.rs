@@ -146,7 +146,7 @@ impl ConfiguredTargetCalculationImpl for ConfiguredTargetCalculationInstance {
                 Some(global_target_platform) => {
                     get_platform_configuration(ctx, global_target_platform).await?
                 }
-                None => match node.get_default_target_platform() {
+                None => match node.get_default_target_platform()? {
                     Some(target) => get_platform_configuration(ctx, target).await?,
                     None => get_default_platform(ctx, target).await?,
                 },

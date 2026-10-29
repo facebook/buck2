@@ -11,12 +11,15 @@ license.workspace = true
 allocative.workspace = true
 buck2_env.workspace = true
 buck2_error.workspace = true
+buck2_hash.workspace = true
 buck2_util.workspace = true
 compact_str.workspace = true
 derive_more.workspace = true
 dunce.workspace = true
 dupe.workspace = true
+lock_free_hashtable.workspace = true
 memchr.workspace = true
+mini_vec.workspace = true
 pagable.workspace = true
 ref-cast.workspace = true
 serde.workspace = true
@@ -26,7 +29,6 @@ tokio.workspace = true
 
 [dev-dependencies]
 assert_matches.workspace = true
-buck2_hash.workspace = true
 serde_json.workspace = true
 tempfile.workspace = true
 

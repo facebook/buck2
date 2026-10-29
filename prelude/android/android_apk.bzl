@@ -6,6 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//android:android_binary.bzl", "get_binary_info")
 load(
@@ -22,13 +23,12 @@ load(
 )
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:util.bzl", "package_validators_decorator")
-load("@prelude//java:class_to_srcs.bzl", "merge_class_to_source_map_from_jar")
-load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//java/utils:java_more_utils.bzl", "get_path_separator_for_exec_os")
-load("@prelude//java/utils:java_utils.bzl", "get_class_to_source_map_info")
 load("@prelude//target_stats:target_stats.bzl", "target_stats_aggregate_providers_and_subtargets")
+load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
 load("@prelude//utils:argfile.bzl", "argfile")
 load("@prelude//utils:utils.bzl", "flatten")
+load(":attrs.bzl", "ANDROID_BINARY_ATTRS")
 
 def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
     android_binary_info = get_binary_info(ctx, use_proto_format = False)
@@ -76,20 +76,6 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
     else:
         exopackage_info = None
         default_output = output_apk
-
-    class_to_srcs, _, class_to_srcs_subtargets = get_class_to_source_map_info(
-        ctx,
-        outputs = None,
-        deps = android_binary_info.deps_by_platform[android_binary_info.primary_platform],
-    )
-    transitive_class_to_src_map = merge_class_to_source_map_from_jar(
-        actions = ctx.actions,
-        name = ctx.label.name + ".transitive_class_to_src.json",
-        java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo],
-        relative_to = None,
-        deps = [class_to_srcs],
-    )
-    sub_targets["transitive_class_to_src_map"] = [DefaultInfo(default_output = transitive_class_to_src_map)]
 
     # We can only be sure that an APK has native libs if it has any shared libraries. Prebuilt native libraries dirs can exist but be empty.
     definitely_has_native_libs = bool(native_library_info.shared_libraries)
@@ -152,7 +138,7 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
         DefaultInfo(
             default_output = default_output,
             other_outputs = install_info.files.values() + android_binary_info.materialized_artifacts,
-            sub_targets = sub_targets | class_to_srcs_subtargets,
+            sub_targets = sub_targets,
         ),
         install_info,
         TemplatePlaceholderInfo(
@@ -163,7 +149,7 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
                 ),
             },
         ),
-        class_to_srcs,
+        android_binary_info.class_to_srcs,
     ] + target_stats_providers
 
     if android_binary_info.preprocessed_java_classes_info:
@@ -333,3 +319,15 @@ def get_install_config(apex_mode: bool) -> dict[str, typing.Any]:
         install_config["adb_executable"] = adb_executable
 
     return install_config
+
+android_binary = prelude_rule(
+    name = "android_binary",
+    impl = android_apk_impl,
+    docs = """
+        An `android_binary()` rule is used to generate an Android APK.
+    """,
+    examples = None,
+    further = None,
+    attrs = ANDROID_BINARY_ATTRS,
+    cfg = constraint_overrides.transition,
+)

@@ -21,12 +21,12 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_error::buck2_error;
 use buck2_error::internal_error;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_util::arc_str::ArcStr;
 use buck2_util::size_assert;
 use pagable::Pagable;
 use serde::Serialize;
 use serde::Serializer;
-use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map;
 use strong_hash::StrongHash;
 
@@ -53,12 +53,12 @@ use crate::attrs::fmt_context::AttrFmtContext;
 use crate::attrs::json::ToJsonWithContext;
 use crate::attrs::serialize::AttrSerializeWithContext;
 use crate::attrs::strong_hash_without_config::StrongHashWithoutConfig;
-use crate::attrs::values::TargetModifiersValue;
 use crate::metadata::map::MetadataMap;
+use crate::modifiers::CfgModifiers;
 use crate::visibility::VisibilitySpecification;
 use crate::visibility::WithinViewSpecification;
 
-#[derive(Eq, PartialEq, Hash, Clone, Allocative, Debug, Pagable)]
+#[derive(Eq, PartialEq, Hash, StrongHash, Clone, Allocative, Debug, Pagable)]
 pub enum ConfiguredAttr {
     Bool(BoolLiteral),
     Int(i64),
@@ -102,7 +102,7 @@ pub enum ConfiguredAttr {
     Query(Box<QueryAttr<ConfiguredProvidersLabel>>),
     SourceFile(CoercedPath),
     Metadata(MetadataMap),
-    TargetModifiers(TargetModifiersValue),
+    TargetModifiers(CfgModifiers),
 }
 
 impl StrongHashWithoutConfig for ConfiguredAttr {
@@ -217,8 +217,8 @@ impl StrongHashWithoutConfig for ConfiguredAttr {
     }
 }
 
-// For `ConfiguredAttr` size is not as important as for `CoercedAttr`,
-// yet we should keep it reasonable.
+// `ConfiguredAttr` is built per access rather than stored per target, so its
+// size matters less than the arena encoding's, yet we should keep it reasonable.
 size_assert::words_of_type!(ConfiguredAttr, 4);
 
 impl AttrSerializeWithContext for ConfiguredAttr {
@@ -410,7 +410,7 @@ impl ConfiguredAttr {
                     Ok(ConfiguredAttr::List(ListLiteral(res.into())))
                 }
                 ConfiguredAttr::Dict(left) => {
-                    let mut res = OrderedMap::new();
+                    let mut res = BuckMutInsertionMap::new();
                     for (k, v) in left.iter().cloned() {
                         res.insert(k, v);
                     }
@@ -461,14 +461,22 @@ impl ConfiguredAttr {
                     }
                 }
                 ConfiguredAttr::Arg(left) => {
+                    let anon_target_compatible = left.anon_target_compatible();
+                    let mut configured_by = left.anon_target_tool_resolution().cloned();
                     let res = left.string_with_macros.concat(items.map(|x| match x? {
-                        ConfiguredAttr::Arg(x) => Ok(x.string_with_macros),
+                        ConfiguredAttr::Arg(x) => {
+                            if configured_by.is_none() {
+                                configured_by = x.anon_target_tool_resolution().cloned();
+                            }
+                            Ok(x.string_with_macros)
+                        }
                         attr => Err(attr.concat_not_supported("arg")),
                     }))?;
-                    Ok(ConfiguredAttr::Arg(ConfiguredStringWithMacros {
-                        string_with_macros: res,
-                        anon_target_compatible: left.anon_target_compatible,
-                    }))
+                    Ok(ConfiguredAttr::Arg(ConfiguredStringWithMacros::new(
+                        res,
+                        anon_target_compatible,
+                        configured_by.as_ref(),
+                    )))
                 }
                 val => Err(buck2_error!(
                     buck2_error::ErrorTag::Input,

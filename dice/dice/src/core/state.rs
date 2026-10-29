@@ -42,10 +42,12 @@ use crate::epoch::evaluator::VersionState;
 use crate::epoch::task::dice::DiceTask;
 use crate::key::DiceKey;
 use crate::metrics::Metrics;
-use crate::metrics::PagingMemoryMetrics;
+use crate::storage::EvictionPolicy;
+use crate::storage::PagingSetup;
 use crate::updater::ActiveTransactionGuard;
 use crate::updater::ChangeType;
 use crate::value::DiceValidValue;
+use crate::value::HydratedValue;
 use crate::value::MaybeResidentComputedValue;
 use crate::value::PageOutResult;
 use crate::value::ResidentComputedValue;
@@ -353,15 +355,29 @@ impl CoreStateHandle {
         self.call(StateRequest::KeysToPageOut { resp }, recv)
     }
 
-    /// Evict in-memory values that still match the serialized page-out snapshot.
-    /// Fire-and-forget; any subsequent state requests are guaranteed to see
-    /// the evicted state because state requests are processed FIFO.
-    pub(crate) fn evict_keys(&self, keys: Vec<(DiceKey, PageOutResult)>) {
-        self.request(StateRequest::EvictKeys { keys })
+    /// Record the rows of values that still match the serialized page-out snapshot, evicting
+    /// those never paged out before. Fire-and-forget; any subsequent state requests are
+    /// guaranteed to see the result because state requests are processed FIFO.
+    pub(crate) fn commit_page_out(
+        &self,
+        keys: Vec<(DiceKey, PageOutResult)>,
+        eviction_policy: EvictionPolicy,
+    ) {
+        self.request(StateRequest::CommitPageOut {
+            keys,
+            eviction_policy,
+        })
+    }
+
+    /// Evict the backed values of up to `limit` keys, returning how many values were evicted:
+    /// zero only once none is left.
+    pub(crate) fn evict_backed(&self, limit: usize) -> impl Future<Output = u64> + use<> {
+        let (resp, recv) = oneshot::channel();
+        self.call(StateRequest::EvictBacked { limit, resp }, recv)
     }
 
     /// Mark nodes that page-out could not serialize so they are not offered as
-    /// candidates again. Fire-and-forget (FIFO, as with `evict_keys`).
+    /// candidates again. Fire-and-forget (FIFO, as with `commit_page_out`).
     pub(crate) fn mark_non_pageable(&self, keys: Vec<(DiceKey, DiceValidValue)>) {
         self.request(StateRequest::MarkNonPageable { keys })
     }
@@ -369,11 +385,11 @@ impl CoreStateHandle {
     /// Replace the value paged out at `data_key` with `value`, its hydrated form.
     /// Fire-and-forget; any subsequent state requests for `key` are guaranteed to see the
     /// hydrated value because state requests are processed FIFO.
-    pub(crate) fn rehydrate(&self, key: DiceKey, data_key: DataKey, value: DiceValidValue) {
+    pub(crate) fn rehydrate(&self, key: DiceKey, data_key: DataKey, hydrated: HydratedValue) {
         self.request(StateRequest::Rehydrate {
             key,
             data_key,
-            value,
+            hydrated,
         })
     }
 
@@ -420,10 +436,8 @@ impl Allocative for CoreStateHandle {
 impl Dupe for CoreStateHandle {}
 
 /// Start processing state
-pub(crate) fn init_state(
-    paging_memory: Option<std::sync::Arc<PagingMemoryMetrics>>,
-) -> CoreStateHandle {
-    StateProcessor::spawn(paging_memory)
+pub(crate) fn init_state(paging: Option<PagingSetup>) -> CoreStateHandle {
+    StateProcessor::spawn(paging)
 }
 
 /// A [`CoreStateHandle`] that does not keep the actor alive: what the actor holds to make
@@ -568,8 +582,14 @@ pub(super) enum StateRequest {
     KeysToPageOut {
         resp: Sender<Vec<(DiceKey, DiceValidValue)>>,
     },
-    /// Mark unchanged page-out snapshots as paged out, dropping their in-memory values.
-    EvictKeys { keys: Vec<(DiceKey, PageOutResult)> },
+    /// Record the rows of unchanged page-out snapshots, dropping the in-memory values of those
+    /// never paged out before.
+    CommitPageOut {
+        keys: Vec<(DiceKey, PageOutResult)>,
+        eviction_policy: EvictionPolicy,
+    },
+    /// Drop the backed values of up to `limit` keys, leaving their rows.
+    EvictBacked { limit: usize, resp: Sender<u64> },
     /// Mark nodes that page-out could not serialize.
     MarkNonPageable {
         keys: Vec<(DiceKey, DiceValidValue)>,
@@ -578,7 +598,7 @@ pub(super) enum StateRequest {
     Rehydrate {
         key: DiceKey,
         data_key: DataKey,
-        value: DiceValidValue,
+        hydrated: HydratedValue,
     },
     /// Collect metrics
     Metrics { resp: Sender<Metrics> },

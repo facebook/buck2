@@ -41,13 +41,14 @@ use buck2_data::ToProtoMessage;
 use buck2_data::action_key_owner::BaseDeferredKeyProto;
 use buck2_error::internal_error;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_hash::BuckFixedSortedMap;
 use buck2_hash::BuckHasher;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_hash::BuckMutMap;
-use buck2_hash::StdBuckHashMap;
 use buck2_interpreter::dice::starlark_provider::DynEvalKindKey;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_node::attrs::spec::AttributeSpec;
-use buck2_node::attrs::values::AttrValues;
+use buck2_node::attrs::values::SortedAttrValues;
 use buck2_node::rule_type::StarlarkRuleType;
 use buck2_util::strong_hasher::Blake3StrongHasher;
 use cmp_any::PartialEqAny;
@@ -55,7 +56,6 @@ use compact_str::CompactString;
 use dupe::Dupe;
 use pagable::Pagable;
 use pagable::pagable_typetag;
-use starlark::collections::SmallMap;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::UnpackValue;
@@ -76,7 +76,7 @@ use crate::anon_target_attr_resolve::AnonTargetAttrResolutionContext;
 /// from the same value passed explicitly. Attribute names are not stored;
 /// ids resolve against the [`AttributeSpec`] of the rule identified by the
 /// `rule_type` stored alongside this in [`AnonTarget`].
-pub(crate) type AnonAttrValues = AttrValues<AnonTargetAttr>;
+pub(crate) type AnonAttrValues = SortedAttrValues<AnonTargetAttr>;
 
 #[derive(Eq, PartialEq, Clone, Debug, Allocative, Pagable)]
 pub(crate) struct AnonTarget {
@@ -258,31 +258,27 @@ impl AnonTargetDyn for AnonTarget {
 
     fn get_fulfilled_promise_artifacts<'v>(
         self: Arc<Self>,
-        promise_artifact_mappings: SmallMap<String, Value<'v>>,
+        promise_artifact_mappings: BuckMutInsertionMap<String, Value<'v>>,
         anon_target_result: Value<'v>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> buck2_error::Result<StdBuckHashMap<PromiseArtifactId, Artifact>> {
-        let mut fulfilled_artifact_mappings = StdBuckHashMap::default();
+    ) -> buck2_error::Result<BuckFixedSortedMap<PromiseArtifactId, Artifact>> {
+        promise_artifact_mappings
+            .values()
+            .enumerate()
+            .map(|(id, func)| {
+                let artifact = eval.eval_function(*func, &[anon_target_result], &[])?;
 
-        for (id, func) in promise_artifact_mappings.values().enumerate() {
-            let artifact = eval.eval_function(*func, &[anon_target_result], &[])?;
+                let promise_id =
+                    PromiseArtifactId::new(BaseDeferredKey::AnonTarget(self.dupe()), id);
 
-            let promise_id = PromiseArtifactId::new(BaseDeferredKey::AnonTarget(self.dupe()), id);
-
-            match ValueAsInputArtifactLike::unpack_value(artifact)? {
-                Some(artifact) => {
-                    fulfilled_artifact_mappings
-                        .insert(promise_id.clone(), artifact.0.get_bound_artifact()?);
+                match ValueAsInputArtifactLike::unpack_value(artifact)? {
+                    Some(artifact) => Ok((promise_id, artifact.0.get_bound_artifact()?)),
+                    None => {
+                        Err(PromiseArtifactResolveError::NotAnArtifact(artifact.to_repr()).into())
+                    }
                 }
-                None => {
-                    return Err(
-                        PromiseArtifactResolveError::NotAnArtifact(artifact.to_repr()).into(),
-                    );
-                }
-            }
-        }
-
-        Ok(fulfilled_artifact_mappings)
+            })
+            .collect()
     }
 
     fn eval_kind(self: Arc<Self>) -> StarlarkEvalKind {

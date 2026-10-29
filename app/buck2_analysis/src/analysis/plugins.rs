@@ -10,6 +10,7 @@
 
 use buck2_build_api::interpreter::rule_defs::plugins::AnalysisPlugins;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_node::attrs::attr_type::dep::DepAttr;
 use buck2_node::attrs::attr_type::dep::DepAttrTransition;
 use buck2_node::attrs::attr_type::dep::DepAttrType;
@@ -18,7 +19,6 @@ use buck2_node::provider_id_set::ProviderIdSet;
 use dupe::IterDupedExt;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
-use starlark_map::small_map::SmallMap;
 
 use crate::attrs::resolve::attr_type::dep::DepAttrTypeExt;
 use crate::attrs::resolve::ctx::AttrResolutionContext;
@@ -27,7 +27,7 @@ pub fn plugins_to_starlark_value<'v>(
     node: ConfiguredTargetNodeRef,
     ctx: &mut dyn AttrResolutionContext<'v>,
 ) -> buck2_error::Result<ValueTyped<'v, AnalysisPlugins<'v>>> {
-    let mut plugins = SmallMap::new();
+    let mut plugins = BuckMutInsertionMap::new();
     let execution_platform_resolution = node.execution_platform_resolution();
 
     for kind in node.uses_plugins().iter().duped() {

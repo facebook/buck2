@@ -173,7 +173,8 @@ fn resolve_memory_restriction_value(
             return Err(CgroupConfigParsingError::NotAPercentage(perct.to_owned()).into());
         };
         match from_ancestor {
-            Some(base) => Ok(Some(base * perct / 100)),
+            // The product can exceed `u64`; the result cannot, since the percentage is at most 100.
+            Some(base) => Ok(Some((u128::from(base) * u128::from(perct) / 100) as u64)),
             // Maybe ideally we'd know the system memory but eh
             None => Ok(None),
         }
@@ -225,10 +226,8 @@ impl BuckCgroupTree {
                 buck2_error!(
                     buck2_error::ErrorTag::Environment,
                     "cpuset controller is not available in the cgroup the daemon was launched in"
-                ),
-                quiet: true
-            )
-            .ok();
+                )
+            );
         }
 
         prepped
@@ -333,6 +332,17 @@ mod tests {
     use crate::buck_cgroup_tree::resolve_memory_restriction_value;
     use crate::cgroup::Cgroup;
     use crate::path::CgroupPath;
+
+    /// A percentage of an ancestor limit is computed without overflowing `u64`.
+    #[test]
+    fn test_resolve_memory_restriction_value_large_ancestor() {
+        let r = resolve_memory_restriction_value("50%", Some(1_000_000_000_000_000_000)).unwrap();
+        assert_eq!(r, Some(500_000_000_000_000_000));
+        let r = resolve_memory_restriction_value("100%", Some(u64::MAX)).unwrap();
+        assert_eq!(r, Some(u64::MAX));
+        let r = resolve_memory_restriction_value("1%", Some(u64::MAX)).unwrap();
+        assert_eq!(r, Some(u64::MAX / 100));
+    }
 
     #[test]
     fn test_cgroup_info_parse() {

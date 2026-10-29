@@ -14,7 +14,7 @@ use std::sync::Arc;
 
 use buck2_core::buck2_env;
 use buck2_core::fs::project::ProjectRoot;
-use buck2_core::soft_error;
+use buck2_core::warn_user_or_panic;
 use buck2_error::BuckErrorContext;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_path::AbsPath;
@@ -22,6 +22,11 @@ use buck2_fs::paths::abs_path::AbsPathBuf;
 use serde::de::DeserializeOwned;
 
 use crate::settings::BuckSettings;
+use crate::settings::metadata::OverrideSource;
+use crate::settings::metadata::SectionMetadata;
+use crate::settings::metadata::SettingKeyRef;
+use crate::settings::metadata::SettingSource;
+use crate::settings::metadata::find_setting_metadata;
 use crate::settings::path::DEFAULT_SETTINGS_SOURCES;
 use crate::settings::path::DOT_BUCKSETTINGS;
 use crate::settings::path::SettingsSource as SettingsPathSource;
@@ -29,13 +34,8 @@ use crate::settings::path::SettingsSource as SettingsPathSource;
 use crate::settings::path::rollouts_path;
 #[cfg(fbcode_build)]
 use crate::settings::rollouts::select_rollout_table;
-use crate::settings::settings::ALL_SETTING_METADATA;
+use crate::settings::settings::ALL_SECTION_METADATA;
 use crate::settings::settings::BuckSettingsData;
-use crate::settings::settings::OverrideSource;
-use crate::settings::settings::SettingKeyMetadata;
-use crate::settings::settings::SettingKeyRef;
-use crate::settings::settings::SettingSource;
-use crate::settings::settings::find_setting_metadata;
 
 /// Source of a setting value.
 #[derive(Debug, PartialEq, Eq, derive_more::Display)]
@@ -152,14 +152,14 @@ impl MergedSettings {
 
     fn validate_inner<'a>(
         &'a self,
-        metadata: &[SettingKeyMetadata],
+        sections: &[SectionMetadata],
         path: &mut Vec<&'a str>,
     ) -> buck2_error::Result<()> {
         for (name, value) in &self.0 {
             path.push(name);
             match value {
                 SourcedValue::Section(section) => {
-                    section.validate_inner(metadata, path)?;
+                    section.validate_inner(sections, path)?;
                 }
                 SourcedValue::Leaf { provenance, .. } => {
                     let (name, section) = path.split_last().expect("a setting always has a name");
@@ -172,7 +172,7 @@ impl MergedSettings {
                         section: &section,
                         name,
                     };
-                    let Some(metadata) = find_setting_metadata(metadata, key) else {
+                    let Some(metadata) = find_setting_metadata(sections, key) else {
                         path.pop();
                         continue;
                     };
@@ -191,8 +191,8 @@ impl MergedSettings {
     }
 
     /// Validates override sources for final merged values, ignoring overridden values.
-    fn validate(&self, metadata: &[SettingKeyMetadata]) -> buck2_error::Result<()> {
-        self.validate_inner(metadata, &mut Vec::new())
+    fn validate(&self, sections: &[SectionMetadata]) -> buck2_error::Result<()> {
+        self.validate_inner(sections, &mut Vec::new())
     }
 
     fn deserialize<T: DeserializeOwned>(self) -> buck2_error::Result<T> {
@@ -280,10 +280,9 @@ fn rollout_layer(home_dir: Option<&AbsPath>) -> Option<SettingsLayer> {
         }
         Ok(None) => None,
         Err(error) => {
-            let _ignored = soft_error!(
+            warn_user_or_panic!(
                 "buck_settings_rollout_ignored",
-                error.context("Error parsing settings rollout file"),
-                quiet: false
+                error.context("Error parsing settings rollout file")
             );
             None
         }
@@ -322,7 +321,7 @@ fn resolve(layers: Vec<SettingsLayer>) -> buck2_error::Result<BuckSettings> {
         })
         .collect();
     let merged = merge_layers(layers);
-    merged.validate(ALL_SETTING_METADATA)?;
+    merged.validate(ALL_SECTION_METADATA)?;
     let data: BuckSettingsData = merged.deserialize()?;
     Ok(data.into())
 }
@@ -428,6 +427,7 @@ mod tests {
     use super::*;
     use crate::settings::args::SettingOverride;
     use crate::settings::args::parse_setting_flag_arg;
+    use crate::settings::metadata::SettingKeyMetadata;
     use crate::settings::settings::testing::TestBuckSettingsData;
     use crate::settings::settings::testing::TestSection;
 
@@ -445,36 +445,31 @@ mod tests {
     }
 
     const TEST_FLAG_METADATA: SettingKeyMetadata = SettingKeyMetadata {
-        key: SettingKeyRef {
-            section: "test_section",
-            name: "test_flag",
-        },
+        name: "test_flag",
         overridable_in: &[OverrideSource::CommandLine],
     };
 
     const TEST_SETTINGS_METADATA: &[SettingKeyMetadata] = &[
         SettingKeyMetadata {
-            key: SettingKeyRef {
-                section: "test_section",
-                name: "test_flag",
-            },
+            name: "test_flag",
             overridable_in: &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
         },
         SettingKeyMetadata {
-            key: SettingKeyRef {
-                section: "test_section",
-                name: "test_value",
-            },
+            name: "test_value",
             overridable_in: &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
         },
     ];
 
     fn resolve_with_metadata<T: DeserializeOwned>(
         layers: Vec<SettingsLayer>,
-        metadata: &[SettingKeyMetadata],
+        metadata: &'static [SettingKeyMetadata],
     ) -> buck2_error::Result<T> {
         let merged = merge_layers(layers);
-        merged.validate(metadata)?;
+        merged.validate(&[SectionMetadata {
+            section_name: "test_section",
+            section_version: 0,
+            settings: metadata,
+        }])?;
         merged.deserialize()
     }
 
@@ -587,21 +582,30 @@ mod tests {
             let home_dir = home.path().root().as_abs_path();
 
             let settings = parse_settings_with_home(repo_root, Some(home_dir), None, &[])?;
-            assert_eq!(settings.log_download.log_url(), Some("https://rollout/"));
+            assert_eq!(
+                settings.daemon.log_download.log_url(),
+                Some("https://rollout/")
+            );
 
             home.write_file(
                 DOT_BUCKSETTINGS_LOCAL,
                 "[log_download]\nlog_url = \"https://home-local/\"\n",
             );
             let settings = parse_settings_with_home(repo_root, Some(home_dir), None, &[])?;
-            assert_eq!(settings.log_download.log_url(), Some("https://home-local/"));
+            assert_eq!(
+                settings.daemon.log_download.log_url(),
+                Some("https://home-local/")
+            );
 
             repo.write_file(
                 DOT_BUCKSETTINGS_LOCAL,
                 "[log_download]\nlog_url = \"https://repo-local/\"\n",
             );
             let settings = parse_settings_with_home(repo_root, Some(home_dir), None, &[])?;
-            assert_eq!(settings.log_download.log_url(), Some("https://repo-local/"));
+            assert_eq!(
+                settings.daemon.log_download.log_url(),
+                Some("https://repo-local/")
+            );
 
             let override_dir = ProjectRootTemp::new()?;
             override_dir.write_file(
@@ -615,7 +619,10 @@ mod tests {
                 .join("override.toml");
             let settings =
                 parse_settings_with_home(repo_root, Some(home_dir), Some(&override_file), &[])?;
-            assert_eq!(settings.log_download.log_url(), Some("https://override/"));
+            assert_eq!(
+                settings.daemon.log_download.log_url(),
+                Some("https://override/")
+            );
 
             let settings_args = [table("[log_download]\nlog_url = \"https://command-line/\"")];
             let settings = parse_settings_with_home(
@@ -625,7 +632,7 @@ mod tests {
                 &settings_args,
             )?;
             assert_eq!(
-                settings.log_download.log_url(),
+                settings.daemon.log_download.log_url(),
                 Some("https://command-line/")
             );
 
@@ -659,7 +666,7 @@ mod tests {
             for (label, content) in cases {
                 let settings = settings_with_rollout(Some(&content))?;
                 assert_eq!(
-                    settings.log_download.log_url(),
+                    settings.daemon.log_download.log_url(),
                     Some(REPO_URL),
                     "{label} must not affect other settings"
                 );
@@ -684,7 +691,7 @@ mod tests {
                 None,
                 &[],
             )?;
-            assert_eq!(settings.log_download.log_url(), Some(REPO_URL));
+            assert_eq!(settings.daemon.log_download.log_url(), Some(REPO_URL));
             Ok(())
         }
 
@@ -709,15 +716,14 @@ mod tests {
                 &[],
             )?;
             let config = parse_legacy_config(&[("config", "")], "config")?;
-            DaemonStartupConfig::new(&config, &settings, false)
+            DaemonStartupConfig::new(&config, &settings.daemon, false)
         }
 
         #[test]
         fn rollout_value_changes_startup_config() -> buck2_error::Result<()> {
-            assert_ne!(
-                startup_config_for(Some(&rollout_toml("log_url = \"https://before/\"")))?,
-                startup_config_for(Some(&rollout_toml("log_url = \"https://after/\"")))?
-            );
+            let before = startup_config_for(Some(&rollout_toml("log_url = \"https://before/\"")))?;
+            let after = startup_config_for(Some(&rollout_toml("log_url = \"https://after/\"")))?;
+            assert!(!before.buck_settings_changes_from(&after).is_empty());
             Ok(())
         }
 
@@ -726,9 +732,11 @@ mod tests {
             let startup_config = startup_config_for(Some(&hydration_rollout_toml(
                 "enable_paging = true\npage_out_on_idle = true\npage_out_on_idle_isolation_dir_scope = \"non_default\"",
             )))?;
-            assert_eq!(
-                startup_config.buck_settings.hydration.enable_paging(),
-                Some(true)
+            assert!(
+                startup_config
+                    .daemon_buck_settings()
+                    .hydration
+                    .enable_paging()
             );
             assert_eq!(
                 startup_config.idle_page_out_config_for_isolation_dir(
@@ -742,6 +750,13 @@ mod tests {
                 )
                 .expect("The rollout should enable idle page-out outside the default daemon");
             assert!(hydration.page_out_on_idle);
+            Ok(())
+        }
+
+        #[test]
+        fn old_agent_interactive_rollout_does_not_enable_guards() -> buck2_error::Result<()> {
+            let settings = settings_with_rollout(Some(b"[agent_interactive.0]\nenabled = true"))?;
+            assert!(!settings.invocation.agent_interactive.enabled());
             Ok(())
         }
     }
@@ -761,7 +776,7 @@ mod tests {
             None,
             &[],
         )?;
-        assert_eq!(settings.log_download.log_url(), None);
+        assert_eq!(settings.daemon.log_download.log_url(), None);
         Ok(())
     }
 
@@ -944,7 +959,7 @@ mod tests {
                 "[test_section]\ntest_flag = true",
             ))],
             &[SettingKeyMetadata {
-                key: TEST_FLAG_METADATA.key,
+                name: TEST_FLAG_METADATA.name,
                 overridable_in: &[],
             }],
         )
@@ -969,7 +984,7 @@ mod tests {
                 table("[test_section]\ntest_flag = true"),
             )],
             &[SettingKeyMetadata {
-                key: TEST_FLAG_METADATA.key,
+                name: TEST_FLAG_METADATA.name,
                 overridable_in: &[],
             }],
         )?;
@@ -996,13 +1011,13 @@ mod tests {
     #[test]
     fn test_migrate_legacy_log_download_keys_before_merging_layers() -> buck2_error::Result<()> {
         let settings = resolve_setting_flags(vec![table("log_use_manifold = false")])?;
-        assert_eq!(settings.log_download.log_use_manifold(), Some(false));
+        assert_eq!(settings.daemon.log_download.log_use_manifold(), Some(false));
 
         let settings = resolve_setting_flags(vec![
             table("[log_download]\nlog_use_manifold = true"),
             table("log_use_manifold = false"),
         ])?;
-        assert_eq!(settings.log_download.log_use_manifold(), Some(false));
+        assert_eq!(settings.daemon.log_download.log_use_manifold(), Some(false));
         Ok(())
     }
 

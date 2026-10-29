@@ -13,12 +13,11 @@ import asyncio
 from pathlib import Path
 from typing import Optional
 
-import pytest
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.api.buck_result import BuckException, BuildResult
 from buck2.tests.e2e_util.api.process import Process
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase, parametrize
 
 
 async def wait_for_action_start(
@@ -51,409 +50,404 @@ async def wait_for_action_start(
         ) from error
 
 
-@buck_test()
-async def test_exit_when_different_state(buck: Buck) -> None:
-    a = buck.build(
-        "-c",
-        "foo.bar=1",
-        "--exit-when=differentstate",
-        ":long_running_target",
-        "--local-only",
-        "--no-remote-cache",
-    )
+class ConcurrencyTest(BuckTestCase):
+    @buck_test()
+    async def test_exit_when_different_state(self, buck: Buck) -> None:
+        a = buck.build(
+            "-c",
+            "foo.bar=1",
+            "--exit-when=differentstate",
+            ":long_running_target",
+            "--local-only",
+            "--no-remote-cache",
+        )
 
-    b = buck.build(
-        "-c",
-        "foo.bar=2",
-        "--exit-when=differentstate",
-        ":long_running_target",
-        "--local-only",
-        "--no-remote-cache",
-    )
+        b = buck.build(
+            "-c",
+            "foo.bar=2",
+            "--exit-when=differentstate",
+            ":long_running_target",
+            "--local-only",
+            "--no-remote-cache",
+        )
 
-    # create a coroutine that can return a result
-    async def process(
-        p: Process[BuildResult, BuckException],
-    ) -> tuple[Optional[int], str]:
-        result = await expect_failure(p)
-        return (result.process.returncode, result.stderr)
+        # create a coroutine that can return a result
+        async def process(
+            p: Process[BuildResult, BuckException],
+        ) -> tuple[Optional[int], str]:
+            result = await expect_failure(p)
+            return (result.process.returncode, result.stderr)
 
-    done, pending = await asyncio.wait(
-        [asyncio.create_task(process(a)), asyncio.create_task(process(b))],
-        timeout=10,
-        return_when=asyncio.FIRST_COMPLETED,
-    )
+        done, pending = await asyncio.wait(
+            [asyncio.create_task(process(a)), asyncio.create_task(process(b))],
+            timeout=10,
+            return_when=asyncio.FIRST_COMPLETED,
+        )
 
-    assert len(done) == 1
-    assert len(pending) == 1
-
-    # these are sets, so can't index them.
-    for task in done:
-        exit_code, stderr = task.result()
-        assert "daemon is busy" in stderr
-        assert exit_code == 4
-
-
-@buck_test()
-@pytest.mark.parametrize("same_state", [True, False])
-async def test_exit_when_preemptible_always(buck: Buck, same_state: bool) -> None:
-    a = buck.build(
-        "-c",
-        "foo.bar=1",
-        "--preemptible=always",
-        ":long_running_target",
-        "--local-only",
-        "--no-remote-cache",
-    )
-
-    b = buck.build(
-        "-c",
-        # We expect to ALWAYS preempt commands, to prevent blocking new callees
-        "foo.bar=1" if same_state else "foo.bar=2",
-        "--preemptible=always",
-        ":long_running_target",
-        "--local-only",
-        "--no-remote-cache",
-    )
-
-    # create a coroutine that can return a result
-    async def process(
-        p: Process[BuildResult, BuckException],
-    ) -> tuple[Optional[int], str]:
-        result = await expect_failure(p)
-        return (result.process.returncode, result.stderr)
-
-    done, pending = await asyncio.wait(
-        [asyncio.create_task(process(a)), asyncio.create_task(process(b))],
-        timeout=10,
-        return_when=asyncio.FIRST_COMPLETED,
-    )
-
-    assert len(done) == 1
-    assert len(pending) == 1
-
-    # these are sets, so can't index them.
-    for task in done:
-        exit_code, stderr = task.result()
-        assert "daemon preempted" in stderr
-        assert exit_code == 5
-
-
-@buck_test(write_invocation_record=True)
-async def test_preemptible_logged(buck: Buck) -> None:
-    res = await buck.targets(
-        "--preemptible=always",
-        ":",
-    )
-    record = res.invocation_record()
-    assert record["preemptible"] == "ALWAYS"
-
-
-@buck_test()
-@pytest.mark.parametrize("same_state", [True, False])
-async def test_exit_when_preemptible_on_different_state(
-    buck: Buck, same_state: bool
-) -> None:
-    a = buck.build(
-        "-c",
-        "foo.bar=1",
-        "--preemptible=ondifferentstate",
-        ":long_running_target",
-        "--local-only",
-        "--no-remote-cache",
-    )
-
-    b = buck.build(
-        "-c",
-        # We expect to ALWAYS preempt commands, to prevent blocking new callees
-        "foo.bar=1" if same_state else "foo.bar=2",
-        "--preemptible=ondifferentstate",
-        ":long_running_target",
-        "--local-only",
-        "--no-remote-cache",
-    )
-
-    # create a coroutine that can return a result
-    async def process(
-        p: Process[BuildResult, BuckException],
-    ) -> tuple[Optional[int], str]:
-        result = await expect_failure(p)
-        return (result.process.returncode, result.stderr)
-
-    done, pending = await asyncio.wait(
-        [asyncio.create_task(process(a)), asyncio.create_task(process(b))],
-        timeout=10,
-        return_when=asyncio.FIRST_COMPLETED,
-    )
-
-    if same_state:
-        # No preempt when state is the same
-        assert len(done) == 0
-        assert len(pending) == 2
-    else:
         assert len(done) == 1
         assert len(pending) == 1
 
-    # These are sets, so can't index them. Expect all done tasks to be "done" because they're preempted
-    for task in done:
-        exit_code, stderr = task.result()
-        assert "daemon preempted" in stderr
-        assert exit_code == 5
+        # these are sets, so can't index them.
+        for task in done:
+            exit_code, stderr = task.result()
+            assert "daemon is busy" in stderr
+            assert exit_code == 4
 
+    @buck_test()
+    @parametrize("same_state", [True, False])
+    async def test_exit_when_preemptible_always(
+        self, buck: Buck, same_state: bool
+    ) -> None:
+        a = buck.build(
+            "-c",
+            "foo.bar=1",
+            "--preemptible=always",
+            ":long_running_target",
+            "--local-only",
+            "--no-remote-cache",
+        )
 
-@buck_test()
-@pytest.mark.parametrize("same_state", [True, False])
-async def test_exit_when_not_idle_does_not_start_when_daemon_busy(
-    buck: Buck, same_state: bool, tmp_path: Path
-) -> None:
-    """Test that an incoming command with --exit-when=notidle does not start if there's another command running."""
+        b = buck.build(
+            "-c",
+            # We expect to ALWAYS preempt commands, to prevent blocking new callees
+            "foo.bar=1" if same_state else "foo.bar=2",
+            "--preemptible=always",
+            ":long_running_target",
+            "--local-only",
+            "--no-remote-cache",
+        )
 
-    # create a coroutine that can return a result
-    async def process(
-        p: Process[BuildResult, BuckException],
-    ) -> tuple[Optional[int], str]:
-        result = await expect_failure(p)
-        return (result.process.returncode, result.stderr)
+        # create a coroutine that can return a result
+        async def process(
+            p: Process[BuildResult, BuckException],
+        ) -> tuple[Optional[int], str]:
+            result = await expect_failure(p)
+            return (result.process.returncode, result.stderr)
 
-    event_log = tmp_path / "first.json-lines"
-    a = buck.build(
-        "-c",
-        "foo.bar=1",
-        ":long_running_target",
-        "--local-only",
-        "--no-remote-cache",
-        "--event-log",
-        str(event_log),
-    )
-    task_a = asyncio.create_task(process(a))
-    await wait_for_action_start(task_a, event_log)
+        done, pending = await asyncio.wait(
+            [asyncio.create_task(process(a)), asyncio.create_task(process(b))],
+            timeout=10,
+            return_when=asyncio.FIRST_COMPLETED,
+        )
 
-    b = buck.build(
-        "-c",
-        "foo.bar=1" if same_state else "foo.bar=2",
-        "--exit-when=notidle",
-        ":long_running_target",
-        "--local-only",
-        "--no-remote-cache",
-    )
-    task_b = asyncio.create_task(process(b))
+        assert len(done) == 1
+        assert len(pending) == 1
 
-    # Wait for one of the tasks to complete
-    done, pending = await asyncio.wait(
-        [task_a, task_b],
-        timeout=10,
-        return_when=asyncio.FIRST_COMPLETED,
-    )
+        # these are sets, so can't index them.
+        for task in done:
+            exit_code, stderr = task.result()
+            assert "daemon preempted" in stderr
+            assert exit_code == 5
 
-    assert len(done) == 1
-    assert len(pending) == 1
+    @buck_test(write_invocation_record=True)
+    async def test_preemptible_logged(self, buck: Buck) -> None:
+        res = await buck.targets(
+            "--preemptible=always",
+            ":",
+        )
+        record = res.invocation_record()
+        assert record["preemptible"] == "ALWAYS"
 
-    # These are sets, so can't index them. Expect all done tasks to be "done" because they're preempted
-    for task in done:
-        exit_code, stderr = task.result()
-        assert "daemon is busy" in stderr
-        assert exit_code == 4
+    @buck_test()
+    @parametrize("same_state", [True, False])
+    async def test_exit_when_preemptible_on_different_state(
+        self, buck: Buck, same_state: bool
+    ) -> None:
+        a = buck.build(
+            "-c",
+            "foo.bar=1",
+            "--preemptible=ondifferentstate",
+            ":long_running_target",
+            "--local-only",
+            "--no-remote-cache",
+        )
 
+        b = buck.build(
+            "-c",
+            # We expect to ALWAYS preempt commands, to prevent blocking new callees
+            "foo.bar=1" if same_state else "foo.bar=2",
+            "--preemptible=ondifferentstate",
+            ":long_running_target",
+            "--local-only",
+            "--no-remote-cache",
+        )
 
-@buck_test()
-@pytest.mark.parametrize("same_state", [True, False])
-async def test_exit_when_not_idle_does_not_gets_preempted(
-    buck: Buck, same_state: bool, tmp_path: Path
-) -> None:
-    """Test that a running command with --exit-when=notidle continues running even with an incoming command."""
+        # create a coroutine that can return a result
+        async def process(
+            p: Process[BuildResult, BuckException],
+        ) -> tuple[Optional[int], str]:
+            result = await expect_failure(p)
+            return (result.process.returncode, result.stderr)
 
-    # create a coroutine that can return a result
-    async def process(
-        p: Process[BuildResult, BuckException],
-    ) -> tuple[Optional[int], str]:
-        result = await expect_failure(p)
-        return (result.process.returncode, result.stderr)
+        done, pending = await asyncio.wait(
+            [asyncio.create_task(process(a)), asyncio.create_task(process(b))],
+            timeout=10,
+            return_when=asyncio.FIRST_COMPLETED,
+        )
 
-    event_log = tmp_path / "first.json-lines"
-    a = buck.build(
-        "-c",
-        "foo.bar=1",
-        "--exit-when=notidle",
-        ":long_running_target",
-        "--local-only",
-        "--no-remote-cache",
-        "--event-log",
-        str(event_log),
-    )
-    task_a = asyncio.create_task(process(a))
-    await wait_for_action_start(task_a, event_log)
+        if same_state:
+            # No preempt when state is the same
+            assert len(done) == 0
+            assert len(pending) == 2
+        else:
+            assert len(done) == 1
+            assert len(pending) == 1
 
-    # Start another command without the flag (default is --preemptible=never)
-    b = buck.build(
-        "-c",
-        "foo.bar=1" if same_state else "foo.bar=2",
-        ":long_running_target",
-        "--local-only",
-        "--no-remote-cache",
-    )
-    task_b = asyncio.create_task(process(b))
+        # These are sets, so can't index them. Expect all done tasks to be "done" because they're preempted
+        for task in done:
+            exit_code, stderr = task.result()
+            assert "daemon preempted" in stderr
+            assert exit_code == 5
 
-    # Wait for one of the tasks to complete
-    done, pending = await asyncio.wait(
-        [task_a, task_b],
-        timeout=10,
-        return_when=asyncio.FIRST_COMPLETED,
-    )
+    @buck_test()
+    @parametrize("same_state", [True, False])
+    async def test_exit_when_not_idle_does_not_start_when_daemon_busy(
+        self, buck: Buck, same_state: bool, tmp_path: Path
+    ) -> None:
+        """Test that an incoming command with --exit-when=notidle does not start if there's another command running."""
 
-    assert len(done) == 0
-    assert len(pending) == 2
+        # create a coroutine that can return a result
+        async def process(
+            p: Process[BuildResult, BuckException],
+        ) -> tuple[Optional[int], str]:
+            result = await expect_failure(p)
+            return (result.process.returncode, result.stderr)
 
+        event_log = tmp_path / "first.json-lines"
+        a = buck.build(
+            "-c",
+            "foo.bar=1",
+            ":long_running_target",
+            "--local-only",
+            "--no-remote-cache",
+            "--event-log",
+            str(event_log),
+        )
+        task_a = asyncio.create_task(process(a))
+        await wait_for_action_start(task_a, event_log)
 
-@buck_test()
-@pytest.mark.parametrize("same_state", [True, False])
-async def test_preemptible_exit_when_not_idle_gets_preempted(
-    buck: Buck, same_state: bool, tmp_path: Path
-) -> None:
-    """Test that a running command with --exit-when=notidle and --preemptible gets preempted with an incoming command."""
+        b = buck.build(
+            "-c",
+            "foo.bar=1" if same_state else "foo.bar=2",
+            "--exit-when=notidle",
+            ":long_running_target",
+            "--local-only",
+            "--no-remote-cache",
+        )
+        task_b = asyncio.create_task(process(b))
 
-    # create a coroutine that can return a result
-    async def process(
-        p: Process[BuildResult, BuckException],
-    ) -> tuple[Optional[int], str]:
-        result = await expect_failure(p)
-        return (result.process.returncode, result.stderr)
+        # Wait for one of the tasks to complete
+        done, pending = await asyncio.wait(
+            [task_a, task_b],
+            timeout=10,
+            return_when=asyncio.FIRST_COMPLETED,
+        )
 
-    event_log = tmp_path / "first.json-lines"
-    a = buck.build(
-        "-c",
-        "foo.bar=1",
-        "--exit-when=notidle",
-        "--preemptible=always",
-        ":long_running_target",
-        "--local-only",
-        "--no-remote-cache",
-        "--event-log",
-        str(event_log),
-    )
-    task_a = asyncio.create_task(process(a))
-    await wait_for_action_start(task_a, event_log)
+        assert len(done) == 1
+        assert len(pending) == 1
 
-    # Start another command without the flag (default is --preemptible=never)
-    b = buck.build(
-        "-c",
-        "foo.bar=1" if same_state else "foo.bar=2",
-        ":long_running_target",
-        "--local-only",
-        "--no-remote-cache",
-    )
-    task_b = asyncio.create_task(process(b))
+        # These are sets, so can't index them. Expect all done tasks to be "done" because they're preempted
+        for task in done:
+            exit_code, stderr = task.result()
+            assert "daemon is busy" in stderr
+            assert exit_code == 4
 
-    # Wait for one of the tasks to complete
-    done, pending = await asyncio.wait(
-        [task_a, task_b],
-        timeout=10,
-        return_when=asyncio.FIRST_COMPLETED,
-    )
+    @buck_test()
+    @parametrize("same_state", [True, False])
+    async def test_exit_when_not_idle_does_not_gets_preempted(
+        self, buck: Buck, same_state: bool, tmp_path: Path
+    ) -> None:
+        """Test that a running command with --exit-when=notidle continues running even with an incoming command."""
 
-    assert len(done) == 1
-    assert len(pending) == 1
+        # create a coroutine that can return a result
+        async def process(
+            p: Process[BuildResult, BuckException],
+        ) -> tuple[Optional[int], str]:
+            result = await expect_failure(p)
+            return (result.process.returncode, result.stderr)
 
-    # These are sets, so can't index them. Expect all done tasks to be "done" because they're preempted
-    for task in done:
-        exit_code, stderr = task.result()
-        assert "daemon preempted" in stderr
-        assert exit_code == 5
+        event_log = tmp_path / "first.json-lines"
+        a = buck.build(
+            "-c",
+            "foo.bar=1",
+            "--exit-when=notidle",
+            ":long_running_target",
+            "--local-only",
+            "--no-remote-cache",
+            "--event-log",
+            str(event_log),
+        )
+        task_a = asyncio.create_task(process(a))
+        await wait_for_action_start(task_a, event_log)
 
+        # Start another command without the flag (default is --preemptible=never)
+        b = buck.build(
+            "-c",
+            "foo.bar=1" if same_state else "foo.bar=2",
+            ":long_running_target",
+            "--local-only",
+            "--no-remote-cache",
+        )
+        task_b = asyncio.create_task(process(b))
 
-@buck_test()
-@pytest.mark.parametrize("same_state", [True, False])
-async def test_multiple_exit_when_not_idle_commands(
-    buck: Buck, same_state: bool, tmp_path: Path
-) -> None:
-    """
-    Test that a running command with --exit-when=notidle does NOT get preempted by an incoming command that
-    also has --exit-when=notidle set.
-    """
+        # Wait for one of the tasks to complete
+        done, pending = await asyncio.wait(
+            [task_a, task_b],
+            timeout=10,
+            return_when=asyncio.FIRST_COMPLETED,
+        )
 
-    # create a coroutine that can return a result
-    async def process(
-        p: Process[BuildResult, BuckException],
-    ) -> tuple[Optional[int], str]:
-        result = await expect_failure(p)
-        return (result.process.returncode, result.stderr)
+        assert len(done) == 0
+        assert len(pending) == 2
 
-    event_log = tmp_path / "first.json-lines"
-    a = buck.build(
-        "-c",
-        "foo.bar=1",
-        "--exit-when=notidle",
-        ":long_running_target",
-        "--local-only",
-        "--no-remote-cache",
-        "--event-log",
-        str(event_log),
-    )
-    task_a = asyncio.create_task(process(a))
-    await wait_for_action_start(task_a, event_log)
+    @buck_test()
+    @parametrize("same_state", [True, False])
+    async def test_preemptible_exit_when_not_idle_gets_preempted(
+        self, buck: Buck, same_state: bool, tmp_path: Path
+    ) -> None:
+        """Test that a running command with --exit-when=notidle and --preemptible gets preempted with an incoming command."""
 
-    b = buck.build(
-        "-c",
-        "foo.bar=1" if same_state else "foo.bar=2",
-        "--exit-when=notidle",
-        ":long_running_target",
-        "--local-only",
-        "--no-remote-cache",
-    )
-    task_b = asyncio.create_task(process(b))
+        # create a coroutine that can return a result
+        async def process(
+            p: Process[BuildResult, BuckException],
+        ) -> tuple[Optional[int], str]:
+            result = await expect_failure(p)
+            return (result.process.returncode, result.stderr)
 
-    done, pending = await asyncio.wait(
-        [task_a, task_b],
-        timeout=10,
-        return_when=asyncio.FIRST_COMPLETED,
-    )
+        event_log = tmp_path / "first.json-lines"
+        a = buck.build(
+            "-c",
+            "foo.bar=1",
+            "--exit-when=notidle",
+            "--preemptible=always",
+            ":long_running_target",
+            "--local-only",
+            "--no-remote-cache",
+            "--event-log",
+            str(event_log),
+        )
+        task_a = asyncio.create_task(process(a))
+        await wait_for_action_start(task_a, event_log)
 
-    assert len(done) == 1
-    assert len(pending) == 1
+        # Start another command without the flag (default is --preemptible=never)
+        b = buck.build(
+            "-c",
+            "foo.bar=1" if same_state else "foo.bar=2",
+            ":long_running_target",
+            "--local-only",
+            "--no-remote-cache",
+        )
+        task_b = asyncio.create_task(process(b))
 
-    # these are sets, so can't index them.
-    for task in done:
-        exit_code, stderr = task.result()
-        assert "daemon is busy" in stderr
-        assert exit_code == 4
+        # Wait for one of the tasks to complete
+        done, pending = await asyncio.wait(
+            [task_a, task_b],
+            timeout=10,
+            return_when=asyncio.FIRST_COMPLETED,
+        )
 
+        assert len(done) == 1
+        assert len(pending) == 1
 
-@buck_test()
-@pytest.mark.parametrize("same_state", [True, False])
-async def test_exit_when_not_idle_after_command_exits(
-    buck: Buck, same_state: bool
-) -> None:
-    """Verify --exit-when=notidle succeeds after the previous command exits."""
+        # These are sets, so can't index them. Expect all done tasks to be "done" because they're preempted
+        for task in done:
+            exit_code, stderr = task.result()
+            assert "daemon preempted" in stderr
+            assert exit_code == 5
 
-    # create a coroutine that can return a result
-    async def process(
-        p: Process[BuildResult, BuckException],
-    ) -> tuple[Optional[int], str]:
-        result = await p
-        return (result.process.returncode, result.stderr)
+    @buck_test()
+    @parametrize("same_state", [True, False])
+    async def test_multiple_exit_when_not_idle_commands(
+        self, buck: Buck, same_state: bool, tmp_path: Path
+    ) -> None:
+        """
+        Test that a running command with --exit-when=notidle does NOT get preempted by an incoming command that
+        also has --exit-when=notidle set.
+        """
 
-    a = buck.build(
-        "-c",
-        "foo.bar=1",
-        ":short_running_target",
-        "--local-only",
-        "--no-remote-cache",
-    )
-    # Wait for the first command to actually finish. A fixed delay here made this test observe an
-    # active command under load even though it intends to test the state after command exit.
-    task_a = asyncio.create_task(process(a))
-    await asyncio.wait_for(task_a, timeout=10)
+        # create a coroutine that can return a result
+        async def process(
+            p: Process[BuildResult, BuckException],
+        ) -> tuple[Optional[int], str]:
+            result = await expect_failure(p)
+            return (result.process.returncode, result.stderr)
 
-    result_b = await buck.build(
-        "-c",
-        "foo.bar=1" if same_state else "foo.bar=2",
-        "--exit-when=notidle",
-        ":short_running_target",
-        "--local-only",
-        "--no-remote-cache",
-    )
+        event_log = tmp_path / "first.json-lines"
+        a = buck.build(
+            "-c",
+            "foo.bar=1",
+            "--exit-when=notidle",
+            ":long_running_target",
+            "--local-only",
+            "--no-remote-cache",
+            "--event-log",
+            str(event_log),
+        )
+        task_a = asyncio.create_task(process(a))
+        await wait_for_action_start(task_a, event_log)
 
-    exit_code_a, stderr_a = task_a.result()
-    assert "daemon is busy" not in stderr_a
-    assert exit_code_a == 0
-    assert "daemon is busy" not in result_b.stderr
-    assert result_b.process.returncode == 0
+        b = buck.build(
+            "-c",
+            "foo.bar=1" if same_state else "foo.bar=2",
+            "--exit-when=notidle",
+            ":long_running_target",
+            "--local-only",
+            "--no-remote-cache",
+        )
+        task_b = asyncio.create_task(process(b))
+
+        done, pending = await asyncio.wait(
+            [task_a, task_b],
+            timeout=10,
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+
+        assert len(done) == 1
+        assert len(pending) == 1
+
+        # these are sets, so can't index them.
+        for task in done:
+            exit_code, stderr = task.result()
+            assert "daemon is busy" in stderr
+            assert exit_code == 4
+
+    @buck_test()
+    @parametrize("same_state", [True, False])
+    async def test_exit_when_not_idle_after_command_exits(
+        self, buck: Buck, same_state: bool
+    ) -> None:
+        """Verify --exit-when=notidle succeeds after the previous command exits."""
+
+        # create a coroutine that can return a result
+        async def process(
+            p: Process[BuildResult, BuckException],
+        ) -> tuple[Optional[int], str]:
+            result = await p
+            return (result.process.returncode, result.stderr)
+
+        a = buck.build(
+            "-c",
+            "foo.bar=1",
+            ":short_running_target",
+            "--local-only",
+            "--no-remote-cache",
+        )
+        # Wait for the first command to actually finish. A fixed delay here made this test observe an
+        # active command under load even though it intends to test the state after command exit.
+        task_a = asyncio.create_task(process(a))
+        await asyncio.wait_for(task_a, timeout=10)
+
+        result_b = await buck.build(
+            "-c",
+            "foo.bar=1" if same_state else "foo.bar=2",
+            "--exit-when=notidle",
+            ":short_running_target",
+            "--local-only",
+            "--no-remote-cache",
+        )
+
+        exit_code_a, stderr_a = task_a.result()
+        assert "daemon is busy" not in stderr_a
+        assert exit_code_a == 0
+        assert "daemon is busy" not in result_b.stderr
+        assert result_b.process.returncode == 0

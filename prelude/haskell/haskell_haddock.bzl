@@ -6,6 +6,9 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
+load("@prelude//decls:common.bzl", "buck")
+load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//haskell:compile.bzl", "compile_args")
 load("@prelude//haskell:link_info.bzl", "cxx_toolchain_link_style")
 load(
@@ -164,3 +167,31 @@ def haskell_haddock_impl(ctx: AnalysisContext) -> list[Provider]:
     )
 
     return [DefaultInfo(default_outputs = [out])]
+
+haskell_haddock = prelude_rule(
+    name = "haskell_haddock",
+    impl = haskell_haddock_impl,
+    docs = """
+        A `haskell_haddock()` rule generates Haddock documentation for
+        the given Haskell dependencies. Extra flags can be passed to the
+        `haddock` tool via `haddock_flags`.
+    """,
+    examples = None,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        {
+            "deps": attrs.list(attrs.dep(), default = []),
+            "deps_query": attrs.option(attrs.query(), default = None),
+            "haddock_flags": attrs.list(attrs.arg(), default = []),
+            "platform": attrs.option(attrs.string(), default = None),
+        }
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
+        | {
+            "_cxx_toolchain": toolchains_common.cxx(),
+            "_haskell_toolchain": toolchains_common.haskell(),
+        }
+    ),
+)

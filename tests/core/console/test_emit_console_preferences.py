@@ -9,23 +9,24 @@
 # pyre-strict
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 from buck2.tests.e2e_util.helper.utils import filter_events
 
 
-@buck_test()
-async def test_emit_console_preferences(buck: Buck) -> None:
-    await buck.build("-c", "ui.thread_line_limit=30")
+class EmitConsolePreferencesTest(BuckTestCase):
+    @buck_test()
+    async def test_emit_console_preferences(self, buck: Buck) -> None:
+        await buck.build("-c", "ui.thread_line_limit=30")
 
-    max_lines = await filter_events(
-        buck,
-        "Event",
-        "data",
-        "Instant",
-        "data",
-        "ConsolePreferences",
-        "max_lines",
-    )
+        max_lines = await filter_events(
+            buck,
+            "Event",
+            "data",
+            "Instant",
+            "data",
+            "ConsolePreferences",
+            "max_lines",
+        )
 
-    assert max_lines
-    assert max_lines[0] == 30
+        assert max_lines
+        assert max_lines[0] == 30

@@ -24,7 +24,7 @@ use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileNameBuf;
-use buck2_hash::buck_indexmap;
+use buck2_hash::buck_mut_insertion_map;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::paths::module::StarlarkModulePath;
@@ -161,7 +161,7 @@ async fn load_and_collect_includes(
 ) -> buck2_error::Result<Vec<ImportPath>> {
     let parent = path
         .parent()
-        .ok_or_else(|| AuditIncludesError::InvalidPath(path.clone()))?;
+        .ok_or_else(|| AuditIncludesError::InvalidPath(*path))?;
     let package = PackageLabel::from_cell_path(parent)?;
     let load_result = ctx.get_interpreter_results(package).await?;
 
@@ -172,11 +172,9 @@ async fn load_and_collect_includes(
             .file_name()
             .expect("checked that this has a parent above")
     {
-        return Err(AuditIncludesError::WrongBuildfilePath(
-            path.clone(),
-            buildfile_name.to_owned(),
-        )
-        .into());
+        return Err(
+            AuditIncludesError::WrongBuildfilePath(*path, buildfile_name.to_owned()).into(),
+        );
     }
 
     get_transitive_includes(ctx, load_result).await
@@ -275,11 +273,11 @@ impl ServerAuditSubcommand for AuditIncludesCommand {
                             match includes {
                                 Ok(includes) => map.serialize_entry(
                                     path,
-                                    &buck_indexmap! {"includes" => &includes},
+                                    &buck_mut_insertion_map! {"includes" => &includes},
                                 )?,
                                 Err(e) => map.serialize_entry(
                                     path,
-                                    &buck_indexmap! {"$error" => format!("{:#}", e)},
+                                    &buck_mut_insertion_map! {"$error" => format!("{:#}", e)},
                                 )?,
                             }
                         }

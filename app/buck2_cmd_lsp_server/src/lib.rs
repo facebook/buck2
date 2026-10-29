@@ -25,7 +25,7 @@ use buck2_core::bxl::BxlFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::build_file_cell::BuildFileCell;
-use buck2_core::cells::cell_path::CellPathRef;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::package::package_relative_path::PackageRelativePath;
@@ -60,6 +60,7 @@ use buck2_server_ctx::late_bindings::LSP_SERVER_COMMAND;
 use buck2_server_ctx::late_bindings::LspServerCommand;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::streaming_request_handler::StreamingRequestHandler;
+use buck2_util::arc_str::PackedStr;
 use dice::DiceTransaction;
 use dice::Version;
 use dupe::Dupe;
@@ -223,7 +224,7 @@ impl DocsCache {
         fs: &ProjectRoot,
         cell_resolver: &CellResolver,
     ) -> buck2_error::Result<LspUri> {
-        let relative_path = cell_resolver.resolve_path(location.path().as_ref())?;
+        let relative_path = cell_resolver.resolve_path(*location.path())?;
         let abs_path = fs.resolve(&relative_path);
         Uri::from_file_path(&abs_path)
             .with_internal_error(|| format!("Failed to convert path to file URI: {}", abs_path))?
@@ -479,7 +480,7 @@ impl<'a> BuckLspContext<'a> {
 
     async fn parse_file_from_string(
         &self,
-        current_package: CellPathRef<'_>,
+        current_package: CellPath,
         literal: &str,
     ) -> buck2_error::Result<Option<StringLiteralResult>> {
         match ForwardRelativePath::new(literal) {
@@ -490,7 +491,7 @@ impl<'a> BuckLspContext<'a> {
                             .ctx()
                             .get_cell_resolver()
                             .await?
-                            .resolve_path(current_package.join(package_relative).as_ref())
+                            .resolve_path(current_package.join(package_relative))
                     })
                     .await?;
 
@@ -511,7 +512,7 @@ impl<'a> BuckLspContext<'a> {
 
     async fn parse_target_from_string(
         &self,
-        current_package: CellPathRef<'_>,
+        current_package: CellPath,
         literal: &str,
     ) -> buck2_error::Result<Option<StringLiteralResult>> {
         self.with_dice_ctx(|dice_ctx| async move {
@@ -539,7 +540,7 @@ impl<'a> BuckLspContext<'a> {
                     .await?,
                 dice_ctx
                     .ctx()
-                    .dirs_allowing_relative_paths(current_package.to_owned())
+                    .dirs_allowing_relative_paths(current_package)
                     .await?,
             );
             let cell_resolver = artifact_fs.cell_resolver();
@@ -563,7 +564,8 @@ impl<'a> BuckLspContext<'a> {
                             // this thing on disk, so treat it like a source artifact
                             let buildfile: &PackageRelativePath =
                                 PackageRelativePath::new(listing.buildfile())?;
-                            let source_path = SourcePath::new(package.dupe(), buildfile.into());
+                            let source_path =
+                                SourcePath::new(package.dupe(), PackedStr::new(buildfile));
                             let relative_path = artifact_fs.resolve_source(source_path.as_ref())?;
                             let path = self.fs.resolve(&relative_path);
                             let uri = Uri::from_file_path(&path).ok_or_else(|| {
@@ -636,7 +638,7 @@ impl LspContext for BuckLspContext<'_> {
                                 let relative_path = dice_ctx
                                     .get_cell_resolver()
                                     .await?
-                                    .resolve_path(loaded_import_path.borrow().path().as_ref())?;
+                                    .resolve_path(*loaded_import_path.borrow().path())?;
                                 let abs_path = self.fs.resolve(&relative_path);
                                 Uri::from_file_path(&abs_path)
                                     .ok_or_else(|| {
@@ -717,7 +719,7 @@ impl LspContext for BuckLspContext<'_> {
                         self.with_dice_ctx(|dice_ctx| async move {
                             DiceFileComputations::read_file_if_exists(
                                 &mut dice_ctx.ctx(),
-                                path.borrow().path().as_ref(),
+                                *path.borrow().path(),
                             )
                             .await
                         })

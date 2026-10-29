@@ -205,6 +205,10 @@ mod inner {
         }
 
         #[tokio::test]
+        #[cfg_attr(
+            all(miri, not(target_os = "linux")),
+            ignore = "tokio's IO driver is epoll, kqueue or IOCP by OS, and Miri models only epoll"
+        )]
         async fn test_pagable_arc_refcounts() -> anyhow::Result<()> {
             let storage =
                 PagableStorageHandle::new(std::sync::Arc::new(EmptyPagableStorage::new()));
@@ -240,6 +244,10 @@ mod inner {
         }
 
         #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+        #[cfg_attr(
+            all(miri, not(target_os = "linux")),
+            ignore = "tokio's IO driver is epoll, kqueue or IOCP by OS, and Miri models only epoll"
+        )]
         async fn test_pagable_arc_paging() -> anyhow::Result<()> {
             let mut backing_storage = InMemoryPagableStorage::new();
             let storage = PagableStorageHandle::new(backing_storage.handle());
@@ -269,6 +277,10 @@ mod inner {
         }
 
         #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+        #[cfg_attr(
+            all(miri, not(target_os = "linux")),
+            ignore = "tokio's IO driver is epoll, kqueue or IOCP by OS, and Miri models only epoll"
+        )]
         async fn test_pagable_arc_shared_arc() -> anyhow::Result<()> {
             let mut backing_storage = InMemoryPagableStorage::new();
             let storage = PagableStorageHandle::new(backing_storage.handle());
@@ -293,6 +305,10 @@ mod inner {
         }
 
         #[test]
+        #[cfg_attr(
+            all(miri, panic = "abort"),
+            ignore = "with panic=abort the panic kills the in-process Miri harness"
+        )]
         #[should_panic]
         fn test_panic_on_serialize() {
             let t = TestPanic(());
@@ -301,6 +317,10 @@ mod inner {
         }
 
         #[test]
+        #[cfg_attr(
+            all(miri, panic = "abort"),
+            ignore = "with panic=abort the panic kills the in-process Miri harness"
+        )]
         #[should_panic]
         fn test_panic_on_deserialize() {
             let mut deserializer = TestingDeserializer::new(&[]);
@@ -308,6 +328,10 @@ mod inner {
         }
 
         #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+        #[cfg_attr(
+            all(miri, not(target_os = "linux")),
+            ignore = "tokio's IO driver is epoll, kqueue or IOCP by OS, and Miri models only epoll"
+        )]
         async fn test_pagable_arc() -> anyhow::Result<()> {
             let mut backing_storage = InMemoryPagableStorage::new();
             let storage = PagableStorageHandle::new(backing_storage.handle());
@@ -425,24 +449,23 @@ mod inner {
 
             assert_eq!((*strong_eval_result).len(), 3);
 
-            // cfgnode1 is pinned above, so the reference here shouldn't be paged out.
-            assert!(!strong_eval_result[0].0.is_paged_out());
-
-            // TODO(cjhopman): Several of these asserts here depend on PagableArc being lazily serialized in (as is our intent in the future), but that's not implemented yet.
-
-            // assert!(strong_eval_result[1].0.is_paged_out());
-            // assert!(strong_eval_result[2].0.is_paged_out());
-
-            // node1 was loaded in by cfgnode1 above, but the arc held here should not be strong.
-            assert!(strong_eval_result[0].0.is_pinned());
-            // assert!(!strong_eval_result[0].0.is_pinned());
-
-            // assert!(!strong_eval_result[1].0.is_pinned());
+            // Page-in hands back the allocations the `weak_node*` handles still
+            // refer to, and nothing pins them: `cfgnode1` pins node1 through a
+            // `PinnedPagableArc`, a different type view with its own cache entry.
+            assert_eq!(strong_eval_result[0].0.identity(), weak_node1.identity());
+            assert_eq!(strong_eval_result[1].0.identity(), weak_node2.identity());
+            assert_eq!(strong_eval_result[2].0.identity(), weak_node3.identity());
+            assert!(strong_eval_result[0].0.is_paged_out());
+            assert!(strong_eval_result[1].0.is_paged_out());
+            assert!(strong_eval_result[2].0.is_paged_out());
+            assert!(!strong_eval_result[0].0.is_pinned());
+            assert!(!strong_eval_result[1].0.is_pinned());
 
             let strong_node2 = strong_eval_result[1].0.pin().await?;
             assert!(strong_eval_result[1].0.is_pinned());
+            assert!(!strong_eval_result[1].0.is_paged_out());
 
-            // assert!(!cfgnode3.0.is_pinned());
+            assert!(!cfgnode3.0.is_pinned());
 
             let strong_cfgnode3 = cfgnode3.0.pin().await?;
             assert!(cfgnode3.0.is_pinned());

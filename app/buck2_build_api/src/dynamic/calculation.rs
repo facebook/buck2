@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
+use buck2_node::rule_type::RuleType;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
 use futures::FutureExt;
@@ -23,6 +24,8 @@ use crate::analysis::registry::RecordedAnalysisValues;
 #[derive(Allocative, Pagable)]
 pub struct DynamicLambdaResult {
     pub analysis_values: RecordedAnalysisValues,
+    /// Inherited from the parent holder; BXL-owned actions have no rule type.
+    pub rule_type: Option<RuleType>,
 }
 
 impl DynamicLambdaResult {

@@ -13,6 +13,12 @@ Before evaluating `BUCK` file, buck2 will evaluate all `PACKAGE` files in the
 same directory and all parent directories. Absent `PACKAGE` files are treated as
 empty files.
 
+A `PACKAGE` file may also be named `BUCK_TREE`. Buck2 looks for `BUCK_TREE`
+first and will use it preferentially over `PACKAGE`. It's typically used in a
+directory that also contains a `package/` subdirectory, since `PACKAGE` cannot
+coexist with it on a case-insensitive filesystem. Tools that look for `PACKAGE`
+files must accept both names, and prefer `BUCK_TREE` when both exist.
+
 All relevant `PACKAGE` files are executed sequentially from the root directory
 to the current directory (but unrelated `PACKAGE` files can be executed in
 parallel). Evaluating `PACKAGE` files sequentially provides additional
@@ -243,9 +249,10 @@ requiring an `enforce_visibility_intersection()` marker in every `PACKAGE` file:
 | `audit`   | Shadow-evaluated; reported, none fatal      | Enforced                                |
 | `enforce` | Enforced; the marker is redundant           | Enforced                                |
 
-Under `audit`, edges blocked only by ordinary `PACKAGE` visibility are reported
-as soft errors (`package_visibility_audit_would_block`) instead of failing.
-These are sampled and emitted only when a target is first evaluated, so to size
+Under `audit`, edges blocked only by ordinary `PACKAGE` visibility are recorded
+under the deprecation category `package_visibility_audit_would_block` instead of
+failing; nothing is shown on the console. These are sampled and recorded only
+when a target is first evaluated, so to size
 a rollout run `buck2 audit visibility <patterns>`: under `audit` it lists every
 would-block edge, grouped by consumer and dependency package, and exits non-zero
 only for violations that fail in every mode.

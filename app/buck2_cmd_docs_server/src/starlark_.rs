@@ -81,7 +81,7 @@ fn parse_starlark_paths(
         allow_missing_at_symbol: true,
         relative_import_option: RelativeImports::Allow {
             current_dir_with_allowed_relative: &CellPathWithAllowedRelativeDir::new(
-                current_dir.clone(),
+                *current_dir,
                 None,
             ),
         },

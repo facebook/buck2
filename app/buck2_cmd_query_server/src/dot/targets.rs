@@ -8,12 +8,12 @@
  * above-listed licenses.
  */
 
+use buck2_hash::BuckMutInsertionMap;
 use buck2_query::query::environment::AttrFmtOptions;
 use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::environment::QueryTargets;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use regex::RegexSet;
-use starlark_map::small_map::SmallMap;
 
 use crate::dot::DotDigraph;
 use crate::dot::DotEdge;
@@ -68,7 +68,7 @@ impl<T: QueryCommandTarget> DotNode for DotTargetGraphNode<'_, T> {
     fn attrs(&self) -> buck2_error::Result<DotNodeAttrs> {
         let extra = match &self.1.attributes {
             Some(attr_regex) => {
-                let mut extra = SmallMap::new();
+                let mut extra = BuckMutInsertionMap::new();
                 QueryTargets::for_all_attrs::<buck2_error::Error, _, _>(
                     self.0,
                     |attr_name, attr_value| {
@@ -91,7 +91,7 @@ impl<T: QueryCommandTarget> DotNode for DotTargetGraphNode<'_, T> {
                 )?;
                 extra
             }
-            None => SmallMap::new(),
+            None => BuckMutInsertionMap::new(),
         };
         Ok(DotNodeAttrs {
             style: Some("filled".to_owned()),

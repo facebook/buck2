@@ -54,9 +54,12 @@ impl UqueryEvaluator<'_, '_> {
                     &mut self.dice_query_delegate.ctx(),
                 )
                 .await;
+                // Literals load their packages before any traversal does.
+                let literal_packages = resolved_literals.packages();
                 Ok(UqueryEnvironment::new(
                     &self.dice_query_delegate,
                     Arc::new(resolved_literals),
+                    literal_packages,
                     self.allow_partial_graph,
                 ))
             },

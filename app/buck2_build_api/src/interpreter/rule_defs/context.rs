@@ -27,6 +27,7 @@ use buck2_error::BuckErrorOptionContext;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_error::internal_error;
 use buck2_execute::digest_config::DigestConfig;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_interpreter::late_binding_ty::AnalysisContextReprLate;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_util::late_binding::LateBinding;
@@ -51,7 +52,6 @@ use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
 use starlark::values::structs::StructRef;
 use starlark::values::type_repr::StarlarkTypeRepr;
-use starlark_map::small_set::SmallSet;
 
 use crate::analysis::AnalysisSplitInstants;
 use crate::analysis::anon_promises_dyn::RunAnonPromisesAccessor;
@@ -115,7 +115,8 @@ impl<'v> AnalysisActions<'v> {
         let pre_promises = Instant::now();
         let mut resolved_any = false;
         let mut record_requested = None;
-        let mut requested_anon_targets: SmallSet<BaseDeferredKey> = SmallSet::new();
+        let mut requested_anon_targets: BuckMutInsertionSet<BaseDeferredKey> =
+            BuckMutInsertionSet::new();
         loop {
             // Bind first so the state borrow ends before the promises run.
             let promises = self.state()?.take_promises();

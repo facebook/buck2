@@ -12,36 +12,37 @@
 import json
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
-
-# Test `cfg_constructors` end to end. This is useful for testing the core + starlark
-# implementation so that we know we don't break anything in the repo. For testing
-# specific cfg constructor logic, use bxl_test to unit test the cfg constructor instead
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test(inplace=True)
-async def test_cfg_constructor_without_modifiers_returns_same_configuration(
-    buck: Buck,
-) -> None:
-    result = await buck.cquery(
-        "fbcode//buck2/tests/e2e/configurations/cfg_constructor/test_clear_package_modifiers_data/test_cfg_constructor_data:no_modifiers",
-        "-A",
-    )
-    result = json.loads(result.stdout)
-    assert len(result) == 1
-    _test_target, test_target_attrs = list(result.items())[0]
-    assert test_target_attrs["buck.target_configuration"].startswith(
-        "ovr_config//platform:base"
-    )
+class CfgConstructorsInplaceTest(BuckTestCase):
+    # Test `cfg_constructors` end to end. This is useful for testing the core + starlark
+    # implementation so that we know we don't break anything in the repo. For testing
+    # specific cfg constructor logic, use bxl_test to unit test the cfg constructor instead
 
+    @buck_test(inplace=True)
+    async def test_cfg_constructor_without_modifiers_returns_same_configuration(
+        self,
+        buck: Buck,
+    ) -> None:
+        result = await buck.cquery(
+            "fbcode//buck2/tests/e2e/configurations/cfg_constructor/test_clear_package_modifiers_data/test_cfg_constructor_data:no_modifiers",
+            "-A",
+        )
+        result = json.loads(result.stdout)
+        assert len(result) == 1
+        _test_target, test_target_attrs = list(result.items())[0]
+        assert test_target_attrs["buck.target_configuration"].startswith(
+            "ovr_config//platform:base"
+        )
 
-@buck_test(inplace=True)
-async def test_cfg_constructor_with_target_modifiers(buck: Buck) -> None:
-    result = await buck.cquery(
-        "fbcode//buck2/tests/e2e/configurations/cfg_constructor/test_clear_package_modifiers_data/test_cfg_constructor_data:has_target_modifier",
-        "-A",
-    )
-    result = json.loads(result.stdout)
-    assert len(result) == 1
-    _test_target, test_target_attrs = list(result.items())[0]
-    assert test_target_attrs["buck.target_configuration"].startswith("cfg:linux")
+    @buck_test(inplace=True)
+    async def test_cfg_constructor_with_target_modifiers(self, buck: Buck) -> None:
+        result = await buck.cquery(
+            "fbcode//buck2/tests/e2e/configurations/cfg_constructor/test_clear_package_modifiers_data/test_cfg_constructor_data:has_target_modifier",
+            "-A",
+        )
+        result = json.loads(result.stdout)
+        assert len(result) == 1
+        _test_target, test_target_attrs = list(result.items())[0]
+        assert test_target_attrs["buck.target_configuration"].startswith("cfg:linux")

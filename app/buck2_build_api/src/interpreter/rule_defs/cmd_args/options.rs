@@ -14,8 +14,6 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 
 use allocative::Allocative;
-use buck2_artifact::artifact::artifact_type::Artifact;
-use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_interpreter::types::cell_root::CellRoot;
 use buck2_interpreter::types::project_root::StarlarkProjectRoot;
 use buck2_util::size_assert;
@@ -23,16 +21,11 @@ use derive_more::Display;
 use display_container::fmt_container;
 use dupe::Dupe;
 use mini_vec::MiniBoxSlice;
+use mini_vec::MiniVec;
 use pagable::Pagable;
-use pagable::PagableDeserialize;
-use pagable::PagableSerialize;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
-use starlark::pagable::StarlarkDeserialize;
-use starlark::pagable::StarlarkDeserializeContext;
-use starlark::pagable::StarlarkSerialize;
-use starlark::pagable::StarlarkSerializeContext;
 use starlark::values::Freeze;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
@@ -44,10 +37,10 @@ use starlark::values::Value;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::string::StarlarkStr;
 use starlark::values::type_repr::StarlarkTypeRepr;
+use strong_hash::StrongHash;
 
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkInputArtifactLike;
 use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifactUnpack;
-use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use crate::interpreter::rule_defs::cmd_args::regex::CmdArgsRegex;
 
 /// Supported ways of quoting arguments.
@@ -61,7 +54,8 @@ use crate::interpreter::rule_defs::cmd_args::regex::CmdArgsRegex;
     Serialize,
     Allocative,
     Pagable,
-    StarlarkPagable
+    StarlarkPagable,
+    StrongHash
 )]
 pub enum QuoteStyle {
     /// Quote arguments for Unix shell:
@@ -95,6 +89,7 @@ impl QuoteStyle {
 
 pub(crate) trait CommandLineOptionsTrait<'v> {
     fn ignore_artifacts(&self) -> bool;
+    fn salt_hidden(&self) -> bool;
     fn delimiter(&self) -> Option<StringValue<'v>>;
 
     fn to_command_line_options<'a>(&'a self) -> CommandLineOptionsRef<'v, 'a>;
@@ -109,14 +104,14 @@ pub(crate) struct CommandLineOptions<'v> {
     pub(crate) absolute_suffix: Option<StringValue<'v>>,
     pub(crate) parent: u32,
     pub(crate) ignore_artifacts: bool,
+    pub(crate) salt_hidden: bool,
 
     // These impact the formatting of each string
     pub(crate) delimiter: Option<StringValue<'v>>,
     pub(crate) format: Option<StringValue<'v>>,
     pub(crate) prepend: Option<StringValue<'v>>,
     pub(crate) quote: Option<QuoteStyle>,
-    #[allow(clippy::box_collection)]
-    pub(crate) replacements: Option<Box<Vec<(CmdArgsRegex<'v>, StringValue<'v>)>>>,
+    pub(crate) replacements: MiniVec<(CmdArgsRegex<'v>, StringValue<'v>)>,
 }
 
 #[derive(Clone, Copy, Dupe, Default)]
@@ -171,6 +166,7 @@ pub(crate) struct CommandLineOptionsRef<'v, 'a> {
     pub(crate) absolute_suffix: Option<StringValue<'v>>,
     pub(crate) parent: u32,
     pub(crate) ignore_artifacts: bool,
+    pub(crate) salt_hidden: bool,
 
     pub(crate) delimiter: Option<StringValue<'v>>,
     pub(crate) format: Option<StringValue<'v>>,
@@ -187,15 +183,12 @@ impl<'v, 'a> CommandLineOptionsRef<'v, 'a> {
             absolute_suffix: self.absolute_suffix,
             parent: self.parent,
             ignore_artifacts: self.ignore_artifacts,
+            salt_hidden: self.salt_hidden,
             delimiter: self.delimiter,
             format: self.format,
             prepend: self.prepend,
             quote: self.quote.dupe(),
-            replacements: if self.replacements.is_empty() {
-                None
-            } else {
-                Some(Box::new(self.replacements.iter().collect()))
-            },
+            replacements: self.replacements.iter().collect(),
         }
     }
 }
@@ -203,6 +196,10 @@ impl<'v, 'a> CommandLineOptionsRef<'v, 'a> {
 impl<'v> CommandLineOptionsTrait<'v> for CommandLineOptions<'v> {
     fn ignore_artifacts(&self) -> bool {
         self.ignore_artifacts
+    }
+
+    fn salt_hidden(&self) -> bool {
+        self.salt_hidden
     }
 
     fn delimiter(&self) -> Option<StringValue<'v>> {
@@ -216,14 +213,12 @@ impl<'v> CommandLineOptionsTrait<'v> for CommandLineOptions<'v> {
             absolute_suffix: self.absolute_suffix,
             parent: self.parent,
             ignore_artifacts: self.ignore_artifacts,
+            salt_hidden: self.salt_hidden,
             delimiter: self.delimiter,
             format: self.format,
             prepend: self.prepend,
             quote: self.quote.dupe(),
-            replacements: match &self.replacements {
-                None => OptionsReplacementsRef::default(),
-                Some(v) => OptionsReplacementsRef(v.as_slice()),
-            },
+            replacements: OptionsReplacementsRef(self.replacements.as_slice()),
         }
     }
 }
@@ -235,50 +230,19 @@ enum FrozenCommandLineOption<'v> {
     AbsoluteSuffix(StringValue<'v>),
     Parent(u32),
     IgnoreArtifacts,
+    SaltHidden,
     Delimiter(StringValue<'v>),
     Format(StringValue<'v>),
     Prepend(StringValue<'v>),
     Quote(#[starlark_pagable(pagable)] QuoteStyle),
-    Replacements(
-        #[starlark_pagable(
-            serialize_with = "serialize_minibox_starlark",
-            deserialize_with = "deserialize_minibox_starlark"
-        )]
-        MiniBoxSlice<(CmdArgsRegex<'v>, StringValue<'v>)>,
-    ),
+    Replacements(MiniBoxSlice<(CmdArgsRegex<'v>, StringValue<'v>)>),
 }
 
 size_assert::words_of_type!(FrozenCommandLineOption<'static>, 2);
 
 #[derive(Debug, Default, ProvidesStaticType, Allocative, StarlarkPagable)]
 pub(crate) struct FrozenCommandLineOptions<'v> {
-    #[starlark_pagable(
-        serialize_with = "serialize_minibox_starlark",
-        deserialize_with = "deserialize_minibox_starlark"
-    )]
     options: MiniBoxSlice<FrozenCommandLineOption<'v>>,
-}
-
-fn serialize_minibox_starlark<T: StarlarkSerialize>(
-    field: &MiniBoxSlice<T>,
-    ctx: &mut dyn StarlarkSerializeContext,
-) -> starlark::Result<()> {
-    PagableSerialize::pagable_serialize(&field.len(), ctx.pagable())?;
-    for item in field.iter() {
-        StarlarkSerialize::starlark_serialize(item, ctx)?;
-    }
-    Ok(())
-}
-
-fn deserialize_minibox_starlark<'fv, T: StarlarkDeserialize<'fv>>(
-    ctx: &mut dyn StarlarkDeserializeContext<'_, 'fv>,
-) -> starlark::Result<MiniBoxSlice<T>> {
-    let len = usize::pagable_deserialize(ctx.pagable())?;
-    let mut items = Vec::with_capacity(len);
-    for _ in 0..len {
-        items.push(T::starlark_deserialize(ctx)?);
-    }
-    Ok(MiniBoxSlice::from_iter(items))
 }
 
 impl<'v> FrozenCommandLineOptions<'v> {
@@ -297,6 +261,15 @@ impl<'v> CommandLineOptionsTrait<'v> for FrozenCommandLineOptions<'v> {
     fn ignore_artifacts(&self) -> bool {
         for option in self.options.iter() {
             if let FrozenCommandLineOption::IgnoreArtifacts = option {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn salt_hidden(&self) -> bool {
+        for option in self.options.iter() {
+            if let FrozenCommandLineOption::SaltHidden = option {
                 return true;
             }
         }
@@ -330,6 +303,9 @@ impl<'v> CommandLineOptionsTrait<'v> for FrozenCommandLineOptions<'v> {
                 }
                 FrozenCommandLineOption::IgnoreArtifacts => {
                     options.ignore_artifacts = true;
+                }
+                FrozenCommandLineOption::SaltHidden => {
+                    options.salt_hidden = true;
                 }
                 FrozenCommandLineOption::Delimiter(value) => {
                     options.delimiter = Some(*value);
@@ -383,6 +359,7 @@ impl<'v> Freeze<'v> for CommandLineOptions<'v> {
             absolute_suffix,
             parent,
             ignore_artifacts,
+            salt_hidden,
             delimiter,
             format,
             prepend,
@@ -412,6 +389,9 @@ impl<'v> Freeze<'v> for CommandLineOptions<'v> {
         if ignore_artifacts {
             options.push(FrozenCommandLineOption::IgnoreArtifacts);
         }
+        if salt_hidden {
+            options.push(FrozenCommandLineOption::SaltHidden);
+        }
         if let Some(delimiter) = delimiter {
             let delimiter = Freeze::freeze(delimiter, freezer)?;
             options.push(FrozenCommandLineOption::Delimiter(delimiter));
@@ -427,11 +407,9 @@ impl<'v> Freeze<'v> for CommandLineOptions<'v> {
         if let Some(quote) = quote {
             options.push(FrozenCommandLineOption::Quote(quote));
         }
-        if let Some(replacements) = replacements {
-            if !replacements.is_empty() {
-                let replacements = MiniBoxSlice::from_iter(Freeze::freeze(*replacements, freezer)?);
-                options.push(FrozenCommandLineOption::Replacements(replacements));
-            }
+        if !replacements.is_empty() {
+            let replacements = MiniBoxSlice::from(Freeze::freeze(replacements, freezer)?);
+            options.push(FrozenCommandLineOption::Replacements(replacements));
         }
 
         Ok(FrozenCommandLineOptions {
@@ -461,38 +439,6 @@ pub(crate) enum RelativeOrigin<'v> {
     ProjectRoot(&'v StarlarkProjectRoot),
 }
 
-// If we have the actual path of the artifact (e.g. because it is an input to the action), then we
-// can use that to resolve the relative path. Otherwise, we use a constant value to resolve the path,
-// which still works, since the "form" of the path is the same, i.e. "<target_package>/<content hash>/<short_name>".
-// E.g.
-// - "a/b/hash1/c".relative_to("a/b/hash2/d") => "../../hash1/c"
-// - "a/b/hash1/c".relative_to("a/b/placeholder/d") => "../../hash1/c"
-pub struct RelativeOriginArtifactPathMapper<'a> {
-    artifact_path_mapping: &'a dyn ArtifactPathMapper,
-    relative_path_resolution: ContentBasedPathHash,
-}
-
-impl<'a> RelativeOriginArtifactPathMapper<'a> {
-    pub(crate) fn new(
-        artifact_path_mapping: &'a dyn ArtifactPathMapper,
-    ) -> RelativeOriginArtifactPathMapper<'a> {
-        RelativeOriginArtifactPathMapper {
-            artifact_path_mapping,
-            relative_path_resolution: ContentBasedPathHash::RelativePathResolution,
-        }
-    }
-}
-
-impl ArtifactPathMapper for RelativeOriginArtifactPathMapper<'_> {
-    fn get(&self, artifact: &Artifact) -> Option<&ContentBasedPathHash> {
-        if let Some(value) = self.artifact_path_mapping.get(artifact) {
-            Some(value)
-        } else {
-            Some(&self.relative_path_resolution)
-        }
-    }
-}
-
 impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
     pub(crate) fn changes_builder(&self) -> bool {
         match self {
@@ -507,6 +453,7 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
                 quote: None,
                 replacements,
                 ignore_artifacts: _, // Doesn't impact the builder
+                salt_hidden: _,      // Doesn't impact the builder
             } if replacements.is_empty() => false,
             _ => true,
         }
@@ -522,6 +469,7 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
             absolute_suffix,
             parent,
             ignore_artifacts,
+            salt_hidden,
             delimiter,
             format,
             prepend,
@@ -565,6 +513,12 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
         }
         if *ignore_artifacts {
             iter.push(("ignore_artifacts", CommandLineOptionsIterItem::Str("True")));
+        }
+        if *salt_hidden {
+            iter.push((
+                "experimental_salt_hidden",
+                CommandLineOptionsIterItem::Str("True"),
+            ));
         }
         if let Some(value) = delimiter {
             iter.push(("delimiter", CommandLineOptionsIterItem::StringValue(*value)));

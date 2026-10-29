@@ -13,7 +13,7 @@ import os
 from typing import Any, Dict
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 from buck2.tests.e2e_util.helper.utils import filter_events, random_string
 
 
@@ -40,31 +40,6 @@ def _use_some_memory_args(buck: Buck) -> list[str]:
     ]
 
 
-@buck_test(skip_for_os=["windows", "darwin"], disable_daemon_cgroup=False)
-async def test_memory_reporting_disabled(buck: Buck) -> None:
-    env = {
-        "BUCK2_TEST_RESOURCE_CONTROL_CONFIG": '{"status":"Off","init":"Systemd","memory_max":null,"memory_high":null,"memory_max_per_action":null,"memory_high_per_action":null,"memory_high_actions":null,"memory_max_actions":null,"enable_suspension":false,"preferred_action_suspend_strategy":"KillAndRetry"}'
-    }
-
-    await buck.build(
-        *_use_some_memory_args(buck),
-        env=env,
-    )
-
-    events = await filter_events(
-        buck,
-        "Event",
-        "data",
-        "SpanEnd",
-        "data",
-        "ActionExecution",
-        "commands",
-    )
-    for commands in events:
-        for c in commands:
-            assert c["details"]["metadata"]["execution_stats"]["memory_peak"] is None
-
-
 async def get_matching_details(buck: Buck) -> Dict[str, Any]:
     events = await filter_events(
         buck,
@@ -81,43 +56,68 @@ async def get_matching_details(buck: Buck) -> Dict[str, Any]:
     raise AssertionError("did not find the expected target")
 
 
-@buck_test(skip_for_os=["windows", "darwin"], disable_daemon_cgroup=False)
-async def test_memory_reporting(buck: Buck) -> None:
-    await buck.build(
-        *_use_some_memory_args(buck),
-    )
+class MemoryReportingTest(BuckTestCase):
+    @buck_test(skip_for_os=["windows", "darwin"], disable_daemon_cgroup=False)
+    async def test_memory_reporting_disabled(self, buck: Buck) -> None:
+        env = {
+            "BUCK2_TEST_RESOURCE_CONTROL_CONFIG": '{"status":"Off","init":"Systemd","memory_max":null,"memory_high":null,"memory_max_per_action":null,"memory_high_per_action":null,"memory_high_actions":null,"memory_max_actions":null,"enable_suspension":false,"preferred_action_suspend_strategy":"KillAndRetry"}'
+        }
 
-    details = await get_matching_details(buck)
-    assert "OmittedLocalCommand" in details["command_kind"]["command"]
+        await buck.build(
+            *_use_some_memory_args(buck),
+            env=env,
+        )
 
-    memory_peak = details["metadata"]["execution_stats"]["memory_peak"]
-    assert memory_peak > _MEMORY_PEAK_MIN
-    assert memory_peak < _MEMORY_PEAK_MAX
+        events = await filter_events(
+            buck,
+            "Event",
+            "data",
+            "SpanEnd",
+            "data",
+            "ActionExecution",
+            "commands",
+        )
+        for commands in events:
+            for c in commands:
+                assert (
+                    c["details"]["metadata"]["execution_stats"]["memory_peak"] is None
+                )
 
+    @buck_test(skip_for_os=["windows", "darwin"], disable_daemon_cgroup=False)
+    async def test_memory_reporting(self, buck: Buck) -> None:
+        await buck.build(
+            *_use_some_memory_args(buck),
+        )
 
-@buck_test(skip_for_os=["windows", "darwin"], disable_daemon_cgroup=False)
-async def test_memory_reporting_in_test(buck: Buck) -> None:
-    await buck.test(
-        *_use_some_memory_args(buck),
-    )
+        details = await get_matching_details(buck)
+        assert "OmittedLocalCommand" in details["command_kind"]["command"]
 
-    events = await filter_events(
-        buck,
-        "Event",
-        "data",
-        "SpanEnd",
-        "data",
-        "TestRun",
-    )
-    assert len(events) == 1
-    details = events[0]["command_report"]["details"]
+        memory_peak = details["metadata"]["execution_stats"]["memory_peak"]
+        assert memory_peak > _MEMORY_PEAK_MIN
+        assert memory_peak < _MEMORY_PEAK_MAX
 
-    memory_peak = details["metadata"]["execution_stats"]["memory_peak"]
-    assert memory_peak > _MEMORY_PEAK_MIN
-    assert memory_peak < _MEMORY_PEAK_MAX
+    @buck_test(skip_for_os=["windows", "darwin"], disable_daemon_cgroup=False)
+    async def test_memory_reporting_in_test(self, buck: Buck) -> None:
+        await buck.test(
+            *_use_some_memory_args(buck),
+        )
 
+        events = await filter_events(
+            buck,
+            "Event",
+            "data",
+            "SpanEnd",
+            "data",
+            "TestRun",
+        )
+        assert len(events) == 1
+        details = events[0]["command_report"]["details"]
 
-@buck_test()
-def test_nop(buck: Buck) -> None:
-    # Pytest gets upset if we have no windows or mac tests in this file
-    pass
+        memory_peak = details["metadata"]["execution_stats"]["memory_peak"]
+        assert memory_peak > _MEMORY_PEAK_MIN
+        assert memory_peak < _MEMORY_PEAK_MAX
+
+    @buck_test()
+    def test_nop(self, buck: Buck) -> None:
+        # Pytest gets upset if we have no windows or mac tests in this file
+        pass

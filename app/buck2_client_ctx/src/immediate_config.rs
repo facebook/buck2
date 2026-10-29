@@ -20,11 +20,12 @@ use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 #[cfg(fbcode_build)]
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
+use buck2_common::settings::BuckSettings;
 use buck2_common::settings::parser::parse_settings;
 use buck2_core::buck2_env;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
-use buck2_core::cells::cell_path::CellPathRef;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_error::BuckErrorContext;
@@ -96,6 +97,7 @@ pub struct ImmediateConfigContext<'a> {
     // value which can be returned.
     data: OnceLock<ImmediateConfigContextData>,
     setting_arg_layers: OnceLock<Vec<toml::Table>>,
+    buck_settings: OnceLock<BuckSettings>,
     // Initialized after setting argument layers are available.
     daemon_startup_config: OnceLock<DaemonStartupConfig>,
     cwd: &'a AbsWorkingDir,
@@ -107,6 +109,7 @@ impl<'a> ImmediateConfigContext<'a> {
         Self {
             data: OnceLock::new(),
             setting_arg_layers: OnceLock::new(),
+            buck_settings: OnceLock::new(),
             daemon_startup_config: OnceLock::new(),
             cwd,
             trace: Vec::new(),
@@ -121,15 +124,21 @@ impl<'a> ImmediateConfigContext<'a> {
         &self.trace
     }
 
-    pub fn daemon_startup_config(&self) -> buck2_error::Result<&DaemonStartupConfig> {
+    /// Reads settings for the invocation's repository without loading its build configuration.
+    /// All callers must use the invocation's repository root, since the result is cached once.
+    pub fn buck_settings(&self, project_root: &ProjectRoot) -> buck2_error::Result<&BuckSettings> {
         let setting_arg_layers = self.setting_arg_layers.get().ok_or_else(|| {
-            internal_error!("Daemon startup config read before setting arguments were set")
+            internal_error!("Buck settings read before setting arguments were set")
         })?;
+        self.buck_settings
+            .get_or_try_init(|| parse_settings(project_root, setting_arg_layers))
+    }
 
+    pub fn daemon_startup_config(&self) -> buck2_error::Result<&DaemonStartupConfig> {
         self.daemon_startup_config
             .get_or_try_init(|| {
                 let data = self.data()?;
-                let buck_settings = parse_settings(&data.project_filesystem, setting_arg_layers)?;
+                let buck_settings = self.buck_settings(&data.project_filesystem)?;
                 let paranoid = match is_paranoid_enabled(&data.paranoid_info_path) {
                     Ok(paranoid) => paranoid,
                     Err(e) => {
@@ -142,7 +151,7 @@ impl<'a> ImmediateConfigContext<'a> {
                     }
                 };
 
-                DaemonStartupConfig::new(&data.root_config, &buck_settings, paranoid)
+                DaemonStartupConfig::new(&data.root_config, &buck_settings.daemon, paranoid)
                     .buck_error_context("Error loading daemon startup config")
             })
             .buck_error_context("Error creating daemon startup config")
@@ -189,7 +198,7 @@ impl<'a> ImmediateConfigContext<'a> {
 
     pub(crate) fn resolve_project_path(
         &self,
-        path: CellPathRef,
+        path: CellPath,
     ) -> buck2_error::Result<AbsNormPathBuf> {
         let data = self.data()?;
         Ok(data
@@ -275,8 +284,13 @@ mod tests {
         let root = AbsPath::new(tempdir.path())?;
         fs_util::write(root.join(".buckconfig"), "[cells]\nroot = .")?;
         let cwd = working_dir(root)?;
+        let project_root = ProjectRoot::new(cwd.path().to_buf())?;
         let context = ImmediateConfigContext::new(&cwd);
 
+        assert!(
+            context.buck_settings(&project_root).is_err(),
+            "invocation settings require setting argument layers to be initialized"
+        );
         assert!(
             context.daemon_startup_config().is_err(),
             "daemon startup config must not be available before setting argument layers are set"
@@ -287,6 +301,34 @@ mod tests {
             "setting argument layers must only be set once"
         );
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_settings_without_valid_build_config() -> buck2_error::Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let root = AbsPath::new(tempdir.path())?;
+        fs_util::write(root.join(".buckconfig"), "invalid buckconfig")?;
+        fs_util::write(root.join(".buckroot"), "")?;
+        let cwd = working_dir(root)?;
+        let project_root = ProjectRoot::new(cwd.path().to_buf())?;
+        let context = ImmediateConfigContext::new(&cwd);
+        context.set_setting_arg_layers(vec![toml::from_str(
+            "[log_download]\nlog_url = \"https://command-line/\"",
+        )?])?;
+
+        assert_eq!(
+            context
+                .buck_settings(&project_root)?
+                .daemon
+                .log_download
+                .log_url(),
+            Some("https://command-line/")
+        );
+        assert!(
+            context.daemon_startup_config().is_err(),
+            "invalid build configuration must still prevent daemon configuration"
+        );
         Ok(())
     }
 
@@ -312,7 +354,10 @@ mod tests {
 
         context.set_setting_arg_layers(vec![setting_arg_layer])?;
         assert_eq!(
-            context.daemon_startup_config()?.log_download_method,
+            context
+                .daemon_startup_config()?
+                .startup_options
+                .log_download_method,
             LogDownloadMethod::Curl("setting_arg".to_owned())
         );
 

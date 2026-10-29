@@ -28,12 +28,12 @@ use buck2_core::category::CategoryRef;
 use buck2_execute::execute::request::CommandExecutionOutput;
 use buck2_execute::execute::request::CommandExecutionPaths;
 use buck2_execute::execute::request::CommandExecutionRequest;
-use buck2_hash::BuckIndexSet;
+use buck2_hash::BuckFixedSortedMap;
+use buck2_hash::BuckMutInsertionSet;
 use derivative::Derivative;
 use dupe::Dupe;
 use pagable::Pagable;
 use pagable::pagable_typetag;
-use sorted_vector_map::sorted_vector_map;
 use starlark::values::OwnedFrozen;
 use starlark::values::Value;
 
@@ -44,7 +44,7 @@ use starlark::values::Value;
 /// modules
 #[derive(Allocative, Clone, PartialEq)]
 pub(crate) struct SimpleUnregisteredAction {
-    inputs: BuckIndexSet<ArtifactGroup>,
+    inputs: BuckMutInsertionSet<ArtifactGroup>,
     cmd: Vec<String>,
     category: Category,
     identifier: Option<String>,
@@ -52,7 +52,7 @@ pub(crate) struct SimpleUnregisteredAction {
 
 impl SimpleUnregisteredAction {
     pub(crate) fn new(
-        inputs: BuckIndexSet<ArtifactGroup>,
+        inputs: BuckMutInsertionSet<ArtifactGroup>,
         cmd: Vec<String>,
         category: Category,
         identifier: Option<String>,
@@ -79,8 +79,8 @@ pub(crate) struct SimpleAction {
 
 impl SimpleAction {
     pub(crate) fn new(
-        inputs: BuckIndexSet<ArtifactGroup>,
-        outputs: BuckIndexSet<BuildArtifact>,
+        inputs: BuckMutInsertionSet<ArtifactGroup>,
+        outputs: BuckMutInsertionSet<BuildArtifact>,
         cmd: Vec<String>,
         category: Category,
         identifier: Option<String>,
@@ -98,7 +98,7 @@ impl SimpleAction {
 impl UnregisteredAction for SimpleUnregisteredAction {
     fn register(
         self: Box<Self>,
-        outputs: BuckIndexSet<BuildArtifact>,
+        outputs: BuckMutInsertionSet<BuildArtifact>,
         _starlark_data: Option<OwnedFrozen<Value<'static>>>,
         _error_handler: Option<OwnedFrozen<Value<'static>>>,
     ) -> buck2_error::Result<Box<dyn Action>> {
@@ -160,7 +160,7 @@ impl Action for SimpleAction {
                 ctx.digest_config(),
                 None,
             )?,
-            sorted_vector_map![],
+            BuckFixedSortedMap::new(),
         );
 
         let prepared_action = ctx.prepare_action(&req, true)?;

@@ -11,17 +11,17 @@
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_stack_overflow(buck: Buck) -> None:
-    await expect_failure(
-        buck.uquery("bad//:"), stderr_regex="Starlark call stack overflow"
-    )
+class CallstackSizeTest(BuckTestCase):
+    @buck_test()
+    async def test_stack_overflow(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.uquery("bad//:"), stderr_regex="Starlark call stack overflow"
+        )
 
-
-@buck_test()
-async def test_callstack_size(buck: Buck) -> None:
-    output = await buck.uquery("good//:")
-    assert "TEST PASSED" in output.stderr
+    @buck_test()
+    async def test_callstack_size(self, buck: Buck) -> None:
+        output = await buck.uquery("good//:")
+        assert "TEST PASSED" in output.stderr

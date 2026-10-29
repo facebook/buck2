@@ -13,6 +13,7 @@ use std::cell::RefCell;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_node::cfg_constructor::CfgConstructorImpl;
 use buck2_node::metadata::key::MetadataKey;
 use buck2_util::late_binding::LateBinding;
@@ -31,7 +32,6 @@ use starlark::values::Trace;
 use starlark::values::Tracer;
 use starlark::values::Value;
 use starlark::values::starlark_value;
-use starlark_map::small_map::SmallMap;
 
 use crate::interpreter::extra_value::FrozenInterpreterExtraValue;
 use crate::interpreter::extra_value::InterpreterExtraValue;
@@ -51,7 +51,7 @@ use crate::super_package::package_value::StarlarkPackageValue;
 #[display("{:?}", self)]
 pub struct PackageFileExtra<'v> {
     pub cfg_constructor: OnceCell<Value<'v>>,
-    pub(crate) package_values: RefCell<SmallMap<MetadataKey, StarlarkPackageValue<'v>>>,
+    pub(crate) package_values: RefCell<BuckMutInsertionMap<MetadataKey, StarlarkPackageValue<'v>>>,
 }
 
 unsafe impl<'v> Trace<'v> for PackageFileExtra<'v> {
@@ -80,7 +80,7 @@ unsafe impl<'v> Trace<'v> for PackageFileExtra<'v> {
 #[display("{:?}", self)]
 pub struct FrozenPackageFileExtra<'v> {
     pub(crate) cfg_constructor: Option<Value<'v>>,
-    pub(crate) package_values: SmallMap<MetadataKey, StarlarkPackageValue<'v>>,
+    pub(crate) package_values: BuckMutInsertionMap<MetadataKey, StarlarkPackageValue<'v>>,
 }
 
 /// Resolve `FrozenPackageFileExtra.cfg_constructor` to a `CfgConstructorImpl`.
@@ -110,7 +110,7 @@ impl<'v> Freeze<'v> for PackageFileExtra<'v> {
         let package_values = package_values.into_inner();
         // N.B. collect::<Result<_>> sets the lower bound to zero,
         // which can cause over-allocations in frozen containers.
-        let mut frozen_package_values = SmallMap::with_capacity(package_values.len());
+        let mut frozen_package_values = BuckMutInsertionMap::with_capacity(package_values.len());
         for (k, v) in package_values.into_iter_hashed() {
             let v = Freeze::freeze(v, freezer).freeze_error_context(&format!("freezing `{k}`"))?;
             frozen_package_values.insert_hashed(k, v);
@@ -161,10 +161,12 @@ impl OwnedFrozenPackageFileExtra {
     }
 
     /// The package values written by this `PACKAGE` file.
-    pub(crate) fn package_values(&self) -> SmallMap<MetadataKey, OwnedFrozenStarlarkPackageValue> {
+    pub(crate) fn package_values(
+        &self,
+    ) -> BuckMutInsertionMap<MetadataKey, OwnedFrozenStarlarkPackageValue> {
         self.0.by_ref_with_reconstructor(|extra, reconstructor| {
             let package_values = &package_extra(&extra.as_ref().value).package_values;
-            let mut values = SmallMap::with_capacity(package_values.len());
+            let mut values = BuckMutInsertionMap::with_capacity(package_values.len());
             for (name, value) in package_values {
                 values.insert(
                     name.clone(),

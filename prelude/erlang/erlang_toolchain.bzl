@@ -10,6 +10,8 @@ load(
     "@prelude//:paths.bzl",
     "paths",
 )
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
+load(":attrs.bzl", "erlang_rule_attributes")
 load(
     ":erlang_error_handler.bzl",
     "erlang_action_error_handler",
@@ -320,5 +322,24 @@ toolchain_utilities = rule(
         "release_variables_builder": attrs.source(),
         "utility_modules": attrs.list(attrs.source()),
     },
+    is_toolchain_rule = True,
+)
+
+erlang_otp_binaries = prelude_rule(
+    name = "erlang_otp_binaries",
+    impl = erlang_otp_binaries_impl,
+    docs = """
+        This target defines the executables for the Erlang toolchains, and is required to defined a toolchain.
+    """,
+    examples = """
+        erlang_otp_binaries(
+            name = "local",
+            erl = "local/erl",
+            erlc = "local/erlc",
+            escript = "local/escript",
+        )
+    """,
+    further = None,
+    attrs = erlang_rule_attributes["erlang_otp_binaries"],
     is_toolchain_rule = True,
 )

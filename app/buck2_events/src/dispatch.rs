@@ -574,7 +574,7 @@ pub fn get_dispatcher() -> EventDispatcher {
                 panic!("dispatcher is not set")
             } else {
                 // TODO: This is firing millions of times, needs to fix this up before it's made a soft error.
-                // let _ignored = soft_error!(buck2_error::buck2_error!([], "Task local event dispatcher not set."));
+                // soft_error!(buck2_error::buck2_error!([], "Task local event dispatcher not set."));
                 EventDispatcher::null()
             }
         }

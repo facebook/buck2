@@ -12,6 +12,7 @@ use std::cell::OnceCell;
 
 use allocative::Allocative;
 use buck2_error::BuckErrorOptionContext;
+use buck2_node::attrs::coercion_context::CoerceMemoTable;
 use starlark::StarlarkPagable;
 use starlark::StarlarkPagablePanic;
 use starlark::any::ProvidesStaticType;
@@ -43,6 +44,8 @@ pub(crate) struct InterpreterExtraValue<'v> {
     pub(crate) package_extra: OnceCell<PackageFileExtra<'v>>,
     /// What `read_config` has returned so far.
     pub(crate) buckconfigs: BuckConfigsCache<'v>,
+    /// Coercion results memoized while evaluating a buildfile.
+    pub(crate) coerce_memo: CoerceMemoTable<'v>,
 }
 
 #[derive(Debug, ProvidesStaticType, Allocative, StarlarkPagable)]
@@ -59,6 +62,7 @@ impl<'v> Freeze<'v> for InterpreterExtraValue<'v> {
         let InterpreterExtraValue {
             package_extra,
             buckconfigs: _,
+            coerce_memo: _,
         } = self;
         Ok(FrozenInterpreterExtraValue {
             package_extra: Freeze::freeze(package_extra, freezer)?,

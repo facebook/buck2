@@ -8,7 +8,7 @@
  * above-listed licenses.
  */
 
-use buck2_core::cells::cell_path::CellPathRef;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::pattern::pattern::ParsedPattern;
@@ -284,7 +284,7 @@ impl<P: ProvidersLabelMaybeConfigured> ProvidersExpr<P> {
                 Ok(ParsedPattern::<ProvidersPatternExtra>::parse_relaxed(
                     ctx.target_alias_resolver(),
                     // TODO(nga): Parse relaxed relative to cell root is incorrect.
-                    CellPathRef::new(ctx.cell_name(), CellRelativePath::empty()),
+                    CellPath::new(ctx.cell_name(), CellRelativePath::empty()),
                     s,
                     ctx.cell_resolver(),
                     ctx.cell_alias_resolver(),

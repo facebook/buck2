@@ -13,9 +13,8 @@ import json
 import re
 from pathlib import Path
 
-import pytest
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase, parametrize
 from buck2.tests.e2e_util.helper.golden import golden
 
 
@@ -23,109 +22,109 @@ def _replace_timestamp(s: str) -> str:
     return re.sub(r"\b[0-9]+\b", "<NUMBER>", s)
 
 
-@buck_test(skip_for_os=["windows"])
-async def test_user_event_log_custom_output(buck: Buck, tmp_path: Path) -> None:
-    local_log = tmp_path / "test.json"
+class UserEventLogTest(BuckTestCase):
+    @buck_test(skip_for_os=["windows"])
+    async def test_user_event_log_custom_output(
+        self, buck: Buck, tmp_path: Path
+    ) -> None:
+        local_log = tmp_path / "test.json"
 
-    await buck.bxl(
-        "root//:test.bxl:instant_event",
-        "--user-event-log",
-        str(local_log),
-    )
+        await buck.bxl(
+            "root//:test.bxl:instant_event",
+            "--user-event-log",
+            str(local_log),
+        )
 
-    assert Path(local_log).exists()
+        assert Path(local_log).exists()
 
-    # do some basic validation - golden tests take care of better validation
-    with open(local_log, "r") as f:
-        results = f.read().splitlines()
-        # assert these events can be loaded
-        json.loads(results[0])["command_line_args"]
-        json.loads(results[1])["StarlarkUserEvent"]
-        json.loads(results[2])["StarlarkUserEvent"]
+        # do some basic validation - golden tests take care of better validation
+        with open(local_log, "r") as f:
+            results = f.read().splitlines()
+            # assert these events can be loaded
+            json.loads(results[0])["command_line_args"]
+            json.loads(results[1])["StarlarkUserEvent"]
+            json.loads(results[2])["StarlarkUserEvent"]
 
+    @buck_test(skip_for_os=["windows"])
+    async def test_user_event_log_with_actions(
+        self, buck: Buck, tmp_path: Path
+    ) -> None:
+        local_log = tmp_path / "test.json-lines"
 
-@buck_test(skip_for_os=["windows"])
-async def test_user_event_log_with_actions(buck: Buck, tmp_path: Path) -> None:
-    local_log = tmp_path / "test.json-lines"
+        await buck.bxl(
+            "root//:test.bxl:action",
+            "--event-log",
+            str(local_log),
+        )
 
-    await buck.bxl(
-        "root//:test.bxl:action",
-        "--event-log",
-        str(local_log),
-    )
+        results = (
+            (await buck.log("show-user", str(Path(local_log).absolute())))
+            .stdout.strip()
+            .splitlines()[1:]
+        )
 
-    results = (
-        (await buck.log("show-user", str(Path(local_log).absolute())))
-        .stdout.strip()
-        .splitlines()[1:]
-    )
+        # Remove any durations
+        a = json.loads(results[0])
+        a["ActionExecutionEvent"]["duration_millis"] = "<NUMBER>"
+        a["ActionExecutionEvent"]["input_materialization_duration_millis"] = "<NUMBER>"
+        b = json.loads(results[1])
+        b["BxlEnsureArtifactsEvent"]["duration_millis"] = "<NUMBER>"
 
-    # Remove any durations
-    a = json.loads(results[0])
-    a["ActionExecutionEvent"]["duration_millis"] = "<NUMBER>"
-    a["ActionExecutionEvent"]["input_materialization_duration_millis"] = "<NUMBER>"
-    b = json.loads(results[1])
-    b["BxlEnsureArtifactsEvent"]["duration_millis"] = "<NUMBER>"
+        results = _replace_timestamp(f"{json.dumps(a)}\n{json.dumps(b)}")
 
-    results = _replace_timestamp(f"{json.dumps(a)}\n{json.dumps(b)}")
+        # Just validate the user events, let's skip the invocation record
+        golden(
+            output=results,
+            rel_path="action_event.golden.json",
+        )
 
-    # Just validate the user events, let's skip the invocation record
-    golden(
-        output=results,
-        rel_path="action_event.golden.json",
-    )
+    @buck_test(skip_for_os=["windows"])
+    async def test_user_event_with_log_show_user(self, buck: Buck) -> None:
+        await buck.bxl(
+            "root//:test.bxl:instant_event",
+        )
 
+        results = (await buck.log("show-user")).stdout.strip().splitlines()[1:]
 
-@buck_test(skip_for_os=["windows"])
-async def test_user_event_with_log_show_user(buck: Buck) -> None:
-    await buck.bxl(
-        "root//:test.bxl:instant_event",
-    )
+        results = _replace_timestamp("\n".join(results))
 
-    results = (await buck.log("show-user")).stdout.strip().splitlines()[1:]
+        # Just validate the user events, let's skip the invocation record
+        golden(
+            output=results,
+            rel_path="instant_event.golden.json",
+        )
 
-    results = _replace_timestamp("\n".join(results))
+    @buck_test(skip_for_os=["windows"])
+    @parametrize("file_extension", [".json-lines", ".json-lines.gz", ".json-lines.zst"])
+    async def test_user_event_log_with_log_show_user_compatibility(
+        self,
+        buck: Buck,
+        tmp_path: Path,
+        file_extension: str,
+    ) -> None:
+        local_log = tmp_path / f"test.{file_extension}"
 
-    # Just validate the user events, let's skip the invocation record
-    golden(
-        output=results,
-        rel_path="instant_event.golden.json",
-    )
+        await buck.bxl(
+            "root//:test.bxl:instant_event",
+            "--event-log",
+            str(local_log),
+        )
 
+        results = (
+            (await buck.log("show-user", str(Path(local_log).absolute())))
+            .stdout.strip()
+            .splitlines()[1:]
+        )
 
-@buck_test(skip_for_os=["windows"])
-@pytest.mark.parametrize(
-    "file_extension", [".json-lines", ".json-lines.gz", ".json-lines.zst"]
-)
-async def test_user_event_log_with_log_show_user_compatibility(
-    buck: Buck,
-    tmp_path: Path,
-    file_extension: str,
-) -> None:
-    local_log = tmp_path / f"test.{file_extension}"
+        results = _replace_timestamp("\n".join(results))
 
-    await buck.bxl(
-        "root//:test.bxl:instant_event",
-        "--event-log",
-        str(local_log),
-    )
+        # Just validate the user events, let's skip the invocation record
+        golden(
+            output=results,
+            rel_path="instant_event.golden.json",
+        )
 
-    results = (
-        (await buck.log("show-user", str(Path(local_log).absolute())))
-        .stdout.strip()
-        .splitlines()[1:]
-    )
-
-    results = _replace_timestamp("\n".join(results))
-
-    # Just validate the user events, let's skip the invocation record
-    golden(
-        output=results,
-        rel_path="instant_event.golden.json",
-    )
-
-
-# Placeholder for tests to be listed successfully on Windows.
-@buck_test()
-async def test_noop(buck: Buck) -> None:
-    return
+    # Placeholder for tests to be listed successfully on Windows.
+    @buck_test()
+    async def test_noop(self, buck: Buck) -> None:
+        return

@@ -20,6 +20,7 @@ use buck2_core::provider::label::NonDefaultProvidersName;
 use buck2_core::provider::label::ProviderName;
 use buck2_core::provider::label::ProvidersName;
 use buck2_error::internal_error;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter::types::provider::callable::ValueAsProviderCallableLike;
 use display_container::fmt_container;
@@ -28,7 +29,6 @@ use either::Either;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
-use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
@@ -101,10 +101,6 @@ enum ProviderCollectionError {
     )]
     RequestedInvalidSubTarget(ProviderName, ConfiguredProvidersLabel, Vec<String>),
     #[error(
-        "Cannot handle flavor `{flavor}` on target `{target}`. Most flavors are unsupported in Buck2."
-    )]
-    UnknownFlavors { target: String, flavor: String },
-    #[error(
         "provider collection operation {0} parameter type must be a provider type \
         but not and instance of provider (for example, `RunInfo` or user defined provider type), \
         got `{1}`"
@@ -121,13 +117,13 @@ enum ProviderCollectionError {
 #[repr(C)]
 pub struct ProviderCollection<'v> {
     /// Keys and map structure stay resident independently of provider values.
-    pub(crate) providers: SmallMap<CollectionKey, Deferred<Value<'v>>>,
+    pub(crate) providers: BuckMutInsertionMap<CollectionKey, Deferred<Value<'v>>>,
 }
 
 /// Newtype wrapper around `Arc<ProviderId>` used as the key type of
 /// `ProviderCollection::providers`. Wraps because `Arc<ProviderId>` is
 /// pagable-only (`buck2_core` cannot depend on `starlark`), so the
-/// `SmallMap<K, V>: StarlarkSerialize/Deserialize` blanket can't apply
+/// `BuckMutInsertionMap<K, V>: StarlarkSerialize/Deserialize` blanket can't apply
 /// directly to the inner type. The newtype gets `StarlarkPagable` via
 /// `StarlarkPagableViaPagable` and provides the matching
 /// [`SmallMapKeyDeserialize`] impl.
@@ -149,7 +145,7 @@ impl std::ops::Deref for CollectionKey {
     }
 }
 
-/// Lets `SmallMap<CollectionKey, _>::get`/`contains_key` be called with a
+/// Lets `BuckMutInsertionMap<CollectionKey, _>::get`/`contains_key` be called with a
 /// borrowed `&ProviderId` directly, avoiding a cloned `Arc<ProviderId>` and a
 /// `CollectionKey` wrapper at every lookup site.
 impl starlark_map::Equivalent<CollectionKey> for ProviderId {
@@ -168,7 +164,7 @@ impl<'fv> SmallMapKeyDeserialize<'fv> for CollectionKey {
 }
 
 static_starlark_value!(EMPTY_PROVIDER_COLLECTION: ProviderCollection<'static> = ProviderCollection {
-    providers: SmallMap::new(),
+    providers: BuckMutInsertionMap::new(),
 });
 
 /// Type of a frozen provider collection.
@@ -271,7 +267,7 @@ impl<'v> ProviderCollection<'v> {
     /// This is an internal detail
     fn try_from_value_impl(
         mut value: Value<'v>,
-    ) -> buck2_error::Result<SmallMap<CollectionKey, Deferred<Value<'v>>>> {
+    ) -> buck2_error::Result<BuckMutInsertionMap<CollectionKey, Deferred<Value<'v>>>> {
         // Sometimes we might have a resolved promise here, in which case see through that
         value = StarlarkPromise::get_recursive(value);
 
@@ -285,7 +281,7 @@ impl<'v> ProviderCollection<'v> {
             }
         };
 
-        let mut providers = SmallMap::with_capacity(list.len());
+        let mut providers = BuckMutInsertionMap::with_capacity(list.len());
         for value in list.iter() {
             match ValueAsProviderLike::unpack_value(value)? {
                 Some(provider) => {
@@ -398,7 +394,7 @@ impl<'v> ProviderCollection<'v> {
 impl ProviderCollection<'static> {
     pub fn testing_new_default<'v>(heap: FrozenHeap<'v>) -> ValueTyped<'v, ProviderCollection<'v>> {
         heap.alloc_typed(ProviderCollection {
-            providers: SmallMap::from_iter([(
+            providers: BuckMutInsertionMap::from_iter([(
                 CollectionKey(DefaultInfoCallable::provider_id().dupe()),
                 Deferred::new(DefaultInfo::testing_empty(heap).to_value()),
             )]),
@@ -465,7 +461,7 @@ impl<'v> Freeze<'v> for ProviderCollection<'v> {
     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         // N.B. collect::<Result<_>> sets the lower bound to zero,
         // which can cause over-allocations in frozen containers.
-        let mut providers = SmallMap::with_capacity(self.providers.len());
+        let mut providers = BuckMutInsertionMap::with_capacity(self.providers.len());
         for (k, v) in self.providers {
             providers.insert(k, v.freeze(freezer)?);
         }
@@ -698,13 +694,6 @@ impl<'f> FrozenProviderCollectionValueRef<'f> {
                         },
                     )?;
                     Ok(FrozenProviderCollectionValueRef { inner })
-                }
-                NonDefaultProvidersName::UnrecognizedFlavor(flavor) => {
-                    Err(ProviderCollectionError::UnknownFlavors {
-                        target: label.unconfigured().to_string(),
-                        flavor: (**flavor).to_owned(),
-                    }
-                    .into())
                 }
             },
         }

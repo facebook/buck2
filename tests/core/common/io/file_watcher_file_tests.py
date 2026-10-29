@@ -38,9 +38,7 @@ async def run_create_file_test(
         pass
 
     required = [
-        FileWatcherEvent(
-            FileWatcherEventType.CREATE, FileWatcherKind.FILE, "root//files/def"
-        )
+        FileWatcherEvent(FileWatcherEventType.CREATE, FileWatcherKind.FILE, "files/def")
     ]
 
     is_fresh_instance, results = await get_file_watcher_events(buck)
@@ -66,17 +64,17 @@ async def run_modify_file_test(
         # Rather, it generates create/delete events for a file and directory of the same name.
         required = [
             FileWatcherEvent(
-                FileWatcherEventType.CREATE, FileWatcherKind.FILE, "root//files/abc"
+                FileWatcherEventType.CREATE, FileWatcherKind.FILE, "files/abc"
             ),
             FileWatcherEvent(
-                FileWatcherEventType.DELETE, FileWatcherKind.FILE, "root//files/abc"
+                FileWatcherEventType.DELETE, FileWatcherKind.FILE, "files/abc"
             ),
         ]
 
     else:
         required = [
             FileWatcherEvent(
-                FileWatcherEventType.MODIFY, FileWatcherKind.FILE, "root//files/abc"
+                FileWatcherEventType.MODIFY, FileWatcherKind.FILE, "files/abc"
             )
         ]
 
@@ -95,9 +93,7 @@ async def run_remove_file_test(
     os.remove(path)
 
     required = [
-        FileWatcherEvent(
-            FileWatcherEventType.DELETE, FileWatcherKind.FILE, "root//files/abc"
-        )
+        FileWatcherEvent(FileWatcherEventType.DELETE, FileWatcherKind.FILE, "files/abc")
     ]
 
     is_fresh_instance, results = await get_file_watcher_events(buck)
@@ -118,10 +114,10 @@ async def run_rename_file_test(
 
     required = [
         FileWatcherEvent(
-            FileWatcherEventType.CREATE, FileWatcherKind.FILE, "root//files/def"
+            FileWatcherEventType.CREATE, FileWatcherKind.FILE, "files/def"
         ),
         FileWatcherEvent(
-            FileWatcherEventType.DELETE, FileWatcherKind.FILE, "root//files/abc"
+            FileWatcherEventType.DELETE, FileWatcherKind.FILE, "files/abc"
         ),
     ]
 
@@ -142,8 +138,8 @@ async def run_replace_file_test(
         pass
 
     # clear log - run build twice
-    await buck.targets("root//:")
-    await buck.targets("root//:")
+    await buck.targets(":")
+    await buck.targets(":")
 
     fromPath = os.path.join(buck.cwd, "files", "abc")
     toPath = os.path.join(buck.cwd, "files", "def")
@@ -162,17 +158,17 @@ async def run_replace_file_test(
                 if file_watcher_provider is FileWatcherProvider.WATCHMAN
                 else FileWatcherEventType.CREATE,
                 FileWatcherKind.FILE,
-                "root//files/def",
+                "files/def",
             ),
             FileWatcherEvent(
-                FileWatcherEventType.DELETE, FileWatcherKind.FILE, "root//files/abc"
+                FileWatcherEventType.DELETE, FileWatcherKind.FILE, "files/abc"
             ),
         ]
     else:
         # fs hash crawler returns a delete for replacing a file
         required = [
             FileWatcherEvent(
-                FileWatcherEventType.DELETE, FileWatcherKind.FILE, "root//files/abc"
+                FileWatcherEventType.DELETE, FileWatcherKind.FILE, "files/abc"
             ),
         ]
 

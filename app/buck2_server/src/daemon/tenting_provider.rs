@@ -23,16 +23,14 @@ pub fn create_tenting_acl_provider(
             Ok(Some(provider)) => Some(Arc::new(provider)),
             Ok(None) => None,
             Err(e) => {
-                buck2_core::soft_error!(
+                buck2_core::soft_error_or_panic!(
                     "tenting_acl_provider_creation_failed",
                     buck2_error::buck2_error!(
                         buck2_error::ErrorTag::Input,
                         "Failed to create TentingAclProvider: {:#}",
                         e
-                    ),
-                    quiet: true
-                )
-                .ok();
+                    )
+                );
                 None
             }
         }

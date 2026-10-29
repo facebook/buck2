@@ -20,6 +20,7 @@
 use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::mem;
+use std::ptr::NonNull;
 use std::sync::Arc;
 use std::sync::RwLock;
 
@@ -40,6 +41,7 @@ use crate::pagable::starlark_serialize::StarlarkSerializeContext;
 use crate::pagable::starlark_serialize::StarlarkSerializeScope;
 use crate::pagable::static_value::get_static_value_id;
 use crate::values::Value;
+use crate::values::layout::heap::arena::ChunkBase;
 use crate::values::layout::heap::arena::ChunkInfo;
 use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::sealed::FrozenHeapArc;
@@ -75,7 +77,7 @@ pub(crate) struct ChunkEntry {
 struct ResidentHeapEntry {
     heap: WeakFrozenHeapRef,
     /// Chunks ordered by `values_before` for value-index lookup.
-    chunks_by_value_index: Box<[(usize, Arc<ChunkEntry>)]>,
+    chunks_by_value_index: Box<[(ChunkBase, Arc<ChunkEntry>)]>,
 }
 
 /// Shared resident-heap state owned by the pagable storage backend.
@@ -134,7 +136,7 @@ impl StarlarkSerState {
         {
             let mut chunks = self.chunks.write().expect("chunks lock poisoned");
             for (base, entry) in &chunks_by_value_index {
-                chunks.insert(*base, entry.dupe());
+                chunks.insert(base.addr(), entry.dupe());
             }
         }
         // Publish the heap after its chunks so a completed registration is
@@ -258,13 +260,14 @@ impl StarlarkSerState {
         let _heap = heap.upgrade()?;
         let within_chunk_index = value_index.checked_sub(entry.values_before)?;
         let payload_offset = entry.payload_offsets.get(within_chunk_index as usize)?;
-        let payload_ptr = base.checked_add(*payload_offset as usize)?;
-        let header_ptr =
-            payload_ptr.checked_sub(mem::size_of::<AValueHeader>())? as *const AValueHeader;
-        // SAFETY: `_heap` keeps the arena alive, and this chunk entry belongs
-        // to that resident heap.
-        let header = unsafe { &*header_ptr };
-        Some(Value::new_frozen_ptr(header, is_str))
+        let header_ptr = base
+            .add(*payload_offset as usize)
+            .wrapping_sub(mem::size_of::<AValueHeader>())
+            .cast::<AValueHeader>();
+        let header_ptr = NonNull::new(header_ptr.cast_mut())?;
+        // SAFETY: `_heap` keeps the arena alive, this chunk entry belongs to that resident
+        // heap, and the pointer is the chunk's.
+        Some(unsafe { Value::new_frozen_ptr(header_ptr, is_str) })
     }
 
     /// Resolve a raw payload pointer to its `(heap_id, value_index)`.

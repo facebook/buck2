@@ -13,6 +13,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_core::bzl::ImportPath;
 use buck2_error::conversion::from_any_with_tag;
+use buck2_hash::BuckFixedInsertionMap;
 use derivative::Derivative;
 use dupe::Dupe;
 use starlark::codemap::FileSpan;
@@ -20,7 +21,6 @@ use starlark::environment::FrozenModule;
 use starlark::eval::FileLoader;
 use starlark::values::OwnedFrozenRef;
 use starlark::values::structs::StructRef;
-use starlark_map::ordered_map::OrderedMap;
 
 use crate::paths::module::OwnedStarlarkModulePath;
 use crate::paths::module::StarlarkModulePath;
@@ -34,7 +34,9 @@ enum FileLoaderError {
 
 #[derive(Default, Clone, Allocative, Debug, pagable::Pagable)]
 pub struct LoadedModules {
-    pub map: OrderedMap<OwnedStarlarkModulePath, LoadedModule>,
+    /// In the order of the file's `load` statements, which `targets --imports` and the `audit`
+    /// commands print.
+    pub map: BuckFixedInsertionMap<OwnedStarlarkModulePath, LoadedModule>,
 }
 
 impl LoadedModules {
@@ -60,11 +62,13 @@ pub struct ModuleDeps(pub Vec<LoadedModule>);
 
 impl ModuleDeps {
     pub fn get_loaded_modules(&self) -> LoadedModules {
-        let mut map = OrderedMap::with_capacity(self.0.len());
-        for dep in &*self.0 {
-            map.insert(dep.path().to_owned(), dep.dupe());
+        LoadedModules {
+            map: self
+                .0
+                .iter()
+                .map(|dep| (dep.path().to_owned(), dep.dupe()))
+                .collect(),
         }
-        LoadedModules { map }
     }
 }
 
@@ -231,26 +235,31 @@ mod tests {
         .unwrap()
     }
 
-    fn loaded_modules() -> LoadedModules {
-        let mut loaded_modules = LoadedModules::default();
+    fn loaded_modules_for(paths: &[&str]) -> LoadedModules {
         let resolver = resolver();
+        LoadedModules {
+            map: paths
+                .iter()
+                .map(|path| {
+                    let import_path = resolver.resolve_load(path, None).unwrap();
+                    let module = LoadedModule::new(
+                        import_path.clone(),
+                        LoadedModules::default(),
+                        env(import_path.borrow()),
+                    );
+                    (import_path, module)
+                })
+                .collect(),
+        }
+    }
 
-        let mut insert = |path| {
-            let import_path = resolver.resolve_load(path, None).unwrap();
-            let module = LoadedModule::new(
-                import_path.clone(),
-                LoadedModules::default(),
-                env(import_path.borrow()),
-            );
-            loaded_modules.map.insert(import_path, module);
-        };
-
-        // Insert the same things that the TestLoadResolver supports.
-        insert("//some/package:import.bzl");
-        insert("cell1//next/package:import.bzl");
-        insert("alias2//last/package:import.bzl");
-
-        loaded_modules
+    /// The same things that the `TestLoadResolver` supports.
+    fn loaded_modules() -> LoadedModules {
+        loaded_modules_for(&[
+            "//some/package:import.bzl",
+            "cell1//next/package:import.bzl",
+            "alias2//last/package:import.bzl",
+        ])
     }
 
     #[test]
@@ -276,8 +285,10 @@ mod tests {
         let resolver = resolver();
         let id = resolver.resolve_load(&path, None)?;
 
-        let mut loaded_modules = loaded_modules();
-        loaded_modules.map.remove(&id);
+        let loaded_modules = loaded_modules_for(&[
+            "//some/package:import.bzl",
+            "alias2//last/package:import.bzl",
+        ]);
         let loader = InterpreterFileLoader::new(loaded_modules, resolver);
         match loader.load(&path) {
             Ok(_) => panic!("Expected load failure for {path}"),

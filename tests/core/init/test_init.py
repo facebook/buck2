@@ -9,10 +9,11 @@
 # pyre-strict
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_init_builds(buck: Buck) -> None:
-    await buck.init()
-    await buck.build("root//...")
+class InitTest(BuckTestCase):
+    @buck_test()
+    async def test_init_builds(self, buck: Buck) -> None:
+        await buck.init()
+        await buck.build("root//...")

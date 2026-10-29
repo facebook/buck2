@@ -8,7 +8,9 @@ disables the assertion; zero is valid, negative limits are rejected.
 `android_binary_for_automation` accepts
 `max_jvm_compiler_depth_by_package_type`, a dictionary that overrides
 `max_jvm_compiler_depth` for the listed package types, such as `debug`, `exo`,
-and `exo-native`. Unlisted package types retain the default limit.
+and `exo-native`. Unlisted package types retain the default limit. Under
+`ovr_config//build_mode:optimization[opt]` the override is `None`, because opt
+builds use class ABIs and their depth is not comparable to dev-mode limits.
 
 ```python
 android_binary(

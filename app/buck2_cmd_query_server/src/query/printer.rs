@@ -222,7 +222,7 @@ impl Serialize for FileSetJsonPrinter<'_> {
             seq.serialize_element(
                 &self
                     .resolver
-                    .resolve_path(file.as_ref())
+                    .resolve_path(*file)
                     .map_err(serde::ser::Error::custom)?
                     .to_string(),
             )?;
@@ -435,11 +435,7 @@ impl<'a> QueryResultPrinter<'a> {
                 match self.output_format {
                     QueryOutputFormatInfo::Default | QueryOutputFormatInfo::Starlark => {
                         for file in files.iter() {
-                            writeln!(
-                                &mut output,
-                                "{}",
-                                self.resolver.resolve_path(file.as_ref())?
-                            )?;
+                            writeln!(&mut output, "{}", self.resolver.resolve_path(*file)?)?;
                         }
                     }
                     QueryOutputFormatInfo::Json => {

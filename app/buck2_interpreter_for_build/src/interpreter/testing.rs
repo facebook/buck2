@@ -26,6 +26,7 @@ use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::pattern::pattern::InferTargetNames;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
@@ -73,7 +74,7 @@ pub struct Tester {
     cell_alias_resolver: CellAliasResolver,
     cell_resolver: CellResolver,
     root_config: LegacyBuckConfig,
-    loaded_modules: LoadedModules,
+    loaded_modules: BuckMutInsertionMap<OwnedStarlarkModulePath, LoadedModule>,
     additional_globals: Vec<AdditionalGlobalsFn>,
     prelude_path: Option<PreludePath>,
     current_dir_with_allowed_relative_dirs: Arc<CellPathWithAllowedRelativeDir>,
@@ -169,7 +170,7 @@ impl Tester {
             cell_alias_resolver,
             cell_resolver,
             root_config,
-            loaded_modules: LoadedModules::default(),
+            loaded_modules: BuckMutInsertionMap::default(),
             additional_globals: Vec::new(),
             prelude_path: None,
             current_dir_with_allowed_relative_dirs: current_dir_with_allowed_relative_dirs.into(),
@@ -188,6 +189,13 @@ impl Tester {
 
     pub fn set_prelude(&mut self, prelude_import: ImportPath) {
         self.prelude_path = Some(PreludePath::testing_new(prelude_import));
+    }
+
+    /// Everything `add_import` has evaluated so far.
+    fn loaded_modules(&self) -> LoadedModules {
+        LoadedModules {
+            map: self.loaded_modules.clone().freeze(),
+        }
     }
 
     fn interpreter(&self) -> buck2_error::Result<Arc<InterpreterForDir>> {
@@ -246,9 +254,8 @@ impl Tester {
         path: &ImportPath,
         content: &str,
     ) -> buck2_error::Result<LoadedModule> {
-        let loaded = self.eval_import(path, content, self.loaded_modules.clone())?;
+        let loaded = self.eval_import(path, content, self.loaded_modules())?;
         self.loaded_modules
-            .map
             .insert(StarlarkModulePath::LoadFile(path).to_owned(), loaded.dupe());
         Ok(loaded)
     }
@@ -296,7 +303,7 @@ impl Tester {
         self.eval_build_file_with_loaded_modules(
             path,
             content,
-            self.loaded_modules.clone(),
+            self.loaded_modules(),
             package_listing,
         )
     }
@@ -322,7 +329,6 @@ impl Tester {
             &mut buckconfigs,
             package_listing,
             SuperPackage::empty::<SuperPackageValuesImpl>()?,
-            false,
             ast,
             loaded_modules,
             provider,

@@ -13,7 +13,7 @@ import re
 import subprocess
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 from buck2.tests.e2e_util.helper.utils import (
     get_buck2_re_use_case,
     json_get,
@@ -22,98 +22,98 @@ from buck2.tests.e2e_util.helper.utils import (
 )
 
 
-@buck_test()
-async def test_local_action(buck: Buck) -> None:
-    await buck.build(
-        "//:foo",
-        "--no-remote-cache",
-        "--local-only",
-        "-c",
-        f"test.cache_buster={random_string()}",
-    )
-
-    log = (await buck.log("show")).stdout.strip().splitlines()
-
-    for line in log:
-        outputs = json_get(
-            line,
-            "Event",
-            "data",
-            "SpanEnd",
-            "data",
-            "ActionExecution",
-            "outputs",
+class OutputsOrderingTest(BuckTestCase):
+    @buck_test()
+    async def test_local_action(self, buck: Buck) -> None:
+        await buck.build(
+            "//:foo",
+            "--no-remote-cache",
+            "--local-only",
+            "-c",
+            f"test.cache_buster={random_string()}",
         )
-        if outputs is None:
-            continue
-        # da39a3ee is a digest for empty directory.
-        # We have 2 directories "a" and "z", where
-        # "a" is empty and "z" is not.
-        # "z" is a first output for action.
-        digests = [o["tiny_digest"] for o in outputs]
-        assert len(digests) == 2
-        # Checking that "a" is first in action outputs
-        assert digests[0] == "da39a3ee"
-        return
 
-    raise AssertionError("Didn't find ActionExecution data")
+        log = (await buck.log("show")).stdout.strip().splitlines()
 
+        for line in log:
+            outputs = json_get(
+                line,
+                "Event",
+                "data",
+                "SpanEnd",
+                "data",
+                "ActionExecution",
+                "outputs",
+            )
+            if outputs is None:
+                continue
+            # da39a3ee is a digest for empty directory.
+            # We have 2 directories "a" and "z", where
+            # "a" is empty and "z" is not.
+            # "z" is a first output for action.
+            digests = [o["tiny_digest"] for o in outputs]
+            assert len(digests) == 2
+            # Checking that "a" is first in action outputs
+            assert digests[0] == "da39a3ee"
+            return
 
-@buck_test()
-async def test_remote_action(buck: Buck) -> None:
-    await buck.build(
-        "//:foo",
-        "--no-remote-cache",
-        "--remote-only",
-        "-c",
-        f"test.cache_buster={random_string()}",
-    )
+        raise AssertionError("Didn't find ActionExecution data")
 
-    log = (await buck.log("show")).stdout.strip().splitlines()
-
-    for line in log:
-        outputs = json_get(
-            line,
-            "Event",
-            "data",
-            "SpanEnd",
-            "data",
-            "ActionExecution",
-            "outputs",
+    @buck_test()
+    async def test_remote_action(self, buck: Buck) -> None:
+        await buck.build(
+            "//:foo",
+            "--no-remote-cache",
+            "--remote-only",
+            "-c",
+            f"test.cache_buster={random_string()}",
         )
-        if outputs is None:
-            continue
-        # da39a3ee is a digest for empty directory.
-        # We have 2 directories "a" and "z", where
-        # "a" is empty and "z" is not.
-        # "z" is a first output for action.
-        digests = [o["tiny_digest"] for o in outputs]
-        assert len(digests) == 2
-        # Checking that "a" is first in action outputs
-        assert digests[0] == "da39a3ee"
-        break
 
-    what_ran = await read_what_ran(buck)
-    assert len(what_ran) == 1
-    digest = what_ran[0]["reproducer"]["details"]["digest"]
-    use_case = await get_buck2_re_use_case(buck)
-    action_definition = subprocess.check_output(
-        [
-            "dotslash",
-            os.environ["RECLI"],
-            "--use-case",
-            use_case,
-            "cas",
-            "download-action",
-            digest,
-        ],
-        text=True,
-    )
-    # Though RE action has "a" first and then "z"
-    assert (
-        re.search(
-            'Output\\WDirectories.+\n\\["buck-out/.+/__foo__/a",\\W"buck-out/.+/__foo__/z"',
-            action_definition,
+        log = (await buck.log("show")).stdout.strip().splitlines()
+
+        for line in log:
+            outputs = json_get(
+                line,
+                "Event",
+                "data",
+                "SpanEnd",
+                "data",
+                "ActionExecution",
+                "outputs",
+            )
+            if outputs is None:
+                continue
+            # da39a3ee is a digest for empty directory.
+            # We have 2 directories "a" and "z", where
+            # "a" is empty and "z" is not.
+            # "z" is a first output for action.
+            digests = [o["tiny_digest"] for o in outputs]
+            assert len(digests) == 2
+            # Checking that "a" is first in action outputs
+            assert digests[0] == "da39a3ee"
+            break
+
+        what_ran = await read_what_ran(buck)
+        assert len(what_ran) == 1
+        digest = what_ran[0]["reproducer"]["details"]["digest"]
+        use_case = await get_buck2_re_use_case(buck)
+        action_definition = subprocess.check_output(
+            [
+                "dotslash",
+                os.environ["RECLI"],
+                "--use-case",
+                use_case,
+                "cas",
+                "download-action",
+                digest,
+            ],
+            text=True,
         )
-        is not None
-    )
+        # Though RE action has "a" first and then "z"
+        assert (
+            re.search(
+                'Output\\WDirectories.+\n\\["buck-out/.+/__foo__/a",\\W"buck-out/.+/__foo__/z"',
+                action_definition,
+            )
+            is not None
+        )

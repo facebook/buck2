@@ -201,10 +201,19 @@ class Jsr199JavacInvocation implements ResolvedJavac.Invocation {
     @Nullable private String compilerThreadName;
     @Nullable private JavaInMemoryFileManager inMemoryFileManager;
     @Nullable private final ClassUsageTracker classUsageTracker;
+    @Nullable private final CompilerClassToSourceMap classToSourceMap;
 
     private CompilerWorker(ListeningExecutorService executor) {
       this.executor = executor;
       this.classUsageTracker = trackClassUsage ? new ClassUsageTracker() : null;
+      this.classToSourceMap =
+          invokingRule.isLibraryJar()
+                  && compilerOutputPathsValue
+                          .getLibraryCompilerOutputPath()
+                          .getCompilerClassToSourceMap()
+                      != null
+              ? new CompilerClassToSourceMap()
+              : null;
     }
 
     public int buildSourceOnlyAbiJar(RelPath outputJarDirPath, boolean isMixedModule)
@@ -467,6 +476,20 @@ class Jsr199JavacInvocation implements ResolvedJavac.Invocation {
           return ERROR_EXIT_CODE;
         }
 
+        if (classToSourceMap != null) {
+          Path mapPath =
+              ruleCellRoot
+                  .resolve(
+                      compilerOutputPathsValue.getLibraryCompilerOutputPath().getWorkingDirectory())
+                  .getPath()
+                  .resolve(CompilerClassToSourceMap.JAVA_FILE_NAME);
+          try {
+            classToSourceMap.write(mapPath);
+          } catch (IOException e) {
+            throw new IOException("Failed to write compiler class-to-source map: " + mapPath, e);
+          }
+        }
+
         if (libraryJarParameters == null) {
           return SUCCESS_EXIT_CODE;
         }
@@ -556,7 +579,8 @@ class Jsr199JavacInvocation implements ResolvedJavac.Invocation {
           PluginClassLoaderFactory loaderFactory =
               PluginLoader.newFactory(context.getClassLoaderCache());
 
-          ListenableFileManager wrappedFileManager = new ListenableFileManager(fileManager);
+          ListenableFileManager wrappedFileManager =
+              new ListenableFileManager(fileManager, classToSourceMap, ruleCellRoot.getPath());
           if (classUsageTracker != null) {
             wrappedFileManager.addListener(classUsageTracker);
           }

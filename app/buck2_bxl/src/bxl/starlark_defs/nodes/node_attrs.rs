@@ -10,9 +10,9 @@
 
 use buck2_analysis::attrs::resolve::configured_attr::ConfiguredAttrExt;
 use buck2_build_api::actions::query::PackageLabelOption;
-use buck2_build_api::bxl::unconfigured_attribute::CoercedAttrExt;
+use buck2_build_api::bxl::unconfigured_attribute::OwnedCoercedAttrExt;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
-use starlark::collections::SmallMap;
 use starlark::values::Heap;
 use starlark::values::StringValue;
 use starlark::values::Value;
@@ -26,7 +26,7 @@ pub(crate) trait NodeAttributeGetter {
     fn get_attrs<'v>(
         &self,
         heap: Heap<'v>,
-    ) -> buck2_error::Result<SmallMap<StringValue<'v>, Value<'v>>>;
+    ) -> buck2_error::Result<BuckMutInsertionMap<StringValue<'v>, Value<'v>>>;
     fn has_attr(&self, key: &str) -> bool;
 }
 
@@ -34,8 +34,8 @@ impl NodeAttributeGetter for StarlarkTargetNode {
     fn get_attr<'v>(&self, key: &str, heap: Heap<'v>) -> buck2_error::Result<NoneOr<Value<'v>>> {
         let node = &self.0;
         let pkg = node.label().pkg();
-        match node.attr_or_none(key, AttrInspectOptions::All) {
-            Some(attr) => Ok(NoneOr::Other(attr.value.to_value(pkg, heap)?)),
+        match node.owned_attr_or_none(key, AttrInspectOptions::All) {
+            Some(attr) => Ok(NoneOr::Other(attr.to_value(pkg, heap)?)),
             None => Ok(NoneOr::None),
         }
     }
@@ -43,17 +43,17 @@ impl NodeAttributeGetter for StarlarkTargetNode {
     fn get_attrs<'v>(
         &self,
         heap: Heap<'v>,
-    ) -> buck2_error::Result<SmallMap<StringValue<'v>, Value<'v>>> {
+    ) -> buck2_error::Result<BuckMutInsertionMap<StringValue<'v>, Value<'v>>> {
         let node = &self.0;
         let pkg = node.label().pkg();
-        let attrs_iter = node.attrs(AttrInspectOptions::All);
+        let attrs_iter = node.owned_attrs(AttrInspectOptions::All);
         attrs_iter
-            .map(|attr| {
-                let name = heap.alloc_str_intern(attr.name);
-                let value = attr.value.to_value(pkg, heap)?;
+            .map(|(name, attr)| {
+                let name = heap.alloc_str_intern(name);
+                let value = attr.to_value(pkg, heap)?;
                 Ok((name, value))
             })
-            .collect::<buck2_error::Result<SmallMap<_, _>>>()
+            .collect::<buck2_error::Result<BuckMutInsertionMap<_, _>>>()
     }
 
     fn has_attr(&self, key: &str) -> bool {
@@ -75,7 +75,7 @@ impl NodeAttributeGetter for StarlarkConfiguredTargetNode {
     fn get_attrs<'v>(
         &self,
         heap: Heap<'v>,
-    ) -> buck2_error::Result<SmallMap<StringValue<'v>, Value<'v>>> {
+    ) -> buck2_error::Result<BuckMutInsertionMap<StringValue<'v>, Value<'v>>> {
         let node = &self.0;
         let pkg = PackageLabelOption::PackageLabel(node.label().pkg());
         let attrs_iter = node.attrs(AttrInspectOptions::All);
@@ -85,7 +85,7 @@ impl NodeAttributeGetter for StarlarkConfiguredTargetNode {
                 let value = attr.value.to_value(pkg, heap)?;
                 Ok((name, value))
             })
-            .collect::<buck2_error::Result<SmallMap<_, _>>>()
+            .collect::<buck2_error::Result<BuckMutInsertionMap<_, _>>>()
     }
 
     fn has_attr(&self, key: &str) -> bool {

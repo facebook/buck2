@@ -23,7 +23,7 @@ pub struct AgentContextEntry {
 }
 
 /// Agent metadata for one invocation, preserving entry order and repeated keys.
-#[derive(Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct AgentContext {
     entries: Vec<AgentContextEntry>,
 }
@@ -34,7 +34,7 @@ impl AgentContext {
         Self { entries }
     }
 
-    /// Only the last direct-call marker determines whether the call is direct.
+    /// The last direct-call marker determines whether the call is direct.
     pub fn is_direct_call(&self) -> bool {
         self.entries
             .iter()
@@ -48,6 +48,15 @@ impl AgentContext {
         self.entries
             .iter()
             .any(|entry| entry.key == AgentContextKeys::KEY_ADVICE_ACK && entry.value == advice_id)
+    }
+
+    /// Later CLI entries can replace a reason supplied by a wrapper.
+    pub fn reason(&self) -> Option<&str> {
+        self.entries
+            .iter()
+            .rev()
+            .find(|entry| entry.key == "reason")
+            .map(|entry| entry.value.as_str())
     }
 
     pub(crate) fn to_proto(&self) -> Vec<buck2_data::AgentContextEntry> {
@@ -101,8 +110,29 @@ fn parse_agent_env_metadata(meta: &str) -> Vec<AgentContextEntry> {
     result
 }
 
-/// Parse a single `key=value` agent context entry.
-/// Used as a clap `value_parser`.
+/// The entries collected from one `--agent-context` flag.
+#[derive(Clone, Debug)]
+pub struct AgentContextEntries(pub Vec<AgentContextEntry>);
+
+/// Parse one `--agent-context` flag into entries, handling commas.
+pub fn parse_agent_context_entries(value: &str) -> buck2_error::Result<AgentContextEntries> {
+    value
+        .split(',')
+        .try_fold(Vec::<AgentContextEntry>::new(), |mut entries, part| {
+            match (parse_agent_context(part), entries.last_mut()) {
+                (Ok(entry), _) => entries.push(entry),
+                (Err(_), Some(last)) => {
+                    // agents are writing e.g. `--agent-context "reason=fix,thing"`
+                    last.value.push(',');
+                    last.value.push_str(part);
+                }
+                (Err(e), None) => return Err(e),
+            }
+            Ok(entries)
+        })
+        .map(AgentContextEntries)
+}
+
 pub fn parse_agent_context(value: &str) -> buck2_error::Result<AgentContextEntry> {
     const REGEX_TEXT: &str = "^[a-z][a-z0-9]*(_[a-z][a-z0-9]*)*$";
     static REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(REGEX_TEXT).unwrap());
@@ -187,6 +217,32 @@ mod tests {
     fn test_parse_invalid_key() {
         assert!(parse_agent_context("Invalid=build").is_err());
         assert!(parse_agent_context("123=build").is_err());
+    }
+
+    #[test]
+    fn test_parse_entries_keeps_commas_not_followed_by_key() {
+        let entries = parse_agent_context_entries("reason=fix it, then set a=b,attempt=2")
+            .expect("commas inside a value should parse")
+            .0;
+        assert_eq!(
+            entries,
+            vec![
+                AgentContextEntry {
+                    key: "reason".to_owned(),
+                    value: "fix it, then set a=b".to_owned(),
+                },
+                AgentContextEntry {
+                    key: "attempt".to_owned(),
+                    value: "2".to_owned(),
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn test_parse_entries_rejects_invalid_first_entry() {
+        assert!(parse_agent_context_entries("not_a_valid_format,intent=build").is_err());
+        assert!(parse_agent_context_entries("Invalid=build,intent=build").is_err());
     }
 
     #[test]

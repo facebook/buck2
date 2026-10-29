@@ -10,14 +10,24 @@
 
 //! Typed buck settings, replaces buckconfig for core buck2 settings.
 
+pub mod agent_interactive;
+pub mod agent_materialization;
+mod analysis;
 pub mod args;
 pub mod dice;
+mod hydration;
+mod log_download;
+mod metadata;
+mod package_visibility;
 pub mod parser;
 mod path;
 #[cfg(fbcode_build)]
 mod rollouts;
 pub mod settings;
 
+pub use settings::BuckSettingChange;
 pub use settings::BuckSettings;
+pub use settings::DaemonBuckSettings;
+pub use settings::InvocationBuckSettings;
 pub use settings::PackageVisibilityDefaultIntersection;
 pub use settings::PackageVisibilitySection;

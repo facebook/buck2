@@ -11,13 +11,14 @@
 from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test(skip_final_kill=True)
-async def test_no_repo(buck: Buck, tmp_path: Path) -> None:
-    await buck.help()
-    # And make sure this also works with absolute argfiles
-    arg_path = tmp_path / "argsfile.txt"
-    arg_path.write_text("--help", encoding="utf-8")
-    await buck.run_buck_command(f"@{arg_path}")
+class NoRepoTest(BuckTestCase):
+    @buck_test(skip_final_kill=True)
+    async def test_no_repo(self, buck: Buck, tmp_path: Path) -> None:
+        await buck.help()
+        # And make sure this also works with absolute argfiles
+        arg_path = tmp_path / "argsfile.txt"
+        arg_path.write_text("--help", encoding="utf-8")
+        await buck.run_buck_command(f"@{arg_path}")

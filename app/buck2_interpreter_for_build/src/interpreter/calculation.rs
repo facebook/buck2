@@ -76,12 +76,7 @@ async fn eval_interpreter_results(
     mode: BuildFileEvaluationMode,
     cancellation: &CancellationContext,
 ) -> (TimeSpan, buck2_error::Result<Arc<EvaluationResult>>) {
-    match ctx
-        .get_interpreter_calculator(OwnedStarlarkPath::PackageFile(
-            PackageFilePath::package_file_for_dir(package.as_cell_path()),
-        ))
-        .await
-    {
+    match ctx.get_interpreter_calculator_for_package(package).await {
         Ok(mut interpreter) => {
             interpreter
                 .eval_build_file_with_mode(package.dupe(), mode, cancellation)
@@ -229,11 +224,7 @@ impl InterpreterCalculationImpl for InterpreterCalculationInstance {
             .buildfile()
             .to_owned();
 
-        let mut calc = ctx
-            .get_interpreter_calculator(OwnedStarlarkPath::PackageFile(
-                PackageFilePath::package_file_for_dir(package.as_cell_path()),
-            ))
-            .await?;
+        let mut calc = ctx.get_interpreter_calculator_for_package(package).await?;
 
         let (_module, module_deps) = calc
             .prepare_eval(StarlarkPath::BuildFile(&BuildFilePath::new(
@@ -253,11 +244,7 @@ impl InterpreterCalculationImpl for InterpreterCalculationInstance {
         // These aren't cached on the DICE graph, since in normal evaluation there aren't that many, and we can cache at a higher level.
         // Therefore we re-parse the file, if it exists.
         // Fortunately, there are only a small number (currently a few hundred)
-        let mut interpreter = ctx
-            .get_interpreter_calculator(OwnedStarlarkPath::PackageFile(
-                PackageFilePath::package_file_for_dir(package.as_cell_path()),
-            ))
-            .await?;
+        let mut interpreter = ctx.get_interpreter_calculator_for_package(package).await?;
         let x = interpreter.prepare_package_file_eval(package).await?;
         let Some((package_file_path, _module, deps)) = x else {
             return Ok(None);

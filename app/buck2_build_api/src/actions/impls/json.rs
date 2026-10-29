@@ -45,6 +45,7 @@ use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::FrozenStarlarkCmdArgs;
+use crate::interpreter::rule_defs::cmd_args::InputProperties;
 use crate::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
 use crate::interpreter::rule_defs::cmd_args::path_format;
 use crate::interpreter::rule_defs::cmd_args::path_format_absolute;
@@ -369,6 +370,7 @@ pub fn visit_json_artifacts<'v>(
         }
         JsonUnpack::TransitiveSetJsonProjection(x) => visitor.visit_input(
             ArtifactGroup::TransitiveSetProjection(Arc::new(x.to_projection_key_wrapper()?)),
+            InputProperties::default(),
             vec![],
         ),
         JsonUnpack::Artifact(_x) => {

@@ -10,9 +10,10 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_target_aliases(buck: Buck) -> None:
-    await buck.uquery("foo//:t")
+class CellAliasesTest(BuckTestCase):
+    @buck_test()
+    async def test_target_aliases(self, buck: Buck) -> None:
+        await buck.uquery("foo//:t")

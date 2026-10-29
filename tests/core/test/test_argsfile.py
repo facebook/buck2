@@ -9,7 +9,7 @@
 # pyre-strict
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 from buck2.tests.e2e_util.helper.utils import read_what_ran
 
 # The test binaries assert on the shape of the command they were given, so a
@@ -42,14 +42,14 @@ async def _test_argsfile(buck: Buck, *targets: str, remote: bool) -> None:
     assert executors == {f"root{t}": expected for t in targets}
 
 
-@buck_test()
-async def test_runner_argsfile_reaches_the_test_locally(buck: Buck) -> None:
-    await _test_argsfile(
-        buck, "//:argsfile", "//:argsfile_absolute", "//:inline", remote=False
-    )
+class ArgsfileTest(BuckTestCase):
+    @buck_test()
+    async def test_runner_argsfile_reaches_the_test_locally(self, buck: Buck) -> None:
+        await _test_argsfile(
+            buck, "//:argsfile", "//:argsfile_absolute", "//:inline", remote=False
+        )
 
-
-@buck_test()
-async def test_runner_argsfile_reaches_the_test_remotely(buck: Buck) -> None:
-    # No `argsfile_absolute`: a test that takes absolute paths can only run locally.
-    await _test_argsfile(buck, "//:argsfile", "//:inline", remote=True)
+    @buck_test()
+    async def test_runner_argsfile_reaches_the_test_remotely(self, buck: Buck) -> None:
+        # No `argsfile_absolute`: a test that takes absolute paths can only run locally.
+        await _test_argsfile(buck, "//:argsfile", "//:inline", remote=True)

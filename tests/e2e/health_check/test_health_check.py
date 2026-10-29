@@ -13,35 +13,7 @@ import asyncio
 import tempfile
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
-
-
-@buck_test(inplace=True)
-async def test_health_check_with_request_hang(buck: Buck) -> None:
-    (
-        health_check_state_file,
-        server_output,
-        server_process,
-    ) = await start_health_check_server(buck, "--with-request-hang")
-
-    env = {
-        # Set the CLI_PATH to `echo` making it effectively a no-op since we want buck to use the test server and not spawn a new one.
-        "BUCK2_HEALTH_CHECK_CLI_PATH": "echo",
-        "BUCK2_HEALTH_CHECK_STATE_INFO_PATH": health_check_state_file,
-    }
-    await buck.build(
-        "fbcode//buck2/tests/targets/rules/rust/hello_world:welcome",
-        env=env,
-    )
-    with open(server_output, "r") as f:
-        lines = f.readlines()
-        # Only the first call to update is logged. The server is stuck processing that request.
-        assert lines.count("UpdateContext Requested\n") == 1
-        assert lines.count("RunChecks Requested\n") == 0
-        assert lines.count("UpdateContext Completed\n") == 0
-        assert lines.count("RunChecks Completed\n") == 0
-
-    server_process.kill()
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
 async def start_health_check_server(
@@ -72,3 +44,32 @@ async def start_health_check_server(
         await asyncio.sleep(0.1)
 
     return (health_check_state_file, server_output, process)
+
+
+class HealthCheckTest(BuckTestCase):
+    @buck_test(inplace=True)
+    async def test_health_check_with_request_hang(self, buck: Buck) -> None:
+        (
+            health_check_state_file,
+            server_output,
+            server_process,
+        ) = await start_health_check_server(buck, "--with-request-hang")
+
+        env = {
+            # Set the CLI_PATH to `echo` making it effectively a no-op since we want buck to use the test server and not spawn a new one.
+            "BUCK2_HEALTH_CHECK_CLI_PATH": "echo",
+            "BUCK2_HEALTH_CHECK_STATE_INFO_PATH": health_check_state_file,
+        }
+        await buck.build(
+            "fbcode//buck2/tests/targets/rules/rust/hello_world:welcome",
+            env=env,
+        )
+        with open(server_output, "r") as f:
+            lines = f.readlines()
+            # Only the first call to update is logged. The server is stuck processing that request.
+            assert lines.count("UpdateContext Requested\n") == 1
+            assert lines.count("RunChecks Requested\n") == 0
+            assert lines.count("UpdateContext Completed\n") == 0
+            assert lines.count("RunChecks Completed\n") == 0
+
+        server_process.kill()

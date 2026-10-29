@@ -11,12 +11,10 @@
 #![feature(decl_macro)]
 #![cfg_attr(not(windows), feature(linkage))]
 #![feature(once_cell_try)]
-#![feature(used_with_arg)]
 
 pub mod arc_str;
 pub mod async_move_clone;
 pub mod commas;
-pub mod cycle_detector;
 pub mod early_command_timing;
 pub mod env_vars;
 pub mod exact_size_iter;
@@ -28,6 +26,7 @@ pub mod network_speed_average;
 pub mod os;
 pub mod per_thread_instruction_counter;
 pub mod pgo;
+pub mod pointer_identity;
 pub mod process;
 pub mod process_stats;
 pub mod properly_reaped_child;
@@ -40,6 +39,7 @@ pub mod threads;
 pub mod time_span;
 pub mod tokio_runtime;
 pub mod truncate;
+pub mod vec2;
 
 // Re-export this to encourage people to use it in a fully qualified way.
 pub use async_move_clone::async_move_clone;

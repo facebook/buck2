@@ -9,6 +9,8 @@
 def write_hmap(actions: AnalysisActions, output: Artifact, headers: dict[str, (Artifact, str)]) -> Artifact | None:
     """Write a Clang header map if this Buck binary supports the action.
 
+    Each entry maps an include name to `(artifact, path)`, where `path` is
+    relative to the artifact and empty for the artifact itself.
     Load this function instead of calling `ctx.actions._write_hmap` directly.
     The implementation may move back into the prelude in the future.
     Returns None on older Buck binaries so callers can use another action.

@@ -132,13 +132,10 @@ mod tests {
             ctx: &mut DiceComputations,
             _cancellations: &CancellationContext,
         ) -> Self::Value {
-            DiceFileComputations::read_file_if_exists(
-                ctx,
-                CellPath::testing_new("root//f").as_ref(),
-            )
-            .await
-            .unwrap()
-            .unwrap()
+            DiceFileComputations::read_file_if_exists(ctx, CellPath::testing_new("root//f"))
+                .await
+                .unwrap()
+                .unwrap()
         }
 
         fn equality_behavior() -> EqualityBehavior<Self::Value> {

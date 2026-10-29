@@ -143,6 +143,10 @@ fn a_closed_claim_not_covering_the_fork_seq_is_not_a_candidate() {
 }
 
 #[test]
+#[cfg_attr(
+    all(miri, panic = "abort"),
+    ignore = "with panic=abort the panic kills the in-process Miri harness"
+)]
 #[should_panic(expected = "not a version")]
 fn forking_from_a_version_beyond_the_head_panics() {
     let mut s = State::new();

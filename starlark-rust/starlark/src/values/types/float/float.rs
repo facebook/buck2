@@ -322,18 +322,26 @@ impl<'v> StarlarkValue<'v> for StarlarkFloat {
     }
 
     fn add(&self, other: Value, heap: Heap<'v>) -> Option<crate::Result<Value<'v>>> {
-        Some(Ok(heap.alloc(NumRef::Float(*self) + other.unpack_num()?)))
+        Some(
+            (NumRef::Float(*self) + other.unpack_num()?)
+                .map(|x| heap.alloc(x))
+                .map_err(Into::into),
+        )
     }
 
     fn sub(&self, other: Value, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         match other.unpack_num() {
             None => ValueError::unsupported_with(self, "-", other),
-            Some(other) => Ok(heap.alloc(NumRef::Float(*self) - other)),
+            Some(other) => Ok(heap.alloc((NumRef::Float(*self) - other)?)),
         }
     }
 
     fn mul(&self, other: Value<'v>, heap: Heap<'v>) -> Option<crate::Result<Value<'v>>> {
-        Some(Ok(heap.alloc(NumRef::Float(*self) * other.unpack_num()?)))
+        Some(
+            (NumRef::Float(*self) * other.unpack_num()?)
+                .map(|x| heap.alloc(x))
+                .map_err(Into::into),
+        )
     }
 
     fn div(&self, other: Value, heap: Heap<'v>) -> crate::Result<Value<'v>> {

@@ -25,13 +25,13 @@ use allocative::Allocative;
 use display_container::fmt_keyed_container;
 use dupe::Dupe;
 use either::Either;
+use mini_map::MiniFixedSortedMap;
 use once_cell::unsync::OnceCell;
 use starlark_derive::NoSerialize;
 use starlark_derive::starlark_module;
 use starlark_derive::starlark_value;
 use starlark_map::StarlarkHasher;
 use starlark_map::small_map::SmallMap;
-use starlark_map::sorted_map::SortedMap;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
@@ -300,36 +300,33 @@ impl<'v, V: RecordVariant> StarlarkValue<'v> for RecordTypeGen<'v, V> {
         )
         .parser(args, eval, |param_parser, eval| {
             let fields = record_fields(AnyRecordType::unpack_value_err(this).unwrap());
-            let mut values = Vec::with_capacity(fields.len());
-            for (name, field) in fields.iter() {
-                let value = match field.default {
-                    None => {
-                        let v: Value = param_parser.next()?;
-                        field.typ.check_type(v, Some(name))?;
-                        v
-                    }
-                    Some(default) => {
-                        let v: Option<Value> = param_parser.next_opt()?;
-                        match v {
-                            None => {
-                                // The default was checked by `field()`, but it may have been
-                                // mutated since if the module is not frozen yet.
-                                field.typ.check_type(default, Some(name))?;
-                                default
-                            }
-                            Some(v) => {
-                                field.typ.check_type(v, Some(name))?;
-                                v
+            eval.alloca_init(fields.len(), Value::new_none, |values, eval| {
+                for ((name, field), slot) in fields.iter().zip(values.iter_mut()) {
+                    *slot = match field.default {
+                        None => {
+                            let v: Value = param_parser.next()?;
+                            field.typ.check_type(v, Some(name))?;
+                            v
+                        }
+                        Some(default) => {
+                            let v: Option<Value> = param_parser.next_opt()?;
+                            match v {
+                                None => {
+                                    // The default was checked by `field()`, but it may have been
+                                    // mutated since if the module is not frozen yet.
+                                    field.typ.check_type(default, Some(name))?;
+                                    default
+                                }
+                                Some(v) => {
+                                    field.typ.check_type(v, Some(name))?;
+                                    v
+                                }
                             }
                         }
-                    }
-                };
-                values.push(value);
-            }
-            Ok(eval.heap().alloc_complex(Record {
-                typ: this,
-                values: values.into_boxed_slice(),
-            }))
+                    };
+                }
+                Ok(eval.heap().alloc_record(this, values))
+            })
         })
     }
 
@@ -354,7 +351,7 @@ impl<'v, V: RecordVariant> StarlarkValue<'v> for RecordTypeGen<'v, V> {
         _eval: &mut Evaluator<'v, '_, '_>,
     ) -> crate::Result<()> {
         V::get_or_init_ty(&self.ty_record_data, || {
-            let fields: SortedMap<String, Ty> = self
+            let fields: MiniFixedSortedMap<String, Ty> = self
                 .fields
                 .iter()
                 .map(|(name, field)| (name.clone(), field.ty()))

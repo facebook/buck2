@@ -11,9 +11,9 @@ Caused by:
     0: looking up unconfigured target node `root//load_cycle:target`
     1: Error loading targets in package `root//load_cycle` for target `root//load_cycle:target`
     2: From load at load_cycle/TARGETS.fixture:1
-    3: Load cycle detected (`->` means "loads"):
+    3: From load at load_cycle/1.bzl:9
+    4: Dependency cycle detected (`->` means "depends on"):
          root//load_cycle/1.bzl ->
          root//load_cycle/2.bzl ->
          root//load_cycle/3.bzl ->
          root//load_cycle/1.bzl
-       

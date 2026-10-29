@@ -15,6 +15,7 @@ def _opts_for_tests_arg() -> Attr:
     #     "capabilities": Dict<str, str> | None
     #     "listing_capabilities": Dict<str, str> | None
     #     "local_listing_enabled": bool | None
+    #     "disable_local_listing": bool | None  # Overrides local_listing_enabled.
     #     "local_enabled": bool |  None
     #     "use_case": str | None
     #     "remote_cache_enabled": bool | None

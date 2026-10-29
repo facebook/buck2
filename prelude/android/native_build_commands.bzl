@@ -14,7 +14,7 @@
 # Whether to capture per-source compile commands (the expensive [native_build_commands][compile]
 # kind). Off by default; enable with `-c cxx.emit_native_build_commands=true`. Follows the
 # FORCE_SINGLE_CPU config-backed-attr pattern. Single source of truth for both the cxx_library attr
-# that carries compile commands onto the linkable graph (rules_impl.bzl) and the app-side compile
+# that carries compile commands onto the linkable graph (cxx/attrs.bzl) and the app-side compile
 # emission (android_binary_native_library_rules.bzl).
 EMIT_NATIVE_BUILD_COMMANDS = read_root_config("cxx", "emit_native_build_commands") in ("True", "true")
 

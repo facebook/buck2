@@ -7,3 +7,8 @@ simple_test(
     seed = read_config("test", "seed", ""),
     supports_test_execution_caching = True,
 )
+
+simple_test(
+    name = "writes_output",
+    writes_output = True,
+)

@@ -12,7 +12,6 @@
 //! the lock-free containers of dice need.
 
 use std::ops::Deref;
-use std::ptr;
 use std::ptr::NonNull;
 
 use allocative::Allocative;
@@ -134,35 +133,25 @@ impl<'a, T> Deref for ArcBorrow<'a, T> {
 }
 
 impl<T> AtomicValue for Arc<T> {
-    type Raw = usize; // *const T
     type Ref<'a>
         = ArcBorrow<'a, T>
     where
         Self: 'a;
 
     #[inline]
-    fn null() -> Self::Raw {
-        0
+    fn into_raw(this: Self) -> NonNull<()> {
+        // SAFETY: `Arc::into_raw` never returns null.
+        unsafe { NonNull::new_unchecked(triomphe::Arc::into_raw(this.0).cast_mut()).cast() }
     }
 
     #[inline]
-    fn is_null(this: Self::Raw) -> bool {
-        this == 0
+    unsafe fn from_raw(raw: NonNull<()>) -> Self {
+        Arc(unsafe { triomphe::Arc::from_raw(raw.cast::<T>().as_ptr()) })
     }
 
     #[inline]
-    fn into_raw(this: Self) -> Self::Raw {
-        triomphe::Arc::into_raw(this.0).expose_provenance()
-    }
-
-    #[inline]
-    unsafe fn from_raw(raw: Self::Raw) -> Self {
-        Arc(unsafe { triomphe::Arc::from_raw(ptr::with_exposed_provenance(raw)) })
-    }
-
-    #[inline]
-    unsafe fn deref<'a>(raw: Self::Raw) -> Self::Ref<'a> {
-        unsafe { ArcBorrow::from_ptr(ptr::with_exposed_provenance(raw)) }
+    unsafe fn deref<'a>(raw: NonNull<()>) -> Self::Ref<'a> {
+        unsafe { ArcBorrow::from_ptr(raw.cast::<T>().as_ptr()) }
     }
 }
 

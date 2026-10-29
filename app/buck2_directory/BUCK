@@ -10,12 +10,12 @@ rust_library(
     test_deps = [
         "fbsource//third-party/rust:assert_matches",
     ],
+    unittests_miri = True,
     deps = [
         "fbsource//third-party/rust:dashmap",
         "fbsource//third-party/rust:derivative",
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:either",
-        "fbsource//third-party/rust:sorted_vector_map",
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_core:buck2_core",
         "//buck2/app/buck2_error:buck2_error",

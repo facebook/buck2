@@ -179,7 +179,7 @@ fn argfile_abs_path(
     path: &ArgFilePath,
 ) -> buck2_error::Result<AbsNormPathBuf> {
     match path {
-        ArgFilePath::Project(path) => context.resolve_project_path(path.as_ref()),
+        ArgFilePath::Project(path) => context.resolve_project_path(*path),
         ArgFilePath::External(path) => Ok(path.clone()),
     }
 }

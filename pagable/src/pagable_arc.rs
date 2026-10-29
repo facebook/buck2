@@ -134,6 +134,8 @@ use crate::arc_erase::ArcEraseDyn;
 use crate::arc_erase::ArcEraseType;
 use crate::arc_erase::ArcSerializeOutcome;
 use crate::arc_erase::StdArcEraseType;
+use crate::arc_erase::StrongAsWeak;
+use crate::arc_erase::WeakErase;
 use crate::arc_erase::deserialize_arc;
 use crate::storage::data::DataKey;
 use crate::storage::handle::PagableStorageHandle;
@@ -508,6 +510,14 @@ impl<T: Pagable> Drop for PagableArc<T> {
 /// let pagable = pinned.into_pagable();
 /// pagable.unpin();  // Data may now be evicted
 /// ```
+///
+/// # Before paging a field of this type
+///
+/// Nothing in buck2 deserializes a `PinnedPagableArc` yet, and the
+/// deserialized-arc cache is not ready for one: `PinnedPagableArcWeak` cannot
+/// upgrade a paged-out allocation, so a page-in binds a fresh allocation while
+/// the handles still referring to the first keep their own copy. The fix is to
+/// pin the existing allocation with the freshly deserialized value instead.
 pub struct PinnedPagableArc<T: Pagable> {
     pointer: triomphe::Arc<PagableArcInner<T>>,
 }
@@ -837,7 +847,7 @@ impl<T: Pagable> PagableArcInner<T> {
     fn try_alloc_pinned(&self) -> bool {
         if self
             .pinned_count
-            .fetch_update(Ordering::Acquire, Ordering::Relaxed, |v| {
+            .try_update(Ordering::Acquire, Ordering::Relaxed, |v| {
                 if v == 0 { None } else { Some(v + 1) }
             })
             .is_ok()
@@ -952,14 +962,10 @@ impl<'de, T: Pagable> PagableDeserialize<'de> for PagableArc<T> {
 }
 
 impl<T: Pagable> ArcErase for PagableArc<T> {
-    type Weak = ();
+    type Weak = StrongAsWeak<Self>;
 
     fn dupe_strong(&self) -> Self {
         self.dupe()
-    }
-
-    fn upgrade_weak(weak: &Self::Weak) -> Option<Self> {
-        None
     }
 
     fn erase_type() -> impl ArcEraseType {
@@ -971,7 +977,16 @@ impl<T: Pagable> ArcErase for PagableArc<T> {
     }
 
     fn downgrade(&self) -> Option<Self::Weak> {
-        None
+        // An unpinned handle preserves identity without holding the value in
+        // memory, which is all a weak reference would do.
+        Some(StrongAsWeak::new(Self {
+            state: PagableArcState::Unpinned.into(),
+            pointer: self.pointer.clone(),
+        }))
+    }
+
+    fn is_unique(&self) -> bool {
+        self.pointer.is_unique()
     }
 
     fn set_data_key(&self, k: DataKey) {
@@ -1028,15 +1043,32 @@ impl<'de, T: Pagable> PagableDeserialize<'de> for PinnedPagableArc<T> {
     }
 }
 
+/// Weak form of a [`PinnedPagableArc`]: an unpinned handle, so a cache holding
+/// it leaves the value free to page out.
+pub struct PinnedPagableArcWeak<T: Pagable>(PagableArc<T>);
+
+impl<T: Pagable> WeakErase for PinnedPagableArcWeak<T> {
+    fn is_expired(&self) -> bool {
+        self.0.pointer.is_unique()
+    }
+
+    /// Pins the value if it is resident. A paged-out value is not read back;
+    /// the caller deserializes afresh instead.
+    fn upgrade_weak(&self) -> Option<Box<dyn ArcEraseDyn>> {
+        if !self.0.pointer.try_alloc_pinned() {
+            return None;
+        }
+        Some(Box::new(PinnedPagableArc::new_from_ptr(
+            self.0.pointer.clone(),
+        )))
+    }
+}
+
 impl<T: Pagable> ArcErase for PinnedPagableArc<T> {
-    type Weak = ();
+    type Weak = PinnedPagableArcWeak<T>;
 
     fn dupe_strong(&self) -> Self {
         self.dupe()
-    }
-
-    fn upgrade_weak(weak: &Self::Weak) -> Option<Self> {
-        None
     }
 
     fn erase_type() -> impl ArcEraseType {
@@ -1048,7 +1080,14 @@ impl<T: Pagable> ArcErase for PinnedPagableArc<T> {
     }
 
     fn downgrade(&self) -> Option<Self::Weak> {
-        None
+        Some(PinnedPagableArcWeak(PagableArc {
+            state: PagableArcState::Unpinned.into(),
+            pointer: self.pointer.clone(),
+        }))
+    }
+
+    fn is_unique(&self) -> bool {
+        self.pointer.is_unique()
     }
 
     fn serialize_inner(

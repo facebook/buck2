@@ -26,6 +26,7 @@ use allocative::Visitor;
 use buck2_data::ToProtoMessage;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_hash::BuckHasher;
+use buck2_util::pointer_identity::StaticPointerIdentity;
 use dupe::Dupe;
 use lock_free_hashtable::atomic_value::AtomicValue;
 use pagable::PagableDeserialize;
@@ -239,33 +240,18 @@ impl Allocative for OwnedTargetLabel {
 /// freed), but an escaped candidate would compare unequal to the canonical
 /// entry under pointer equality.
 impl AtomicValue for OwnedTargetLabel {
-    type Raw = usize; // *const ()
     type Ref<'a> = TargetLabel;
 
-    fn null() -> Self::Raw {
-        0
+    fn into_raw(this: Self) -> NonNull<()> {
+        this.0.cast()
     }
 
-    fn is_null(this: Self::Raw) -> bool {
-        this == 0
+    unsafe fn from_raw(raw: NonNull<()>) -> Self {
+        OwnedTargetLabel(raw.cast())
     }
 
-    fn into_raw(this: Self) -> Self::Raw {
-        (this.0.as_ptr() as *const ()).expose_provenance()
-    }
-
-    unsafe fn from_raw(raw: Self::Raw) -> Self {
-        // SAFETY: `raw` came from `into_raw` and is non-null.
-        OwnedTargetLabel(unsafe {
-            NonNull::new_unchecked(ptr::with_exposed_provenance_mut::<LabelData>(raw))
-        })
-    }
-
-    unsafe fn deref<'a>(raw: Self::Raw) -> Self::Ref<'a> {
-        // SAFETY: `raw` came from `into_raw` and is non-null.
-        TargetLabel(unsafe {
-            NonNull::new_unchecked(ptr::with_exposed_provenance_mut::<LabelData>(raw))
-        })
+    unsafe fn deref<'a>(raw: NonNull<()>) -> Self::Ref<'a> {
+        TargetLabel(raw.cast())
     }
 }
 
@@ -443,6 +429,16 @@ impl TargetLabel {
 
     pub(crate) fn as_raw(&self) -> *const () {
         self.0.as_ptr() as *const ()
+    }
+
+    /// TargetLabels are statically interned and never evicted; paging
+    /// serializes a content copy, and page-in re-interns to the same
+    /// allocation. Pointer equality therefore holds exactly for equal
+    /// labels. The label's identity beyond lifetime of this daemon process
+    /// should be a StrongHash of its content; this one is only cheaper,
+    /// never a substitute.
+    pub fn pointer_identity(&self) -> StaticPointerIdentity<TargetLabel> {
+        StaticPointerIdentity::new(self.header())
     }
 
     /// Simple and incorrect target label parser which can be used in tests.

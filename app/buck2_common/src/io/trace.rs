@@ -12,6 +12,7 @@ use std::any::Any;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_core::fs::i_project_rel_path::IProjectRelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -132,11 +133,11 @@ impl IoProvider for TracingIoProvider {
     /// work with at the expense of some additional I/O during tracing builds.
     async fn read_file_if_exists_impl(
         &self,
-        path: ProjectRelativePathBuf,
+        path: IProjectRelativePath,
     ) -> buck2_error::Result<Option<String>> {
-        let res = self.io.read_file_if_exists_impl(path.clone()).await?;
+        let res = self.io.read_file_if_exists_impl(path).await?;
         if res.is_some() {
-            self.add_project_path(path);
+            self.add_project_path(path.to_buf());
         }
         Ok(res)
     }
@@ -149,12 +150,15 @@ impl IoProvider for TracingIoProvider {
     /// work with at the expense of some additional I/O during tracing builds.
     async fn read_dir_impl(
         &self,
-        path: ProjectRelativePathBuf,
+        path: IProjectRelativePath,
     ) -> buck2_error::Result<ReadDirOutcome> {
-        let entries = self.io.read_dir_impl(path.clone()).await?.into_entries();
-        self.add_project_path(path.clone());
+        let entries = self.io.read_dir_impl(path).await?.into_entries();
+        self.add_project_path(path.to_buf());
         for entry in entries.iter() {
-            self.add_project_path(path.join(ForwardRelativePath::unchecked_new(&entry.file_name)));
+            self.add_project_path(
+                path.as_project_relative_path()
+                    .join(ForwardRelativePath::unchecked_new(&entry.file_name)),
+            );
         }
 
         Ok(ReadDirOutcome::Entries(entries))
@@ -162,15 +166,12 @@ impl IoProvider for TracingIoProvider {
 
     async fn read_path_metadata_if_exists_impl(
         &self,
-        path: ProjectRelativePathBuf,
+        path: IProjectRelativePath,
     ) -> buck2_error::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>> {
-        let res = self
-            .io
-            .read_path_metadata_if_exists_impl(path.clone())
-            .await?;
+        let res = self.io.read_path_metadata_if_exists_impl(path).await?;
         match &res {
             Some(RawPathMetadata::File(_)) | Some(RawPathMetadata::Directory) => {
-                self.add_project_path(path);
+                self.add_project_path(path.to_buf());
             }
             Some(RawPathMetadata::Symlink { at, to }) => {
                 self.add_symlink(Symlink {

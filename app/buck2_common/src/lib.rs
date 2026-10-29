@@ -11,7 +11,6 @@
 //! Common core components of buck2
 
 #![feature(map_try_insert)]
-#![feature(used_with_arg)]
 
 pub mod argv;
 pub mod buckd_connection;
@@ -43,7 +42,6 @@ pub mod liveliness_observer;
 pub mod local_resource_state;
 pub mod manifold;
 pub mod memory;
-pub mod package_boundary;
 pub mod package_listing;
 pub mod pagable;
 pub mod pattern;

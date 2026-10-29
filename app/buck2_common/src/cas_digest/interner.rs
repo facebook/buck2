@@ -9,7 +9,8 @@
  */
 
 //! Deduplication of tracked digests by value, so that one blob's digest is one allocation and
-//! one recorded CAS expiration however many holders it has.
+//! one record of where the blob is, however many holders it has: in the CAS until a recorded
+//! expiration, and in the stash under a recorded entry, for as long as a holder remains.
 
 use std::borrow::Borrow;
 use std::fmt;
@@ -17,7 +18,7 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::sync::LazyLock;
 use std::sync::atomic::AtomicI64;
-use std::sync::atomic::AtomicU64;
+use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
 use allocative::Allocative;
@@ -32,6 +33,7 @@ use pagable::arc_erase::ArcEraseType;
 use pagable::arc_erase::ArcSerializeOutcome;
 use pagable::arc_erase::StdArcEraseType;
 use pagable::arc_erase::deserialize_arc;
+use parking_lot::RwLock;
 use strong_hash::StrongHash;
 use triomphe::Arc;
 
@@ -60,9 +62,13 @@ pub fn file_digest_interner_stats() -> DigestInternerStats {
 struct TrackedFileDigestInner {
     data: FileDigest,
     /// Seconds since the unix epoch at which the CAS last told us this blob expires; the epoch
-    /// itself means the CAS has never been asked. Which also makes it the pin: see
+    /// itself means the CAS has never been asked. A positive value pins the entry: see
     /// [`DigestInterner`].
     expires: AtomicI64,
+    /// The stash entry holding this blob, as [`StashRecord`] packs it; zero when there is none.
+    /// No pin: it leaves with the entry, or sooner, and is the stash's to collect then. Signed
+    /// only because that is what pages know how to carry.
+    stash: AtomicI64,
 }
 
 impl TrackedFileDigestInner {
@@ -70,12 +76,23 @@ impl TrackedFileDigestInner {
         Self {
             data,
             expires: AtomicI64::new(expires),
+            stash: AtomicI64::new(0),
         }
     }
 
     /// A recorded expiration is always positive; a non-positive value records nothing.
-    fn is_pinned(&self) -> bool {
+    fn has_expiry(&self) -> bool {
         self.expires.load(Ordering::Relaxed) > 0
+    }
+
+    /// Whether the entry stays past its last handle: it does while a CAS expiration is recorded.
+    fn is_pinned(&self) -> bool {
+        self.has_expiry()
+    }
+
+    /// Takes the stash record off the entry, if there is one: for the stash's collector.
+    fn take_stash(&self) -> Option<StashRecord> {
+        StashRecord::unpack(self.stash.swap(0, Ordering::AcqRel))
     }
 
     /// Extends the recorded expiration to `expires` if that is later. Returns whether the entry
@@ -113,6 +130,35 @@ impl TrackedFileDigestInner {
         }
         let previous = self.expires.swap(expires, Ordering::Relaxed);
         previous <= 0
+    }
+}
+
+/// Where in the stash a blob is: the nonce its file's name carries, unique among every insertion
+/// the stash has ever made, and the mode the file was stored with. Packed into one word on the
+/// digest's entry, so that recording it is one atomic step: the step that commits an insertion.
+#[derive(Copy, Clone, Dupe, Debug, Eq, PartialEq, Hash)]
+pub struct StashRecord {
+    /// Never zero, and below 2^62. The upper half is the id of the stash that made it, by which
+    /// the stash's collector knows its own records.
+    pub nonce: u64,
+    pub executable: bool,
+}
+
+impl StashRecord {
+    pub fn stash_id(self) -> u32 {
+        (self.nonce >> 32) as u32
+    }
+
+    fn pack(self) -> i64 {
+        debug_assert!(self.nonce != 0 && self.nonce < 1 << 62);
+        ((self.nonce << 1) | self.executable as u64) as i64
+    }
+
+    fn unpack(word: i64) -> Option<Self> {
+        (word != 0).then_some(Self {
+            nonce: (word as u64) >> 1,
+            executable: word & 1 == 1,
+        })
     }
 }
 
@@ -164,7 +210,9 @@ impl Ord for TrackedFileDigest {
 
 impl PartialEq for TrackedFileDigest {
     fn eq(&self, other: &Self) -> bool {
-        self.data().eq(other.data())
+        // Equal digests nearly always share the allocation; comparing the handles first keeps
+        // the hit from touching two allocations other threads are counting on.
+        Arc::ptr_eq(&self.inner, &other.inner) || self.data().eq(other.data())
     }
 }
 
@@ -197,9 +245,10 @@ impl buck2_core::directory_digest::DirectoryDigest for TrackedFileDigest {}
 
 /// Paging preserves identity the same way the interner does: the payload is the digest and its
 /// expiration, and page-in constructs through the interner, so a paged-in digest shares the
-/// live entry rather than becoming an untracked duplicate of it. A page counts as a holder of
-/// the entry while it is out of memory, so the entry is still there, and still being refreshed,
-/// when the page comes back.
+/// live entry rather than becoming an untracked duplicate of it. A row holding the digest counts
+/// as a holder of the entry for the rest of the daemon's life: rows are never removed, and one is
+/// read back as often as its value is paged in, so the entry is still there, and still being
+/// refreshed, each time.
 impl ArcErase for TrackedFileDigest {
     type Weak = ();
 
@@ -209,6 +258,12 @@ impl ArcErase for TrackedFileDigest {
 
     fn downgrade(&self) -> Option<Self::Weak> {
         None
+    }
+
+    fn is_unique(&self) -> bool {
+        // The table's own reference plus this handle. The table only removes an
+        // entry whose handles are all gone, so the count is never below two.
+        Arc::count(&self.inner) == 2
     }
 
     fn erase_type() -> impl ArcEraseType {
@@ -234,9 +289,7 @@ impl ArcErase for TrackedFileDigest {
         deser: &mut D,
     ) -> pagable::Result<Self> {
         let inner = TrackedFileDigestInner::pagable_deserialize(deser)?;
-        let digest = Self::from_parts(inner.data, inner.expires.into_inner());
-        FILE_DIGEST_INTERNER.page_in(digest.data());
-        Ok(digest)
+        Ok(Self::from_parts(inner.data, inner.expires.into_inner()))
     }
 }
 
@@ -327,26 +380,56 @@ impl TrackedFileDigest {
     /// digest. Reports that the blob is alive only ever extend the recorded expiration; a report
     /// that it has already expired replaces it.
     pub fn update_expires(&self, time: jiff::Timestamp) {
-        if self
-            .inner
-            .record_expires(time.as_second(), jiff::Timestamp::now().as_second())
-        {
-            FILE_DIGEST_INTERNER.pinned.fetch_add(1, Ordering::Relaxed);
+        let now = jiff::Timestamp::now().as_second();
+        if self.inner.record_expires(time.as_second(), now) {
+            FILE_DIGEST_INTERNER.pinned.add(1);
         }
+        if time.as_second() > now {
+            FILE_DIGEST_INTERNER.evict_stash_of(&self.inner);
+        }
+    }
+
+    /// The stash entry holding this blob, if one is recorded.
+    pub fn stash(&self) -> Option<StashRecord> {
+        StashRecord::unpack(self.inner.stash.load(Ordering::Relaxed))
+    }
+
+    /// Records that `record` holds this blob, for every holder of the digest, unless an entry is
+    /// recorded already, in which case the caller's is a duplicate. Returns whether it was
+    /// recorded. The record lives at most as long as the table's entry: when the last handle
+    /// goes, or the CAS turns out to hold the blob, the record is handed to the stash's collector
+    /// ([`DigestInterner::add_stash_collector`]), which is how the stash holds what live values
+    /// hold and nothing else.
+    pub fn register_stash(&self, record: StashRecord) -> bool {
+        self.inner
+            .stash
+            .compare_exchange(0, record.pack(), Ordering::AcqRel, Ordering::Relaxed)
+            .is_ok()
+    }
+
+    /// Forgets `record`, if it is the one recorded: for a stash entry found gone. Returns
+    /// whether it was.
+    pub fn clear_stash(&self, record: StashRecord) -> bool {
+        self.inner
+            .stash
+            .compare_exchange(record.pack(), 0, Ordering::AcqRel, Ordering::Relaxed)
+            .is_ok()
     }
 }
 
 /// Deduplicates [`TrackedFileDigest`]s by value: every holder of a digest shares one allocation
-/// and one recorded CAS expiration.
+/// and one record of where the blob is.
 ///
-/// An entry stays for as long as any handle refers to it. An entry the CAS has confirmed, which
-/// is one with an expiration recorded, stays past its last handle as well: the recorded
-/// expiration is what lets the next construction of that digest know the blob is in the CAS
-/// without asking, and the case that pays is an action's input tree, dropped right after its
-/// upload, whose files the next action uploads too. Such an entry is *pinned*, and nothing but
-/// a [`sweep`](Self::sweep) releases it. Smarter retention is possible, but the table is a
-/// small fraction of the daemon's memory, so this is deliberately the simplest policy with that
-/// property.
+/// An entry stays for as long as any handle refers to it. An entry with a CAS expiration
+/// recorded stays past its last handle as well, and is *pinned*: the next construction of that
+/// digest knows the blob is in the CAS without asking, and the case that pays is an action's
+/// input tree, dropped right after its upload, whose files the next action uploads too. Nothing
+/// but a [`sweep`](Self::sweep) releases a pinned entry. Smarter retention is possible, but the
+/// table is a small fraction of the daemon's memory, so this is deliberately the simplest policy
+/// with that property. A recorded stash entry does not pin: it leaves with the entry, at the
+/// last handle's drop or at a sweep, or sooner, when a CAS expiration is recorded for the blob,
+/// and goes to the stash's collector each time, so that the stash holds exactly what live values
+/// hold and the CAS does not.
 #[derive(Allocative)]
 pub struct DigestInterner {
     /// Dropping a handle takes its shard's write lock, so never construct or drop a
@@ -354,18 +437,83 @@ pub struct DigestInterner {
     /// ([`sweep`](Self::sweep)) or looks into it ([`peek`](Self::peek)) works on the bare
     /// `Arc`s and hands out handles only once the guard is gone.
     ///
-    /// The value is how many paged-out values hold the digest; see [`page_out`](Self::page_out).
+    /// The value is whether a row on disk holds the digest; see [`page_out`](Self::page_out).
     /// It lives here rather than in the entry so that it is read and written under the same
     /// shard lock that decides removal.
-    entries: BuckDashMap<InternedDigest, u32>,
+    entries: BuckDashMap<InternedDigest, bool>,
     /// Entries whose expiration is set; maintained at the transition, since counting them by
     /// walking the table would make snapshots proportional to the table.
-    pinned: AtomicU64,
-    /// Entries some paged-out value holds, likewise maintained at the transition.
-    paged: AtomicU64,
-    hits: AtomicU64,
-    misses: AtomicU64,
+    pinned: StripedCounter,
+    /// Entries a row on disk holds, likewise maintained at the transition.
+    paged: StripedCounter,
+    hits: StripedCounter,
+    misses: StripedCounter,
+    /// Who takes a stash record once its entry no longer carries it, by the stash id in the
+    /// record's nonce. One per stash; the daemon has one.
+    #[allocative(skip)]
+    stash_collectors: RwLock<Vec<(u32, StashCollector)>>,
 }
+
+/// A counter spread over 32 cache lines, threads assigned to them round robin as they are
+/// created: an atomic add that at most a few threads share for the counting thread, a sum
+/// over the stripes for the rare snapshot. Being boxed also keeps the stripes out of the line
+/// that holds [`FILE_DIGEST_INTERNER`]'s initialization state, which every
+/// `TrackedFileDigest::drop` reads.
+///
+/// A snapshot reads the stripes one by one while other threads keep adding and subtracting,
+/// so it is approximate; the sum is clamped so that a decrement observed before its increment
+/// cannot wrap.
+#[derive(Allocative)]
+struct StripedCounter {
+    stripes: Box<[CounterStripe; STRIPES]>,
+}
+
+const STRIPES: usize = 32;
+
+#[derive(Allocative)]
+#[repr(align(128))]
+struct CounterStripe(AtomicI64);
+
+impl StripedCounter {
+    fn new() -> Self {
+        Self {
+            stripes: Box::new(std::array::from_fn(|_| CounterStripe(AtomicI64::new(0)))),
+        }
+    }
+
+    #[inline]
+    fn stripe(&self) -> &AtomicI64 {
+        thread_local! {
+            static STRIPE: usize = {
+                static NEXT: AtomicUsize = AtomicUsize::new(0);
+                NEXT.fetch_add(1, Ordering::Relaxed) % STRIPES
+            };
+        }
+        &self.stripes[STRIPE.with(|s| *s)].0
+    }
+
+    #[inline]
+    fn add(&self, n: u64) {
+        self.stripe().fetch_add(n as i64, Ordering::Relaxed);
+    }
+
+    #[inline]
+    fn sub(&self, n: u64) {
+        self.stripe().fetch_sub(n as i64, Ordering::Relaxed);
+    }
+
+    fn get(&self) -> u64 {
+        let sum: i128 = self
+            .stripes
+            .iter()
+            .map(|s| s.0.load(Ordering::Relaxed) as i128)
+            .sum();
+        sum.max(0) as u64
+    }
+}
+
+/// What a stash registers to be handed its records: see [`DigestInterner::add_stash_collector`].
+pub type StashCollector = Box<dyn Fn(&FileDigest, StashRecord) + Send + Sync>;
 
 /// A table entry. Hashes and compares as the digest it holds, so lookups take a `FileDigest`.
 #[derive(Allocative)]
@@ -398,7 +546,7 @@ pub struct DigestInternerStats {
     pub entries: u64,
     /// Entries kept alive past their last handle because a CAS expiration is recorded for them.
     pub pinned: u64,
-    /// Entries a value that has been paged out of memory refers to.
+    /// Entries a row on disk holds; they live as long as the daemon.
     pub paged: u64,
     /// Constructions that found an existing entry, cumulatively.
     pub hits: u64,
@@ -411,8 +559,19 @@ pub struct DigestInternerStats {
 pub struct SweepStats {
     /// Entries the sweep looked at.
     pub visited: u64,
-    /// Entries it removed, because nothing but the table held them.
+    /// Entries it removed: ones nothing but the table held, whose verdict was to drop them.
     pub swept: u64,
+}
+
+/// What a sweep does with one entry, decided by the caller for each.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Verdict {
+    Keep,
+    /// Remove the entry from the table. Honored only for an entry nothing holds: one with
+    /// handles has to stay, so that they keep pointing at the table's entry.
+    Drop,
+    /// Keep the entry and hand the caller a handle to it, once the sweep is over.
+    Handle,
 }
 
 /// One table entry as it was the moment [`DigestInterner::sweep`] or [`DigestInterner::peek`]
@@ -423,16 +582,19 @@ pub struct DigestEntry {
     /// Seconds since the unix epoch at which the CAS last said the blob expires; zero when it was
     /// never asked.
     pub expires_secs: i64,
-    /// Whether any handle, as opposed to only the table, refers to the entry.
+    /// The stash entry recorded for the blob, if any.
+    pub stash: Option<StashRecord>,
+    /// Whether anything but the table refers to the entry: a handle, or a row on disk.
     pub referenced: bool,
 }
 
 impl DigestEntry {
-    fn of(inner: &Arc<TrackedFileDigestInner>) -> Self {
+    fn of(inner: &Arc<TrackedFileDigestInner>, paged: bool) -> Self {
         Self {
             data: inner.data.dupe(),
             expires_secs: inner.expires.load(Ordering::Relaxed),
-            referenced: Arc::count(inner) > 1,
+            stash: StashRecord::unpack(inner.stash.load(Ordering::Relaxed)),
+            referenced: Arc::count(inner) > 1 || paged,
         }
     }
 }
@@ -447,10 +609,39 @@ impl DigestInterner {
     pub fn new() -> Self {
         Self {
             entries: BuckDashMap::default(),
-            pinned: AtomicU64::new(0),
-            paged: AtomicU64::new(0),
-            hits: AtomicU64::new(0),
-            misses: AtomicU64::new(0),
+            pinned: StripedCounter::new(),
+            paged: StripedCounter::new(),
+            hits: StripedCounter::new(),
+            misses: StripedCounter::new(),
+            stash_collectors: RwLock::new(Vec::new()),
+        }
+    }
+
+    /// Registers who takes the records of stash `id` once their entries no longer carry them: at
+    /// the last handle's drop, at a sweep that drops the entry, or when a CAS expiration is
+    /// recorded for the blob, which the stash then need not hold. The collector runs on
+    /// whichever thread did that, with no lock of the table held, and must not block.
+    pub fn add_stash_collector(&self, id: u32, collector: StashCollector) {
+        self.stash_collectors.write().push((id, collector));
+    }
+
+    /// Hands the stash record of `handle`'s entry to its collector, if there is one: for a blob
+    /// the CAS turns out to hold.
+    pub fn evict_stash(&self, handle: &TrackedFileDigest) {
+        self.evict_stash_of(&handle.inner);
+    }
+
+    fn evict_stash_of(&self, inner: &TrackedFileDigestInner) {
+        if let Some(record) = inner.take_stash() {
+            self.collect_stash(&inner.data, record);
+        }
+    }
+
+    fn collect_stash(&self, data: &FileDigest, record: StashRecord) {
+        for (id, collector) in self.stash_collectors.read().iter() {
+            if *id == record.stash_id() {
+                collector(data, record);
+            }
         }
     }
 
@@ -463,52 +654,63 @@ impl DigestInterner {
     pub fn stats(&self) -> DigestInternerStats {
         DigestInternerStats {
             entries: self.entries.len() as u64,
-            pinned: self.pinned.load(Ordering::Relaxed),
-            paged: self.paged.load(Ordering::Relaxed),
-            hits: self.hits.load(Ordering::Relaxed),
-            misses: self.misses.load(Ordering::Relaxed),
+            pinned: self.pinned.get(),
+            paged: self.paged.get(),
+            hits: self.hits.get(),
+            misses: self.misses.get(),
         }
     }
 
-    /// One walk over the table: removes every entry that nothing but the table holds, pinned or
-    /// not, and hands out handles for the surviving entries `pick` selects.
+    /// One walk over the table, with a verdict from `decide` for every entry: dropped, kept, or
+    /// kept with a handle handed to the caller afterwards.
     ///
     /// Together with `Self::dropped` the removal is the whole lifetime story of an entry: an
-    /// unpinned entry normally leaves with its last handle, a pinned one stays until the next
-    /// sweep, and either kind that the drop-side check missed is caught here. The time between a
+    /// unpinned entry normally leaves with its last handle, a pinned one stays until a sweep drops
+    /// it, and either kind that the drop-side check missed is caught here. The time between a
     /// pinned entry's last drop and the next sweep is deliberate: it is the window in which a
     /// recorded expiration keeps answering for a blob that a later construction asks about again,
     /// which is what makes an RE input tree that is dropped right after its upload still pay off
-    /// for the next action.
+    /// for the next action. A dropped entry's stash record goes to the stash's collector.
     ///
-    /// `pick` runs under a shard's write lock and sees entries as they are at that moment, so it
-    /// must not construct or drop a `TrackedFileDigest`, which takes that same lock. The handles
-    /// are made only after every lock is gone, which is what makes it safe to hold or drop them
-    /// freely afterwards. A sweep holds each shard's write lock while it visits that shard, so it
-    /// is meant to run rarely (the TTL refresher's cadence), not per build.
+    /// `decide` runs under a shard's write lock and sees entries as they are at that moment, so
+    /// it must not construct or drop a `TrackedFileDigest`, which takes that same lock. The
+    /// handles are made only after every lock is gone, which is what makes it safe to hold or
+    /// drop them freely afterwards. A sweep holds each shard's write lock while it visits that
+    /// shard, so it is meant to run rarely, not per build.
     pub fn sweep(
         &self,
-        mut pick: impl FnMut(&DigestEntry) -> bool,
+        mut decide: impl FnMut(&DigestEntry) -> Verdict,
     ) -> (SweepStats, Vec<TrackedFileDigest>) {
         let mut stats = SweepStats::default();
         let mut pinned_swept = 0u64;
         let mut picked = Vec::new();
+        let mut orphaned = Vec::new();
         self.entries.retain(|entry, paged| {
             stats.visited += 1;
-            if Arc::count(&entry.0) == 1 && *paged == 0 {
-                stats.swept += 1;
-                if entry.0.is_pinned() {
-                    pinned_swept += 1;
+            let view = DigestEntry::of(&entry.0, *paged);
+            match decide(&view) {
+                Verdict::Drop if !view.referenced => {
+                    stats.swept += 1;
+                    if entry.0.has_expiry() {
+                        pinned_swept += 1;
+                    }
+                    if let Some(record) = entry.0.take_stash() {
+                        orphaned.push((view.data, record));
+                    }
+                    false
                 }
-                return false;
+                Verdict::Drop | Verdict::Keep => true,
+                Verdict::Handle => {
+                    picked.push(entry.0.clone());
+                    true
+                }
             }
-            if pick(&DigestEntry::of(&entry.0)) {
-                picked.push(entry.0.clone());
-            }
-            true
         });
         if pinned_swept > 0 {
-            self.pinned.fetch_sub(pinned_swept, Ordering::Relaxed);
+            self.pinned.sub(pinned_swept);
+        }
+        for (data, record) in orphaned {
+            self.collect_stash(&data, record);
         }
         let handles = picked
             .into_iter()
@@ -522,7 +724,7 @@ impl DigestInterner {
     pub fn peek(&self, data: &FileDigest) -> Option<DigestEntry> {
         self.entries
             .get(data)
-            .map(|entry| DigestEntry::of(&entry.key().0))
+            .map(|entry| DigestEntry::of(&entry.key().0, *entry.value()))
     }
 
     /// Handles for this table's kind come into existence through [`TrackedFileDigest`]'s
@@ -541,78 +743,52 @@ impl DigestInterner {
                 let entry = self
                     .entries
                     .entry(InternedDigest(candidate.clone()))
-                    .or_insert(0);
+                    .or_insert(false);
                 let inner = entry.key().0.clone();
                 drop(entry);
                 if Arc::ptr_eq(&inner, &candidate) {
-                    self.misses.fetch_add(1, Ordering::Relaxed);
+                    self.misses.add(1);
                     if expires > 0 {
-                        self.pinned.fetch_add(1, Ordering::Relaxed);
+                        self.pinned.add(1);
                     }
                     return TrackedFileDigest { inner };
                 }
                 inner
             }
         };
-        self.hits.fetch_add(1, Ordering::Relaxed);
+        self.hits.add(1);
         if inner.extend_expires(expires) {
-            self.pinned.fetch_add(1, Ordering::Relaxed);
+            self.pinned.add(1);
+        }
+        // A blob the CAS holds is the CAS's to serve: the stash lets go of it.
+        if expires > 0
+            && inner.stash.load(Ordering::Relaxed) != 0
+            && expires > jiff::Timestamp::now().as_second()
+        {
+            self.evict_stash_of(&inner);
         }
         TrackedFileDigest { inner }
     }
 
-    /// Records that a value holding this digest has been paged out of memory, so that the entry
-    /// outlives the handles that went with it. Its expiration keeps being refreshed while the
-    /// value is away, and the value finds the same entry when it comes back.
+    /// Records that a row on disk holds this digest, so that the entry outlives the handles that
+    /// went with it: its expiration keeps being refreshed, and a value read back from the row
+    /// finds the same entry, with the refreshed expiration rather than the one written with it.
     ///
-    /// Balanced by [`page_in`](Self::page_in). That balance is what pagable gives us: a value is
-    /// serialized once per page-out and deserialized once per page-in. A page dropped without
-    /// being read back leaks its references, which costs the entries their 64 bytes and a TTL
-    /// refresh each until the daemon exits.
+    /// Nothing undoes this. A row is never removed while the daemon runs, and its value may be
+    /// read back any number of times, after each of which it can be evicted again without being
+    /// rewritten; so no page-in can tell that the last reference from disk is gone. The cost is
+    /// the entry's 64 bytes and a TTL refresh until the daemon exits, per digest ever paged out.
     fn page_out(&self, data: &FileDigest) {
         // The entry is there: the caller holds a handle to it.
-        if let Some(mut entry) = self.entries.get_mut(data) {
-            let paged = entry.value_mut();
-            *paged += 1;
-            if *paged == 1 {
-                self.paged.fetch_add(1, Ordering::Relaxed);
-            }
-        }
-    }
-
-    /// The counterpart of [`page_out`](Self::page_out), called once the paged-out value is back
-    /// in memory and holding the digest itself again.
-    fn page_in(&self, data: &FileDigest) {
-        let balanced = match self.entries.get_mut(data) {
-            Some(mut entry) => {
-                let paged = entry.value_mut();
-                if *paged == 0 {
-                    false
-                } else {
-                    *paged -= 1;
-                    if *paged == 0 {
-                        self.paged.fetch_sub(1, Ordering::Relaxed);
-                    }
-                    true
-                }
-            }
-            None => false,
-        };
-        if !balanced {
-            // Only reachable if pagable reads a page back more than once, or reads one it never
-            // wrote. Then an entry may be swept while a page still refers to it, and a digest
-            // paged back in later keeps whatever expiration was written with it rather than the
-            // refreshed one.
-            let _ignored = buck2_core::soft_error!(
-                "digest_interner_page_in_without_page_out",
-                buck2_error::internal_error!("Digest `{data}` was paged in without being paged out"),
-                quiet: true
-            );
+        if let Some(mut entry) = self.entries.get_mut(data)
+            && !std::mem::replace(entry.value_mut(), true)
+        {
+            self.paged.add(1);
         }
     }
 
     /// Called for every handle drop. Removes the entry when this handle is the last one and
-    /// the entry is not pinned.
+    /// the entry is not pinned, and hands its stash record, if any, to the stash's collector.
     ///
     /// "Last one" is read off the `Arc`'s count, which cannot be done exactly: two threads
     /// dropping the last two handles of one digest at the same time can both read a count of
@@ -635,12 +811,17 @@ impl DigestInterner {
         // longer be the table's entry for it (a previous drop removed it and a later intern
         // inserted a fresh one). Deciding under the lock keeps every live handle pointing at
         // an entry the table still holds.
-        self.entries.remove_if(&inner.data, |entry, paged| {
+        let removed = self.entries.remove_if(&inner.data, |entry, paged| {
             Arc::ptr_eq(&entry.0, inner)
                 && Arc::count(&entry.0) == 2
                 && !entry.0.is_pinned()
-                && *paged == 0
+                && !*paged
         });
+        if let Some((entry, _)) = removed
+            && let Some(record) = entry.0.take_stash()
+        {
+            self.collect_stash(&entry.0.data, record);
+        }
     }
 }
 
@@ -660,6 +841,15 @@ mod tests {
 
     fn interner() -> &'static DigestInterner {
         file_digest_interner()
+    }
+
+    /// The verdict of a sweep that only collects: drop what nothing holds, keep the rest.
+    fn drop_unreferenced(entry: &DigestEntry) -> Verdict {
+        if entry.referenced {
+            Verdict::Keep
+        } else {
+            Verdict::Drop
+        }
     }
 
     #[test]
@@ -901,7 +1091,7 @@ mod tests {
         assert_eq!(table.stats().pinned, 2);
 
         assert_eq!(
-            table.sweep(|_| false).0,
+            table.sweep(drop_unreferenced).0,
             SweepStats {
                 visited: 4,
                 swept: 2
@@ -915,7 +1105,7 @@ mod tests {
         assert_eq!(table.stats().pinned, 1);
 
         assert_eq!(
-            table.sweep(|_| false).0,
+            table.sweep(drop_unreferenced).0,
             SweepStats {
                 visited: 2,
                 swept: 0
@@ -933,13 +1123,13 @@ mod tests {
         let _other = table.intern(other.dupe(), 0);
 
         let (stats, picked) = table.sweep(|entry| {
-            assert!(
-                entry.referenced,
-                "unreferenced entries are swept before `pick` sees them"
-            );
-            entry.data == data && {
+            if !entry.referenced {
+                Verdict::Drop
+            } else if entry.data == data {
                 assert_eq!(entry.expires_secs, expiry.as_second());
-                true
+                Verdict::Handle
+            } else {
+                Verdict::Keep
             }
         });
         assert_eq!(
@@ -995,13 +1185,13 @@ mod tests {
             }
             s.spawn(|| {
                 for _ in 0..200 {
-                    table.sweep(|_| false);
+                    table.sweep(drop_unreferenced);
                 }
             });
         });
 
         // Every handle is gone, so one more sweep empties the table.
-        table.sweep(|_| false);
+        table.sweep(drop_unreferenced);
         assert_eq!(table.stats().entries, 0);
     }
 
@@ -1018,15 +1208,58 @@ mod tests {
 
         // Swept as far as handles go, but the page still holds it, so its expiration is still
         // there to be refreshed and to answer the next construction.
-        assert_eq!(table.sweep(|_| false).0.swept, 0);
+        assert_eq!(table.sweep(drop_unreferenced).0.swept, 0);
         let entry = table.peek(&data).expect("the page holds it");
-        assert!(!entry.referenced);
+        assert!(entry.referenced, "the page counts as a holder");
         assert_eq!(entry.expires_secs, expiry.as_second());
 
-        table.page_in(&data);
-        assert_eq!(table.stats().paged, 0);
-        assert_eq!(table.sweep(|_| false).0.swept, 1);
-        assert!(table.get(&data).is_none());
+        // Nothing undoes it: the row stays on disk, and a second page-out of the same digest
+        // counts once.
+        table.page_out(&data);
+        assert_eq!(table.stats().paged, 1);
+        assert_eq!(table.sweep(drop_unreferenced).0.swept, 0);
+        assert!(table.get(&data).is_some());
+    }
+
+    #[test]
+    fn test_a_stash_record_pins_the_entry_until_a_sweep_drops_it() {
+        let table = DigestInterner::new();
+        let data = digest_of(b"test_a_stash_record_pins_the_entry_until_a_sweep_drops_it");
+        let record = StashRecord {
+            nonce: 0x1234,
+            executable: true,
+        };
+        let handle = table.intern(data.dupe(), 0);
+        assert_eq!(handle.stash(), None);
+        assert!(handle.register_stash(record));
+        // A second record is a duplicate: the first stays.
+        let duplicate = StashRecord {
+            nonce: 0x5678,
+            executable: false,
+        };
+        assert!(!handle.register_stash(duplicate));
+        assert_eq!(handle.stash(), Some(record));
+        assert!(!handle.clear_stash(duplicate));
+
+        // Pinned: the entry outlives its last handle, and a sweep sees the record.
+        drop(handle);
+        let entry = table.peek(&data).expect("pinned by the stash record");
+        assert!(!entry.referenced);
+        assert_eq!(entry.stash, Some(record));
+        assert_eq!(table.sweep(|_| Verdict::Keep).0.swept, 0);
+        assert!(table.peek(&data).is_some());
+        assert_eq!(table.sweep(drop_unreferenced).0.swept, 1);
+        assert!(table.peek(&data).is_none());
+
+        // Clearing the record unpins: the next last drop removes the entry. Drops go through the
+        // global table, so this part runs there.
+        let data = digest_of(b"test_a_stash_record_pins_the_entry_until_a_sweep_drops_it, cleared");
+        let handle = TrackedFileDigest::new(data.dupe(), testing::sha1());
+        assert!(handle.register_stash(record));
+        assert!(handle.clear_stash(record));
+        assert_eq!(handle.stash(), None);
+        drop(handle);
+        assert!(interner().peek(&data).is_none());
     }
 
     #[test]

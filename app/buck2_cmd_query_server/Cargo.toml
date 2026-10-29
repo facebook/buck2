@@ -31,7 +31,6 @@ indent_write.workspace = true
 regex.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-starlark_map.workspace = true
 
 [lints]
 workspace = true

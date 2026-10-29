@@ -15,12 +15,12 @@
 //! hydration`, see [`crate::hydration`]) and automatic page-out when the daemon
 //! goes idle.
 //!
-//! Automatic page-out is enabled with `buck2_hydration.page_out_on_idle = true`. When
+//! Automatic page-out is enabled with `hydration.page_out_on_idle = true`. When
 //! enabled, a finishing command schedules a background task (see
 //! [`spawn_page_out_on_idle`]) that waits for DICE to go idle and then pages out
 //! to reclaim memory — but only when there is something to page out and there is
 //! disk headroom (see [`should_page_out_decision`], configurable via
-//! `buck2_hydration.*` / [`PageOutThresholds`]).
+//! `hydration.page_out_min_free_disk_gb` / [`PageOutThresholds`]).
 //!
 //! Concurrency: automatic page-out deliberately does *not* take the DICE
 //! exclusivity lock the explicit command uses, so it never blocks an incoming
@@ -33,6 +33,7 @@
 
 use std::sync::Arc;
 use std::sync::LazyLock;
+use std::sync::Weak;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicU8;
 use std::sync::atomic::Ordering;
@@ -40,7 +41,7 @@ use std::time::Instant;
 
 use buck2_common::memory;
 use buck2_core::buck2_env;
-use buck2_core::soft_error;
+use buck2_core::soft_error_or_panic;
 use buck2_error::ErrorTag;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_events::dispatch::EventDispatcher;
@@ -50,13 +51,16 @@ use buck2_hash::IntentionallyStdHashMap;
 use buck2_server_ctx::concurrency::ConcurrencyHandler;
 use buck2_util::process_stats::process_stats;
 use dice::Dice;
+use dice::EvictionSnapshot;
 use dice::PagableNodeCounts;
 use dice::PageOutCancel;
 use dice::StorageIoSnapshot;
 use dupe::Dupe;
+use parking_lot::Mutex;
 use starlark::pagable::starlark_partial_deser_stats;
 use starlark::pagable::starlark_serialization_state_retained_bytes;
 use tokio::sync::Notify;
+use tokio::sync::watch;
 
 use crate::active_commands::is_only_active_command;
 use crate::daemon::state::TenantState;
@@ -76,6 +80,9 @@ pub(crate) struct PagingManager {
     page_in_baseline: IntentionallyStdHashMap<String, buck2_data::DicePageInKeyTypeStats>,
     /// `None` when pagable storage is not configured.
     data_key_io_baseline: Option<StorageIoSnapshot>,
+    /// `None` when pagable storage is not configured.
+    eviction_baseline: Option<EvictionSnapshot>,
+    _eviction_gate: EvictionGateCommand,
 }
 
 impl PagingManager {
@@ -85,13 +92,18 @@ impl PagingManager {
         total_disk_space_bytes: Option<u64>,
     ) -> PagingManager {
         let page_in_baseline = page_in_proto_map(&tenant);
-        let data_key_io_baseline = tenant.dice_manager.unsafe_dice().storage_io_metrics();
+        let dice = tenant.dice_manager.unsafe_dice();
+        let data_key_io_baseline = dice.storage_io_metrics();
+        let eviction_baseline = dice.eviction_metrics();
+        let _eviction_gate = tenant.eviction_gate.command_started();
         PagingManager {
             tenant,
             page_out_on_idle,
             total_disk_space_bytes,
             page_in_baseline,
             data_key_io_baseline,
+            eviction_baseline,
+            _eviction_gate,
         }
     }
 
@@ -106,6 +118,7 @@ impl PagingManager {
         let cumulative = dice.storage_io_metrics();
         let memory = dice.paging_memory_metrics();
         let delta = cumulative.map(|c| c.since(self.data_key_io_baseline.unwrap_or(c)));
+        let evictions = self.command_evictions();
         buck2_data::PagingSummary {
             dice_page_in_by_key_type: compute_page_in_delta(
                 &self.page_in_baseline,
@@ -126,12 +139,30 @@ impl PagingManager {
             paging_daemon_data_key_bytes_in: cumulative.map(|c| c.bytes_in),
             paging_memory_offloaded_bytes: memory.map(|m| m.bytes_offloaded),
             paging_memory_restored_bytes: memory.map(|m| m.bytes_restored),
+            paging_arc_cache_entries: dice
+                .pagable_storage_handle()
+                .map(|h| h.arc_cache_entries() as u64),
             starlark_partial_deser: starlark_partial_deser_proto(),
+            paging_evictions: evictions.map(|e| e.evictions),
+            paging_evicted_count: evictions.map(|e| e.values_evicted),
+            paging_evicted_bytes: evictions.and_then(|e| e.bytes_evicted),
+            paging_evictable_bytes: Some(counts.backed_bytes),
         }
     }
 
+    /// Memory-pressure evictions since this command started, or `None` if pagable storage is not
+    /// configured.
+    fn command_evictions(&self) -> Option<EvictionSnapshot> {
+        self.tenant
+            .dice_manager
+            .unsafe_dice()
+            .eviction_metrics()
+            .map(|e| e.since(self.eviction_baseline.unwrap_or(e)))
+    }
+
     /// Called at command end: schedule a background idle page-out (if
-    /// `triggers_idle_page_out`) and emit this command's paging telemetry.
+    /// `triggers_idle_page_out`) and emit this command's paging telemetry. A command that evicted
+    /// always gets a `buck2_page_outs` row: the idle page-out's if one started, else its own.
     pub(crate) async fn maybe_trigger_page_out_on_idle(
         &self,
         dispatcher: &EventDispatcher,
@@ -150,6 +181,7 @@ impl PagingManager {
             command_end_snapshot.used_disk_space_bytes,
             self.total_disk_space_bytes,
         );
+        let command_evictions = self.command_evictions();
         let page_out_started = if triggers_idle_page_out {
             spawn_page_out_on_idle(
                 self.page_out_on_idle,
@@ -157,11 +189,24 @@ impl PagingManager {
                 dispatcher.dupe(),
                 free_disk_bytes,
                 counts.candidates,
+                command_evictions,
             )
             .await
         } else {
             buck2_data::PageOutStarted::CommandOptedOut
         };
+        if page_out_started != buck2_data::PageOutStarted::Started
+            && let Some(evictions) = command_evictions
+            && evictions.evictions > 0
+        {
+            dispatcher.instant_event(eviction_only_page_out_summary(
+                self.tenant.dice_manager.unsafe_dice(),
+                dispatcher,
+                page_out_started,
+                evictions,
+                counts.backed_bytes,
+            ));
+        }
         dispatcher.instant_event(self.summary(&counts, page_out_started));
     }
 }
@@ -174,7 +219,7 @@ fn measured_db_size_bytes(size: Option<Result<u64, Arc<std::io::Error>>>) -> Opt
         None => None,
         Some(Ok(bytes)) => Some(bytes),
         Some(Err(e)) => {
-            let _unused = soft_error!(
+            soft_error_or_panic!(
                 "paging_db_size_measurement_failed",
                 buck2_error::buck2_error!(
                     buck2_error::ErrorTag::Tier0,
@@ -358,7 +403,7 @@ impl Drop for PageOutGuard {
 }
 
 /// Resource thresholds gating idle page-out. GiB (not bytes) so
-/// `DaemonStartupConfig` stays `Eq` (no floats).
+/// `DaemonStartupOptions` stays `Eq` (no floats).
 #[derive(Clone, Copy, allocative::Allocative)]
 pub(crate) struct PageOutThresholds {
     /// Page out only when at least this many GiB of disk are free to write to.
@@ -376,6 +421,7 @@ pub(crate) async fn spawn_page_out_on_idle(
     dispatcher: EventDispatcher,
     free_disk_bytes: Option<u64>,
     pagable_candidates: usize,
+    command_evictions: Option<EvictionSnapshot>,
 ) -> buck2_data::PageOutStarted {
     use buck2_data::PageOutStarted;
 
@@ -411,8 +457,8 @@ pub(crate) async fn spawn_page_out_on_idle(
 
     let context_dispatcher = dispatcher.clone();
     tokio::spawn(with_dispatcher_async(context_dispatcher, async move {
-        if let Err(e) = page_out_on_idle(guard, dice_manager, dispatcher).await {
-            let _unused = soft_error!(
+        if let Err(e) = page_out_on_idle(guard, dice_manager, dispatcher, command_evictions).await {
+            soft_error_or_panic!(
                 "page_out_on_idle_failed",
                 e.context("Automatic page-out on idle failed")
             );
@@ -454,6 +500,7 @@ async fn page_out_on_idle(
     _guard: PageOutGuard,
     dice_manager: Arc<ConcurrencyHandler>,
     dispatcher: EventDispatcher,
+    command_evictions: Option<EvictionSnapshot>,
 ) -> buck2_error::Result<()> {
     let dice = dice_manager.unsafe_dice().dupe();
 
@@ -464,7 +511,9 @@ async fn page_out_on_idle(
     // A command may have arrived (and cancelled us) while we waited for idle. That's
     // rare, so don't check here — `page_out` observes the flag and stops promptly.
     tracing::info!("Daemon is idle; paging DICE out to reclaim memory");
-    let (result, summary) = page_out_measured(&dice, page_out_cancelled, &dispatcher).await;
+    let (result, mut summary) = page_out_measured(&dice, page_out_cancelled, &dispatcher).await;
+    summary.page_out_started = Some(buck2_data::PageOutStarted::Started as i32);
+    set_command_evictions(&mut summary, command_evictions);
     if result.is_err() {
         // Set before this function returns (dropping the single-flight guard) so a
         // `status --wait` that unblocks on guard release already sees the flag.
@@ -494,6 +543,7 @@ pub(crate) async fn page_out_measured(
     let io_before = dice.storage_io_metrics();
     let memory_before = dice.paging_memory_metrics();
     let nodes_before = dice.paged_out_node_total();
+    let evictions_before = dice.eviction_metrics();
     let start = Instant::now();
     let result = page_out(dice, cancelled).await;
     let duration_ms = (Instant::now() - start).as_millis() as u64;
@@ -510,6 +560,14 @@ pub(crate) async fn page_out_measured(
         .map(|(after, before)| after.since(before));
     let memory_delta = memory
         .zip(memory_before)
+        .map(|(after, before)| after.since(before));
+    let evictable_bytes = dice
+        .pagable_storage_handle()
+        .is_some()
+        .then_some(dice.pagable_node_counts().await.backed_bytes);
+    let evictions = dice.eviction_metrics();
+    let evictions_delta = evictions
+        .zip(evictions_before)
         .map(|(after, before)| after.since(before));
     let error = match &result {
         Ok(()) => None,
@@ -548,8 +606,145 @@ pub(crate) async fn page_out_measured(
         daemon_memory_restored_bytes: memory.map(|m| m.bytes_restored),
         memory_offloaded_bytes: memory_delta.map(|d| d.bytes_offloaded),
         memory_restored_bytes: memory_delta.map(|d| d.bytes_restored),
+        daemon_arc_cache_entries: dice
+            .pagable_storage_handle()
+            .map(|h| h.arc_cache_entries() as u64),
+        evicted_count: evictions_delta.map(|d| d.values_evicted),
+        evicted_bytes: evictions_delta.and_then(|d| d.bytes_evicted),
+        daemon_evictions: evictions.map(|e| e.evictions),
+        daemon_evicted_count: evictions.map(|e| e.values_evicted),
+        daemon_evicted_bytes: evictions.and_then(|e| e.bytes_evicted),
+        evictable_bytes,
+        page_out_started: None,
+        command_evictions: None,
+        command_evicted_count: None,
+        command_evicted_bytes: None,
     };
     (result, summary)
+}
+
+/// The `buck2_page_outs` row for a command that evicted backed values but started no idle
+/// page-out, so that every command's evictions reach the table. `page_out_started` says why no
+/// page-out ran; the page-out fields are left unset.
+fn eviction_only_page_out_summary(
+    dice: &Arc<Dice>,
+    dispatcher: &EventDispatcher,
+    page_out_started: buck2_data::PageOutStarted,
+    command_evictions: EvictionSnapshot,
+    evictable_bytes: u64,
+) -> buck2_data::PageOutSummary {
+    let daemon = dice.eviction_metrics();
+    let mut summary = buck2_data::PageOutSummary {
+        metadata: metadata::collect(dispatcher.daemon_id()),
+        command_uuid: Some(dispatcher.trace_id().to_string()),
+        daemon_evictions: daemon.map(|e| e.evictions),
+        daemon_evicted_count: daemon.map(|e| e.values_evicted),
+        daemon_evicted_bytes: daemon.and_then(|e| e.bytes_evicted),
+        evictable_bytes: Some(evictable_bytes),
+        page_out_started: Some(page_out_started as i32),
+        ..Default::default()
+    };
+    set_command_evictions(&mut summary, Some(command_evictions));
+    summary
+}
+
+fn set_command_evictions(
+    summary: &mut buck2_data::PageOutSummary,
+    command_evictions: Option<EvictionSnapshot>,
+) {
+    summary.command_evictions = command_evictions.map(|e| e.evictions);
+    summary.command_evicted_count = command_evictions.map(|e| e.values_evicted);
+    summary.command_evicted_bytes = command_evictions.and_then(|e| e.bytes_evicted);
+}
+
+/// Limits a tenant's memory-pressure evictions to one per command. While a command runs, an onset
+/// evicts only if no eviction has run since the most recent command started. With no command
+/// running, every onset evicts.
+#[derive(Default)]
+pub(crate) struct EvictionGate {
+    state: Mutex<EvictionGateState>,
+}
+
+#[derive(Default)]
+struct EvictionGateState {
+    active_commands: usize,
+    evicted_since_command_start: bool,
+}
+
+impl EvictionGate {
+    /// Registers a running command until the returned guard is dropped, and allows one more
+    /// eviction.
+    pub(crate) fn command_started(self: &Arc<Self>) -> EvictionGateCommand {
+        let mut state = self.state.lock();
+        state.active_commands += 1;
+        state.evicted_since_command_start = false;
+        EvictionGateCommand(self.dupe())
+    }
+
+    /// Whether an onset of memory pressure should evict now. Claims the running commands'
+    /// eviction when it says yes.
+    fn try_evict(&self) -> bool {
+        let mut state = self.state.lock();
+        if state.active_commands > 0 && state.evicted_since_command_start {
+            return false;
+        }
+        state.evicted_since_command_start = true;
+        true
+    }
+}
+
+/// A running command, registered with an [`EvictionGate`].
+pub(crate) struct EvictionGateCommand(Arc<EvictionGate>);
+
+impl Drop for EvictionGateCommand {
+    fn drop(&mut self) {
+        self.0.state.lock().active_commands -= 1;
+    }
+}
+
+/// Evicts a tenant's backed DICE values, those a row already holds, when resource control starts
+/// seeing memory pressure (the default `hydration.eviction_policy`, `on_memory_pressure`, under
+/// which a page-out evicts nothing and these are the only evictions), at most once per command
+/// (see [`EvictionGate`]). Only the onset triggers it. Ends with the tenant or the tracker.
+pub(crate) fn spawn_evict_on_memory_pressure(
+    dice_manager: Weak<ConcurrencyHandler>,
+    gate: Arc<EvictionGate>,
+    mut pressure: watch::Receiver<bool>,
+) {
+    tokio::spawn(async move {
+        while pressure.changed().await.is_ok() {
+            if !*pressure.borrow_and_update() {
+                continue;
+            }
+            let Some(dice_manager) = dice_manager.upgrade() else {
+                return;
+            };
+            if !gate.try_evict() {
+                tracing::debug!("Skipping eviction: this command has already evicted once");
+                continue;
+            }
+            evict_backed_measured(dice_manager.unsafe_dice()).await;
+        }
+    });
+}
+
+/// Evicts backed values and returns the freed memory to the OS, logging what it moved. Returns
+/// how many values were evicted.
+pub(crate) async fn evict_backed_measured(dice: &Arc<Dice>) -> u64 {
+    let (resident_before, allocated_before, _) = page_out_memory_snapshot(dice);
+    let start = Instant::now();
+    let evicted = dice.evict_backed().await;
+    if let Err(e) = memory::purge_jemalloc() {
+        tracing::warn!("purging the allocator after evicting backed values failed: {e:#}");
+    }
+    let (resident_after, allocated_after, _) = page_out_memory_snapshot(dice);
+    tracing::info!(
+        "Evicted {evicted} backed DICE values in {:?}; \
+         RSS {resident_before:?} -> {resident_after:?} bytes, \
+         allocated {allocated_before:?} -> {allocated_after:?} bytes",
+        start.elapsed(),
+    );
+    evicted
 }
 
 /// `(resident RSS, jemalloc allocated, pagable DB on-disk size)` in bytes, each
@@ -567,8 +762,11 @@ fn page_out_memory_snapshot(dice: &Arc<Dice>) -> (Option<u64>, Option<u64>, Opti
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use buck2_hash::IntentionallyStdHashMap;
 
+    use super::EvictionGate;
     use super::PageOutGuard;
     use super::PageOutThresholds;
     use super::cancel_active_page_out;
@@ -600,6 +798,38 @@ mod tests {
         assert!(!page_out_cancelled());
         drop(next);
         assert!(!page_out_in_progress());
+    }
+
+    #[test]
+    fn eviction_gate_allows_one_eviction_per_command() {
+        let gate = Arc::new(EvictionGate::default());
+        assert!(
+            gate.try_evict(),
+            "with no command running, every onset evicts"
+        );
+        assert!(
+            gate.try_evict(),
+            "with no command running, every onset evicts"
+        );
+
+        let first = gate.command_started();
+        assert!(gate.try_evict(), "a running command gets one eviction");
+        assert!(!gate.try_evict(), "and only one");
+
+        let second = gate.command_started();
+        assert!(gate.try_evict(), "a command starting allows one more");
+        assert!(!gate.try_evict());
+
+        drop(second);
+        assert!(
+            !gate.try_evict(),
+            "a command finishing does not reset the running one's allowance"
+        );
+        drop(first);
+        assert!(
+            gate.try_evict(),
+            "with no command running, every onset evicts"
+        );
     }
 
     #[test]

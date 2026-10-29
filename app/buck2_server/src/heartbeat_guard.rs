@@ -12,7 +12,7 @@ use std::pin::pin;
 use std::time::Duration;
 use std::time::Instant;
 
-use buck2_core::soft_error;
+use buck2_core::soft_error_or_panic;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::dispatch::with_dispatcher_async;
 use tokio::task::JoinHandle;
@@ -30,8 +30,6 @@ pub(crate) struct HeartbeatGuard {
 
 const STALL_THRESHOLD: Duration = Duration::from_secs(120);
 
-const RAGE_HINT: &str = "If the command hangs, run `buck2 rage` before killing the daemon, so the report includes a thread dump.";
-
 fn check_slow_snapshot(elapsed: Duration, consecutive_slow: &mut u32) {
     // Slow snapshots are generally a sign of DICE core thread queue being backed up.
     // A single slow snapshot is expected if a large number of DICE requests are received in a short time.
@@ -39,39 +37,32 @@ fn check_slow_snapshot(elapsed: Duration, consecutive_slow: &mut u32) {
     if elapsed > Duration::from_secs(1) {
         *consecutive_slow += 1;
         if (*consecutive_slow).is_multiple_of(10) {
-            soft_error!(
+            soft_error_or_panic!(
                 "slow_snapshot",
                 buck2_error::buck2_error!(
                     buck2_error::ErrorTag::Tier0,
-                    "Snapshot collection exceeded 1s for {} consecutive snapshots (last: {:.1}s). It's likely that the DICE core thread is stalled. {}",
+                    "Snapshot collection exceeded 1s for {} consecutive snapshots (last: {:.1}s). It's likely that the DICE core thread is stalled.",
                     *consecutive_slow,
                     elapsed.as_secs_f64(),
-                    RAGE_HINT
-                ),
-                quiet: false
-            )
-            .ok();
+                )
+            );
         }
     } else {
         *consecutive_slow = 0;
     }
 }
 
-// The slow-snapshot check only runs once a snapshot completes; In cases where DICE
-// is so stalled that a snapshot never completed, this will still suggest remedies
-// to the user.
+// The slow-snapshot check only runs once a snapshot completes; this covers the case where DICE
+// is so stalled that a snapshot never completes.
 fn report_stalled_snapshot() {
-    soft_error!(
+    soft_error_or_panic!(
         "stalled_snapshot",
         buck2_error::buck2_error!(
             buck2_error::ErrorTag::Tier0,
-            "Snapshot collection has not completed in {}s. It's likely that the DICE core thread is stalled. {}",
+            "Snapshot collection has not completed in {}s. It's likely that the DICE core thread is stalled.",
             STALL_THRESHOLD.as_secs(),
-            RAGE_HINT
-        ),
-        quiet: false
-    )
-    .ok();
+        )
+    );
 }
 
 impl HeartbeatGuard {

@@ -8,9 +8,9 @@
  * above-listed licenses.
  */
 
+use buck2_node::attrs::arena::AttrToken;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::attr_type::visibility::VisibilityAttrType;
-use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_node::visibility::StarlarkTargetNameGlob;
@@ -39,18 +39,17 @@ enum VisibilityAttrTypeCoerceError {
 }
 
 impl AttrTypeCoerce for VisibilityAttrType {
-    fn coerce_item(
+    fn coerce_item<'v>(
         &self,
         configurable: AttrIsConfigurable,
-        ctx: &dyn AttrCoercionContext,
-        value: Value,
-    ) -> buck2_error::Result<CoercedAttr> {
+        ctx: &dyn AttrCoercionContext<'v>,
+        value: Value<'v>,
+    ) -> buck2_error::Result<AttrToken> {
         if configurable == AttrIsConfigurable::Yes {
             return Err(VisibilityAttrTypeCoerceError::AttrTypeNotConfigurable.into());
         }
-        Ok(CoercedAttr::Visibility(
-            parse_visibility_with_view(ctx, value)?.build_visibility(),
-        ))
+        let v = parse_visibility_with_view(ctx, value)?.build_visibility();
+        ctx.attr_arena().encode_visibility(&v)
     }
 
     fn starlark_type(&self) -> TyMaybeSelect {
@@ -61,8 +60,8 @@ impl AttrTypeCoerce for VisibilityAttrType {
     }
 }
 
-pub(crate) fn parse_visibility_with_view(
-    ctx: &dyn AttrCoercionContext,
+pub(crate) fn parse_visibility_with_view<'v>(
+    ctx: &dyn AttrCoercionContext<'v>,
     attr: Value,
 ) -> buck2_error::Result<VisibilityWithinViewBuilder> {
     let list = match coerce_list(attr) {

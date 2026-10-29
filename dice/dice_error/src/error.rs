@@ -15,6 +15,7 @@ use allocative::Allocative;
 use dupe::Dupe;
 use thiserror::Error;
 
+use crate::cycles::CycleError;
 use crate::cycles::RequestedKey;
 
 #[derive(Clone, Dupe, Debug, Error, Allocative)]
@@ -43,6 +44,12 @@ impl DiceError {
     }
 }
 
+impl From<CycleError> for DiceError {
+    fn from(cycle: CycleError) -> Self {
+        DiceError(Arc::new(DiceErrorImpl::Cycle(cycle)))
+    }
+}
+
 #[derive(Debug, Error, Allocative)]
 pub enum DiceErrorImpl {
     #[error("Key `{0}` was marked as changed multiple times on the same transaction.")]
@@ -58,17 +65,12 @@ pub enum DiceErrorImpl {
         #[allocative(skip)]
         source: Box<dyn StdError + Send + Sync>,
     },
-    #[error(
-        "Requested cycle_guard of type {}, but current guard has type {}",
-        expected_type_name,
-        actual_type_name
-    )]
-    UnexpectedCycleGuardType {
-        expected_type_name: String,
-        actual_type_name: String,
-    },
     #[error("Activation data was already provided for this key")]
     DuplicateActivationData,
+    /// The requested key is in a dependency cycle with the requesting one, so neither can be
+    /// computed.
+    #[error("{0}")]
+    Cycle(CycleError),
 }
 
 pub type DiceResult<T> = Result<T, DiceError>;

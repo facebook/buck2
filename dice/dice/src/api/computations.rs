@@ -27,7 +27,6 @@ use crate::DiceKeyTrackedInvalidationPaths;
 use crate::EqualityBehavior;
 use crate::OpaqueValue;
 use crate::ProjectionKey;
-use crate::UserCycleDetectorGuard;
 use crate::api::data::DiceData;
 use crate::api::key::Key;
 use crate::api::key::NoValueSerialize;
@@ -451,8 +450,7 @@ impl<'d> DiceComputations<'d> {
         self.0.data()
     }
 
-    /// Data that is static per the entire lifetime of Dice. These data are initialized at the
-    /// time that Dice is initialized via the constructor.
+    /// Untracked data that is static for the lifetime of this branch tree.
     pub fn global_data(&self) -> &'d DiceData {
         self.0.global_data()
     }
@@ -463,11 +461,6 @@ impl<'d> DiceComputations<'d> {
     /// each have their own individual data.
     pub fn per_transaction_data(&self) -> &'d UserComputationData {
         self.0.per_transaction_data()
-    }
-
-    /// Gets the current cycle guard if its set. If it's set but a different type, an error will be returned.
-    pub fn cycle_guard<T: UserCycleDetectorGuard>(&self) -> DiceResult<Option<Arc<T>>> {
-        self.0.cycle_guard()
     }
 
     /// Store some extra data that the ActivationTracker will receive if / when this key finishes
@@ -549,8 +542,7 @@ impl<'l, 'a> LinearRecomputeDiceComputations<'l, 'a> {
 pub struct DiceComputationsData(pub(crate) ModernDiceComputationsData);
 
 impl DiceComputationsData {
-    /// Data that is static per the entire lifetime of Dice. These data are initialized at the
-    /// time that Dice is initialized via the constructor.
+    /// Untracked data that is static for the lifetime of this branch tree.
     pub fn global_data(&self) -> &DiceData {
         self.0.global_data()
     }

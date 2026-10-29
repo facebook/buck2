@@ -11,344 +11,42 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_fs::paths::file_name::FileName;
+use buck2_error::BuckErrorContext;
 use dupe::Dupe;
-use pagable::Pagable;
 use serde::Deserialize;
 use serde::Serialize;
+use serde_json::Value;
 
-use crate::invocation_paths::DEFAULT_ISOLATION_DIR;
+use crate::settings::agent_interactive::AgentInteractiveSettings;
+use crate::settings::agent_materialization::AgentMaterializationSettings;
+pub use crate::settings::analysis::AnalysisSection;
+use crate::settings::analysis::AnalysisSectionData;
+pub use crate::settings::hydration::HydrationSection;
+use crate::settings::hydration::HydrationSectionData;
+pub use crate::settings::log_download::LogDownloadSection;
+use crate::settings::log_download::LogDownloadSectionData;
+use crate::settings::metadata::SectionMetadata;
+pub use crate::settings::package_visibility::PackageVisibilityDefaultIntersection;
+pub use crate::settings::package_visibility::PackageVisibilitySection;
+use crate::settings::package_visibility::PackageVisibilitySectionData;
 
-/// Source categories used to define a setting's override policy.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum OverrideSource {
-    CommandLine,
-    LocalSettings,
-}
-
-/// Classifies a setting's source for policy validation.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) enum SettingSource {
-    /// Repo-root `.bucksettings.toml`
-    Base,
-    /// Wrapper-cached rollout settings.
-    Rollout,
-    Override(OverrideSource),
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct SettingKeyRef<'a> {
-    pub(crate) section: &'a str,
-    pub(crate) name: &'a str,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct SettingKeyMetadata {
-    pub(crate) key: SettingKeyRef<'static>,
-    pub(crate) overridable_in: &'static [OverrideSource],
-}
-
-impl SettingKeyMetadata {
-    pub(super) fn allows_source(&self, source: SettingSource) -> bool {
-        match source {
-            SettingSource::Base | SettingSource::Rollout => true,
-            SettingSource::Override(source) => self.overridable_in.contains(&source),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct SectionMetadata {
-    pub(crate) section_name: &'static str,
-    pub(crate) section_version: u32,
-}
-
-struct SettingKey<T> {
-    metadata: SettingKeyMetadata,
-    internal_default: Option<T>,
-    oss_default: Option<T>,
-}
-
-impl<T: Clone> SettingKey<T> {
-    fn default_value(&self) -> Option<T> {
-        if cfg!(fbcode_build) {
-            self.internal_default.clone()
-        } else {
-            self.oss_default.clone()
-        }
-    }
-
-    fn resolve(&self, value: Option<T>) -> Option<T> {
-        value.or_else(|| self.default_value())
-    }
-}
-
-/// Applies to direct agent build requests; acknowledgement is handled per invocation.
-#[derive(
-    Allocative,
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PartialEq,
-    Eq
-)]
-#[serde(rename_all = "snake_case")]
-pub enum BuildIntentMode {
-    #[default]
-    Off,
-    Warn,
-    Block,
-}
-
-const AGENT_ADVICE_BUILD_INTENT_MODE: SettingKey<BuildIntentMode> = SettingKey {
-    metadata: SettingKeyMetadata {
-        key: SettingKeyRef {
-            section: "agent_advice",
-            name: "build_intent_mode",
-        },
-        overridable_in: &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
-    },
-    internal_default: Some(BuildIntentMode::Off),
-    oss_default: Some(BuildIntentMode::Off),
-};
-
-const AGENT_ADVICE_BUILD_INTENT_MESSAGE: SettingKey<&'static str> = SettingKey {
-    metadata: SettingKeyMetadata {
-        key: SettingKeyRef {
-            section: "agent_advice",
-            name: "build_intent_message",
-        },
-        overridable_in: &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
-    },
-    internal_default: None,
-    oss_default: None,
-};
-
-const LOG_URL: SettingKey<&'static str> = SettingKey {
-    metadata: SettingKeyMetadata {
-        key: SettingKeyRef {
-            section: "log_download",
-            name: "log_url",
-        },
-        overridable_in: &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
-    },
-    internal_default: None,
-    oss_default: None,
-};
-
-const LOG_USE_MANIFOLD: SettingKey<bool> = SettingKey {
-    metadata: SettingKeyMetadata {
-        key: SettingKeyRef {
-            section: "log_download",
-            name: "log_use_manifold",
-        },
-        overridable_in: &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
-    },
-    // None is a migration placeholder to support buckconfig fallback
-    internal_default: None,
-    oss_default: Some(false),
-};
-
-const HYDRATION_ENABLE_PAGING: SettingKey<bool> = SettingKey {
-    metadata: SettingKeyMetadata {
-        key: SettingKeyRef {
-            section: "hydration",
-            name: "enable_paging",
-        },
-        overridable_in: &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
-    },
-    // Absence must remain distinct from `false` while legacy buckconfig is the fallback.
-    internal_default: None,
-    oss_default: None,
-};
-
-const HYDRATION_DEFER_FIELD_READS: SettingKey<bool> = SettingKey {
-    metadata: SettingKeyMetadata {
-        key: SettingKeyRef {
-            section: "hydration",
-            name: "defer_field_reads",
-        },
-        overridable_in: &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
-    },
-    // Rolled out only through the `[hydration.2]` stanza: binaries at version 1
-    // never select that stanza, so the key never reaches one that would reject it.
-    internal_default: Some(false),
-    oss_default: Some(false),
-};
-
-const HYDRATION_PAGE_OUT_ON_IDLE: SettingKey<bool> = SettingKey {
-    metadata: SettingKeyMetadata {
-        key: SettingKeyRef {
-            section: "hydration",
-            name: "page_out_on_idle",
-        },
-        overridable_in: &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
-    },
-    // Absence must remain distinct from `false` while legacy buckconfig is the fallback.
-    internal_default: None,
-    oss_default: None,
-};
-
-#[derive(
-    Allocative,
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PartialEq,
-    Eq
-)]
-#[serde(rename_all = "snake_case")]
-enum PageOutOnIdleIsolationDirScope {
-    NonDefault,
-    #[default]
-    All,
-}
-
-const HYDRATION_PAGE_OUT_ON_IDLE_ISOLATION_DIR_SCOPE: SettingKey<PageOutOnIdleIsolationDirScope> =
-    SettingKey {
-        metadata: SettingKeyMetadata {
-            key: SettingKeyRef {
-                section: "hydration",
-                name: "page_out_on_idle_isolation_dir_scope",
-            },
-            overridable_in: &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
-        },
-        internal_default: Some(PageOutOnIdleIsolationDirScope::All),
-        oss_default: Some(PageOutOnIdleIsolationDirScope::All),
-    };
-
-const ANALYSIS_RECORD_REQUESTED_ANON_TARGETS: SettingKey<bool> = SettingKey {
-    metadata: SettingKeyMetadata {
-        key: SettingKeyRef {
-            section: "analysis",
-            name: "record_requested_anon_targets",
-        },
-        overridable_in: &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
-    },
-    internal_default: Some(true),
-    oss_default: Some(true),
-};
-
-/// Controls whether ordinary `package(visibility=...)` declarations
-/// contribute to the visibility intersection by default.
-///
-/// * `off` (default): legacy behavior; only `enforce_visibility_intersection()`
-///   boundaries contribute.
-/// * `audit`: the default intersection is shadow-evaluated; would-block edges
-///   are reported, not fatal.
-/// * `enforce`: ordinary PACKAGE visibility is enforced by default; the marker
-///   is redundant.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    PartialEq,
-    Eq,
-    Serialize,
-    Deserialize,
-    Allocative,
-    Pagable
-)]
-#[serde(rename_all = "snake_case")]
-pub enum PackageVisibilityDefaultIntersection {
-    #[default]
-    Off,
-    Audit,
-    Enforce,
-}
-
-const PACKAGE_VISIBILITY_DEFAULT_INTERSECTION: SettingKey<PackageVisibilityDefaultIntersection> =
-    SettingKey {
-        metadata: SettingKeyMetadata {
-            key: SettingKeyRef {
-                section: "package_visibility",
-                name: "default_intersection",
-            },
-            // Enforcement control: overrides must not be able to weaken it.
-            overridable_in: &[],
-        },
-        internal_default: Some(PackageVisibilityDefaultIntersection::Off),
-        oss_default: Some(PackageVisibilityDefaultIntersection::Off),
-    };
-
-pub(crate) static ALL_SETTING_METADATA: &[SettingKeyMetadata] = &[
-    AGENT_ADVICE_BUILD_INTENT_MODE.metadata,
-    AGENT_ADVICE_BUILD_INTENT_MESSAGE.metadata,
-    ANALYSIS_RECORD_REQUESTED_ANON_TARGETS.metadata,
-    HYDRATION_ENABLE_PAGING.metadata,
-    HYDRATION_DEFER_FIELD_READS.metadata,
-    HYDRATION_PAGE_OUT_ON_IDLE.metadata,
-    HYDRATION_PAGE_OUT_ON_IDLE_ISOLATION_DIR_SCOPE.metadata,
-    LOG_USE_MANIFOLD.metadata,
-    LOG_URL.metadata,
-    PACKAGE_VISIBILITY_DEFAULT_INTERSECTION.metadata,
-];
-#[cfg_attr(
-    not(fbcode_build),
-    expect(dead_code, reason = "Settings rollouts are internal-only")
-)]
 pub(crate) static ALL_SECTION_METADATA: &[SectionMetadata] = &[
-    AgentAdviceSection::METADATA,
+    AgentInteractiveSettings::METADATA,
+    AgentMaterializationSettings::METADATA,
     AnalysisSection::METADATA,
     HydrationSection::METADATA,
     LogDownloadSection::METADATA,
     PackageVisibilitySection::METADATA,
 ];
 
-pub(crate) fn find_setting_metadata<'a>(
-    metadata: &'a [SettingKeyMetadata],
-    key: SettingKeyRef<'_>,
-) -> Option<&'a SettingKeyMetadata> {
-    metadata.iter().find(|metadata| metadata.key == key)
-}
-
-#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Allocative)]
-#[serde(deny_unknown_fields)]
-struct AgentAdviceSectionData {
-    build_intent_mode: Option<BuildIntentMode>,
-    build_intent_message: Option<String>,
-}
-
-#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Allocative)]
-#[serde(deny_unknown_fields)]
-struct AnalysisSectionData {
-    record_requested_anon_targets: Option<bool>,
-}
-
-#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Allocative)]
-#[serde(deny_unknown_fields)]
-struct LogDownloadSectionData {
-    log_use_manifold: Option<bool>,
-    log_url: Option<String>,
-}
-
-#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Allocative)]
-#[serde(deny_unknown_fields)]
-struct HydrationSectionData {
-    enable_paging: Option<bool>,
-    defer_field_reads: Option<bool>,
-    page_out_on_idle: Option<bool>,
-    page_out_on_idle_isolation_dir_scope: Option<PageOutOnIdleIsolationDirScope>,
-}
-
-#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Allocative)]
-#[serde(deny_unknown_fields)]
-struct PackageVisibilitySectionData {
-    default_intersection: Option<PackageVisibilityDefaultIntersection>,
-}
-
+// Keep the file format flat and reject unknown sections before grouping by scope.
 #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Allocative)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct BuckSettingsData {
     #[serde(default)]
-    agent_advice: AgentAdviceSectionData,
+    agent_interactive: AgentInteractiveSettings,
+    #[serde(default)]
+    agent_materialization: AgentMaterializationSettings,
     #[serde(default)]
     analysis: AnalysisSectionData,
     #[serde(default)]
@@ -359,7 +57,8 @@ pub(crate) struct BuckSettingsData {
     package_visibility: PackageVisibilitySectionData,
 }
 
-/// Settings controlling advice for direct agent builds.
+/// Settings for a client invocation or server command. Shared daemon state must
+/// retain only `DaemonBuckSettings`, since invocation values can change on every request.
 #[derive(
     Clone,
     Dupe,
@@ -371,31 +70,16 @@ pub(crate) struct BuckSettingsData {
     Eq,
     Allocative
 )]
-#[serde(transparent)]
-pub struct AgentAdviceSection(Arc<AgentAdviceSectionData>);
-
-impl AgentAdviceSection {
-    /// Bump when the section's settings schema or semantics change.
-    pub(crate) const METADATA: SectionMetadata = SectionMetadata {
-        section_name: "agent_advice",
-        section_version: 0,
-    };
-
-    pub fn build_intent_mode(&self) -> BuildIntentMode {
-        AGENT_ADVICE_BUILD_INTENT_MODE
-            .resolve(self.0.build_intent_mode)
-            .expect("Build intent mode should have a default")
-    }
-
-    pub fn build_intent_message(&self) -> Option<&str> {
-        self.0
-            .build_intent_message
-            .as_deref()
-            .or_else(|| AGENT_ADVICE_BUILD_INTENT_MESSAGE.default_value())
-    }
+#[serde(from = "BuckSettingsData")]
+pub struct BuckSettings {
+    #[serde(flatten)]
+    pub daemon: DaemonBuckSettings,
+    #[serde(flatten)]
+    pub invocation: InvocationBuckSettings,
 }
 
-/// Settings controlling what analysis records beyond its providers.
+/// Sections whose values belong to one invocation, on either the client or daemon.
+/// A request carries only these sections, and missing overrides use the section's defaults.
 #[derive(
     Clone,
     Dupe,
@@ -407,81 +91,30 @@ impl AgentAdviceSection {
     Eq,
     Allocative
 )]
-#[serde(transparent)]
-pub struct AnalysisSection(Arc<AnalysisSectionData>);
-
-impl AnalysisSection {
-    /// Bump when the section's settings schema or semantics change.
-    pub(crate) const METADATA: SectionMetadata = SectionMetadata {
-        section_name: "analysis",
-        section_version: 1,
-    };
-
-    /// Whether each analysis keeps the list of anon targets it requested.
-    pub fn record_requested_anon_targets(&self) -> bool {
-        ANALYSIS_RECORD_REQUESTED_ANON_TARGETS
-            .resolve(self.0.record_requested_anon_targets)
-            .expect("record_requested_anon_targets should have a default")
-    }
+#[serde(default, deny_unknown_fields)]
+pub struct InvocationBuckSettings {
+    pub agent_interactive: AgentInteractiveSettings,
+    pub agent_materialization: AgentMaterializationSettings,
 }
 
-/// Settings controlling hydration/paging behavior.
-#[derive(
-    Clone,
-    Dupe,
-    Debug,
-    Default,
-    Serialize,
-    Deserialize,
-    PartialEq,
-    Eq,
-    Allocative
-)]
-#[serde(transparent)]
-pub struct HydrationSection(Arc<HydrationSectionData>);
-
-impl HydrationSection {
-    /// Bump when the section's settings schema or semantics change. A rollout
-    /// stanza is selected only by the exact version, so a bump must ship with a
-    /// copy of every key from the previous version's stanza.
-    pub(crate) const METADATA: SectionMetadata = SectionMetadata {
-        section_name: "hydration",
-        section_version: 2,
-    };
-
-    /// Returns `None` when legacy buckconfig should determine the behavior.
-    pub fn enable_paging(&self) -> Option<bool> {
-        HYDRATION_ENABLE_PAGING.resolve(self.0.enable_paging)
-    }
-
-    /// Materialize deferred Starlark fields on first access after page-in.
-    pub fn defer_field_reads(&self) -> bool {
-        HYDRATION_DEFER_FIELD_READS
-            .resolve(self.0.defer_field_reads)
-            .expect("Deferred field reads should have a default")
-    }
-
-    /// Returns `None` when legacy buckconfig should determine the behavior.
-    pub fn page_out_on_idle(&self) -> Option<bool> {
-        HYDRATION_PAGE_OUT_ON_IDLE.resolve(self.0.page_out_on_idle)
-    }
-
-    pub(crate) fn page_out_on_idle_applies_to_isolation_dir(
-        &self,
-        isolation_dir: &FileName,
-    ) -> bool {
-        match HYDRATION_PAGE_OUT_ON_IDLE_ISOLATION_DIR_SCOPE
-            .resolve(self.0.page_out_on_idle_isolation_dir_scope)
-            .expect("Idle page-out isolation dir scope should have a default")
-        {
-            PageOutOnIdleIsolationDirScope::NonDefault => {
-                isolation_dir.as_str() != DEFAULT_ISOLATION_DIR
+impl InvocationBuckSettings {
+    pub fn from_request(request: Option<&str>) -> buck2_error::Result<Self> {
+        match request {
+            Some(request) => {
+                serde_json::from_str(request).buck_error_context("Invalid invocation Buck Settings")
             }
-            PageOutOnIdleIsolationDirScope::All => true,
+            None => Ok(Self::default()),
         }
     }
 }
 
+/// Sections whose values are fixed for the daemon's lifetime. Every section in
+/// this struct participates in restart checks and may be retained in global state.
+///
+/// ```compile_fail
+/// use buck2_common::settings::DaemonBuckSettings;
+/// DaemonBuckSettings::default().agent_materialization.enabled();
+/// ```
 #[derive(
     Clone,
     Dupe,
@@ -493,93 +126,85 @@ impl HydrationSection {
     Eq,
     Allocative
 )]
-#[serde(transparent)]
-pub struct LogDownloadSection(Arc<LogDownloadSectionData>);
-
-impl LogDownloadSection {
-    /// Bump when the section's settings schema or semantics change.
-    pub(crate) const METADATA: SectionMetadata = SectionMetadata {
-        section_name: "log_download",
-        section_version: 0,
-    };
-
-    pub fn log_use_manifold(&self) -> Option<bool> {
-        LOG_USE_MANIFOLD.resolve(self.0.log_use_manifold)
-    }
-
-    pub fn log_url(&self) -> Option<&str> {
-        self.0
-            .log_url
-            .as_deref()
-            .or_else(|| LOG_URL.default_value())
-    }
-}
-
-/// Settings controlling PACKAGE visibility intersection.
-#[derive(
-    Clone,
-    Dupe,
-    Debug,
-    Default,
-    Serialize,
-    Deserialize,
-    PartialEq,
-    Eq,
-    Allocative
-)]
-#[serde(transparent)]
-pub struct PackageVisibilitySection(Arc<PackageVisibilitySectionData>);
-
-impl PackageVisibilitySection {
-    /// Bump when the section's settings schema or semantics change.
-    pub(crate) const METADATA: SectionMetadata = SectionMetadata {
-        section_name: "package_visibility",
-        section_version: 0,
-    };
-
-    pub fn default_intersection(&self) -> PackageVisibilityDefaultIntersection {
-        PACKAGE_VISIBILITY_DEFAULT_INTERSECTION
-            .resolve(self.0.default_intersection)
-            .unwrap_or_default()
-    }
-}
-
-#[derive(Clone, Dupe, Debug, Serialize, Deserialize, PartialEq, Eq, Allocative)]
-#[serde(deny_unknown_fields)]
-pub struct BuckSettings {
-    #[serde(default)]
-    pub agent_advice: AgentAdviceSection,
-    #[serde(default)]
+#[serde(default, deny_unknown_fields)]
+pub struct DaemonBuckSettings {
     pub analysis: AnalysisSection,
-    #[serde(default)]
     pub hydration: HydrationSection,
-    #[serde(default)]
     pub log_download: LogDownloadSection,
-    #[serde(default)]
     pub package_visibility: PackageVisibilitySection,
+}
+
+/// A stored setting value changing from the daemon's snapshot to the current client's settings.
+/// JSON null represents an unset override, which can differ from an explicit default value.
+#[derive(Debug, PartialEq, Eq, derive_more::Display)]
+#[display("{key}: {old_value} -> {new_value}")]
+pub struct BuckSettingChange {
+    pub key: String,
+    pub old_value: Value,
+    pub new_value: Value,
 }
 
 impl From<BuckSettingsData> for BuckSettings {
     fn from(data: BuckSettingsData) -> Self {
         Self {
-            agent_advice: AgentAdviceSection(Arc::new(data.agent_advice)),
-            analysis: AnalysisSection(Arc::new(data.analysis)),
-            hydration: HydrationSection(Arc::new(data.hydration)),
-            log_download: LogDownloadSection(Arc::new(data.log_download)),
-            package_visibility: PackageVisibilitySection(Arc::new(data.package_visibility)),
+            daemon: DaemonBuckSettings {
+                analysis: AnalysisSection(Arc::new(data.analysis)),
+                hydration: HydrationSection(Arc::new(data.hydration)),
+                log_download: LogDownloadSection(Arc::new(data.log_download)),
+                package_visibility: PackageVisibilitySection(Arc::new(data.package_visibility)),
+            },
+            invocation: InvocationBuckSettings {
+                agent_interactive: data.agent_interactive,
+                agent_materialization: data.agent_materialization,
+            },
         }
-    }
-}
-
-impl Default for BuckSettings {
-    fn default() -> Self {
-        BuckSettingsData::default().into()
     }
 }
 
 impl BuckSettings {
     pub fn empty() -> Self {
         Self::default()
+    }
+}
+
+impl DaemonBuckSettings {
+    /// Changes that require a daemon restart, from its snapshot to this invocation's settings.
+    /// Stored values preserve unset overrides, and names are sorted for deterministic diagnostics.
+    pub fn changes_from(&self, previous: &Self) -> Vec<BuckSettingChange> {
+        if self == previous {
+            return Vec::new();
+        }
+        self.collect_daemon_changes(previous)
+    }
+
+    #[cold]
+    fn collect_daemon_changes(&self, previous: &Self) -> Vec<BuckSettingChange> {
+        let previous = serde_json::to_value(previous)
+            .expect("Buck Settings contain only JSON-compatible values");
+        let current =
+            serde_json::to_value(self).expect("Buck Settings contain only JSON-compatible values");
+        let mut changes: Vec<_> = current
+            .as_object()
+            .expect("Daemon Buck Settings serialize as sections")
+            .iter()
+            .flat_map(|(section, values)| {
+                values
+                    .as_object()
+                    .expect("Buck Settings sections serialize as objects")
+                    .iter()
+                    .map(move |(name, value)| (section, name, value))
+            })
+            .filter_map(|(section, name, new_value)| {
+                let old_value = &previous[section][name];
+                (old_value != new_value).then(|| BuckSettingChange {
+                    key: format!("{section}.{name}"),
+                    old_value: old_value.clone(),
+                    new_value: new_value.clone(),
+                })
+            })
+            .collect();
+        changes.sort_unstable_by(|left, right| left.key.cmp(&right.key));
+        changes
     }
 }
 
@@ -606,206 +231,240 @@ mod tests {
     use std::collections::BTreeSet;
 
     use super::*;
-    use crate::settings::parser::resolve_setting_flags;
-    use crate::settings::parser::table;
 
     #[test]
-    fn test_default_agent_advice() {
-        let advice = BuckSettings::empty().agent_advice;
-        assert_eq!(advice.build_intent_mode(), BuildIntentMode::Off);
-        assert_eq!(advice.build_intent_message(), None);
-    }
+    fn test_daemon_setting_changes() {
+        let previous: BuckSettings = serde_json::from_str(
+            r#"{"agent_interactive":{"enabled":true},"hydration":{"enable_paging":true},"log_download":{"log_url":"old\nvalue","log_use_manifold":true}}"#,
+        ).unwrap();
+        let current: BuckSettings = serde_json::from_str(
+            r#"{"agent_materialization":{"enabled":false},"analysis":{"record_requested_anon_targets":false},"log_download":{"log_url":"new\"value","log_use_manifold":true}}"#,
+        ).unwrap();
 
-    #[test]
-    fn test_build_intent_modes() -> buck2_error::Result<()> {
-        for (name, expected) in [
-            ("off", BuildIntentMode::Off),
-            ("warn", BuildIntentMode::Warn),
-            ("block", BuildIntentMode::Block),
-        ] {
-            let settings = resolve_setting_flags(vec![table(&format!(
-                "[agent_advice]\nbuild_intent_mode = \"{name}\""
-            ))])?;
-            assert_eq!(settings.agent_advice.build_intent_mode(), expected);
-            assert_eq!(settings.agent_advice.build_intent_message(), None);
-        }
-        Ok(())
-    }
-
-    #[test]
-    fn test_build_intent_multiline_message() -> buck2_error::Result<()> {
-        let settings = resolve_setting_flags(vec![table(
-            r#"[agent_advice]
-build_intent_mode = "warn"
-build_intent_message = """
-Use check for compilation-only validation.
-Use test to execute tests.
-"""
-"#,
-        )])?;
+        let changes = current.daemon.changes_from(&previous.daemon);
         assert_eq!(
-            settings.agent_advice.build_intent_message(),
-            Some("Use check for compilation-only validation.\nUse test to execute tests.\n")
+            changes,
+            vec![
+                BuckSettingChange {
+                    key: "analysis.record_requested_anon_targets".to_owned(),
+                    old_value: Value::Null,
+                    new_value: Value::Bool(false),
+                },
+                BuckSettingChange {
+                    key: "hydration.enable_paging".to_owned(),
+                    old_value: Value::Bool(true),
+                    new_value: Value::Null,
+                },
+                BuckSettingChange {
+                    key: "log_download.log_url".to_owned(),
+                    old_value: Value::String("old\nvalue".to_owned()),
+                    new_value: Value::String("new\"value".to_owned()),
+                },
+            ],
         );
-        Ok(())
-    }
-
-    #[test]
-    fn test_invalid_agent_advice_settings() {
-        for invalid in [
-            "build_intent_mode = \"ask\"",
-            "build_intent_mode = true",
-            "build_intent_message = 123",
-        ] {
-            resolve_setting_flags(vec![table(&format!("[agent_advice]\n{invalid}"))])
-                .expect_err("Agent advice settings must match the typed schema");
-        }
-    }
-
-    #[test]
-    fn test_default_log_use_manifold() {
-        let expected = if cfg!(fbcode_build) {
-            None
-        } else {
-            Some(false)
-        };
         assert_eq!(
-            BuckSettings::empty().log_download.log_use_manifold(),
-            expected
+            changes[2].to_string(),
+            r#"log_download.log_url: "old\nvalue" -> "new\"value""#,
         );
+        assert!(current.daemon.changes_from(&current.daemon).is_empty());
     }
 
     #[test]
-    fn test_log_use_manifold() -> buck2_error::Result<()> {
-        let settings =
-            resolve_setting_flags(vec![table("[log_download]\nlog_use_manifold = false")])?;
-        assert_eq!(settings.log_download.log_use_manifold(), Some(false));
+    fn test_section_scope_applies_to_all_settings() -> buck2_error::Result<()> {
+        let previous = BuckSettings::default();
+        for name in [
+            "enabled",
+            "killall_enabled",
+            "clean_enabled",
+            "new_isolation_dir_enabled",
+        ] {
+            let current: BuckSettings = serde_json::from_value(serde_json::json!({
+                "agent_interactive": {name: true},
+            }))?;
+            assert!(
+                current.daemon.changes_from(&previous.daemon).is_empty(),
+                "{name}"
+            );
+            let request = serde_json::to_string(&current.invocation)?;
+            let values: Value = serde_json::from_str(&request)?;
+            assert_eq!(values["agent_interactive"][name], true);
+            assert!(values.get("analysis").is_none());
+            assert!(values.get("log_download").is_none());
+            assert_eq!(
+                InvocationBuckSettings::from_request(Some(&request))?,
+                current.invocation
+            );
+        }
+
+        let current: BuckSettings = serde_json::from_value(serde_json::json!({
+            "log_download": {"log_url": "new", "log_use_manifold": false},
+        }))?;
+        let changes = current.daemon.changes_from(&previous.daemon);
+        assert_eq!(
+            changes
+                .iter()
+                .map(|change| change.key.as_str())
+                .collect::<Vec<_>>(),
+            ["log_download.log_url", "log_download.log_use_manifold"]
+        );
+        let request = serde_json::to_string(&current.invocation)?;
+        assert_eq!(
+            InvocationBuckSettings::from_request(Some(&request))?,
+            previous.invocation
+        );
         Ok(())
     }
 
     #[test]
-    fn test_log_url() -> buck2_error::Result<()> {
-        let settings =
-            resolve_setting_flags(vec![table("[log_download]\nlog_url = \"test.com\"")])?;
-        assert_eq!(settings.log_download.log_url(), Some("test.com"));
-        Ok(())
-    }
-
-    #[test]
-    fn test_default_hydration_settings() {
-        let hydration = BuckSettings::empty().hydration;
-        assert_eq!(hydration.enable_paging(), None);
-        assert!(!hydration.defer_field_reads());
-        assert_eq!(hydration.page_out_on_idle(), None);
-        assert!(
-            hydration.page_out_on_idle_applies_to_isolation_dir(
-                FileName::new(DEFAULT_ISOLATION_DIR)
-                    .expect("The default isolation dir should be valid")
-            )
+    fn test_flat_settings_roundtrip() -> buck2_error::Result<()> {
+        let settings: BuckSettings = serde_json::from_str(
+            r#"{"agent_materialization":{"enabled":true},"analysis":{"record_requested_anon_targets":false},"log_download":{"log_url":"https://example.com/"}}"#,
+        )?;
+        assert!(settings.invocation.agent_materialization.enabled());
+        assert!(!settings.daemon.analysis.record_requested_anon_targets());
+        assert_eq!(
+            settings.daemon.log_download.log_url(),
+            Some("https://example.com/")
         );
-        assert!(hydration.page_out_on_idle_applies_to_isolation_dir(
-            FileName::new("custom").expect("The test isolation dir should be valid")
-        ));
-    }
-
-    #[test]
-    fn test_hydration_settings() -> buck2_error::Result<()> {
-        let settings = resolve_setting_flags(vec![table(
-            "[hydration]\nenable_paging = true\ndefer_field_reads = true\npage_out_on_idle = false\npage_out_on_idle_isolation_dir_scope = \"non_default\"",
-        )])?;
-        assert_eq!(settings.hydration.enable_paging(), Some(true));
-        assert!(settings.hydration.defer_field_reads());
-        assert_eq!(settings.hydration.page_out_on_idle(), Some(false));
-        assert!(
-            !settings
-                .hydration
-                .page_out_on_idle_applies_to_isolation_dir(
-                    FileName::new(DEFAULT_ISOLATION_DIR)
-                        .expect("The default isolation dir should be valid")
-                )
-        );
-        assert!(
+        let serialized = serde_json::to_value(&settings)?;
+        assert!(serialized.get("daemon").is_none());
+        assert!(serialized.get("invocation").is_none());
+        assert_eq!(serialized["agent_materialization"]["enabled"], true);
+        assert_eq!(
+            serde_json::from_value::<BuckSettings>(serialized)?,
             settings
-                .hydration
-                .page_out_on_idle_applies_to_isolation_dir(
-                    FileName::new("custom").expect("The test isolation dir should be valid")
-                )
         );
+        assert!(serde_json::from_str::<BuckSettings>(r#"{"unknown_section":{}}"#).is_err());
         Ok(())
     }
 
     #[test]
-    fn test_find_setting_metadata() {
+    fn test_invocation_sections_roundtrip() -> buck2_error::Result<()> {
+        let client: BuckSettings = serde_json::from_str(
+            r#"{"agent_materialization":{"enabled":false},"agent_interactive":{"enabled":true,"killall_enabled":true},"analysis":{"record_requested_anon_targets":false}}"#,
+        )?;
+        let request = serde_json::to_string(&client.invocation)?;
+        let values: Value = serde_json::from_str(&request)?;
         assert_eq!(
-            find_setting_metadata(
-                ALL_SETTING_METADATA,
-                SettingKeyRef {
-                    section: "log_download",
-                    name: "log_use_manifold",
+            values,
+            serde_json::json!({
+                "agent_materialization": {"enabled": false},
+                "agent_interactive": {
+                    "enabled": true,
+                    "killall_enabled": true,
+                    "clean_enabled": null,
+                    "new_isolation_dir_enabled": null,
                 },
-            ),
-            Some(&LOG_USE_MANIFOLD.metadata)
+            })
+        );
+        let invocation = InvocationBuckSettings::from_request(Some(&request))?;
+        assert_eq!(invocation, client.invocation);
+        assert!(invocation.agent_interactive.killall_enabled());
+        assert!(!invocation.agent_interactive.clean_enabled());
+        assert!(!invocation.agent_materialization.enabled());
+        Ok(())
+    }
+
+    #[test]
+    fn test_invocation_values_do_not_leak_between_requests() -> buck2_error::Result<()> {
+        let first = InvocationBuckSettings::from_request(Some(
+            r#"{"agent_materialization":{"enabled":true}}"#,
+        ))?;
+        let second = InvocationBuckSettings::from_request(Some(
+            r#"{"agent_interactive":{"enabled":true}}"#,
+        ))?;
+        assert!(first.agent_materialization.enabled());
+        assert!(!first.agent_interactive.enabled());
+        assert!(!second.agent_materialization.enabled());
+        assert!(second.agent_interactive.enabled());
+        for request in [
+            None,
+            Some("{}"),
+            Some(r#"{"agent_materialization":{"enabled":null}}"#),
+        ] {
+            let invocation = InvocationBuckSettings::from_request(request)?;
+            assert_eq!(invocation, InvocationBuckSettings::default());
+            assert!(!invocation.agent_materialization.enabled());
+            assert!(!invocation.agent_interactive.enabled());
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_invalid_invocation_settings() {
+        for request in [
+            "not json",
+            r#"{"agent_materialization":{"enabled":"true"}}"#,
+            r#"{"unknown_section":{"enabled":true}}"#,
+            r#"{"analysis":{"record_requested_anon_targets":true}}"#,
+        ] {
+            let error = InvocationBuckSettings::from_request(Some(request)).unwrap_err();
+            assert!(format!("{error:#}").contains("Invalid invocation Buck Settings"));
+        }
+    }
+
+    #[test]
+    fn test_sections_have_one_scope() -> buck2_error::Result<()> {
+        let settings = BuckSettings::default();
+        let daemon = serde_json::to_value(&settings.daemon)?;
+        let invocation = serde_json::to_value(&settings.invocation)?;
+        let daemon = daemon.as_object().unwrap();
+        let invocation = invocation.as_object().unwrap();
+        assert!(daemon.keys().all(|name| !invocation.contains_key(name)));
+        let combined: serde_json::Map<_, _> = daemon
+            .clone()
+            .into_iter()
+            .chain(invocation.clone())
+            .collect();
+        assert_eq!(
+            Value::Object(combined),
+            serde_json::to_value(BuckSettingsData::default())?
         );
         assert_eq!(
-            find_setting_metadata(
-                ALL_SETTING_METADATA,
-                SettingKeyRef {
-                    section: "log_download",
-                    name: "log_use_maniflod",
-                },
-            ),
-            None
+            serde_json::to_value(&settings)?,
+            serde_json::to_value(BuckSettingsData::default())?
         );
-        assert_eq!(
-            find_setting_metadata(
-                ALL_SETTING_METADATA,
-                SettingKeyRef {
-                    section: "buck2",
-                    name: "log_url",
-                },
-            ),
-            None
+        assert!(
+            serde_json::from_str::<DaemonBuckSettings>(
+                r#"{"agent_materialization":{"enabled":true}}"#,
+            )
+            .is_err()
         );
+        Ok(())
     }
 
     #[test]
     fn test_all_settings_are_registered() {
-        // Remove once buck_settings! macro generates both BuckSettingsData and registry
-        fn collect_fields(prefix: Option<&str>, value: &serde_json::Value) -> BTreeSet<String> {
-            value
-                .as_object()
-                .expect("settings data should serialize to a JSON object")
-                .iter()
-                .flat_map(|(name, value)| {
-                    let path = match prefix {
-                        Some(prefix) => format!("{prefix}.{name}"),
-                        None => name.to_owned(),
-                    };
-                    if value.is_object() {
-                        collect_fields(Some(&path), value)
-                    } else {
-                        BTreeSet::from([path])
-                    }
-                })
-                .collect()
-        }
-
         let serialized = serde_json::to_value(BuckSettingsData::default())
             .expect("`BuckSettingsData` should serialize");
-        let fields = collect_fields(None, &serialized);
-        let registered: BTreeSet<String> = ALL_SETTING_METADATA
-            .iter()
-            .map(|metadata| format!("{}.{}", metadata.key.section, metadata.key.name))
-            .collect();
-        assert_eq!(
-            fields, registered,
-            "Every `BuckSettingsData` field must be registered in `ALL_SETTING_METADATA`, and vice versa"
-        );
+        for section in ALL_SECTION_METADATA {
+            let fields: BTreeSet<_> = serialized[section.section_name]
+                .as_object()
+                .expect("Every registered section must exist in `BuckSettingsData`")
+                .keys()
+                .map(String::as_str)
+                .collect();
+            let registered: BTreeSet<_> = section
+                .settings
+                .iter()
+                .map(|setting| setting.name)
+                .collect();
+            assert_eq!(
+                section.settings.len(),
+                registered.len(),
+                "Setting names must be unique in {}",
+                section.section_name
+            );
+            assert_eq!(
+                fields, registered,
+                "Every setting in {} must be registered, and vice versa",
+                section.section_name
+            );
+        }
     }
 
     #[test]
     fn test_all_sections_are_registered() {
-        // Remove once buck_settings! macro generates both BuckSettingsData and sections registry
         let serialized = serde_json::to_value(BuckSettingsData::default())
             .expect("`BuckSettingsData` should serialize");
         let sections: BTreeSet<_> = serialized

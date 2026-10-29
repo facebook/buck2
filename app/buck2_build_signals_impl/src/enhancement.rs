@@ -13,7 +13,7 @@ use std::time::Duration;
 use std::time::Instant;
 
 use buck2_build_signals::env::WaitingCategory;
-use buck2_core::soft_error;
+use buck2_core::soft_error_or_panic;
 use buck2_util::time_span::TimeSpan;
 use variant_name::VariantName;
 
@@ -46,7 +46,7 @@ impl CriticalPathProtoEnhancer {
         let DetailedCriticalPathEntry {
             key,
             mut data,
-            potential_improvement,
+            mut potential_improvement,
             deps_finished_time,
         } = entry;
         let proto_entry = key.into_critical_path_entry_data(&data.extra_data);
@@ -74,6 +74,10 @@ impl CriticalPathProtoEnhancer {
         if waiting_for_deps_end > data.duration.total.start() {
             data.duration.total =
                 TimeSpan::new_saturating(waiting_for_deps_end, data.duration.total.end());
+            // The user and improvable parts are subsets of the duration: trim them with it.
+            let trimmed = data.duration.total.duration();
+            data.duration.user = data.duration.user.min(trimmed);
+            potential_improvement = potential_improvement.map(|p| p.min(trimmed));
         }
 
         let node_start = data.duration.total.start();
@@ -193,7 +197,7 @@ impl CriticalPathProtoEnhancer {
         if let Some(overlap) = self.last_entry_end.checked_duration_since(entry_start)
             && overlap > Duration::ZERO
         {
-            let _ignored = soft_error!(
+            soft_error_or_panic!(
                 "critical_path_entry_overlap",
                 buck2_error::buck2_error!(
                     buck2_error::ErrorTag::Tier0,
@@ -210,8 +214,7 @@ impl CriticalPathProtoEnhancer {
                     self.entries.last(),
                     entry
                 )
-                .into(),
-                quiet: true
+                .into()
             );
         }
 
@@ -566,5 +569,145 @@ mod tests {
             Duration::from_micros(500),
             duration(&result[0].non_critical_path_duration)
         );
+    }
+
+    fn trimmed_entry() -> buck2_data::CriticalPathEntry2 {
+        use buck2_build_signals::env::NodeDuration;
+        use buck2_build_signals::env::WaitingData;
+        use buck2_common::package_listing::dice::PackageListingKey;
+        use buck2_core::package::PackageLabel;
+        use buck2_util::time_span::TimeSpan;
+
+        let t0 = Instant::now();
+        let mut enhancer = CriticalPathProtoEnhancer::new(t0, 4);
+        // A node that started 2 s before its last dependency finished.
+        enhancer.add_entry(DetailedCriticalPathEntry {
+            key: crate::NodeKey::PackageListingKey(PackageListingKey(PackageLabel::testing_parse(
+                "cell//n",
+            ))),
+            data: crate::NodeData {
+                extra_data: NodeExtraData::None,
+                duration: NodeDuration {
+                    user: Duration::from_secs(3),
+                    total: TimeSpan::from_start_and_duration(t0, Duration::from_secs(3)),
+                    queue: None,
+                },
+                waiting_data: WaitingData::new(),
+                span_ids: Default::default(),
+            },
+            potential_improvement: Some(Duration::from_secs(3)),
+            deps_finished_time: Some(t0 + Duration::from_secs(2)),
+        });
+        enhancer.into_entries().pop().unwrap()
+    }
+
+    /// An entry that started before one of its dependencies finished is trimmed to start at
+    /// that point, and so are its `user_duration` and `potential_improvement_duration`.
+    #[test]
+    fn trimmed_entry_trims_user_and_potential() {
+        let e = trimmed_entry();
+        assert_eq!(duration(&e.duration), Duration::from_secs(1));
+        assert_eq!(duration(&e.user_duration), Duration::from_secs(1));
+        assert_eq!(
+            duration(&e.potential_improvement_duration),
+            Duration::from_secs(1)
+        );
+    }
+
+    /// Lays out an install node whose installed artifacts finished building at `deps_done_s` and
+    /// whose installer ran from `installer_ready_s` to `installer_finished_s`, all from `t0`.
+    fn install_entries(
+        deps_done_s: u64,
+        installer_ready_s: u64,
+        installer_finished_s: u64,
+    ) -> Vec<buck2_data::CriticalPathEntry2> {
+        use std::sync::Arc;
+
+        use buck2_build_signals::env::NodeDuration;
+        use buck2_build_signals::env::WaitingData;
+        use buck2_core::configuration::data::ConfigurationData;
+        use buck2_core::provider::label::ConfiguredProvidersLabel;
+        use buck2_core::provider::label::ProvidersName;
+        use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+
+        let t0 = Instant::now();
+        let at = |s: u64| t0 + Duration::from_secs(s);
+        let label =
+            |l: &str| ConfiguredTargetLabel::testing_parse(l, ConfigurationData::testing_new());
+        let total = TimeSpan::new_saturating(at(installer_ready_s), at(installer_finished_s));
+        let mut enhancer = CriticalPathProtoEnhancer::new(t0, 4);
+        enhancer.add_entry(DetailedCriticalPathEntry {
+            key: crate::NodeKey::Install(crate::test_signals::InstallBuildSignalKey {
+                installer: ConfiguredProvidersLabel::new(
+                    label("cell//tools:installer"),
+                    ProvidersName::Default,
+                ),
+                targets: Arc::new(vec![label("cell//app:app")]),
+            }),
+            data: crate::NodeData {
+                extra_data: NodeExtraData::None,
+                duration: NodeDuration {
+                    user: total.duration(),
+                    total,
+                    queue: None,
+                },
+                waiting_data: WaitingData::with_initial_category(WaitingCategory::InstallerStartup),
+                span_ids: Default::default(),
+            },
+            potential_improvement: None,
+            deps_finished_time: Some(at(deps_done_s)),
+        });
+        enhancer.into_entries()
+    }
+
+    fn waiting_category(entry: &buck2_data::CriticalPathEntry2) -> Option<&str> {
+        match &entry.entry {
+            Some(critical_path_entry2::Entry::Waiting(w)) => w.category.as_deref(),
+            _ => None,
+        }
+    }
+
+    /// When the installer is ready after the artifacts are built, the wait for it is attributed
+    /// to installer startup and the whole installer run is critical.
+    #[test]
+    fn install_waits_for_late_installer() {
+        let entries = install_entries(1, 3, 5);
+        let [for_deps, startup, install] = entries.as_slice() else {
+            panic!("unexpected entries: {entries:?}");
+        };
+        assert_eq!(waiting_category(for_deps), Some("for_deps"));
+        assert_eq!(
+            waiting_category(startup),
+            Some(WaitingCategory::InstallerStartup.variant_name_lowercase())
+        );
+        assert_eq!(
+            duration(&startup.non_critical_path_duration),
+            Duration::from_secs(2)
+        );
+        assert!(matches!(
+            install.entry,
+            Some(critical_path_entry2::Entry::Install(_))
+        ));
+        assert_eq!(duration(&install.duration), Duration::from_secs(2));
+    }
+
+    /// When the installer is ready before the artifacts are built, only the installer time after
+    /// the last artifact is critical, and no time is attributed to installer startup.
+    #[test]
+    fn install_overlapping_build_is_trimmed() {
+        let entries = install_entries(4, 1, 6);
+        let install = entries.last().unwrap();
+        assert!(matches!(
+            install.entry,
+            Some(critical_path_entry2::Entry::Install(_))
+        ));
+        assert_eq!(duration(&install.duration), Duration::from_secs(2));
+        for e in &entries {
+            if waiting_category(e)
+                == Some(WaitingCategory::InstallerStartup.variant_name_lowercase())
+            {
+                assert_eq!(duration(&e.non_critical_path_duration), Duration::ZERO);
+            }
+        }
     }
 }

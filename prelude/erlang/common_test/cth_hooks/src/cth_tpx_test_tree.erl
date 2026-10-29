@@ -154,12 +154,28 @@ insert_result(TreeNode, ResultTest, [], MethodId) ->
                     ?INIT_PER_TESTCASE ->
                         TestLeaf#{init_method => ResultTest};
                     ?MAIN_TESTCASE ->
-                        TestLeaf#{main_method => ResultTest};
+                        Prev = maps:get(main_method, TestLeaf, none),
+                        TestLeaf#{main_method => preserve_test_timing(Prev, ResultTest)};
                     ?END_PER_TESTCASE ->
                         TestLeaf#{end_method => ResultTest}
                 end,
             TreeNode#{test_cases => Cases#{NameCase => NewTestLeaf}}
     end.
+
+%% When `?MAIN_TESTCASE` is registered a second time (e.g. a testcase returning `{fail, Reason}`
+%% due to https://github.com/erlang/otp/issues/11647 or a `post_end_per_testcase` hook returning
+%% `{fail, Reason}`, where `post_end_per_testcase` arrives with `{tc_status, ok}`, records
+%% `?MAIN_TESTCASE` as `passed` consuming `start_info`, and `on_tc_fail` subsequently overwrites
+%% `?MAIN_TESTCASE`), preserve `start_time`, `end_time`, and stdout progress markers from the
+%% earlier registration if the new registration lacks them.
+-spec preserve_test_timing(option(method_result()), method_result()) -> method_result().
+preserve_test_timing(none, New) ->
+    New;
+preserve_test_timing(Prev, New) ->
+    maps:merge(
+        maps:with([start_time, end_time, start_progress_marker, end_progress_marker], Prev),
+        New
+    ).
 
 %% Collecting results
 

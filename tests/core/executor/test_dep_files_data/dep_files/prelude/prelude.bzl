@@ -305,6 +305,44 @@ cross_config_run = rule(
     },
 )
 
+def _anon_run_impl(ctx):
+    out = ctx.actions.declare_output("out", has_content_based_path = ctx.attrs.use_content_based_paths)
+    ctx.actions.run(cmd_args(["cp", ctx.attrs.marker, out.as_output()]), category = "anon_run")
+    return [DefaultInfo(default_output = out)]
+
+_anon_run = anon_rule(
+    impl = _anon_run_impl,
+    attrs = {
+        "marker": attrs.source(),
+        "use_content_based_paths": attrs.bool(),
+    },
+    artifact_promise_mappings = {"out": lambda p: p[DefaultInfo].default_outputs[0]},
+)
+
+def _anon_owned_run_impl(ctx):
+    # The marker's path does not depend on its content, so changing `marker_content` changes the
+    # anon action's inputs while leaving the anon target's identity alone. This rule declares no
+    # run action of its own.
+    marker = ctx.actions.write("marker", ctx.attrs.marker_content, has_content_based_path = False)
+    out = ctx.actions.anon_target(
+        _anon_run,
+        {
+            "marker": marker,
+            "use_content_based_paths": ctx.attrs.use_content_based_paths,
+        },
+    ).artifact("out")
+    if ctx.attrs.use_content_based_paths:
+        out = ctx.actions.assert_has_content_based_path(out)
+    return [DefaultInfo(default_output = out)]
+
+anon_owned_run = rule(
+    impl = _anon_owned_run_impl,
+    attrs = {
+        "marker_content": attrs.string(),
+        "use_content_based_paths": attrs.bool(default = read_config("test", "use_content_based_paths", "true") == "true"),
+    },
+)
+
 def _shared_dir_dep_file_impl(ctx):
     has_content_based_path = ctx.attrs.use_content_based_paths
     used_input = ctx.actions.write("used_input1", ctx.attrs.used_input_contents, has_content_based_path = has_content_based_path)

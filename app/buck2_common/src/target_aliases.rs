@@ -11,7 +11,7 @@
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::target_aliases::TargetAliasResolver;
-use buck2_hash::BuckIndexSet;
+use buck2_hash::BuckMutInsertionSet;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::EqualityBehavior;
@@ -94,7 +94,7 @@ impl BuckConfigTargetAliasResolver {
         let mut alias = alias;
 
         let section = self.config.get_section("alias");
-        let mut stack = BuckIndexSet::<&str>::default();
+        let mut stack = BuckMutInsertionSet::<&str>::default();
         loop {
             if stack.contains(alias) {
                 return Err(AliasResolutionError::AliasCycle(

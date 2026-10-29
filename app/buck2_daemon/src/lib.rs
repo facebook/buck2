@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-#![feature(used_with_arg)]
-
 pub mod daemon;
 mod daemon_lower_priority;
 mod daemonize;

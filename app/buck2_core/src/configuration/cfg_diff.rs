@@ -159,6 +159,7 @@ mod tests {
     use crate::configuration::constraints::ConstraintValue;
     use crate::configuration::data::ConfigurationData;
     use crate::configuration::data::ConfigurationDataData;
+    use crate::configuration::data::ExecPlatformMarking;
 
     #[test]
     fn test_diff() {
@@ -174,7 +175,7 @@ mod tests {
                     ConstraintValue::testing_new("foo//qux:vx", None),
                 ),
             ])),
-            false,
+            ExecPlatformMarking::Unmarked,
         )
         .unwrap();
         let y = ConfigurationData::from_platform(
@@ -193,7 +194,7 @@ mod tests {
                     ConstraintValue::testing_new("foo//qux:vy", None),
                 ),
             ])),
-            false,
+            ExecPlatformMarking::Unmarked,
         )
         .unwrap();
         let diff = cfg_diff(&x, &y).unwrap_err();
@@ -224,7 +225,7 @@ mod tests {
                     ConstraintValue::testing_new("foo//qux:cpu", Some("x86_64")),
                 ),
             ])),
-            false,
+            ExecPlatformMarking::Unmarked,
         )
         .unwrap();
         let y = ConfigurationData::from_platform(
@@ -243,7 +244,7 @@ mod tests {
                     ConstraintValue::testing_new("foo//qux:cpu", Some("arm64")),
                 ),
             ])),
-            false,
+            ExecPlatformMarking::Unmarked,
         )
         .unwrap();
         let diff = cfg_diff(&x, &y).unwrap_err();

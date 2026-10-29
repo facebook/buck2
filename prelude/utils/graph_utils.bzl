@@ -131,7 +131,7 @@ def find_cycle(graph: dict[typing.Any, list[typing.Any]]) -> list[typing.Any] | 
                 work.append((OUTPUT, node))
                 for dep in graph[node]:
                     if dep in current_parents:
-                        return current_parents + [dep]
+                        return current_parents[current_parents.index(dep) :] + [dep]
                     if dep not in visited:
                         work.append((VISIT, dep))
         else:

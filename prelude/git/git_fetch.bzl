@@ -6,6 +6,8 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
+load("@prelude//decls:common.bzl", "buck")
 _HEX_DIGITS = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e", "f"]
 
 def _is_hex(rev: str, *, length: int) -> bool:
@@ -76,3 +78,80 @@ def git_fetch_impl(ctx: AnalysisContext) -> list[Provider]:
             sub_targets = sub_targets,
         )
     ]
+
+git_fetch = prelude_rule(
+    name = "git_fetch",
+    impl = git_fetch_impl,
+    docs = """
+        Checkout a commit from a git repository.
+    """,
+    examples = """
+        ```
+        git_fetch(
+            name = "serde.git",
+            repo = "https://github.com/serde-rs/serde",
+            rev = "fccb9499bccbaca0b7eef91a3a82dfcb31e0b149",
+        )
+        ```
+    """,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        {
+            "allow_cache_upload": attrs.bool(
+                doc = """
+                Whether the results of the fetch can be written to the action cache and CAS.
+            """,
+                default = True,
+            ),
+            "git": attrs.option(
+                attrs.string(),
+                default = None,
+                doc = """
+                Path to the git binary to use. If not specified, the system
+                git from PATH is used, with fallback to common system
+                locations (/usr/bin/git, /usr/local/bin/git).
+            """,
+            ),
+            "object_format": attrs.option(
+                attrs.enum(["sha1", "sha256"]),
+                default = None,
+                doc = """
+                The object format to use for the underlying Git repository.
+                Must be one of `sha1` or `sha256`.
+                """,
+            ),
+            "repo": attrs.string(
+                doc = """
+                Url suitable as a git remote.
+            """
+            ),
+            "rev": attrs.string(
+                doc = """
+                Commit hash. 40 hex digits for sha1, 64 hex digits for sha256.
+            """
+            ),
+            "update_submodules": attrs.bool(
+                default = False,
+                doc = """
+                Whether to initialize and update Git submodules after the worktree checkout.
+                If true, submodules are fetched recursively with depth 1.
+            """,
+            ),
+            "sub_targets": attrs.list(
+                attrs.string(),
+                default = [],
+                doc = """
+                A list of paths within the remote repo to be made accessible as sub-targets.
+                For example if we have a git_fetch with `name = "serde.git"` and
+                `sub_targets = ["serde_derive"]`, then other targets would be able to refer
+                to the serde_derive subdirectory of the repo as `":serde.git[serde_derive]"`.
+            """,
+            ),
+            "_git_fetch_tool": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//git/tools:git_fetch")),
+        }
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
+    ),
+)

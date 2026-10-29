@@ -125,6 +125,8 @@ message OutputPathsValue {
     string pathToSourcesList = 5;
     string workingDirectory = 6;
     string outputJarPath = 7;
+    // Optional compiler-reported class-file to source-file mapping.
+    string compilerClassToSourceMap = 8;
   }
 }
 

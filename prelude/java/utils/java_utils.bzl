@@ -177,8 +177,11 @@ def get_class_to_source_map_info(
             owner_target = str(ctx.label.raw_target()),
             sources_jar_name = "{}-sources.jar".format(name) if generate_sources_jar else None,
             debuginfo = mapping_debuginfo,
+            compiler_map = outputs.compiler_class_to_source_map,
         )
         sub_targets["class-to-srcs"] = [DefaultInfo(default_output = class_to_srcs)]
+        if outputs.compiler_class_to_source_map != None:
+            sub_targets["compiler-class-to-srcs"] = [DefaultInfo(default_output = outputs.compiler_class_to_source_map)]
         if sources_jar:
             sub_targets["sources.jar"] = [DefaultInfo(default_output = sources_jar)]
 

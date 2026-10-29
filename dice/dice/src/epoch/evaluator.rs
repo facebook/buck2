@@ -24,6 +24,7 @@ use crate::ActivationData;
 use crate::DiceEvent;
 use crate::DynKey;
 use crate::api::activation_tracker::PageInPhase;
+use crate::api::data::DiceData;
 use crate::api::projection::DiceProjectionComputations;
 use crate::api::storage_type::StorageType;
 use crate::api::user_data::UserComputationData;
@@ -56,8 +57,6 @@ use crate::epoch::worker::state::DiceWorkerStateFinishedEvaluating;
 use crate::key::DiceKey;
 use crate::key::DiceKeyErased;
 use crate::key::ParentKey;
-use crate::user_cycle::KeyComputingUserCycleDetectorData;
-use crate::user_cycle::UserCycleDetectorData;
 use crate::value::DiceValidity;
 use crate::value::MaybeResidentComputedValue;
 use crate::value::MaybeValidDiceValue;
@@ -167,6 +166,10 @@ impl VersionState {
     pub(crate) fn projection_validation(&self, key: DiceKey) -> ProjectionValidationCell {
         self.cache.projection_validation(key)
     }
+
+    pub(crate) fn cache(&self) -> &SharedCache {
+        &self.cache
+    }
 }
 
 /// Evaluates Keys
@@ -175,38 +178,42 @@ pub(crate) struct TransactionData {
     pub(super) version_state: VersionState,
     pub(super) user_data: Arc<UserComputationData>,
     pub(super) dice: StdArc<Dice>,
+    pub(super) global_data: StdArc<DiceData>,
 }
 
 #[derive(Clone, Dupe)]
 pub(crate) struct ValueDemand {
     pub(crate) key: DiceKey,
     pub(crate) parent_key: ParentKey,
-    pub(crate) cycles: UserCycleDetectorData,
 }
 
 impl TransactionData {
+    pub(crate) fn new(
+        version_state: VersionState,
+        user_data: Arc<UserComputationData>,
+        dice: StdArc<Dice>,
+        global_data: StdArc<DiceData>,
+    ) -> Self {
+        Self {
+            version_state,
+            user_data,
+            dice,
+            global_data,
+        }
+    }
+
     /// Establish the key's revision without demanding its payload.
-    pub(crate) fn bring_up_to_date(
-        &self,
-        key: DiceKey,
-        parent_key: ParentKey,
-        cycles: UserCycleDetectorData,
-    ) -> DicePromise<'_> {
+    ///
+    /// Fails if `key` turns out to be in a dependency cycle with `parent_key`, and only then.
+    pub(crate) fn bring_up_to_date(&self, key: DiceKey, parent_key: ParentKey) -> DicePromise<'_> {
         match self.version_state.lookup_entry(key, parent_key) {
             LookupResult::Finished(value) => match value.recovery() {
-                Some(recovery) => self.follow_recovery(
-                    recovery,
-                    ValueDemand {
-                        key,
-                        parent_key,
-                        cycles,
-                    },
-                ),
+                Some(recovery) => self.follow_recovery(recovery, ValueDemand { key, parent_key }),
                 None => DicePromise::ready(value),
             },
             LookupResult::Pending(promise) => promise,
             LookupResult::NeedsRestart(prepared, previous) => {
-                DiceTaskWorker::new(key, self.dupe()).spawn(prepared, cycles, previous)
+                DiceTaskWorker::new(key, self.dupe()).spawn(prepared, previous)
             }
         }
     }
@@ -227,9 +234,7 @@ impl TransactionData {
         demand: ValueDemand,
     ) -> DiceResult<ResidentComputedValueRef<'_>> {
         // Look up the descriptor here so recovery can only use this transaction's cache.
-        let value = self
-            .bring_up_to_date(demand.key, demand.parent_key, demand.cycles.dupe())
-            .await;
+        let value = self.bring_up_to_date(demand.key, demand.parent_key).await?;
         let paged_out = match value.try_as_resident() {
             Ok(value) => return Ok(value),
             Err(paged_out) => paged_out,
@@ -256,10 +261,11 @@ impl TransactionData {
         let start = Instant::now();
         let key_dyn = self.dice.key_index.get(key);
         let outcome = match storage.hydrate(key_dyn, paged_out.data_key).await {
-            Ok(resident) => {
+            Ok(hydrated) => {
+                let resident = hydrated.value.dupe();
                 self.dice
                     .state_handle
-                    .rehydrate(key, paged_out.data_key, resident.dupe());
+                    .rehydrate(key, paged_out.data_key, hydrated);
                 if let Some(tracker) = self.user_data.activation_tracker.as_ref() {
                     tracker.key_paged_in(
                         DynKey::ref_cast(key_dyn),
@@ -302,11 +308,8 @@ impl TransactionData {
             DiceTaskDependedOnByResult::Finished(value) => DicePromise::ready(value),
             DiceTaskDependedOnByResult::Pending(promise) => promise,
             DiceTaskDependedOnByResult::NeedsRestart(prepared, previous) => {
-                DiceTaskWorker::new_recompute(demand.key, self.dupe(), recovery.epsilon).spawn(
-                    prepared,
-                    demand.cycles,
-                    Some(previous),
-                )
+                DiceTaskWorker::new_recompute(demand.key, self.dupe(), recovery.epsilon)
+                    .spawn(prepared, Some(previous))
             }
         }
     }
@@ -320,7 +323,7 @@ impl TransactionData {
             PageInOutcome::Read(Ok(resident)) => Ok(resident.as_ref()),
             PageInOutcome::Read(Err(error)) => Err(error.dupe()),
             PageInOutcome::Recompute(recovery) => Ok(recovered_value(
-                self.follow_recovery(recovery, demand).await,
+                self.follow_recovery(recovery, demand).await?,
             )),
         }
     }
@@ -338,7 +341,6 @@ impl TransactionData {
         cancellations: &CancellationContext,
         key: DiceKey,
         state: DiceWorkerStateEvaluating,
-        cycles: KeyComputingUserCycleDetectorData,
     ) -> WorkerResult<DiceWorkerStateFinishedEvaluating> {
         let key_erased = self.dice.key_index.get(key);
 
@@ -347,7 +349,6 @@ impl TransactionData {
                 let compute = ComputeCtx {
                     transaction_data: self.dupe(),
                     parent_key: ParentKey::Some(key), // within this key's compute, this key is the parent
-                    cycles,
                     evaluation_data: Mutex::new(EvaluationData::none()),
                     dependency_failed: AtomicBool::new(false),
                 };
@@ -369,7 +370,6 @@ impl TransactionData {
 
                 state.finished(
                     cancellations,
-                    compute.cycles,
                     KeyEvaluationResult {
                         value: MaybeValidDiceValue::new(value, validity),
                         deps: recorded_deps.deps,
@@ -401,14 +401,25 @@ impl TransactionData {
                 //  3. This is insanity.
                 // `check_dependency`, the only caller that brings a projection key up to date,
                 // does so only once the base's value is resident.
+                //
+                // To cycle detection, this task is a node like any other: the dep checks waiting
+                // on it are the keys blocked on it, and this wait for the base is its one edge
+                // out, which is why the projection key is the parent of the wait. So it can be
+                // found in a cycle. When it is, the detector fails the cycle's other waits but
+                // never this one: there is nothing to do with an error here, and failing the
+                // waits of the cycle's regular keys breaks it all the same, every cycle having
+                // one (the base, for a start). This wait then gets whatever value the base
+                // finishes with. See `Member::fails` in `epoch::cycles`.
                 let base = self
                     .page_in(ValueDemand {
                         key: proj.base(),
-                        parent_key: ParentKey::Some(key), // the projection requests its base
-                        cycles: cycles.subrequest(proj.base(), &self.dice.key_index),
+                        parent_key: ParentKey::Some(key),
                     })
                     .await
-                    .expect("dependency checks make a projection's base resident first");
+                    .expect(
+                        "dependency checks make a projection's base resident first, and cycle \
+                         detection never fails a projection key's wait",
+                    );
                 let result = self.evaluate_projection(
                     key,
                     base.value(),
@@ -418,7 +429,6 @@ impl TransactionData {
 
                 state.finished(
                     cancellations,
-                    cycles,
                     result,
                     ActivationData::Evaluated(None), // Projection keys can't set this.
                 )
@@ -437,7 +447,7 @@ impl TransactionData {
             unreachable!("cannot evaluate async keys synchronously")
         };
         let ctx = DiceProjectionComputations {
-            data: &self.dice.global_data,
+            data: &self.global_data,
             user_data: &self.user_data,
         };
 

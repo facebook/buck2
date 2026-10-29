@@ -12,7 +12,7 @@ import ast
 from typing import Any
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
 def extract_test_output(stderr: str) -> dict[str, Any]:
@@ -49,14 +49,15 @@ def assert_common_fruits(data: dict[str, Any]) -> None:
     assert fruits[1]["name"] == "banana"
 
 
-@buck_test()
-async def test_load_toml(buck: Buck) -> None:
-    result = await buck.targets("root//:")
-    data = extract_test_output(result.stderr)
+class LoadTomlTest(BuckTestCase):
+    @buck_test()
+    async def test_load_toml(self, buck: Buck) -> None:
+        result = await buck.targets("root//:")
+        data = extract_test_output(result.stderr)
 
-    assert_common_types(data["types"])
-    assert_common_fruits(data)
+        assert_common_types(data["types"])
+        assert_common_fruits(data)
 
-    # TOML-specific: datetime is converted to a string
-    assert isinstance(data["types"]["datetime_val"], str)
-    assert "2026" in data["types"]["datetime_val"]
+        # TOML-specific: datetime is converted to a string
+        assert isinstance(data["types"]["datetime_val"], str)
+        assert "2026" in data["types"]["datetime_val"]

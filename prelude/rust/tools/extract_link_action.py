@@ -16,6 +16,8 @@
 # library it needs is provided by the toolchain and the dependency graph, the same way it is for
 # a `cxx_binary`. See `process_link_args()` for the exact contract.
 
+from __future__ import annotations
+
 import argparse
 import os
 import re

@@ -35,110 +35,97 @@ from buck2.tests.core.common.io.file_watcher_symlink_tests import (
 )
 from buck2.tests.core.common.io.file_watcher_tests import FileSystemType
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test(setup_eden=False)
-async def test_notify_create_file(buck: Buck) -> None:
-    await run_create_file_test(
-        buck, FileSystemType.NATIVE, FileWatcherProvider.RUST_NOTIFY
-    )
+class NotifyTest(BuckTestCase):
+    @buck_test(setup_eden=False)
+    async def test_notify_create_file(self, buck: Buck) -> None:
+        await run_create_file_test(
+            buck, FileSystemType.NATIVE, FileWatcherProvider.RUST_NOTIFY
+        )
 
+    @buck_test(setup_eden=False)
+    async def test_notify_modify_file(self, buck: Buck) -> None:
+        await run_modify_file_test(
+            buck, FileSystemType.NATIVE, FileWatcherProvider.RUST_NOTIFY
+        )
 
-@buck_test(setup_eden=False)
-async def test_notify_modify_file(buck: Buck) -> None:
-    await run_modify_file_test(
-        buck, FileSystemType.NATIVE, FileWatcherProvider.RUST_NOTIFY
-    )
+    @buck_test(setup_eden=False)
+    async def test_notify_remove_file(self, buck: Buck) -> None:
+        await run_remove_file_test(
+            buck, FileSystemType.NATIVE, FileWatcherProvider.RUST_NOTIFY
+        )
 
+    @buck_test(setup_eden=False)
+    async def test_notify_rename_file(self, buck: Buck) -> None:
+        await run_rename_file_test(
+            buck, FileSystemType.NATIVE, FileWatcherProvider.RUST_NOTIFY
+        )
 
-@buck_test(setup_eden=False)
-async def test_notify_remove_file(buck: Buck) -> None:
-    await run_remove_file_test(
-        buck, FileSystemType.NATIVE, FileWatcherProvider.RUST_NOTIFY
-    )
+    # File replace is not supported on Windows
+    @buck_test(setup_eden=False, skip_for_os=["windows"])
+    async def test_notify_replace_file(self, buck: Buck) -> None:
+        await run_replace_file_test(
+            buck, FileSystemType.NATIVE, FileWatcherProvider.RUST_NOTIFY
+        )
 
+    @buck_test(setup_eden=False)
+    async def test_notify_create_directory(self, buck: Buck) -> None:
+        await run_create_directory_test(
+            buck, FileSystemType.NATIVE, FileWatcherProvider.RUST_NOTIFY
+        )
 
-@buck_test(setup_eden=False)
-async def test_notify_rename_file(buck: Buck) -> None:
-    await run_rename_file_test(
-        buck, FileSystemType.NATIVE, FileWatcherProvider.RUST_NOTIFY
-    )
+    @buck_test(setup_eden=False)
+    async def test_notify_remove_directory(self, buck: Buck) -> None:
+        await run_remove_directory_test(
+            buck, FileSystemType.NATIVE, FileWatcherProvider.RUST_NOTIFY
+        )
 
+    @buck_test(setup_eden=False)
+    async def test_notify_rename_directory(self, buck: Buck) -> None:
+        await run_rename_directory_test(
+            buck, FileSystemType.NATIVE, FileWatcherProvider.RUST_NOTIFY
+        )
 
-# File replace is not supported on Windows
-@buck_test(setup_eden=False, skip_for_os=["windows"])
-async def test_notify_replace_file(buck: Buck) -> None:
-    await run_replace_file_test(
-        buck, FileSystemType.NATIVE, FileWatcherProvider.RUST_NOTIFY
-    )
+    @buck_test(setup_eden=False)
+    async def test_notify_checkout_mergebase_changes(self, buck: Buck) -> None:
+        await run_checkout_mergebase_changes_test(
+            buck, FileSystemType.NATIVE, FileWatcherProvider.RUST_NOTIFY
+        )
 
+    @buck_test(setup_eden=False)
+    async def test_notify_checkout_with_mergebase(self, buck: Buck) -> None:
+        await run_checkout_with_mergebase_test(
+            buck, FileSystemType.NATIVE, FileWatcherProvider.RUST_NOTIFY
+        )
 
-@buck_test(setup_eden=False)
-async def test_notify_create_directory(buck: Buck) -> None:
-    await run_create_directory_test(
-        buck, FileSystemType.NATIVE, FileWatcherProvider.RUST_NOTIFY
-    )
+    @buck_test(setup_eden=False)
+    async def test_notify_rebase_with_mergebase(self, buck: Buck) -> None:
+        await run_rebase_with_mergebase_test(
+            buck, FileSystemType.NATIVE, FileWatcherProvider.RUST_NOTIFY
+        )
 
+    @buck_test(setup_eden=False)
+    async def test_notify_restack_with_mergebase(self, buck: Buck) -> None:
+        await run_restack_with_mergebase_test(
+            buck, FileSystemType.NATIVE, FileWatcherProvider.RUST_NOTIFY
+        )
 
-@buck_test(setup_eden=False)
-async def test_notify_remove_directory(buck: Buck) -> None:
-    await run_remove_directory_test(
-        buck, FileSystemType.NATIVE, FileWatcherProvider.RUST_NOTIFY
-    )
+    @buck_test(setup_eden=False)
+    async def test_notify_create_symlink_test(self, buck: Buck) -> None:
+        await run_create_symlink_test(
+            buck, FileSystemType.NATIVE, FileWatcherProvider.RUST_NOTIFY
+        )
 
+    @buck_test(setup_eden=False)
+    async def test_notify_replace_file_with_symlink_test(self, buck: Buck) -> None:
+        await run_replace_file_with_symlink_test(
+            buck, FileSystemType.NATIVE, FileWatcherProvider.RUST_NOTIFY
+        )
 
-@buck_test(setup_eden=False)
-async def test_notify_rename_directory(buck: Buck) -> None:
-    await run_rename_directory_test(
-        buck, FileSystemType.NATIVE, FileWatcherProvider.RUST_NOTIFY
-    )
-
-
-@buck_test(setup_eden=False)
-async def test_notify_checkout_mergebase_changes(buck: Buck) -> None:
-    await run_checkout_mergebase_changes_test(
-        buck, FileSystemType.NATIVE, FileWatcherProvider.RUST_NOTIFY
-    )
-
-
-@buck_test(setup_eden=False)
-async def test_notify_checkout_with_mergebase(buck: Buck) -> None:
-    await run_checkout_with_mergebase_test(
-        buck, FileSystemType.NATIVE, FileWatcherProvider.RUST_NOTIFY
-    )
-
-
-@buck_test(setup_eden=False)
-async def test_notify_rebase_with_mergebase(buck: Buck) -> None:
-    await run_rebase_with_mergebase_test(
-        buck, FileSystemType.NATIVE, FileWatcherProvider.RUST_NOTIFY
-    )
-
-
-@buck_test(setup_eden=False)
-async def test_notify_restack_with_mergebase(buck: Buck) -> None:
-    await run_restack_with_mergebase_test(
-        buck, FileSystemType.NATIVE, FileWatcherProvider.RUST_NOTIFY
-    )
-
-
-@buck_test(setup_eden=False)
-async def test_notify_create_symlink_test(buck: Buck) -> None:
-    await run_create_symlink_test(
-        buck, FileSystemType.NATIVE, FileWatcherProvider.RUST_NOTIFY
-    )
-
-
-@buck_test(setup_eden=False)
-async def test_notify_replace_file_with_symlink_test(buck: Buck) -> None:
-    await run_replace_file_with_symlink_test(
-        buck, FileSystemType.NATIVE, FileWatcherProvider.RUST_NOTIFY
-    )
-
-
-@buck_test(setup_eden=False)
-async def test_notify_change_symlink_target_test(buck: Buck) -> None:
-    await run_change_symlink_target_test(
-        buck, FileSystemType.NATIVE, FileWatcherProvider.RUST_NOTIFY
-    )
+    @buck_test(setup_eden=False)
+    async def test_notify_change_symlink_target_test(self, buck: Buck) -> None:
+        await run_change_symlink_target_test(
+            buck, FileSystemType.NATIVE, FileWatcherProvider.RUST_NOTIFY
+        )

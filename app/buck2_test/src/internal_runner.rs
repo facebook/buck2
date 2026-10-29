@@ -19,6 +19,7 @@ use std::time::Duration;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::internal_runner_test_info::InternalRunnerTestInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::internal_runner_test_info::OwnedInternalRunnerTestInfo;
 use buck2_error::BuckErrorContext;
+use buck2_hash::BuckFixedSortedMap;
 use buck2_test_api::data::ArgValue;
 use buck2_test_api::data::ArgValueContent;
 use buck2_test_api::data::ExecuteResponse;
@@ -299,9 +300,7 @@ fn build_command_from_spec(spec: &ExternalRunnerSpec) -> Vec<ArgValue> {
         .collect()
 }
 
-fn build_env_from_spec(
-    spec: &ExternalRunnerSpec,
-) -> sorted_vector_map::SortedVectorMap<String, ArgValue> {
+fn build_env_from_spec(spec: &ExternalRunnerSpec) -> BuckFixedSortedMap<String, ArgValue> {
     spec.env
         .iter()
         .map(|(k, v)| {

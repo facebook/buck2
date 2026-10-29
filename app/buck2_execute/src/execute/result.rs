@@ -22,7 +22,7 @@ use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_data::SchedulingMode;
-use buck2_hash::BuckIndexMap;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_util::time_span::TimeSpan;
 use derivative::Derivative;
 use dupe::Dupe;
@@ -35,6 +35,7 @@ use crate::execute::kind::CommandExecutionKind;
 use crate::execute::output::CommandStdStreams;
 use crate::execute::request::CommandExecutionOutput;
 use crate::execute::request::ResolvedCommandExecutionOutput;
+use crate::materialize::materializer::ReadLease;
 use crate::output_size::OutputSize;
 use crate::re::remote_action_result::ReMetadataTiming;
 
@@ -222,6 +223,7 @@ impl CommandExecutionMetadata {
             queue_duration: metadata.queue_duration.and_then(|d| d.try_into().ok()),
             suspend_duration: metadata.suspend_duration.and_then(|d| d.try_into().ok()),
             suspend_count: metadata.suspend_count,
+            client_start_time: None,
         }
     }
 }
@@ -231,7 +233,7 @@ impl CommandExecutionMetadata {
 #[derivative(Debug)]
 pub struct CommandExecutionResult {
     /// The outputs produced by this command
-    pub outputs: BuckIndexMap<CommandExecutionOutput, ArtifactValue>,
+    pub outputs: BuckMutInsertionMap<CommandExecutionOutput, ArtifactValue>,
     /// How it executed.
     pub report: CommandExecutionReport,
     /// A previously rejected execution of this command.
@@ -257,6 +259,11 @@ pub struct CommandExecutionResult {
 
     /// Data about time spent waiting (not on critical path) during command execution.
     pub waiting_data: WaitingData,
+
+    /// Holds the outputs on disk for the readers that come after the run, the cache upload among
+    /// them. `None` when the run did not report its outputs, or from an executor whose outputs
+    /// are not on this machine's disk.
+    pub outputs_lease: Option<ReadLease>,
 }
 
 impl CommandExecutionResult {
@@ -308,6 +315,23 @@ impl CommandExecutionResult {
                 execution_kind: CommandExecutionKind::ActionCache { .. },
             }
         )
+    }
+
+    /// Whether this is a local run that a hybrid executor chose at run time over a remote one:
+    /// a fallback after the remote run failed, or a race the local run won. Where the command
+    /// would run was not decided by its configuration, so the result is not one every build
+    /// of the same command would have produced the same way.
+    pub fn ran_locally_in_place_of_remote(&self) -> bool {
+        self.was_locally_executed()
+            && matches!(
+                self.scheduling_mode,
+                Some(
+                    SchedulingMode::FullHybrid
+                        | SchedulingMode::PreferRemote
+                        | SchedulingMode::Fallback
+                        | SchedulingMode::FallbackReQueueEstimate
+                )
+            )
     }
 
     /// Resolves the output path as used by execution, a stable path it can be
@@ -479,8 +503,8 @@ mod tests {
     use std::time::Instant;
 
     use buck2_common::cas_digest::CasDigest;
+    use buck2_hash::BuckFixedSortedMap;
     use buck2_util::time_span::TimeSpan;
-    use sorted_vector_map::SortedVectorMap;
 
     use super::*;
 
@@ -490,11 +514,7 @@ mod tests {
             execution_kind: CommandExecutionKind::Local {
                 digest: CasDigest::new_blake3([0].repeat(32).as_slice().try_into().unwrap(), 123),
                 command: vec!["fake_buck2".to_owned()],
-                env: {
-                    let mut map = SortedVectorMap::new();
-                    map.insert("FAKE_ENV_VAR".to_owned(), "1".to_owned());
-                    map
-                },
+                env: BuckFixedSortedMap::from_iter([("FAKE_ENV_VAR".to_owned(), "1".to_owned())]),
             },
         };
         let timing = CommandExecutionMetadata {
@@ -552,6 +572,7 @@ mod tests {
                         value: "1".to_owned(),
                     }],
                     action_digest: format!("{}:{}", "0".repeat(64), "123"),
+                    ..Default::default()
                 },
             )),
         };
@@ -599,6 +620,7 @@ mod tests {
             }),
             suspend_duration: None,
             suspend_count: None,
+            client_start_time: None,
         };
         let command_execution_details = buck2_data::CommandExecutionDetails {
             signed_exit_code: Some(456),

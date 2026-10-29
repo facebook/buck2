@@ -10,6 +10,7 @@ license.workspace = true
 [dependencies]
 async-recursion.workspace = true
 async-trait.workspace = true
+buck2_agent_interactive.workspace = true
 buck2_cli_proto.workspace = true
 buck2_client_ctx.workspace = true
 buck2_common.workspace = true

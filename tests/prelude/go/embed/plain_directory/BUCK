@@ -17,7 +17,7 @@ prelude.go_test(
         "main_test.go",
     ],
     embed_srcs = glob(["templates/**"]),
-    # @oss-disable[end= ]: env = {"GO_TEST2JSON_TOOL": "$(exe_target fbsource//third-party/go:test2json)"},
+    # @oss-disable[end= ]: env = {"GO_TEST2JSON_TOOL": "$(exe_target fbsource//third-party/go-toolchain:test2json)"},
 )
 
 py_assertion(

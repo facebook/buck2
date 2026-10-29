@@ -10,12 +10,15 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_targets_show_outputs_with_content_based_path(buck: Buck) -> None:
-    await buck.targets(
-        "root//:write_with_content_based_path",
-        "--show-output",
-    )
+class ContentBasedPathsTest(BuckTestCase):
+    @buck_test()
+    async def test_targets_show_outputs_with_content_based_path(
+        self, buck: Buck
+    ) -> None:
+        await buck.targets(
+            "root//:write_with_content_based_path",
+            "--show-output",
+        )

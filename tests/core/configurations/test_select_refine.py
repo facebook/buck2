@@ -12,18 +12,19 @@
 import json
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_select_refine(buck: Buck) -> None:
-    # Smoke test for select refinement:
-    # the most specific option is picked even if it is not listed first.
-    out = await buck.cquery(
-        "--target-platforms=//:p-good-domestic",
-        "-a=labels",
-        "//:the-test",
-    )
-    q = json.loads(out.stdout)
-    assert len(q) == 1
-    assert list(q.values())[0]["labels"] == ["good-domestic"]
+class SelectRefineTest(BuckTestCase):
+    @buck_test()
+    async def test_select_refine(self, buck: Buck) -> None:
+        # Smoke test for select refinement:
+        # the most specific option is picked even if it is not listed first.
+        out = await buck.cquery(
+            "--target-platforms=//:p-good-domestic",
+            "-a=labels",
+            "//:the-test",
+        )
+        q = json.loads(out.stdout)
+        assert len(q) == 1
+        assert list(q.values())[0]["labels"] == ["good-domestic"]

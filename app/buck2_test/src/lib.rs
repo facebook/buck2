@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-#![feature(used_with_arg)]
-
 //! Implementation of test running.
 
 pub mod command;

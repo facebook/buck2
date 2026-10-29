@@ -98,12 +98,12 @@ use strong_hash::StrongHash;
     derive_more::Display,
     Derivative,
     Hash,
+    StrongHash,
     PartialEq,
     Eq,
     PartialOrd,
     Ord,
-    RefCast,
-    StrongHash
+    RefCast
 )]
 #[derivative(Debug)]
 #[repr(transparent)]
@@ -118,6 +118,7 @@ pub struct ProjectRelativePath(
 #[derive(
     Default,
     Hash,
+    StrongHash,
     PartialEq,
     Eq,
     PartialOrd,
@@ -125,8 +126,7 @@ pub struct ProjectRelativePath(
     Serialize,
     Deserialize,
     Pagable,
-    Allocative,
-    StrongHash
+    Allocative
 )]
 #[derivative(Debug)]
 pub struct ProjectRelativePathBuf(

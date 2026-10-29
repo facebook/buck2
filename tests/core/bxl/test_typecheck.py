@@ -11,14 +11,50 @@
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_not_bxl(buck: Buck) -> None:
-    result = await expect_failure(
-        buck.bxl(
-            "//:test_typecheck.bxl:main",
+class TypecheckTest(BuckTestCase):
+    @buck_test()
+    async def test_not_bxl(self, buck: Buck) -> None:
+        result = await expect_failure(
+            buck.bxl(
+                "//:test_typecheck.bxl:main",
+            )
         )
-    )
-    assert "Expected type `int` but got `str`" in result.stderr
+        assert "Expected type `int` but got `str`" in result.stderr
+
+    @buck_test()
+    async def test_target_set_element_type(self, buck: Buck) -> None:
+        result = await expect_failure(
+            buck.bxl(
+                "//:target_set_element.bxl:main",
+            )
+        )
+        assert (
+            "Expected type `bxl.UnconfiguredTargetNode` but got `bxl.ConfiguredTargetNode`"
+            in result.stderr
+        )
+
+    @buck_test()
+    async def test_target_set_query_args_type(self, buck: Buck) -> None:
+        result = await expect_failure(
+            buck.bxl(
+                "//:target_set_query_args.bxl:main",
+            )
+        )
+        assert "bxl.TargetSet[bxl.UnconfiguredTargetNode]" in result.stderr
+        assert "bxl.TargetSet[bxl.ConfiguredTargetNode]" in result.stderr
+
+    @buck_test()
+    async def test_target_set_mixed_kinds(self, buck: Buck) -> None:
+        result = await expect_failure(
+            buck.bxl(
+                "//:target_set_mixed_kinds.bxl:main",
+            )
+        )
+        assert (
+            "Binary operator `+` is not available on the types "
+            "`bxl.TargetSet[bxl.ConfiguredTargetNode]` and `bxl.TargetSet[bxl.UnconfiguredTargetNode]`"
+            in result.stderr
+        )

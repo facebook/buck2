@@ -14,6 +14,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_core::buck2_env;
 use buck2_core::cells::cell_path::CellPath;
+use buck2_core::fs::i_project_rel_path::IProjectRelativePath;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::RelativePath;
@@ -21,7 +22,8 @@ use buck2_fs::paths::RelativePathBuf;
 use buck2_fs::paths::abs_path::AbsPath;
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::file_name::FileNameBuf;
-use compact_str::CompactString;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_util::arc_str::PackedStringSlice;
 use derive_more::Display;
 use dupe::Dupe;
 use pagable::Pagable;
@@ -44,6 +46,18 @@ pub enum FileType {
     /// Some special files (for example, unix domain sockets) will have a
     /// filetype that we don't recognize.
     Unknown,
+}
+
+impl FileType {
+    /// A noun for error messages.
+    pub fn describe(self) -> &'static str {
+        match self {
+            FileType::Directory => "directory",
+            FileType::File => "file",
+            FileType::Symlink => "symlink",
+            FileType::Unknown => "special file",
+        }
+    }
 }
 
 impl From<std::fs::FileType> for FileType {
@@ -74,36 +88,26 @@ impl FileType {
     }
 }
 
-#[derive(
-    Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Allocative, Pagable
-)]
-pub struct SimpleDirEntry {
+/// Transient IO-boundary type returned from `IoProvider::read_dir_impl`. Not
+/// stored in DICE — entries are immediately sorted and packed into the more
+/// compact [`ReadDirOutput`] representation.
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Allocative)]
+pub struct RawDirEntry {
     // Put the `file_name` first so we sort by it (which is what people expect)
     pub file_name: FileNameBuf,
     pub file_type: FileType,
 }
 
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Allocative)]
-pub struct RawDirEntry {
-    // Put the `file_name` first so we sort by it (which is what people expect)
-    /// Not all file names are accepted as file names in Buck. Such files are automatically ignored.
-    /// This should probably be something like `CompactOsString`.
-    pub file_name: CompactString,
-    pub file_type: FileType,
-}
-
-#[derive(
-    Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Dupe, Allocative, Pagable
-)]
+#[derive(Clone, Eq, PartialEq, Hash, Debug, Dupe, Allocative, Pagable)]
 pub struct ReadDirOutput {
-    /// Sorted.
-    pub included: Arc<[SimpleDirEntry]>,
+    /// Sorted by file name.
+    pub included: PackedStringSlice<FileName, FileType>,
 }
 
 impl ReadDirOutput {
     /// Is the file name in the directory listing. Ignores files that were explicitly ignored.
     pub fn contains(&self, file_name: &FileName) -> bool {
-        self.included.iter().any(|x| x.file_name == file_name)
+        self.included.contains(file_name)
     }
 }
 
@@ -260,7 +264,7 @@ pub enum PathMetadata {
 }
 
 #[derive(Debug, PartialEq, Dupe, Eq, Clone, Allocative, VariantName, Pagable)]
-pub enum RawPathMetadata<T = Arc<CellPath>> {
+pub enum RawPathMetadata<T = CellPath> {
     Symlink { at: T, to: RawSymlink<T> },
     File(FileMetadata),
     Directory,
@@ -314,9 +318,35 @@ pub enum RawSymlink<T> {
     External(Arc<ExternalSymlink>),
 }
 
+impl<T> RawSymlink<T> {
+    pub fn map<O>(self, f: impl Fn(T) -> O) -> RawSymlink<O> {
+        match self {
+            RawSymlink::Relative(target, raw) => RawSymlink::Relative(f(target), raw),
+            RawSymlink::External(external) => RawSymlink::External(external),
+        }
+    }
+}
+
+impl RawSymlink<IProjectRelativePath> {
+    /// The target of this symlink, continued by `rest`: what a path that goes through the symlink
+    /// and then follows `rest` points at.
+    pub fn continued_by(self, rest: &ForwardRelativePath) -> buck2_error::Result<Self> {
+        Ok(match self {
+            RawSymlink::Relative(target, raw) => RawSymlink::Relative(
+                target.join(rest),
+                Arc::new(Symlink::new(raw.target().join(rest.as_str()))),
+            ),
+            RawSymlink::External(external) => RawSymlink::External(Arc::new(ExternalSymlink::new(
+                external.target().to_owned(),
+                external.remaining_path().join(rest),
+            )?)),
+        })
+    }
+}
+
 /// Stores the relevant metadata for a path.
 #[derive(Debug, Dupe, PartialEq, Eq, Clone)]
-pub enum PathMetadataOrRedirection<T = Arc<CellPath>> {
+pub enum PathMetadataOrRedirection<T = CellPath> {
     PathMetadata(PathMetadata),
     Redirection(T, Arc<Symlink>),
 }

@@ -34,6 +34,7 @@ load(
     "declare_cuda_dist_compile_output",
 )
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
+load("@prelude//cxx:hip.bzl", "hip_compile_weight")
 load("@prelude//cxx:hip_debug_extract.bzl", "hip_debug_extract_available", "hip_debug_extract_compile_object")
 load(
     "@prelude//ide_integrations/xcode:argsfiles.bzl",
@@ -100,6 +101,7 @@ CxxCompileInfo = record(
     index_store_base = field(str | None),  # filename_base for index store compilation
     identifier = field(str),
     folder_name = field(str),
+    weight = field(int),
 )
 
 CxxSharedCompileInfo = record(
@@ -358,6 +360,13 @@ def create_compile_cmds(
 
         src_args.append(src.file)
 
+        weight = 1
+        if ext.value == ".hip":
+            weight = hip_compile_weight(
+                _target_compile_flags(impl_params, cxx_compile_cmd.compiler_type, ext) + [src.flags],
+                src.file.short_path,
+            )
+
         src_compile_command = CxxSrcCompileCommand(
             src = src.file,
             cxx_compile_cmd = cxx_compile_cmd,
@@ -368,6 +377,7 @@ def create_compile_cmds(
             index_store_factory = impl_params.index_store_factory,
             error_handler = impl_params.error_handler,
             expect_eligible_for_dedupe = impl_params.expect_eligible_for_dedupe,
+            weight = weight,
         )
 
         if src.is_header:
@@ -594,6 +604,7 @@ def _prepare_cxx_compilation(
         index_store_base = index_store_base,
         identifier = identifier,
         folder_name = folder_name,
+        weight = src_compile_cmd.weight,
     )
 
     return CxxCompileInput(
@@ -836,6 +847,7 @@ def _compile_single_cxx(
             error_handler = shared_info.error_handler,
             outputs_for_error_handler = outputs_for_error_handler,
             local_only = is_producing_compiled_pch or is_consuming_compiled_pch,
+            weight = info.weight,
             expect_eligible_for_dedupe = shared_info.expect_eligible_for_dedupe,
         )
 
@@ -2184,6 +2196,20 @@ _filter_precompile_argsfile_anon_rule = anon_rule(
     },
 )
 
+def _target_compile_flags(impl_params: CxxRuleConstructorParams, compiler_type: str, ext: CxxExtension) -> list[typing.Any]:
+    """The target's own flags for `ext`, in command-line order."""
+    return [
+        # preprocessor
+        impl_params.preprocessor_flags,
+        cxx_by_language_ext(impl_params.lang_preprocessor_flags, ext.value),
+        get_flags_for_compiler_type(compiler_type),
+        # compiler
+        cxx_by_language_ext(impl_params.lang_compiler_flags, ext.value),
+        # ctx.attrs.compiler_flags need to come last to preserve buck1 ordering, this prevents compiler
+        # flags ordering-dependent build errors
+        impl_params.compiler_flags,
+    ]
+
 def _mk_argsfiles(
     actions: AnalysisActions,
     target_label: Label,
@@ -2389,16 +2415,7 @@ def _mk_argsfiles(
     make_deps_argsfile()
 
     def make_target_argsfile():
-        target_args = [
-            # preprocessor
-            impl_params.preprocessor_flags,
-            cxx_by_language_ext(impl_params.lang_preprocessor_flags, ext.value),
-            get_flags_for_compiler_type(compiler_info.compiler_type),
-            # compiler
-            cxx_by_language_ext(impl_params.lang_compiler_flags, ext.value),
-            # ctx.attrs.compiler_flags need to come last to preserve buck1 ordering, this prevents compiler
-            # flags ordering-dependent build errors
-            impl_params.compiler_flags,
+        target_args = _target_compile_flags(impl_params, compiler_info.compiler_type, ext) + [
             headers_tag.tag_artifacts(preprocessor.set.project_as_args("include_dirs")),
         ]
         if is_precompile:

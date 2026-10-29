@@ -13,26 +13,26 @@ import os.path
 from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_chrome_trace(buck: Buck, tmp_path: Path) -> None:
-    # Just check it at least runs.
-    await buck.build("//...")
-    await buck.debug("chrome-trace", "--trace-path", str(tmp_path / "trace.json"))
+class DebugChromeTraceTest(BuckTestCase):
+    @buck_test()
+    async def test_chrome_trace(self, buck: Buck, tmp_path: Path) -> None:
+        # Just check it at least runs.
+        await buck.build("//...")
+        await buck.debug("chrome-trace", "--trace-path", str(tmp_path / "trace.json"))
 
-
-@buck_test()
-async def test_chrome_trace_no_repo(buck: Buck, tmp_path: Path) -> None:
-    # Check that it runs from a path that is not in the repo.
-    await buck.build("//...")
-    log_path = (await buck.log("last")).stdout.strip()
-    await buck.debug(
-        "chrome-trace",
-        "--trace-path",
-        str(tmp_path / "trace.json"),
-        "--path",
-        log_path,
-        rel_cwd=Path(os.path.relpath("/", buck.cwd)),
-    )
+    @buck_test()
+    async def test_chrome_trace_no_repo(self, buck: Buck, tmp_path: Path) -> None:
+        # Check that it runs from a path that is not in the repo.
+        await buck.build("//...")
+        log_path = (await buck.log("last")).stdout.strip()
+        await buck.debug(
+            "chrome-trace",
+            "--trace-path",
+            str(tmp_path / "trace.json"),
+            "--path",
+            log_path,
+            rel_cwd=Path(os.path.relpath("/", buck.cwd)),
+        )

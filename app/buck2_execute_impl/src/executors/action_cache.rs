@@ -124,6 +124,7 @@ async fn query_action_cache_and_download_result(
                         .find_typed_context::<RemoteExecutionError>()
                         .map(|re_err| re_err.code.to_string()),
                 }),
+                ..Default::default()
             };
             (result, end)
         },
@@ -267,6 +268,9 @@ impl PreparedCommandOptionalExecutor for ActionCacheChecker {
         manager: CommandExecutionManager,
         cancellations: &CancellationContext,
     ) -> ControlFlow<CommandExecutionResult, CommandExecutionManager> {
+        if command.request.induced_cache_miss() {
+            return ControlFlow::Continue(manager);
+        }
         let action_digest = &command.prepared_action.action_and_blobs.action;
         let details = RemoteCommandExecutionDetails::new(
             action_digest.dupe(),
@@ -329,6 +333,9 @@ impl PreparedCommandOptionalExecutor for RemoteDepFileCacheChecker {
         // If the remote dep file key is not set, just fallback to the next execution method
         let remote_dep_file_key = match command.request.remote_dep_file_key() {
             None => {
+                return ControlFlow::Continue(manager);
+            }
+            Some(_) if command.request.induced_cache_miss() => {
                 return ControlFlow::Continue(manager);
             }
             Some(key) => key.dupe(),

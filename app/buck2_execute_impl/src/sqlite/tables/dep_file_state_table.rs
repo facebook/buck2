@@ -31,7 +31,7 @@ use buck2_common::file_ops::metadata::FileMetadata;
 use buck2_common::file_ops::metadata::Symlink;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_common::sqlite::sqlite_db::SqliteTables;
-use buck2_core::soft_error;
+use buck2_core::soft_error_or_panic;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
@@ -330,15 +330,14 @@ impl DepFileStateSqliteTable {
             .collect();
         if read_connections.len() < requested {
             // Reads stay correct on a short pool, only slower, so this reports rather than fails.
-            let _unused = soft_error!(
+            soft_error_or_panic!(
                 "dep_file_db_read_connections_short",
                 buck2_error::buck2_error!(
                     buck2_error::ErrorTag::Tier0,
                     "Opened {} of {} dep-file db read connections; reads will contend",
                     read_connections.len(),
                     requested
-                ),
-                quiet: true
+                )
             );
         }
         Self {
@@ -350,15 +349,14 @@ impl DepFileStateSqliteTable {
                     db_path: path.to_buf(),
                 }),
                 Err(e) => {
-                    let _unused = soft_error!(
+                    soft_error_or_panic!(
                         "dep_file_db_measure_connection",
                         buck2_error::buck2_error!(
                             buck2_error::ErrorTag::Tier0,
                             "Failed to open the dep-file db connection used for size metrics; \
                              they will be absent for this daemon. {}",
                             e
-                        ),
-                        quiet: true
+                        )
                     );
                     None
                 }

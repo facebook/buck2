@@ -12,40 +12,9 @@
 import json
 from typing import Any, List
 
-import pytest
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
-
-
-@buck_test(inplace=True)
-@pytest.mark.parametrize("adapter", ["testpilot", "builtin"])
-@pytest.mark.parametrize("listing", ["static", "dynamic"])
-@pytest.mark.parametrize("python_version", ["3.12"])
-async def testname_formatting(
-    buck: Buck,
-    adapter: str,
-    listing: str,
-    python_version: str,
-) -> None:
-    target = f"{adapter}_{listing}_{python_version}"
-
-    if python_version == "3.12" and adapter == "new":
-        pytest.xfail("Test name formatting is different in 3.12")
-
-    await expect_failure(
-        buck.test(
-            f"fbcode//buck2/tests/targets/rules/python/test_name_formatting:{target}",
-        )
-    )
-    log = (await buck.log("show")).stdout.strip().splitlines()
-    actual_tests = get_events_test_names(log)
-    expected_tests = [
-        "test_failure (buck2.tests.targets.rules.python.test_name_formatting.test_name_formatting.TestCase)",
-        "test_nested_test_class (buck2.tests.targets.rules.python.test_name_formatting.test_name_formatting.TestCase)",
-        "test_success (buck2.tests.targets.rules.python.test_name_formatting.test_name_formatting.TestCase)",
-    ]
-    assert expected_tests == actual_tests
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase, parametrize
 
 
 #########
@@ -67,3 +36,35 @@ def get_events_test_names(log: List[str]) -> List[str]:
         for test_name in get_test_name_from_end_event(test_event)
     ]
     return sorted(test_end_events)
+
+
+class TestnameFormattingTest(BuckTestCase):
+    @buck_test(inplace=True)
+    @parametrize("adapter", ["testpilot", "builtin"])
+    @parametrize("listing", ["static", "dynamic"])
+    @parametrize("python_version", ["3.12"])
+    async def test_name_formatting(
+        self,
+        buck: Buck,
+        adapter: str,
+        listing: str,
+        python_version: str,
+    ) -> None:
+        target = f"{adapter}_{listing}_{python_version}"
+
+        if python_version == "3.12" and adapter == "new":
+            self.skipTest("Test name formatting is different in 3.12")
+
+        await expect_failure(
+            buck.test(
+                f"fbcode//buck2/tests/targets/rules/python/test_name_formatting:{target}",
+            )
+        )
+        log = (await buck.log("show")).stdout.strip().splitlines()
+        actual_tests = get_events_test_names(log)
+        expected_tests = [
+            "test_failure (buck2.tests.targets.rules.python.test_name_formatting.test_name_formatting.TestCase)",
+            "test_nested_test_class (buck2.tests.targets.rules.python.test_name_formatting.test_name_formatting.TestCase)",
+            "test_success (buck2.tests.targets.rules.python.test_name_formatting.test_name_formatting.TestCase)",
+        ]
+        assert expected_tests == actual_tests

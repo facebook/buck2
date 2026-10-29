@@ -298,7 +298,7 @@ def apple_bundle_extra_attrs():
         "split_arch_dsym": attrs.bool(default = False),
         "universal": attrs.option(attrs.bool(), default = None),
         "validate_rrapi_usage": attrs.bool(default = False),
-        "xcassets_usage_targets": attrs.list(attrs.dep(), default = []),
+        "xcassets_usage_targets": attrs.list(attrs.split_transition_dep(cfg = cpu_split_transition), default = []),
         "_apple_toolchain": get_apple_bundle_toolchain_attr(),
         "_codesign_entitlements": attrs.option(attrs.source(), default = None),
     }

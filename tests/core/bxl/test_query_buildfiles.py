@@ -9,46 +9,42 @@
 # pyre-strict
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_uquery_allbuildfiles(buck: Buck) -> None:
-    await buck.bxl(
-        "//:query_buildfiles.bxl:uquery_allbuildfiles",
-    )
+class QueryBuildfilesTest(BuckTestCase):
+    @buck_test()
+    async def test_uquery_allbuildfiles(self, buck: Buck) -> None:
+        await buck.bxl(
+            "//:query_buildfiles.bxl:uquery_allbuildfiles",
+        )
 
+    @buck_test()
+    async def test_uquery_rbuildfiles(self, buck: Buck) -> None:
+        await buck.bxl(
+            "//:query_buildfiles.bxl:uquery_rbuildfiles",
+        )
 
-@buck_test()
-async def test_uquery_rbuildfiles(buck: Buck) -> None:
-    await buck.bxl(
-        "//:query_buildfiles.bxl:uquery_rbuildfiles",
-    )
+    @buck_test()
+    async def test_cquery_allbuildfiles(self, buck: Buck) -> None:
+        await buck.bxl(
+            "//:query_buildfiles.bxl:cquery_allbuildfiles",
+        )
 
+    @buck_test()
+    async def test_cquery_rbuildfiles(self, buck: Buck) -> None:
+        await buck.bxl(
+            "//:query_buildfiles.bxl:cquery_rbuildfiles",
+        )
 
-@buck_test()
-async def test_cquery_allbuildfiles(buck: Buck) -> None:
-    await buck.bxl(
-        "//:query_buildfiles.bxl:cquery_allbuildfiles",
-    )
+    @buck_test()
+    async def test_lazy_uquery_allbuildfiles(self, buck: Buck) -> None:
+        await buck.bxl(
+            "//:query_buildfiles.bxl:lazy_uquery_allbuildfiles",
+        )
 
-
-@buck_test()
-async def test_cquery_rbuildfiles(buck: Buck) -> None:
-    await buck.bxl(
-        "//:query_buildfiles.bxl:cquery_rbuildfiles",
-    )
-
-
-@buck_test()
-async def test_lazy_uquery_allbuildfiles(buck: Buck) -> None:
-    await buck.bxl(
-        "//:query_buildfiles.bxl:lazy_uquery_allbuildfiles",
-    )
-
-
-@buck_test()
-async def test_lazy_uquery_rbuildfiles(buck: Buck) -> None:
-    await buck.bxl(
-        "//:query_buildfiles.bxl:lazy_uquery_rbuildfiles",
-    )
+    @buck_test()
+    async def test_lazy_uquery_rbuildfiles(self, buck: Buck) -> None:
+        await buck.bxl(
+            "//:query_buildfiles.bxl:lazy_uquery_rbuildfiles",
+        )

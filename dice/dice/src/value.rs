@@ -75,6 +75,15 @@ impl DiceValidValue {
 pub(crate) struct PageOutResult {
     pub(crate) serialized_value: DiceValidValue,
     pub(crate) data_key: DataKey,
+    /// Size of the top-level serialized blob, excluding nested `PagableArc` sub-values.
+    pub(crate) serialized_bytes: u64,
+}
+
+/// A value read back from its row.
+pub(crate) struct HydratedValue {
+    pub(crate) value: DiceValidValue,
+    /// Size of the row's top-level serialized blob, excluding nested `PagableArc` sub-values.
+    pub(crate) serialized_bytes: u64,
 }
 
 /// Type erased value that may be transient, or whose dependencies are transient

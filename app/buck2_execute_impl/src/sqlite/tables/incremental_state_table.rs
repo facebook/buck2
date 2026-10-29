@@ -15,10 +15,9 @@ use std::sync::LazyLock;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_hash::BuckDashMap;
+use buck2_hash::BuckMutMap;
 use parking_lot::Mutex;
 use rusqlite::Connection;
-use starlark_map::small_map::SmallMap;
 
 use crate::incremental_actions_helper::IncrementalPathMap;
 use crate::sqlite::incremental_state_db::IncrementalState;
@@ -67,25 +66,25 @@ fn convert_incremental_state_to_sqlite_entries<'a>(
 fn convert_sqlite_entries_to_incremental_state(
     entries: Vec<SqliteEntry>,
 ) -> buck2_error::Result<IncrementalState> {
-    let incremental_state: BuckDashMap<String, Arc<IncrementalPathMap>> = BuckDashMap::default();
-
+    let mut paths_by_action: BuckMutMap<
+        String,
+        Vec<(ForwardRelativePathBuf, ProjectRelativePathBuf)>,
+    > = BuckMutMap::default();
     for entry in entries {
-        let run_action_key = entry.run_action_key.to_string();
         let short_path = ForwardRelativePathBuf::unchecked_new(entry.short_path.into_owned());
         let content_path = ProjectRelativePathBuf::unchecked_new(entry.content_path.into_owned());
+        paths_by_action
+            .entry(entry.run_action_key.into_owned())
+            .or_default()
+            .push((short_path, content_path));
+    }
 
-        incremental_state
-            .entry(run_action_key)
-            .and_modify(|state_arc| {
-                let mut state = (**state_arc).clone();
-                state.insert(short_path.clone(), content_path.clone());
-                *state_arc = Arc::new(state);
-            })
-            .or_insert_with(|| {
-                let mut mapping = SmallMap::new();
-                mapping.insert(short_path, content_path);
-                Arc::new(IncrementalPathMap::new(mapping))
-            });
+    let incremental_state = IncrementalState::default();
+    for (run_action_key, paths) in paths_by_action {
+        incremental_state.insert(
+            run_action_key,
+            Arc::new(IncrementalPathMap::new(paths.into_iter().collect())),
+        );
     }
 
     Ok(incremental_state)
@@ -189,6 +188,20 @@ impl IncrementalStateSqliteTable {
 mod tests {
     use super::*;
 
+    fn path_map(paths: &[(&str, &str)]) -> IncrementalPathMap {
+        IncrementalPathMap::new(
+            paths
+                .iter()
+                .map(|(short_path, content_path)| {
+                    (
+                        ForwardRelativePathBuf::unchecked_new((*short_path).to_owned()),
+                        ProjectRelativePathBuf::unchecked_new((*content_path).to_owned()),
+                    )
+                })
+                .collect(),
+        )
+    }
+
     #[test]
     fn test_insert_and_read_single_action() -> buck2_error::Result<()> {
         let conn = Connection::open_in_memory()?;
@@ -196,16 +209,10 @@ mod tests {
         table.create_table()?;
 
         let run_action_key = "test_action_key".to_owned();
-        let mut mapping = SmallMap::new();
-        mapping.insert(
-            ForwardRelativePathBuf::unchecked_new("foo".to_owned()),
-            ProjectRelativePathBuf::unchecked_new("buck-out/content_hash/foo".to_owned()),
-        );
-        mapping.insert(
-            ForwardRelativePathBuf::unchecked_new("bar".to_owned()),
-            ProjectRelativePathBuf::unchecked_new("buck-out/content_hash/bar".to_owned()),
-        );
-        let incremental_path_map = IncrementalPathMap::new(mapping);
+        let incremental_path_map = path_map(&[
+            ("foo", "buck-out/content_hash/foo"),
+            ("bar", "buck-out/content_hash/bar"),
+        ]);
 
         table.insert(run_action_key.clone(), incremental_path_map)?;
 
@@ -227,25 +234,14 @@ mod tests {
         table.create_table()?;
 
         let run_action_key1 = "action_key_1".to_owned();
-        let mut mapping1 = SmallMap::new();
-        mapping1.insert(
-            ForwardRelativePathBuf::unchecked_new("foo".to_owned()),
-            ProjectRelativePathBuf::unchecked_new("buck-out/content_hash/foo".to_owned()),
-        );
-        mapping1.insert(
-            ForwardRelativePathBuf::unchecked_new("bar".to_owned()),
-            ProjectRelativePathBuf::unchecked_new("buck-out/content_hash/bar".to_owned()),
-        );
-        let incremental_path_map1 = IncrementalPathMap::new(mapping1);
+        let incremental_path_map1 = path_map(&[
+            ("foo", "buck-out/content_hash/foo"),
+            ("bar", "buck-out/content_hash/bar"),
+        ]);
 
         // Second action
         let run_action_key2 = "action_key_2".to_owned();
-        let mut mapping2 = SmallMap::new();
-        mapping2.insert(
-            ForwardRelativePathBuf::unchecked_new("baz".to_owned()),
-            ProjectRelativePathBuf::unchecked_new("buck-out/content_hash/baz".to_owned()),
-        );
-        let incremental_path_map2 = IncrementalPathMap::new(mapping2);
+        let incremental_path_map2 = path_map(&[("baz", "buck-out/content_hash/baz")]);
 
         table.insert(run_action_key1.clone(), incremental_path_map1)?;
         table.insert(run_action_key2.clone(), incremental_path_map2)?;
@@ -281,19 +277,8 @@ mod tests {
         let run_action_key1 = "action_to_keep".to_owned();
         let run_action_key2 = "action_to_delete".to_owned();
 
-        let mut mapping1 = SmallMap::new();
-        mapping1.insert(
-            ForwardRelativePathBuf::unchecked_new("keep".to_owned()),
-            ProjectRelativePathBuf::unchecked_new("buck-out/content_hash/keep".to_owned()),
-        );
-        let incremental_path_map1 = IncrementalPathMap::new(mapping1);
-
-        let mut mapping2 = SmallMap::new();
-        mapping2.insert(
-            ForwardRelativePathBuf::unchecked_new("delete".to_owned()),
-            ProjectRelativePathBuf::unchecked_new("buck-out/content_hash/delete".to_owned()),
-        );
-        let incremental_path_map2 = IncrementalPathMap::new(mapping2);
+        let incremental_path_map1 = path_map(&[("keep", "buck-out/content_hash/keep")]);
+        let incremental_path_map2 = path_map(&[("delete", "buck-out/content_hash/delete")]);
 
         table.insert(run_action_key1.clone(), incremental_path_map1)?;
         table.insert(run_action_key2.clone(), incremental_path_map2)?;
@@ -318,16 +303,10 @@ mod tests {
     #[test]
     fn test_conversion() {
         let run_action_key = "test_key1".to_owned();
-        let mut mapping = SmallMap::new();
-        mapping.insert(
-            ForwardRelativePathBuf::unchecked_new("foo".to_owned()),
-            ProjectRelativePathBuf::unchecked_new("buck-out/content_path/foo".to_owned()),
-        );
-        mapping.insert(
-            ForwardRelativePathBuf::unchecked_new("bar".to_owned()),
-            ProjectRelativePathBuf::unchecked_new("buck-out/content_path/bar".to_owned()),
-        );
-        let incremental_path_map = IncrementalPathMap::new(mapping);
+        let incremental_path_map = path_map(&[
+            ("foo", "buck-out/content_path/foo"),
+            ("bar", "buck-out/content_path/bar"),
+        ]);
 
         let mut entries = convert_incremental_state_to_sqlite_entries(
             run_action_key.clone(),
@@ -338,12 +317,7 @@ mod tests {
 
         // Add in another key to since realistically there'd be more than one in the real world
         let run_action_key2 = "test_key2".to_owned();
-        let mut mapping = SmallMap::new();
-        mapping.insert(
-            ForwardRelativePathBuf::unchecked_new("baz".to_owned()),
-            ProjectRelativePathBuf::unchecked_new("buck-out/content_path/baz".to_owned()),
-        );
-        let incremental_path_map2 = IncrementalPathMap::new(mapping);
+        let incremental_path_map2 = path_map(&[("baz", "buck-out/content_path/baz")]);
         entries.extend(convert_incremental_state_to_sqlite_entries(
             run_action_key2.clone(),
             incremental_path_map2,

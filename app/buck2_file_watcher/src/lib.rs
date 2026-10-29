@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-#![feature(used_with_arg)]
-
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 
 pub mod dep_files;
@@ -17,6 +15,7 @@ pub mod dep_files;
 mod edenfs;
 pub mod file_watcher;
 mod fs_hash_crawler;
+pub mod ignores;
 pub mod mergebase;
 mod notify;
 mod stats;

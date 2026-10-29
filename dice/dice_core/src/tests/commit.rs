@@ -231,6 +231,10 @@ fn seqs_are_per_branch() {
 }
 
 #[test]
+#[cfg_attr(
+    all(miri, panic = "abort"),
+    ignore = "with panic=abort the panic kills the in-process Miri harness"
+)]
 #[should_panic(expected = "never both")]
 fn asserting_a_certified_key_panics() {
     let mut s = State::new();
@@ -240,6 +244,10 @@ fn asserting_a_certified_key_panics() {
 }
 
 #[test]
+#[cfg_attr(
+    all(miri, panic = "abort"),
+    ignore = "with panic=abort the panic kills the in-process Miri harness"
+)]
 #[should_panic(expected = "never both")]
 fn certifying_an_asserted_key_panics() {
     let mut s = State::new();
@@ -249,6 +257,10 @@ fn certifying_an_asserted_key_panics() {
 }
 
 #[test]
+#[cfg_attr(
+    all(miri, panic = "abort"),
+    ignore = "with panic=abort the panic kills the in-process Miri harness"
+)]
 #[should_panic(expected = "never both")]
 fn dirtying_an_asserted_key_panics() {
     let mut s = State::new();
@@ -323,6 +335,10 @@ fn reasserting_the_parents_revision_after_an_own_change_is_a_change() {
 }
 
 #[test]
+#[cfg_attr(
+    all(miri, panic = "abort"),
+    ignore = "with panic=abort the panic kills the in-process Miri harness"
+)]
 #[should_panic(expected = "appears twice in one commit")]
 fn a_key_appearing_twice_in_one_commit_panics() {
     let mut s = State::new();
@@ -345,6 +361,10 @@ fn a_key_appearing_twice_in_one_commit_panics() {
 /// Deleting the only branch with a claim on a key forgets the claim, not that the key has been
 /// certified: asserting it afterwards is still the mistake it was before.
 #[test]
+#[cfg_attr(
+    all(miri, panic = "abort"),
+    ignore = "with panic=abort the panic kills the in-process Miri harness"
+)]
 #[should_panic(expected = "asserted after being certified")]
 fn a_key_certified_on_a_deleted_branch_still_cannot_be_asserted() {
     let (mut s, root, _) = leaf_and_dependent();

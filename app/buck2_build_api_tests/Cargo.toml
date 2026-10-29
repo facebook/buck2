@@ -14,6 +14,7 @@ path = "src/lib.rs"
 
 [dev-dependencies]
 allocative.workspace = true
+anyhow.workspace = true
 assert_matches.workspace = true
 async-trait.workspace = true
 buck2_action_impl.workspace = true
@@ -44,16 +45,16 @@ buck2_transition.workspace = true
 buck2_util.workspace = true
 ctor.workspace = true
 derivative.workspace = true
+derive_more.workspace = true
 dice.workspace = true
+dice_futures.workspace = true
 dupe.workspace = true
 indoc.workspace = true
 itertools.workspace = true
 maplit.workspace = true
 pagable.workspace = true
 serde_json.workspace = true
-sorted_vector_map.workspace = true
 starlark.workspace = true
-starlark_map.workspace = true
 tokio.workspace = true
 
 [lints]

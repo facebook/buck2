@@ -112,10 +112,22 @@ impl<T> FusedIterator for Drain<'_, T> {}
 
 impl<T> Drop for Drain<'_, T> {
     fn drop(&mut self) {
-        // Drop any elements still pending in the drain range.
         let unread = self.iter.as_slice();
         let unread_len = unread.len();
-        let unread_ptr = unread.as_ptr().cast_mut();
+        let unread_addr = unread.as_ptr().addr();
+
+        // SAFETY: nothing else can be touching `vec` for the duration of
+        // this `Drop` because `Drain` exclusively borrows it (`PhantomData`).
+        let vec = unsafe { self.vec.as_mut() };
+        let base = vec.as_mut_ptr();
+        let drain_start = vec.len();
+
+        // Drop any elements still pending in the drain range. `iter` only
+        // holds a shared borrow of them, so a pointer taken from it carries
+        // read-only provenance and must not be written through; re-derive
+        // the pointer from the vector's own storage pointer instead (as
+        // `std::vec::Drain` does).
+        let unread_ptr = base.with_addr(unread_addr);
         // SAFETY: the unread slice covers initialized `T`s we own; after
         // this `drop_in_place`, they are logically gone and must not be
         // accessed. The source vector's length is below `tail_start`, so
@@ -124,16 +136,11 @@ impl<T> Drop for Drain<'_, T> {
             ptr::drop_in_place(ptr::slice_from_raw_parts_mut(unread_ptr, unread_len));
         }
 
-        // SAFETY: nothing else can be touching `vec` for the duration of
-        // this `Drop` because `Drain` exclusively borrows it (`PhantomData`).
-        let vec = unsafe { self.vec.as_mut() };
-        let drain_start = vec.len();
         // SAFETY: indices `[tail_start..tail_start+tail_len)` and
         // `[drain_start..drain_start+tail_len)` both lie within the
         // allocation; the regions may overlap, hence `ptr::copy`.
         unsafe {
             if self.tail_len > 0 {
-                let base = vec.as_mut_ptr();
                 let src = base.add(self.tail_start);
                 let dst = base.add(drain_start);
                 if src != dst {

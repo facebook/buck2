@@ -8,116 +8,131 @@
  * above-listed licenses.
  */
 
-use std::fmt::Debug;
-use std::hash::Hash;
 use std::sync::Arc;
 
-use allocative::Allocative;
-use async_trait::async_trait;
+use buck2_core::cells::CellResolver;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::name::CellName;
+use buck2_core::cells::nested::NestedCells;
+use buck2_core::cells::paths::CellRelativePath;
+use buck2_core::fs::i_project_rel_path::IProjectRelativePath;
+use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::file_name::FileNameBuf;
-use buck2_hash::BuckMutSet;
-use derive_more::Display;
+use buck2_util::arc_str::PackedStringSlice;
+use buck2_util::arc_str::PackedStringSliceBuilder;
 use dice::DiceComputations;
-use dice::DiceTransactionUpdater;
-use dice::EqualityBehavior;
-use dice::InvalidationSourcePriority;
-use dice::Key;
-use dice::OkPagableValueSerialize;
-use dice::ValueSerialize;
-use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
-use dupe::ResultDupedErrExt;
-use pagable::Pagable;
-use pagable::pagable_typetag;
 
 use crate::buildfiles::HasBuildfiles;
-use crate::file_ops::delegate::FileOpsDelegateWithIgnores;
-use crate::file_ops::delegate::get_delegated_file_ops;
+use crate::dice::cells::HasCellResolver;
+use crate::file_ops::delegate::external_cell_delegate;
 use crate::file_ops::error::FileReadError;
-use crate::file_ops::error::extended_ignore_error;
+use crate::file_ops::error::read_dir_error;
+use crate::file_ops::io;
+use crate::file_ops::io::DirListing;
+use crate::file_ops::metadata::FileType;
 use crate::file_ops::metadata::RawPathMetadata;
 use crate::file_ops::metadata::ReadDirOutput;
+use crate::file_ops::path_check::PathCheck;
+use crate::file_ops::path_check::PathCheckError;
+use crate::file_ops::path_check::ReadKind;
+use crate::ignores::file_ignores::CellFileIgnores;
+use crate::ignores::file_ignores::FileIgnoreReason;
 use crate::ignores::file_ignores::FileIgnoreResult;
+use crate::ignores::ignore_set::HasIgnoreSet;
 use crate::io::ReadDirError;
 
 pub struct DiceFileComputations;
 
 /// Functions for accessing files with keys on the dice graph.
 impl DiceFileComputations {
-    /// Filters out ignored paths
-    pub async fn read_dir<'d>(
-        ctx: &mut DiceComputations<'d>,
-        path: CellPathRef<'_>,
-    ) -> buck2_error::Result<&'d ReadDirOutput> {
-        ctx.compute(&ReadDirKey {
-            path: path.to_owned(),
-            check_ignores: CheckIgnores::Yes,
-        })
-        .await?
-        .as_ref()
-        .duped_err()
-    }
-
-    /// Returns if a directory or file exists at the given path, but checks for an exact,
-    /// case-sensitive match.
-    ///
-    /// Note that case-sensitive match is only done on the last element of the path, not any of the
-    /// elements before.
-    pub async fn exists_matching_exact_case(
+    /// Lists a directory of the cell. Entries that are the roots of nested cells are left out,
+    /// and a path inside a nested cell is an error; `project.ignore` applies as it does to every
+    /// read.
+    pub async fn read_dir(
         ctx: &mut DiceComputations<'_>,
-        path: CellPathRef<'_>,
+        path: CellPath,
+    ) -> buck2_error::Result<ReadDirOutput> {
+        match read_dir_impl(ctx, path).await? {
+            Ok(listing) => Ok(listing),
+            Err(refusal) => Err(refusal.into_error(ctx, path)),
+        }
+    }
+
+    /// Whether a file, directory or symlink exists at the path, spelled exactly like that in
+    /// every component, with no symlink above it, nothing ignored on the way, and inside this
+    /// cell rather than a cell nested in it.
+    pub async fn exists(
+        ctx: &mut DiceComputations<'_>,
+        path: CellPath,
     ) -> buck2_error::Result<bool> {
-        ctx.compute(&ExistsMatchingExactCaseKey(path.to_owned()))
-            .await?
-            .dupe()
+        let cells = ctx.get_cell_resolver().await?;
+        if cells
+            .get(path.cell())?
+            .nested_cells()
+            .matches(path.path())
+            .is_some()
+        {
+            return Ok(false);
+        }
+        match external_cell_delegate(ctx, cells, path.cell()).await? {
+            Some(delegate) => delegate.exists(ctx, path.ipath()).await,
+            None => io::exists(ctx, cells.resolve_ipath(path)?).await,
+        }
     }
 
-    pub async fn read_dir_include_ignores<'d>(
-        ctx: &mut DiceComputations<'d>,
-        path: CellPathRef<'_>,
-    ) -> buck2_error::Result<&'d ReadDirOutput> {
-        ctx.compute(&ReadDirKey {
-            path: path.to_owned(),
-            check_ignores: CheckIgnores::No,
-        })
-        .await?
-        .as_ref()
-        .duped_err()
-    }
-
-    /// Like read_dir, but with extended error information. This may add additional dice dependencies.
+    /// `read_dir` with an error that says what is wrong and suggests corrections. The
+    /// suggestions cost extra reads, which add dependencies to the caller.
     pub async fn read_dir_ext(
         ctx: &mut DiceComputations<'_>,
-        path: CellPathRef<'_>,
+        path: CellPath,
     ) -> Result<ReadDirOutput, ReadDirError> {
-        read_dir_ext(ctx, path).await
+        match read_dir_impl(ctx, path).await? {
+            Ok(listing) => Ok(listing),
+            Err(refusal) => Err(read_dir_error(ctx, path, refusal).await),
+        }
     }
 
-    /// Does not check if the path is ignored
-    ///
-    /// TODO(cjhopman): error on ignored paths, maybe.
+    /// The contents of the file, or `None` if there is no file there: nothing at all, or
+    /// something ignored. A symlink at the path or above it is an error, as is a directory.
     pub async fn read_file_if_exists(
         ctx: &mut DiceComputations<'_>,
-        path: CellPathRef<'_>,
+        path: CellPath,
     ) -> buck2_error::Result<Option<String>> {
-        ctx.compute(&ReadFileKey(Arc::new(path.to_owned())))
-            .await?
-            .as_ref()
-            .duped_err()?
-            .read_file_if_exists(ctx)
-            .await
+        match read_file_impl(ctx, path).await? {
+            FileRead::Contents(contents) => Ok(Some(contents)),
+            FileRead::Absent => Ok(None),
+            FileRead::Refused {
+                check:
+                    PathCheck::Missing { .. }
+                    | PathCheck::Ignored { .. }
+                    | PathCheck::ParentNotDirectory { .. },
+                ..
+            } => Ok(None),
+            FileRead::Refused {
+                project_path,
+                check,
+            } => Err(PathCheckError::new(ctx, project_path, check, ReadKind::File).into()),
+        }
     }
 
-    /// Does not check if the path is ignored
+    /// Like `read_file_if_exists`, with no file to read as an error that says why.
     pub async fn read_file(
         ctx: &mut DiceComputations<'_>,
-        path: CellPathRef<'_>,
+        path: CellPath,
     ) -> Result<String, FileReadError> {
-        match Self::read_file_if_exists(ctx, path).await {
-            Ok(result) => result.ok_or_else(|| FileReadError::NotFound(path.to_string())),
+        match read_file_impl(ctx, path).await {
+            Ok(FileRead::Contents(contents)) => Ok(contents),
+            Ok(FileRead::Absent) => Err(FileReadError::NotFound(path.to_string())),
+            Ok(FileRead::Refused {
+                project_path,
+                check,
+            }) => Err(FileReadError::Check(PathCheckError::new(
+                ctx,
+                project_path,
+                check,
+                ReadKind::File,
+            ))),
             Err(e) => Err(FileReadError::Buck(e)),
         }
     }
@@ -125,15 +140,27 @@ impl DiceFileComputations {
     /// Does not check if the path is ignored
     pub async fn read_path_metadata_if_exists(
         ctx: &mut DiceComputations<'_>,
-        path: CellPathRef<'_>,
+        path: CellPath,
     ) -> buck2_error::Result<Option<RawPathMetadata>> {
-        ctx.compute(&PathMetadataKey(path.to_owned())).await?.dupe()
+        let cells = ctx.get_cell_resolver().await?;
+        match external_cell_delegate(ctx, cells, path.cell()).await? {
+            Some(delegate) => {
+                delegate
+                    .read_path_metadata_if_exists(ctx, path.ipath())
+                    .await
+            }
+            None => Ok(
+                io::read_path_metadata_if_exists(ctx, cells.resolve_ipath(path)?)
+                    .await?
+                    .map(|meta| meta.map(|p| cells.get_cell_path(&p))),
+            ),
+        }
     }
 
     /// Does not check if the path is ignored
     pub async fn read_path_metadata(
         ctx: &mut DiceComputations<'_>,
-        path: CellPathRef<'_>,
+        path: CellPath,
     ) -> Result<RawPathMetadata, FileReadError> {
         match Self::read_path_metadata_if_exists(ctx, path).await {
             Ok(result) => result.ok_or_else(|| FileReadError::NotFound(path.to_string())),
@@ -143,12 +170,10 @@ impl DiceFileComputations {
 
     pub async fn is_ignored(
         ctx: &mut DiceComputations<'_>,
-        path: CellPathRef<'_>,
+        path: CellPath,
     ) -> buck2_error::Result<FileIgnoreResult> {
-        get_delegated_file_ops(ctx, path.cell(), CheckIgnores::Yes)
-            .await?
-            .is_ignored(path.path())
-            .await
+        let cells = ctx.get_cell_resolver().await?;
+        Ok(cell_ignores(ctx, cells, path.cell())?.check(path.path()))
     }
 
     pub async fn buildfiles<'d>(
@@ -159,304 +184,161 @@ impl DiceFileComputations {
     }
 }
 
-#[derive(
-    Debug, Display, Clone, Dupe, Copy, PartialEq, Eq, Hash, Allocative, Pagable
-)]
-pub(crate) enum CheckIgnores {
-    Yes,
-    No,
+fn cell_ignores(
+    ctx: &DiceComputations<'_>,
+    cells: &CellResolver,
+    cell: CellName,
+) -> buck2_error::Result<CellFileIgnores> {
+    cells.get(cell)?;
+    Ok(CellFileIgnores::new(
+        cells.dupe(),
+        cell,
+        ctx.global_data().get_ignore_set(),
+    ))
 }
 
-#[derive(Allocative)]
-pub struct FileChangeTracker {
-    files_to_dirty: BuckMutSet<ReadFileKey>,
-    dirs_to_dirty: BuckMutSet<ReadDirKey>,
-    paths_to_dirty: BuckMutSet<PathMetadataKey>,
-    exists_matching_exact_case_to_dirty: BuckMutSet<ExistsMatchingExactCaseKey>,
+/// `entries`, listed at `path`, minus the roots of cells nested in `path`'s cell.
+fn without_nested_cells(
+    path: CellPath,
+    entries: PackedStringSlice<FileName, FileType>,
+    nested_cells: &NestedCells,
+) -> PackedStringSlice<FileName, FileType> {
+    if nested_cells.is_empty() {
+        return entries;
+    }
+    let path = path.path();
+    let mut buf = String::with_capacity(path.as_str().len() + 1 + 32);
+    let mut is_nested_cell = |file_name: &FileName| {
+        buf.clear();
+        if !path.is_empty() {
+            buf.push_str(path.as_str());
+            buf.push('/');
+        }
+        buf.push_str(file_name.as_str());
+        nested_cells
+            .matches(CellRelativePath::unchecked_new(&buf))
+            .is_some()
+    };
 
-    maybe_modified_dirs: BuckMutSet<CellPath>,
-}
-
-impl FileChangeTracker {
-    pub fn new() -> Self {
-        Self {
-            files_to_dirty: Default::default(),
-            dirs_to_dirty: Default::default(),
-            paths_to_dirty: Default::default(),
-            maybe_modified_dirs: Default::default(),
-            exists_matching_exact_case_to_dirty: Default::default(),
+    // Input is sorted; we only remove entries, never reorder, so the output stays sorted. Defer
+    // allocating a builder until we encounter the first removed entry, so that the common case
+    // can reuse the existing alloc.
+    let mut builder: Option<PackedStringSliceBuilder<FileName, FileType>> = None;
+    for (idx, (file_name, file_type)) in entries.iter_with_tag().enumerate() {
+        if is_nested_cell(file_name) {
+            builder.get_or_insert_with(|| {
+                let mut b = PackedStringSliceBuilder::with_capacity(entries.len() - 1);
+                for (fname, ftype) in entries.iter_with_tag().take(idx) {
+                    b.push(fname, ftype);
+                }
+                b
+            });
+            continue;
+        }
+        if let Some(b) = builder.as_mut() {
+            b.push(file_name, file_type);
         }
     }
+    match builder {
+        Some(b) => b.build_sorted(),
+        None => entries,
+    }
+}
 
-    pub fn write_to_dice(mut self, ctx: &mut DiceTransactionUpdater) -> buck2_error::Result<()> {
-        // See comment on `dir_entries_changed_for_watchman_bug`
-        for p in self.paths_to_dirty.clone() {
-            if let Some(dir) = p.0.parent() {
-                if self.maybe_modified_dirs.contains(&dir.to_owned()) {
-                    self.entry_added_or_removed(p.0.clone());
+/// Why a directory could not be listed as asked.
+pub(super) enum ReadDirRefusal {
+    /// What the check found at the directory's project path instead of a present directory.
+    Check {
+        project_path: IProjectRelativePath,
+        check: PathCheck,
+    },
+    /// The directory is inside a cell nested in the one it was addressed through; `at` is that
+    /// cell's root.
+    NestedCell { at: CellPath, cell: CellName },
+}
+
+impl ReadDirRefusal {
+    fn into_error(self, ctx: &DiceComputations<'_>, path: CellPath) -> buck2_error::Error {
+        match self {
+            ReadDirRefusal::Check {
+                project_path,
+                check,
+            } => PathCheckError::new(ctx, project_path, check, ReadKind::Directory).into(),
+            ReadDirRefusal::NestedCell { cell, .. } => FileIgnoreReason::IgnoredByCell {
+                path: path.path().as_str().to_owned(),
+                cell_name: cell,
+            }
+            .into_read_error(),
+        }
+    }
+}
+
+async fn read_dir_impl(
+    ctx: &mut DiceComputations<'_>,
+    path: CellPath,
+) -> buck2_error::Result<Result<ReadDirOutput, ReadDirRefusal>> {
+    let cells = ctx.get_cell_resolver().await?;
+    let nested_cells = cells.get(path.cell())?.nested_cells();
+    if let Some((root, cell, _)) = nested_cells.matches(path.path()) {
+        return Ok(Err(ReadDirRefusal::NestedCell {
+            at: CellPath::new(path.cell(), root),
+            cell,
+        }));
+    }
+
+    let entries = match external_cell_delegate(ctx, cells, path.cell()).await? {
+        Some(delegate) => delegate.read_dir(ctx, path.ipath()).await?,
+        None => {
+            let project_path = cells.resolve_ipath(path)?;
+            match io::read_dir(ctx, project_path).await? {
+                DirListing::Entries(entries) => entries,
+                DirListing::Refused(check) => {
+                    return Ok(Err(ReadDirRefusal::Check {
+                        project_path,
+                        check,
+                    }));
                 }
             }
         }
-
-        ctx.changed(self.files_to_dirty)?;
-        ctx.changed(self.dirs_to_dirty)?;
-        ctx.changed(self.paths_to_dirty)?;
-        ctx.changed(self.exists_matching_exact_case_to_dirty)?;
-
-        Ok(())
-    }
-
-    fn entry_added_or_removed(&mut self, path: CellPath) {
-        self.paths_to_dirty.insert(PathMetadataKey(path.clone()));
-        self.exists_matching_exact_case_to_dirty
-            .insert(ExistsMatchingExactCaseKey(path.clone()));
-        let parent = path.parent();
-        if let Some(parent) = parent {
-            // The above can be None (validly!) if we have a cell we either create or delete.
-            // That never happens in established repos, but if you are setting one up, it's not uncommon.
-            // Since we don't include paths in different cells, the fact we don't dirty the parent
-            // (which is in an enclosing cell) doesn't matter.
-            self.insert_dir_keys(parent.to_owned());
-        }
-    }
-
-    fn insert_dir_keys(&mut self, path: CellPath) {
-        self.dirs_to_dirty.insert(ReadDirKey {
-            path: path.clone(),
-            check_ignores: CheckIgnores::No,
-        });
-        self.dirs_to_dirty.insert(ReadDirKey {
-            path,
-            check_ignores: CheckIgnores::Yes,
-        });
-    }
-
-    pub fn file_added_or_removed(&mut self, path: CellPath) {
-        self.file_contents_changed(path.clone());
-        self.entry_added_or_removed(path);
-    }
-
-    pub fn dir_added_or_removed(&mut self, path: CellPath) {
-        self.entry_added_or_removed(path);
-    }
-
-    pub fn file_contents_changed(&mut self, path: CellPath) {
-        self.files_to_dirty
-            .insert(ReadFileKey(Arc::new(path.clone())));
-        self.paths_to_dirty.insert(PathMetadataKey(path.clone()));
-    }
-
-    /// Normally, buck does not need the file watcher to tell it that a directory's entries have
-    /// changed. However, in some cases file watcher want to force-invalidate directory listings,
-    /// and so this exists. It should not normally be used.
-    pub fn dir_entries_changed_force_invalidate(&mut self, path: CellPath) {
-        self.insert_dir_keys(path);
-    }
-
-    /// Normally, we ignore directory modification events from file watchers and instead compute
-    /// them ourselves when a file in the directory is reported as having been added or removed.
-    /// However, watchman has a bug in which it sometimes incorrectly doesn't report files as having
-    /// been added/removed. We work around this by implementing some logic that marks a directory
-    /// listing as being invalid if both the directory and at least one of its entries is reported
-    /// as having been modified.
-    ///
-    /// We cannot unconditionally respect directory modification events from the file watcher, as it
-    /// is not aware of our ignore rules.
-    pub fn dir_entries_changed_for_watchman_bug(&mut self, path: CellPath) {
-        self.maybe_modified_dirs.insert(path);
-    }
+    };
+    Ok(Ok(ReadDirOutput {
+        included: without_nested_cells(path, entries, nested_cells),
+    }))
 }
 
-/// The return value of a `ReadFileKey` computation.
-///
-/// Instead of the actual file contents, this holds a `FileOpsDelegateWithIgnores`
-/// and the path to read. The actual file read happens when the caller invokes
-/// `read_file_if_exists` on this value. This ensures we don't store file
-/// contents in memory.
-#[derive(Clone, Dupe, Allocative, Pagable)]
-pub struct ReadFileValue {
-    file_ops: FileOpsDelegateWithIgnores,
-    path: Arc<CellPath>,
+/// What looking for a file found.
+enum FileRead {
+    Contents(String),
+    /// Nothing there, according to the cell's delegate.
+    Absent,
+    /// What the check found at the file's project path instead of a present file.
+    Refused {
+        project_path: IProjectRelativePath,
+        check: PathCheck,
+    },
 }
 
-impl ReadFileValue {
-    // FIXME: `ReadFileKey` is not marked as transient if this returns an error, which is
-    // unfortunate.
-    // A reasonable fix would be to take a dep on an always transient key in the error case.
-    pub async fn read_file_if_exists(
-        &self,
-        ctx: &mut DiceComputations<'_>,
-    ) -> buck2_error::Result<Option<String>> {
-        self.file_ops
-            .read_file_if_exists(ctx, self.path.path())
-            .await
-    }
-}
-
-#[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
-#[pagable_typetag(dice::DiceKeyDyn)]
-struct ReadFileKey(Arc<CellPath>);
-
-#[async_trait]
-impl Key for ReadFileKey {
-    type Value = buck2_error::Result<ReadFileValue>;
-    async fn compute(
-        &self,
-        ctx: &mut DiceComputations,
-        _cancellations: &CancellationContext,
-    ) -> Self::Value {
-        let file_ops = get_delegated_file_ops(ctx, self.0.cell(), CheckIgnores::No).await?;
-        Ok(ReadFileValue {
-            file_ops,
-            path: self.0.dupe(),
-        })
-    }
-
-    fn equality_behavior() -> EqualityBehavior<Self::Value> {
-        EqualityBehavior::AlwaysUnequal
-    }
-
-    fn invalidation_source_priority() -> InvalidationSourcePriority {
-        InvalidationSourcePriority::High
-    }
-
-    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
-        OkPagableValueSerialize::<Self::Value>::new()
-    }
-}
-
-#[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
-#[display("{}", path)]
-#[pagable_typetag(dice::DiceKeyDyn)]
-struct ReadDirKey {
-    path: CellPath,
-    check_ignores: CheckIgnores,
-}
-
-#[async_trait]
-impl Key for ReadDirKey {
-    type Value = buck2_error::Result<ReadDirOutput>;
-    async fn compute(
-        &self,
-        ctx: &mut DiceComputations,
-        _cancellations: &CancellationContext,
-    ) -> Self::Value {
-        let file_ops = get_delegated_file_ops(ctx, self.path.cell(), self.check_ignores).await?;
-        file_ops.read_dir(ctx, self.path.as_ref().path()).await
-    }
-
-    fn equality_behavior() -> EqualityBehavior<Self::Value> {
-        EqualityBehavior::Compare(|x, y| match (x, y) {
-            (Ok(x), Ok(y)) => x == y,
-            _ => false,
-        })
-    }
-
-    fn validity(x: &Self::Value) -> bool {
-        x.is_ok()
-    }
-
-    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
-        OkPagableValueSerialize::<Self::Value>::new()
-    }
-}
-
-#[derive(Clone, Display, Allocative, Debug, Eq, Hash, PartialEq, Pagable)]
-#[display("{}", _0)]
-#[pagable_typetag(dice::DiceKeyDyn)]
-struct ExistsMatchingExactCaseKey(CellPath);
-
-#[async_trait]
-impl Key for ExistsMatchingExactCaseKey {
-    type Value = buck2_error::Result<bool>;
-    async fn compute(
-        &self,
-        ctx: &mut DiceComputations,
-        _cancellations: &CancellationContext,
-    ) -> Self::Value {
-        get_delegated_file_ops(ctx, self.0.cell(), CheckIgnores::Yes)
-            .await?
-            .exists_matching_exact_case(self.0.path(), ctx)
-            .await
-    }
-
-    fn equality_behavior() -> EqualityBehavior<Self::Value> {
-        EqualityBehavior::Compare(|x, y| match (x, y) {
-            (Ok(x), Ok(y)) => x == y,
-            _ => false,
-        })
-    }
-
-    fn validity(x: &Self::Value) -> bool {
-        x.is_ok()
-    }
-
-    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
-        OkPagableValueSerialize::<Self::Value>::new()
-    }
-}
-
-#[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
-#[pagable_typetag(dice::DiceKeyDyn)]
-struct PathMetadataKey(CellPath);
-
-#[async_trait]
-impl Key for PathMetadataKey {
-    type Value = buck2_error::Result<Option<RawPathMetadata>>;
-    async fn compute(
-        &self,
-        ctx: &mut DiceComputations,
-        _cancellations: &CancellationContext,
-    ) -> Self::Value {
-        let res = get_delegated_file_ops(ctx, self.0.cell(), CheckIgnores::No)
-            .await?
-            .read_path_metadata_if_exists(ctx, self.0.as_ref().path())
-            .await?;
-
-        if let Some(RawPathMetadata::Symlink {
-            at: ref path,
-            to: _,
-        }) = res
-        {
-            ctx.compute(&ReadFileKey(path.dupe()))
-                .await?
-                .as_ref()
-                .duped_err()?;
-        }
-
-        Ok(res)
-    }
-
-    fn equality_behavior() -> EqualityBehavior<Self::Value> {
-        EqualityBehavior::Compare(|x, y| match (x, y) {
-            (Ok(x), Ok(y)) => x == y,
-            _ => false,
-        })
-    }
-
-    fn validity(x: &Self::Value) -> bool {
-        x.is_ok()
-    }
-
-    fn invalidation_source_priority() -> InvalidationSourcePriority {
-        InvalidationSourcePriority::High
-    }
-
-    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
-        OkPagableValueSerialize::<Self::Value>::new()
-    }
-}
-
-/// out-of-line impl for DiceComputations::read_dir_ext so it doesn't add noise to the api
-async fn read_dir_ext(
+async fn read_file_impl(
     ctx: &mut DiceComputations<'_>,
-    path: CellPathRef<'_>,
-) -> Result<ReadDirOutput, ReadDirError> {
-    match DiceFileComputations::read_dir(ctx, path).await {
-        Ok(v) => Ok(v.dupe()),
-        Err(e) => match extended_ignore_error(ctx, path).await {
-            Some(e) => Err(e),
-            None => Err(e.into()),
-        },
+    path: CellPath,
+) -> buck2_error::Result<FileRead> {
+    let cells = ctx.get_cell_resolver().await?;
+    match external_cell_delegate(ctx, cells, path.cell()).await? {
+        Some(delegate) => Ok(
+            match delegate.read_file_if_exists(ctx, path.ipath()).await? {
+                Some(contents) => FileRead::Contents(contents),
+                None => FileRead::Absent,
+            },
+        ),
+        None => {
+            let project_path = cells.resolve_ipath(path)?;
+            Ok(match io::read_file(ctx, project_path).await? {
+                Ok(contents) => FileRead::Contents(contents),
+                Err(check) => FileRead::Refused {
+                    project_path,
+                    check,
+                },
+            })
+        }
     }
 }

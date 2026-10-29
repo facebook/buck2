@@ -16,9 +16,9 @@
 use std::time::Duration;
 
 use buck2_error::ErrorTag;
+use buck2_hash::BuckFixedSortedMap;
 use dupe::Dupe;
 use host_sharing::HostSharingRequirements;
-use sorted_vector_map::SortedVectorMap;
 
 use crate::data::ArgValue;
 use crate::data::CasDigest;
@@ -60,7 +60,7 @@ pub trait TestOrchestrator: Send + Sync {
         // the command to run
         cmd: Vec<ArgValue>,
         // environment variables to set at runtime
-        env: SortedVectorMap<String, ArgValue>,
+        env: BuckFixedSortedMap<String, ArgValue>,
         // timeout for command
         timeout: Duration,
         // parameters used to effectively share the executor host for this command.
@@ -104,7 +104,7 @@ pub trait TestOrchestrator: Send + Sync {
         stage: TestStage,
         target: ConfiguredTargetHandle,
         cmd: Vec<ArgValue>,
-        env: SortedVectorMap<String, ArgValue>,
+        env: BuckFixedSortedMap<String, ArgValue>,
         pre_create_dirs: Vec<DeclaredOutput>,
         required_local_resources: RequiredLocalResources,
     ) -> buck2_error::Result<PrepareForLocalExecutionResult>;

@@ -39,9 +39,16 @@ const FORCE_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(10);
 pub async fn kill_command_impl(
     lifecycle_lock: &BuckdLifecycleLock,
     reason: &str,
+    quiet: bool,
 ) -> buck2_error::Result<()> {
-    let process = match BuckdProcessInfo::load(lifecycle_lock.daemon_dir()) {
-        Ok(p) => p,
+    let process = match BuckdProcessInfo::load_if_exists(lifecycle_lock.daemon_dir()) {
+        Ok(Some(p)) => p,
+        Ok(None) => {
+            if !quiet {
+                crate::eprintln!("no buckd server running")?;
+            }
+            return Ok(());
+        }
         Err(e) => {
             tracing::debug!("No BuckdProcessInfo: {:#}", e);
             crate::eprintln!("no buckd server running")?;

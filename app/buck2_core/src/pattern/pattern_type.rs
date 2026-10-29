@@ -365,6 +365,7 @@ mod tests {
     use crate::configuration::builtin::BuiltinPlatform;
     use crate::configuration::data::ConfigurationData;
     use crate::configuration::data::ConfigurationDataData;
+    use crate::configuration::data::ExecPlatformMarking;
     use crate::configuration::hash::ConfigurationHash;
     use crate::pattern::pattern_type::ConfigurationPredicate;
     use crate::pattern::pattern_type::ConfiguredProvidersPatternExtra;
@@ -379,13 +380,13 @@ mod tests {
         let foo = ConfigurationData::from_platform(
             "<foo>".to_owned(),
             ConfigurationDataData::empty(),
-            false,
+            ExecPlatformMarking::Unmarked,
         )
         .unwrap();
         let bar = ConfigurationData::from_platform(
             "<bar>".to_owned(),
             ConfigurationDataData::empty(),
-            false,
+            ExecPlatformMarking::Unmarked,
         )
         .unwrap();
 

@@ -1,8 +1,11 @@
 # @oss-disable[end= ]: load("@fbcode_macros//build_defs:native_rules.bzl", "buck_command_alias")
 load("@fbsource//tools/build_defs:rust_binary.bzl", "rust_binary")
 load("@fbsource//tools/build_defs:rust_library.bzl", "rust_library")
+load("@fbsource//tools/target_determinator/macros:ci.bzl", "ci")
 
 oncall("build_infra")
+
+_CI_REMOVE_WINDOWS = ci.labels(ci.remove(ci.windows()))
 
 rust_library(
     name = "dice-examples",
@@ -97,12 +100,14 @@ rust_binary(
 rust_binary(
     name = "memory_by_key",
     srcs = ["bin/memory_by_key.rs"],
+    labels = _CI_REMOVE_WINDOWS,
     target_compatible_with = [
         # @oss-disable[end= ]: "ovr_config//build_mode:sanitizer_type[no-san]",
         "ovr_config//os:linux",
         # Reads jemalloc statistics; the open source buck build has no jemalloc.
         "fbcode//opensource/macros:broken-in-oss",
     ],
+    test_labels = _CI_REMOVE_WINDOWS,
     deps = [
         "fbsource//third-party/rust:async-trait",
         "fbsource//third-party/rust:derive_more",
@@ -124,6 +129,7 @@ rust_binary(
     # Depends on internal `json_value`; not part of the OSS workspace.
     # @oss-disable[end= ]: autocargo = {"ignore_rule": True},
     # @oss-disable[end= ]: compatible_with = ["ovr_config//os:linux"],
+    # @oss-disable[end= ]: labels = _CI_REMOVE_WINDOWS,
     # @oss-disable[end= ]: unittests = False,
     # @oss-disable[end= ]: deps = [
         # @oss-disable[end= ]: "fbsource//third-party/rust:anyhow",
@@ -166,6 +172,7 @@ rust_binary(
         # @oss-disable[end= ]: "PAGABLE_BIN": "$(exe :hydration_bench)",
     # @oss-disable[end= ]: },
     # @oss-disable[end= ]: exe = ":bench_runner",
+    # @oss-disable[end= ]: labels = _CI_REMOVE_WINDOWS,
 # @oss-disable[end= ]: )
 
 rust_binary(

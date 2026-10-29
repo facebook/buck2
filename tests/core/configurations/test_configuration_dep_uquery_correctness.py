@@ -12,7 +12,7 @@
 import json
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
 async def check_has_uquery_path(
@@ -44,33 +44,35 @@ async def check_has_uquery_path(
         assert dep in all_deps
 
 
-@buck_test()
-async def test_default_target_platform(buck: Buck) -> None:
-    await check_has_uquery_path(buck, ":with_custom_dtp", "root//:base")
+class ConfigurationDepUqueryCorrectnessTest(BuckTestCase):
+    @buck_test()
+    async def test_default_target_platform(self, buck: Buck) -> None:
+        await check_has_uquery_path(buck, ":with_custom_dtp", "root//:base")
 
+    @buck_test()
+    async def test_configured_dep_platform(self, buck: Buck) -> None:
+        await check_has_uquery_path(buck, ":stub_configured", "root//:base")
 
-@buck_test()
-async def test_configured_dep_platform(buck: Buck) -> None:
-    await check_has_uquery_path(buck, ":stub_configured", "root//:base")
+    @buck_test()
+    async def test_transition_dep_refs(self, buck: Buck) -> None:
+        # FIXME(JakobDegen): Bug.
+        await check_has_uquery_path(
+            buck, ":pre_out_transition", "root//:cat", expect_fail=True
+        )
 
+        # FIXME(JakobDegen): Bug.
+        await check_has_uquery_path(
+            buck, ":post_out_transition", "root//:cat", expect_fail=True
+        )
 
-@buck_test()
-async def test_transition_dep_refs(buck: Buck) -> None:
-    # FIXME(JakobDegen): Bug.
-    await check_has_uquery_path(
-        buck, ":pre_out_transition", "root//:cat", expect_fail=True
-    )
+        await check_has_uquery_path(
+            buck, ":pre_out_transition_vnew", "root//:transition"
+        )
 
-    # FIXME(JakobDegen): Bug.
-    await check_has_uquery_path(
-        buck, ":post_out_transition", "root//:cat", expect_fail=True
-    )
+        await check_has_uquery_path(
+            buck, ":pre_inc_transition_vnew", "root//:transition"
+        )
 
-    await check_has_uquery_path(buck, ":pre_out_transition_vnew", "root//:transition")
-
-    await check_has_uquery_path(buck, ":pre_inc_transition_vnew", "root//:transition")
-
-
-@buck_test()
-async def test_select_keys(buck: Buck) -> None:
-    await check_has_uquery_path(buck, ":with_select", "root//:cat")
+    @buck_test()
+    async def test_select_keys(self, buck: Buck) -> None:
+        await check_has_uquery_path(buck, ":with_select", "root//:cat")

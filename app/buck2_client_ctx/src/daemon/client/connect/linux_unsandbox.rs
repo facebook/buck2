@@ -141,35 +141,33 @@ async fn daemon_unsandboxed_wrapper(
         Err(_) => false,
     };
     if !wrapper_is_setuid {
-        let _unused = soft_error!(
+        soft_error!(
             "buck_unsandbox_daemon_wrapper_not_setuid",
             buck2_error!(
                 ErrorTag::Environment,
                 "Not starting daemon via `{}` because it is not setuid",
                 UNSANDBOX_DAEMON_WRAPPER
             ),
-            quiet: false,
             task: false
         );
         return Ok(None);
     }
 
     let Some(release) = BuckWrapperRelease::create(UNSANDBOX_DAEMON_WRAPPER).await else {
-        let _unused = soft_error!(
+        soft_error!(
             "buck_unsandbox_daemon_wrapper_release_unavailable",
             buck2_error!(
                 ErrorTag::Environment,
                 "Not starting daemon via `{}` because its wrapper release could not be fetched",
                 UNSANDBOX_DAEMON_WRAPPER
             ),
-            quiet: false,
             task: false
         );
         return Ok(None);
     };
 
     if !release.is_at_least(&MIN_UNSANDBOX_DAEMON_WRAPPER_RELEASE) {
-        let _unused = soft_error!(
+        soft_error!(
             "buck_unsandbox_daemon_wrapper_release_too_old",
             buck2_error!(
                 ErrorTag::Environment,
@@ -178,7 +176,6 @@ async fn daemon_unsandboxed_wrapper(
                 release,
                 MIN_UNSANDBOX_DAEMON_WRAPPER_RELEASE
             ),
-            quiet: false,
             task: false
         );
         return Ok(None);
@@ -197,7 +194,7 @@ async fn daemon_unsandboxed_wrapper(
             .file_name()
             .map(|filename| filename.to_string_lossy())
             .unwrap_or(Cow::Borrowed("<none>"));
-        let _unused = soft_error!(
+        soft_error!(
             "buck_unsandbox_daemon_unsupported_daemon_filename",
             buck2_error!(
                 ErrorTag::Environment,
@@ -205,7 +202,6 @@ async fn daemon_unsandboxed_wrapper(
                 daemon_filename,
                 UNSANDBOX_DAEMON_WRAPPER
             ),
-            quiet: false,
             task: false
         );
         return Ok(None);

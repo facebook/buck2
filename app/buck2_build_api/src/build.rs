@@ -30,8 +30,8 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_error::BuckErrorOptionContext;
 use buck2_events::dispatch::console_message;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_hash::BuckMutMap;
-use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use dice::LinearRecomputeDiceComputations;
 use dice::UserComputationData;
 use dupe::Dupe;
@@ -43,13 +43,11 @@ use futures::stream::FuturesUnordered;
 use futures::stream::StreamExt;
 use itertools::Itertools;
 use pagable::Pagable;
-use starlark::collections::SmallSet;
 use tokio::sync::Mutex;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::actions::calculation::BuildKey;
-use crate::actions::calculation::get_target_rule_type_name;
 use crate::analysis::calculation::RuleAnalysisCalculation;
 use crate::artifact_groups::ArtifactGroupValues;
 use crate::artifact_groups::ResolvedArtifactGroup;
@@ -223,8 +221,8 @@ pub struct BuildTargetResultBuilder {
     configured_to_pattern_modifiers: BuckMutMap<ConfiguredProvidersLabel, Vec<Modifiers>>,
     other_errors: BTreeMap<Option<ProvidersLabel>, Vec<buck2_error::Error>>,
     build_failed: bool,
-    incompatible_targets: SmallSet<ConfiguredTargetLabel>,
-    labels_by_target: BuckMutMap<TargetLabel, SmallSet<ConfiguredProvidersLabel>>,
+    incompatible_targets: BuckMutInsertionSet<ConfiguredTargetLabel>,
+    labels_by_target: BuckMutMap<TargetLabel, BuckMutInsertionSet<ConfiguredProvidersLabel>>,
     /// Kept by target so that a streaming line takes one target's entries without scanning the
     /// rest, which would make streaming quadratic in the number of targets.
     finished_builds_by_target: BuckMutMap<TargetLabel, FinishedBuilds>,
@@ -241,7 +239,7 @@ impl BuildTargetResultBuilder {
             res: BuckMutMap::default(),
             configured_to_pattern_modifiers: BuckMutMap::default(),
             other_errors: BTreeMap::new(),
-            incompatible_targets: SmallSet::new(),
+            incompatible_targets: BuckMutInsertionSet::new(),
             labels_by_target: BuckMutMap::default(),
             finished_builds_by_target: BuckMutMap::default(),
             build_failed: false,
@@ -740,21 +738,12 @@ async fn build_configured_label_inner(
         MaybeCompatible::Compatible(v) => v,
     };
 
-    let node = ctx
-        .get()
-        .get_configured_target_node(providers_label.target())
-        .await
-        .require_compatible()?
-        .dupe();
-
+    let target_rule_type_name = outputs.rule_type.name().to_owned();
+    let outputs = outputs.outputs;
     ctx.get().top_level_target(TopLevelTargetSpec {
         label: providers_label.dupe(),
-        target: node,
         outputs: outputs.dupe(),
     })?;
-
-    let target_rule_type_name =
-        get_target_rule_type_name(&mut ctx.get(), providers_label.target()).await?;
 
     let run_info: Option<OwnedRunInfo> = if opts.return_run_args {
         ctx.get()

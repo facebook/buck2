@@ -12,9 +12,9 @@
 
 use buck2_error::buck2_error;
 
+use crate::settings::metadata::SectionMetadata;
 use crate::settings::settings::ALL_SECTION_METADATA;
 use crate::settings::settings::BuckSettingsData;
-use crate::settings::settings::SectionMetadata;
 
 /// Selects the exact compiled version of every registered settings section.
 ///
@@ -92,6 +92,7 @@ mod tests {
     const SECTION_METADATA: SectionMetadata = SectionMetadata {
         section_name: SECTION,
         section_version: 0,
+        settings: &[],
     };
 
     fn table(content: &str) -> toml::Table {
@@ -197,11 +198,15 @@ mod tests {
     fn accepts_valid_hydration_settings() -> buck2_error::Result<()> {
         let selected = select_rollout_table(table(
             r#"
-                [hydration.2]
+                [hydration.4]
                 enable_paging = true
                 defer_field_reads = true
                 page_out_on_idle = true
                 page_out_on_idle_isolation_dir_scope = "non_default"
+                page_out_min_free_disk_gb = 0
+                page_out_policy = "once_per_key"
+                eviction_policy = "on_idle"
+                pagable_storage_backend = "sqlite"
             "#,
         ))?
         .expect("The hydration section version is present");
@@ -215,6 +220,10 @@ mod tests {
                     defer_field_reads = true
                     page_out_on_idle = true
                     page_out_on_idle_isolation_dir_scope = "non_default"
+                    page_out_min_free_disk_gb = 0
+                    page_out_policy = "once_per_key"
+                    eviction_policy = "on_idle"
+                    pagable_storage_backend = "sqlite"
                 "#,
             ),
         );
@@ -226,7 +235,7 @@ mod tests {
         assert_eq!(
             select_rollout_table(table(
                 r#"
-                    [hydration.1]
+                    [hydration.3]
                     enable_paging = true
                     page_out_on_idle = true
                 "#,

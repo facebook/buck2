@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import List
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 from buck2.tests.e2e_util.helper.utils import replace_in_file
 
 
@@ -82,57 +82,57 @@ async def _files_to_dir(buck: Buck, restart: bool) -> None:
     assert not (out / "b").exists()
 
 
-@buck_test()
-async def test_directory_artifact_becomes_files_inside_it(buck: Buck) -> None:
-    await _dir_to_files(buck, restart=False)
+class GranularityTest(BuckTestCase):
+    @buck_test()
+    async def test_directory_artifact_becomes_files_inside_it(self, buck: Buck) -> None:
+        await _dir_to_files(buck, restart=False)
 
+    @buck_test()
+    async def test_directory_artifact_becomes_files_inside_it_across_restart(
+        self,
+        buck: Buck,
+    ) -> None:
+        await _dir_to_files(buck, restart=True)
 
-@buck_test()
-async def test_directory_artifact_becomes_files_inside_it_across_restart(
-    buck: Buck,
-) -> None:
-    await _dir_to_files(buck, restart=True)
+    @buck_test()
+    async def test_files_become_a_directory_artifact_around_them(
+        self, buck: Buck
+    ) -> None:
+        await _files_to_dir(buck, restart=False)
 
+    @buck_test()
+    async def test_files_become_a_directory_artifact_around_them_across_restart(
+        self,
+        buck: Buck,
+    ) -> None:
+        await _files_to_dir(buck, restart=True)
 
-@buck_test()
-async def test_files_become_a_directory_artifact_around_them(buck: Buck) -> None:
-    await _files_to_dir(buck, restart=False)
+    @buck_test()
+    async def test_directory_artifact_contents_shrink(self, buck: Buck) -> None:
+        target = "root//:shrinking_dir"
 
+        (out,) = await build_outputs(buck, target)
+        assert (out / "keep.txt").read_text() == "KEEP1"
+        assert (out / "stale.txt").read_text() == "STALE"
 
-@buck_test()
-async def test_files_become_a_directory_artifact_around_them_across_restart(
-    buck: Buck,
-) -> None:
-    await _files_to_dir(buck, restart=True)
+        use_second_layout(buck, "shrinking_dir")
 
+        assert await build_outputs(buck, target) == [out]
+        assert (out / "keep.txt").read_text() == "KEEP2"
+        assert not (out / "stale.txt").exists()
 
-@buck_test()
-async def test_directory_artifact_contents_shrink(buck: Buck) -> None:
-    target = "root//:shrinking_dir"
+    @buck_test()
+    async def test_local_consumer_does_not_see_removed_entry(self, buck: Buck) -> None:
+        # The tests above look at the disk state a final materialization leaves
+        # behind. This one looks at what a local action consuming the directory
+        # artifact as an input can see in it.
+        target = "root//:listed_dir_listing"
 
-    (out,) = await build_outputs(buck, target)
-    assert (out / "keep.txt").read_text() == "KEEP1"
-    assert (out / "stale.txt").read_text() == "STALE"
+        result = await buck.build(target)
+        listing = result.get_build_report().output_for_target(target)
+        assert listing.read_text() == "keep,stale"
 
-    use_second_layout(buck, "shrinking_dir")
+        use_second_layout(buck, "listed_dir")
 
-    assert await build_outputs(buck, target) == [out]
-    assert (out / "keep.txt").read_text() == "KEEP2"
-    assert not (out / "stale.txt").exists()
-
-
-@buck_test()
-async def test_local_consumer_does_not_see_removed_entry(buck: Buck) -> None:
-    # The tests above look at the disk state a final materialization leaves
-    # behind. This one looks at what a local action consuming the directory
-    # artifact as an input can see in it.
-    target = "root//:listed_dir_listing"
-
-    result = await buck.build(target)
-    listing = result.get_build_report().output_for_target(target)
-    assert listing.read_text() == "keep,stale"
-
-    use_second_layout(buck, "listed_dir")
-
-    result = await buck.build(target)
-    assert result.get_build_report().output_for_target(target).read_text() == "keep"
+        result = await buck.build(target)
+        assert result.get_build_report().output_for_target(target).read_text() == "keep"

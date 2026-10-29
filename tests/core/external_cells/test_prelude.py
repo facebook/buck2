@@ -10,9 +10,10 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_build(buck: Buck) -> None:
-    await buck.build("root//:")
+class PreludeTest(BuckTestCase):
+    @buck_test()
+    async def test_build(self, buck: Buck) -> None:
+        await buck.build("root//:")

@@ -60,9 +60,11 @@ def _encode_linkable(linkable, artifacts: list[Artifact]):
     if isinstance(linkable, ArchiveLinkable):
         artifacts.append(linkable.archive.artifact)
         artifacts.extend(linkable.archive.external_objects)
+        artifacts.extend(linkable.archive.hidden)
         return [
             _LINKABLE_ARCHIVE_TAG,
             len(linkable.archive.external_objects),
+            len(linkable.archive.hidden),
             linkable.archive.archive_contents_type.value,
             linkable.link_whole,
             linkable.linker_type.value,
@@ -174,15 +176,18 @@ def _decode_linkable(spec, artifacts, artifact_cursor: list[int]) -> typing.Any:
     kind = spec[0]
 
     if kind == _LINKABLE_ARCHIVE_TAG:
-        _, num_external_objects, archive_contents_type, link_whole, linker_type, supports_lto = spec
+        _, num_external_objects, num_hidden, archive_contents_type, link_whole, linker_type, supports_lto = spec
         archive_artifact = artifacts[artifact_cursor[0]]
         external_objects = artifacts[artifact_cursor[0] + 1 : artifact_cursor[0] + 1 + num_external_objects]
-        artifact_cursor[0] += 1 + num_external_objects
+        hidden_start = artifact_cursor[0] + 1 + num_external_objects
+        hidden = artifacts[hidden_start : hidden_start + num_hidden]
+        artifact_cursor[0] += 1 + num_external_objects + num_hidden
         return ArchiveLinkable(
             archive = Archive(
                 artifact = archive_artifact,
                 external_objects = external_objects,
                 archive_contents_type = ArchiveContentsType(archive_contents_type),
+                hidden = hidden,
             ),
             link_whole = link_whole,
             linker_type = LinkerType(linker_type),

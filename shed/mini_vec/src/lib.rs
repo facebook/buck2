@@ -39,7 +39,8 @@
 //! metadata reverts to being stored in an adjacent field. That makes this crate fully
 //! platform-agnostic, at the cost of stack footprints of all the types doubling. The public API and
 //! all observable behavior are otherwise unchanged, so the flag can be flipped without source
-//! edits.
+//! edits. Cargo builds set it automatically on targets whose pointers are not 64 bits wide; other
+//! build systems pass it there.
 //!
 //! # Nightly Rust
 //!

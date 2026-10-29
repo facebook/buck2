@@ -17,9 +17,16 @@
 
 //! Type-related operations.
 
+use std::collections::HashMap;
+
 use crate::assert::Assert;
+use crate::environment::GlobalsBuilder;
+use crate::syntax::AstModule;
+use crate::syntax::Dialect;
+use crate::typing::AstModuleTypecheck;
 use crate::typing::tests::TypeCheck;
 use crate::typing::tests::register_typecheck_globals;
+use crate::values::types::list::globals::register_list;
 
 #[test]
 fn test_type_alias() {
@@ -101,6 +108,65 @@ fn test_set_parametrize() {
 def f(x: set[int]) -> set[int]:
     return x
 "#,
+    );
+}
+
+/// `ns.list` is `list` reached through a dotted path, like an embedder's `ns.Generic`.
+fn register_list_namespace(globals: &mut GlobalsBuilder) {
+    globals.namespace("ns", register_list);
+}
+
+#[test]
+fn test_parametrize_dotted_path() {
+    let mut a = Assert::new();
+    a.globals_add(register_list_namespace);
+    a.pass(
+        r#"
+def f(x: ns.list[str]) -> ns.list[str]:
+    return x
+
+f(["a"])
+"#,
+    );
+    a.fail(
+        r#"
+def f(x: ns.list[str]):
+    pass
+
+def g():
+    f([1])
+"#,
+        "Expected type `list[str]` but got `list[int]`",
+    );
+}
+
+#[test]
+fn test_parametrize_dotted_path_lint() {
+    let globals = GlobalsBuilder::extended()
+        .with(register_list_namespace)
+        .build();
+    let ast = AstModule::parse(
+        "filename",
+        r#"
+def f(x: ns.list[str]):
+    pass
+
+def g():
+    f([1])
+"#
+        .to_owned(),
+        &Dialect::AllOptionsInternal,
+    )
+    .unwrap();
+    let (errors, _, _, approximations) = ast.typecheck(&globals, &HashMap::new());
+
+    assert!(approximations.is_empty(), "{approximations:?}");
+    let errors: Vec<String> = errors.iter().map(|e| format!("{e:#}")).collect();
+    assert!(
+        errors
+            .iter()
+            .any(|e| e.contains("Expected type `list[str]` but got `list[int]`")),
+        "`ns.list[str]` should resolve to `list[str]`, got errors: {errors:?}",
     );
 }
 

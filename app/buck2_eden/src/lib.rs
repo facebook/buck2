@@ -10,7 +10,6 @@
 
 // This can't be built in our OSS implementation.
 #![cfg(fbcode_build)]
-#![feature(used_with_arg)]
 
 pub mod connection;
 pub mod error;

@@ -10,10 +10,11 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_v2_only(buck: Buck) -> None:
-    # Just check it works.
-    await buck.build("root//:")
+class V2OnlyTest(BuckTestCase):
+    @buck_test()
+    async def test_v2_only(self, buck: Buck) -> None:
+        # Just check it works.
+        await buck.build("root//:")

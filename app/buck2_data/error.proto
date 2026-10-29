@@ -126,6 +126,9 @@ enum ErrorTag {
   SERVER_SIGABRT = 402;
   // Server received SIGBUS
   SERVER_SIGBUS = 403;
+  // Server received SIGBUS for an address in its own executable's loaded
+  // segments
+  SERVER_SIGBUS_EXECUTABLE = 405;
   // Server disconnect with no error but memory pressure was detected.
   SERVER_MEMORY_PRESSURE = 401;
   DAEMON_OOM_KILLED = 404;
@@ -316,10 +319,10 @@ enum ErrorTag {
   DICE_DUPLICATED_CHANGE = 1400;
   DICE_CHANGED_TO_INVALID = 1401;
   DICE_INJECTED_KEY_GOT_INVALIDATION = 1402;
-  reserved 1403;
-  DICE_UNEXPECTED_CYCLE_GUARD_TYPE = 1404;
+  reserved 1403, 1404;
   DICE_DUPLICATE_ACTIVATION_DATA = 1405;
   DICE_REJECTED = 1406;
+  DICE_CYCLE = 1407;
 
   // A field of a value paged back in from storage could not be read.
   DEFERRED_FIELD_READ = 1500;
@@ -415,6 +418,8 @@ enum ErrorTag {
   DISPATCHER_UNAVAILABLE = 912;
   CSV_PARSE = 917;
   CAS_BLOB_COUNT_MISMATCH = 918;
+  // A target label carries a buck1 `#flavor` suffix.
+  BUCK1_FLAVOR = 919;
 
   CLEAN_OUTPUTS = 8017;
   COPY_OUTPUTS = 8029;

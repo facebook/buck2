@@ -13,7 +13,7 @@ import os
 import tempfile
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
 def opener(path: str, flags: int) -> int:
@@ -31,38 +31,36 @@ echo "$@"
         )
 
 
-# No windows since mocking pastry command didn't work D41623200
-@buck_test(skip_for_os=["windows", "darwin"])
-async def test_rage(buck: Buck) -> None:
-    # Build a trivial action
-    await buck.build("//:simple")
+class RageTest(BuckTestCase):
+    # No windows since mocking pastry command didn't work D41623200
+    @buck_test(skip_for_os=["windows", "darwin"])
+    async def test_rage(self, buck: Buck) -> None:
+        # Build a trivial action
+        await buck.build("//:simple")
 
-    with tempfile.TemporaryDirectory() as tmpdirname:
-        pastry_path = f"{tmpdirname}/pastry"
-        hg_path = f"{tmpdirname}/hg"
-        mock_cmd_unix(pastry_path)
-        mock_cmd_unix(hg_path)
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            pastry_path = f"{tmpdirname}/pastry"
+            hg_path = f"{tmpdirname}/hg"
+            mock_cmd_unix(pastry_path)
+            mock_cmd_unix(hg_path)
 
-        # We want to find our executable first
-        cmd_path = tmpdirname + os.pathsep + os.environ["PATH"]
+            # We want to find our executable first
+            cmd_path = tmpdirname + os.pathsep + os.environ["PATH"]
+            # Run rage aginst the most recent invocation.
+            await buck.rage(input=b"0", env={"PATH": cmd_path})
+
+    @buck_test(skip_for_os=["darwin"])
+    async def test_rage_no_paste(self, buck: Buck) -> None:
+        # Build a trivial action
+        await buck.build("//:simple")
         # Run rage aginst the most recent invocation.
-        await buck.rage(input=b"0", env={"PATH": cmd_path})
+        await buck.rage("--no-paste", "--invocation-offset", "0")
 
+    @buck_test(skip_for_os=["darwin"])
+    async def test_rage_no_logs(self, buck: Buck) -> None:
+        # Rage doesn't crash even with no invocation logs
+        await buck.rage("--no-paste")
 
-@buck_test(skip_for_os=["darwin"])
-async def test_rage_no_paste(buck: Buck) -> None:
-    # Build a trivial action
-    await buck.build("//:simple")
-    # Run rage aginst the most recent invocation.
-    await buck.rage("--no-paste", "--invocation-offset", "0")
-
-
-@buck_test(skip_for_os=["darwin"])
-async def test_rage_no_logs(buck: Buck) -> None:
-    # Rage doesn't crash even with no invocation logs
-    await buck.rage("--no-paste")
-
-
-@buck_test()  # pytest blows up if there's zero mac tests in the file
-async def test_nop(buck: Buck) -> None:
-    pass
+    @buck_test()  # The one test that runs on mac, where the others are skipped
+    async def test_nop(self, buck: Buck) -> None:
+        pass

@@ -12,6 +12,7 @@ use std::ops::ControlFlow;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
+use std::time::SystemTime;
 
 use async_trait::async_trait;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
@@ -81,7 +82,7 @@ use buck2_events::dispatch::with_dispatcher_async;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_path::AbsPathBuf;
-use buck2_hash::BuckIndexSet;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_hash::BuckMutSet;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter_for_build::interpreter::context::HasInterpreterContext;
@@ -89,6 +90,7 @@ use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
+use buck2_server_ctx::commands::send_build_phase_end;
 use buck2_server_ctx::commands::send_target_cfg_event;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::global_cfg_options::global_cfg_options_from_client_context;
@@ -120,6 +122,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::downward_api::BuckTestDownwardApi;
 use crate::executor_launcher::ExecutorLaunch;
 use crate::executor_launcher::ExecutorLauncher;
+use crate::executor_launcher::ExecutorOutput;
 use crate::executor_launcher::OutOfProcessTestExecutor;
 use crate::executor_launcher::TestExecutorClientWrapper;
 use crate::local_resource_registry::HasLocalResourceRegistry;
@@ -729,7 +732,6 @@ async fn test_targets(
     let res = tag_result!(
         "executor_launch_failed",
         res,
-        quiet: true,
         daemon_in_memory_state_is_corrupted: true,
         task: false
     )?;
@@ -851,6 +853,15 @@ async fn test_targets(
                 let first_internal_error = driver.first_internal_error.take();
                 let mut build_target_result =
                     std::mem::replace(&mut driver.build_target_result, BuildTargetResult::new());
+                // A run cancelled while targets were still being built has no build outcome.
+                if driver.pending_build_work == 0 {
+                    send_build_phase_end(
+                        ctx.per_transaction_data().get_dispatcher(),
+                        driver.build_phase_end,
+                        convert_error(&build_target_result).is_empty()
+                            && convert_error(&error_target_result).is_empty(),
+                    );
+                }
                 drop(driver);
 
                 // Drop the internal runner's sender clone so it doesn't keep
@@ -910,22 +921,8 @@ async fn test_targets(
         .await
         .buck_error_context("Failed to retrieve executor exit code")?;
 
-    if executor_output.signal.is_some() {
-        // The executor was killed by a signal: a crash (e.g. SIGSEGV) or an OOM kill,
-        // as opposed to an orderly non-zero exit.
-        return Err(buck2_error::buck2_error!(
-            ErrorTag::TestExecutorSignaled,
-            "{}",
-            executor_output.termination_message()
-        ));
-    }
-
-    if executor_output.exit_code != Some(0) {
-        return Err(buck2_error::buck2_error!(
-            ErrorTag::TestExecutorNonZeroExit,
-            "{}",
-            executor_output.termination_message()
-        ));
+    if let Some(error) = executor_termination_error(&executor_output) {
+        return Err(error);
     }
 
     // Now that the executor has exited, we notify our results channel. Two things can happen:
@@ -1017,10 +1014,22 @@ struct TestDriverState<'a, 'e> {
     build_run_info: bool,
 }
 
+type DriverWorkResult = ControlFlow<Vec<BuildEvent>, Vec<TestDriverTask>>;
+
+#[derive(Clone, Copy, Dupe, PartialEq, Eq)]
+enum DriverWorkKind {
+    Build,
+    Test,
+}
+
 /// Maintains the state of an ongoing test execution.
 struct TestDriver<'a, 'e> {
     state: TestDriverState<'a, 'e>,
-    work: FuturesUnordered<BoxFuture<'a, ControlFlow<Vec<BuildEvent>, Vec<TestDriverTask>>>>,
+    work: FuturesUnordered<BoxFuture<'a, (DriverWorkKind, DriverWorkResult)>>,
+    /// When the last build work item (interpreting, configuring or building a target)
+    /// finished. Test work items don't move it.
+    build_phase_end: SystemTime,
+    pending_build_work: usize,
     labels_configured: BuckMutSet<(ProvidersLabelWithModifiers, bool)>,
     labels_tested: BuckMutSet<ConfiguredProvidersLabel>,
     /// Fed the events of every `ControlFlow::Break`.
@@ -1039,6 +1048,8 @@ impl<'a, 'e> TestDriver<'a, 'e> {
         Self {
             state,
             work: FuturesUnordered::new(),
+            build_phase_end: SystemTime::now(),
+            pending_build_work: 0,
             labels_configured: BuckMutSet::default(),
             labels_tested: BuckMutSet::default(),
             errors: BuildTargetResultBuilder::new(
@@ -1049,6 +1060,13 @@ impl<'a, 'e> TestDriver<'a, 'e> {
             build_target_result: BuildTargetResult::new(),
             streaming_build_result_tx,
         }
+    }
+
+    fn push_work(&mut self, kind: DriverWorkKind, fut: BoxFuture<'a, DriverWorkResult>) {
+        if kind == DriverWorkKind::Build {
+            self.pending_build_work += 1;
+        }
+        self.work.push(fut.map(move |res| (kind, res)).boxed());
     }
 
     /// Add new patterns for the test driver to process.
@@ -1067,13 +1085,17 @@ impl<'a, 'e> TestDriver<'a, 'e> {
             ]))
             .boxed();
 
-            self.work.push(fut);
+            self.push_work(DriverWorkKind::Build, fut);
         }
     }
 
     /// Drive the test loop until all work is complete.
     async fn drive_to_completion(&mut self) {
-        while let Some(tasks) = self.work.next().await {
+        while let Some((kind, tasks)) = self.work.next().await {
+            if kind == DriverWorkKind::Build {
+                self.pending_build_work -= 1;
+                self.build_phase_end = SystemTime::now();
+            }
             match tasks {
                 ControlFlow::Continue(tasks) => {
                     for task in tasks {
@@ -1160,7 +1182,8 @@ impl<'a, 'e> TestDriver<'a, 'e> {
 
         let PackageLabelWithModifiers { package, modifiers } = package_with_modifiers;
 
-        self.work.push(
+        self.push_work(
+            DriverWorkKind::Build,
             async move {
                 let res = match state
                     .ctx
@@ -1398,7 +1421,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
         }
         .boxed();
 
-        self.work.push(fut);
+        self.push_work(DriverWorkKind::Build, fut);
     }
 
     fn build_target(
@@ -1410,7 +1433,8 @@ impl<'a, 'e> TestDriver<'a, 'e> {
         tenting_acl_names: TentingStatus,
     ) {
         if !self.labels_tested.insert(label.dupe()) {
-            self.work.push(
+            self.push_work(
+                DriverWorkKind::Build,
                 async move {
                     ControlFlow::Break(vec![BuildEvent::new_configured(
                         label,
@@ -1470,7 +1494,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
         }
         .boxed();
 
-        self.work.push(fut);
+        self.push_work(DriverWorkKind::Build, fut);
     }
 
     fn test_target(
@@ -1517,7 +1541,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
         }
         .boxed();
 
-        self.work.push(fut);
+        self.push_work(DriverWorkKind::Test, fut);
     }
 }
 
@@ -1844,9 +1868,9 @@ struct TestLabelFiltering {
     /// If positive include label filters are present, then this filter will ONLY match sets of
     /// labels that contains the label filter. Otherwise, if only exclusion filters are present, or
     /// no label filters are present, this will match any set of labels as long as its not excluded.
-    included_labels: BuckIndexSet<String>,
+    included_labels: BuckMutInsertionSet<String>,
     /// Additional excluded labels. These have order of precedence after `included_labels`.
-    excluded_labels: BuckIndexSet<String>,
+    excluded_labels: BuckMutInsertionSet<String>,
     /// If true, ignores order of precedence such that as long as an exclusion filter matches, we
     /// don't match the set of labels.
     always_exclude: bool,
@@ -2056,6 +2080,38 @@ fn ai_agent_tpx_args(agent_context: &[buck2_data::AgentContextEntry]) -> Vec<Str
     args
 }
 
+/// The error for a test executor that did not exit cleanly, or `None` if it did.
+///
+/// The string tags become part of the error's category key, which is the identity
+/// of the Logview MIDs tracking executor deaths: signal deaths are split by signal
+/// and core-dumped bit on purpose; non-zero exits are not split by status, since
+/// nearly all of them are status 1 and the status is already in the message.
+fn executor_termination_error(output: &ExecutorOutput) -> Option<buck2_error::Error> {
+    if let Some(signal) = output.signal {
+        // A crash (e.g. SIGSEGV) or an OOM kill, as opposed to an orderly non-zero exit.
+        let mut error = buck2_error::buck2_error!(
+            ErrorTag::TestExecutorSignaled,
+            "{}",
+            output.termination_message()
+        );
+        error = error.string_tag(&format!("signal({signal})"));
+        if output.core_dumped {
+            error = error.string_tag("core_dumped");
+        }
+        return Some(error);
+    }
+
+    if output.exit_code != Some(0) {
+        return Some(buck2_error::buck2_error!(
+            ErrorTag::TestExecutorNonZeroExit,
+            "{}",
+            output.termination_message()
+        ));
+    }
+
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use buck2_cli_proto::RepresentativeConfigFlag;
@@ -2065,7 +2121,57 @@ mod tests {
     use crate::command::InternalRunnerConfig;
     use crate::command::TestLabelFiltering;
     use crate::command::ai_agent_tpx_args;
+    use crate::command::executor_termination_error;
     use crate::command::generate_config_entry_args;
+    use crate::executor_launcher::ExecutorOutput;
+
+    fn executor_output(
+        exit_code: Option<i32>,
+        signal: Option<i32>,
+        core_dumped: bool,
+    ) -> ExecutorOutput {
+        ExecutorOutput {
+            exit_code,
+            signal,
+            core_dumped,
+            stdout: String::new(),
+            stderr: String::new(),
+        }
+    }
+
+    // These category keys identify the Logview MIDs that track executor deaths;
+    // a changed key opens a new regression task.
+    #[test]
+    fn non_zero_exit_category_key_is_not_split_by_status() {
+        let error = executor_termination_error(&executor_output(Some(1), None, false)).unwrap();
+        assert_eq!(
+            error.category_key(),
+            "buck2_test/src/command.rs:TEST_EXECUTOR_NON_ZERO_EXIT"
+        );
+    }
+
+    #[test]
+    fn signal_death_category_key_includes_signal_and_core_dump() {
+        let error = executor_termination_error(&executor_output(None, Some(11), true)).unwrap();
+        assert_eq!(
+            error.category_key(),
+            "buck2_test/src/command.rs:TEST_EXECUTOR_SIGNALED:core_dumped:signal(11)"
+        );
+    }
+
+    #[test]
+    fn signal_death_without_core_dump_omits_core_tag() {
+        let error = executor_termination_error(&executor_output(None, Some(9), false)).unwrap();
+        assert_eq!(
+            error.category_key(),
+            "buck2_test/src/command.rs:TEST_EXECUTOR_SIGNALED:signal(9)"
+        );
+    }
+
+    #[test]
+    fn clean_exit_is_not_an_error() {
+        assert!(executor_termination_error(&executor_output(Some(0), None, false)).is_none());
+    }
 
     #[test]
     fn only_include_labels_in_includes() {

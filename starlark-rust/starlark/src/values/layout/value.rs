@@ -20,6 +20,7 @@ use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
+use std::ptr::NonNull;
 
 use allocative::Allocative;
 use dupe::Clone_;
@@ -201,40 +202,63 @@ pub(crate) struct IntegerTooBigError {
 }
 
 impl<'v> Value<'v> {
+    /// # Safety
+    ///
+    /// `x` is the header of a value in the unfrozen heap of `'v`, by a pointer with provenance
+    /// over the whole value (the allocation's, not a `&AValueHeader`'s).
     #[inline]
-    pub(crate) fn new_ptr(x: &'v AValueHeader, is_str: bool) -> Self {
-        Self(Pointer::new_unfrozen(x, is_str))
-    }
-
-    #[inline]
-    pub(crate) fn new_ptr_query_is_str(x: &'v AValueHeader) -> Self {
-        let is_string = x.0.is_str;
-        Self::new_ptr(x, is_string)
-    }
-
-    #[inline]
-    pub(crate) fn new_repr<T: AValue<'v>>(x: &'v AValueRepr<AValueImpl<'v, T>>) -> Self {
-        Self::new_ptr(&x.header, T::IS_STR)
-    }
-
-    /// A value in a frozen heap, at the brand of the reference to it.
-    #[inline]
-    pub(crate) fn new_frozen_ptr(x: &'v AValueHeader, is_str: bool) -> Self {
-        Self(Pointer::new_frozen(x, is_str))
-    }
-
-    #[inline]
-    pub(crate) unsafe fn new_ptr_usize_with_str_tag(x: usize) -> Self {
-        unsafe { Self(Pointer::new_unfrozen_usize_with_str_tag(x)) }
+    pub(crate) unsafe fn new_ptr(x: NonNull<AValueHeader>, is_str: bool) -> Self {
+        unsafe { Self(Pointer::new_unfrozen(x, is_str)) }
     }
 
     /// # Safety
     ///
-    /// `x` must be the address of an [`AValueHeader`] in a frozen heap that the heap of `'v`
-    /// keeps alive, with the string tag set iff the value is a string.
+    /// As for [`new_ptr`](Self::new_ptr).
     #[inline]
-    pub(crate) unsafe fn new_frozen_ptr_usize_with_str_tag(x: usize) -> Self {
-        Self(Pointer::new_frozen_usize_with_str_tag(x))
+    pub(crate) unsafe fn new_ptr_query_is_str(x: NonNull<AValueHeader>) -> Self {
+        unsafe {
+            let is_string = x.as_ref().0.is_str;
+            Self::new_ptr(x, is_string)
+        }
+    }
+
+    /// # Safety
+    ///
+    /// As for [`new_ptr`](Self::new_ptr).
+    #[inline]
+    pub(crate) unsafe fn new_repr<T: AValue<'v>>(
+        x: NonNull<AValueRepr<AValueImpl<'v, T>>>,
+    ) -> Self {
+        unsafe { Self::new_ptr(x.cast(), T::IS_STR) }
+    }
+
+    /// A value in a frozen heap, at the brand of the caller's choosing.
+    ///
+    /// # Safety
+    ///
+    /// `x` is the header of a value in a frozen heap that the heap of `'v` keeps alive, or of
+    /// a static, by a pointer with provenance over the whole value.
+    #[inline]
+    pub(crate) unsafe fn new_frozen_ptr(x: NonNull<AValueHeader>, is_str: bool) -> Self {
+        unsafe { Self(Pointer::new_frozen(x, is_str)) }
+    }
+
+    /// # Safety
+    ///
+    /// `x` must point at an [`AValueHeader`] in the unfrozen heap of `'v`, with the string tag
+    /// set iff the value is a string and the other tag bits clear.
+    #[inline]
+    pub(crate) unsafe fn new_ptr_with_str_tag(x: NonNull<()>) -> Self {
+        unsafe { Self(Pointer::new_unfrozen_ptr_with_str_tag(x)) }
+    }
+
+    /// # Safety
+    ///
+    /// `x` must point at an [`AValueHeader`] in a frozen heap that the heap of `'v` keeps
+    /// alive, with the string tag set iff the value is a string and the other tag bits clear.
+    #[inline]
+    pub(crate) unsafe fn new_frozen_ptr_with_str_tag(x: NonNull<()>) -> Self {
+        Self(Pointer::new_frozen_ptr_with_str_tag(x))
     }
 
     /// Create a new `None` value.
@@ -447,11 +471,9 @@ impl<'v> Value<'v> {
     /// Get a pointer to a [`AValue`].
     #[inline]
     pub(crate) fn get_ref(self) -> AValueDyn<'v> {
-        unsafe {
-            match self.0.unpack() {
-                Either::Left(x) => x.value_header_unchecked().unpack(),
-                Either::Right(x) => x.as_avalue_dyn(),
-            }
+        match self.0.unpack() {
+            Either::Left(x) => x.unpack(),
+            Either::Right(x) => x.as_avalue_dyn(),
         }
     }
 
@@ -462,11 +484,9 @@ impl<'v> Value<'v> {
 
     #[inline]
     pub(crate) fn vtable(self) -> &'static AValueVTable {
-        unsafe {
-            match self.0.unpack() {
-                Either::Left(x) => x.value_header_unchecked().0,
-                Either::Right(_) => PointerI32::vtable(),
-            }
+        match self.0.unpack() {
+            Either::Left(x) => x.header().0,
+            Either::Right(_) => PointerI32::vtable(),
         }
     }
 
@@ -478,10 +498,7 @@ impl<'v> Value<'v> {
             if PointerI32::type_is_pointer_i32::<T>() {
                 transmute!(&PointerI32, &T, self.0.unpack_pointer_i32_unchecked())
             } else {
-                self.0
-                    .unpack_ptr_no_int_unchecked()
-                    .value_header_unchecked()
-                    .payload()
+                self.0.value_header_ptr_unchecked().payload()
             }
         }
     }
@@ -1013,7 +1030,10 @@ impl<'v> Value<'v> {
             }
         } else {
             match self.0.unpack_ptr()?.state() {
-                AValueHeapEntryState::Value(header) => header.unpack().downcast_ref::<T>(),
+                // SAFETY: just checked to be a live value.
+                AValueHeapEntryState::Value(_) => unsafe { self.0.value_header_ptr_unchecked() }
+                    .unpack()
+                    .downcast_ref::<T>(),
                 AValueHeapEntryState::Forward(_) | AValueHeapEntryState::Reservation(_) => None,
             }
         }

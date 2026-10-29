@@ -14,10 +14,10 @@ use allocative::Allocative;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_data::RePlatform;
+use buck2_hash::BuckFixedSortedMap;
 use derive_more::Display;
 use dupe::Dupe;
 use remote_execution as RE;
-use sorted_vector_map::SortedVectorMap;
 
 use crate::execute::action_digest::ActionDigest;
 use crate::execute::dep_file_digest::DepFileDigest;
@@ -52,7 +52,7 @@ pub enum CommandExecutionKind {
         // it.
         digest: ActionDigest,
         command: Vec<String>,
-        env: SortedVectorMap<String, String>,
+        env: BuckFixedSortedMap<String, String>,
     },
     /// This action was submitted to a remote executor.
     #[display("remote")]
@@ -84,14 +84,14 @@ pub enum CommandExecutionKind {
     #[display("worker_init")]
     LocalWorkerInit {
         command: Vec<String>,
-        env: SortedVectorMap<String, String>,
+        env: BuckFixedSortedMap<String, String>,
     },
     /// This action was executed via a local worker.
     #[display("worker")]
     LocalWorker {
         digest: ActionDigest,
         command: Vec<String>,
-        env: SortedVectorMap<String, String>,
+        env: BuckFixedSortedMap<String, String>,
         fallback_exe: Vec<String>,
     },
 }
@@ -163,6 +163,7 @@ impl CommandExecutionKind {
                                 value: value.clone(),
                             })
                             .collect(),
+                        ..Default::default()
                     })
                 }
             }
@@ -199,6 +200,7 @@ impl CommandExecutionKind {
                             .collect::<Vec<_>>()
                     })
                     .unwrap_or_default(),
+                re_worker: None,
             }),
             Self::ActionCache { details } => Command::RemoteCommand(buck2_data::RemoteCommand {
                 action_digest: details.action_digest.to_string(),
@@ -209,6 +211,7 @@ impl CommandExecutionKind {
                 remote_dep_file_key: None,
                 materialized_inputs_for_failed: Vec::new(),
                 materialized_outputs_for_failed_actions: Vec::new(),
+                re_worker: None,
             }),
 
             Self::RemoteDepFileCache { details } => {
@@ -224,6 +227,7 @@ impl CommandExecutionKind {
                         .map(|k| k.to_string()),
                     materialized_inputs_for_failed: Vec::new(),
                     materialized_outputs_for_failed_actions: Vec::new(),
+                    re_worker: None,
                 })
             }
 

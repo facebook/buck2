@@ -79,11 +79,6 @@ pub trait TtlBackend: Send + Sync + 'static {
     ) -> buck2_error::Result<GetDigestsTtlResponse>;
 }
 
-/// At most this many digests per RPC. The internal CAS client accepts up to 500; this stays
-/// well under that until the CAS-side measurements say what batch size answers fastest, so that
-/// landing the check changes as little as possible about the RPCs the CAS sees.
-const MAX_BATCH: usize = 50;
-
 /// An expiration this far out or further is taken at its word: a digest that already knows one
 /// is answered without asking the CAS, and a caller that leaves a blob to the TTL refresher can
 /// rely on the blob being there when the refresher next looks. The refresher runs every 30
@@ -130,11 +125,12 @@ pub struct CasPresence {
 static GLOBAL: OnceLock<Arc<CasPresence>> = OnceLock::new();
 
 impl CasPresence {
-    /// The process-wide instance. The first call sizes the RPC bound with `concurrent_rpcs`;
-    /// later calls return the same instance whatever they pass. Buck2 runs one daemon per process
-    /// and reads the knob once per daemon, so there is only ever one value.
-    pub fn global(concurrent_rpcs: usize) -> &'static Arc<CasPresence> {
-        GLOBAL.get_or_init(|| Arc::new(CasPresence::new(concurrent_rpcs)))
+    /// The process-wide instance. The first call sizes it with `concurrent_rpcs` RPCs in flight
+    /// and `max_batch` digests per RPC; later calls return the same instance whatever they pass.
+    /// Buck2 runs one daemon per process and reads the knobs once per daemon, so there is only
+    /// ever one value of each.
+    pub fn global(concurrent_rpcs: usize, max_batch: usize) -> &'static Arc<CasPresence> {
+        GLOBAL.get_or_init(|| Arc::new(CasPresence::new(concurrent_rpcs, max_batch)))
     }
 
     /// Counters of the process-wide instance; `None` before anything has used it. Reading resets
@@ -146,7 +142,9 @@ impl CasPresence {
     /// `concurrent_rpcs` bounds the RPCs in flight across all use cases and both negative-cache
     /// policies. Must be called from within a tokio runtime, which the batching task then lives
     /// on.
-    pub fn new(concurrent_rpcs: usize) -> Self {
+    /// `max_batch` is how many digests one RPC carries at most; the internal CAS client accepts
+    /// up to 500.
+    pub fn new(concurrent_rpcs: usize, max_batch: usize) -> Self {
         let (tx, rx) = mpsc::unbounded_channel();
         let counters = Arc::new(Counters::default());
         tokio::spawn(
@@ -154,6 +152,7 @@ impl CasPresence {
                 rx,
                 tx: tx.clone(),
                 max_rpcs: concurrent_rpcs.max(1),
+                max_batch: max_batch.max(1),
                 rpcs: 0,
                 pending: BuckMutMap::default(),
                 order: Default::default(),
@@ -172,8 +171,9 @@ impl CasPresence {
     /// [`HEADROOM`] is answered from that; every other one is asked about, and what the CAS says
     /// is stamped onto the digest, which is the interned entry every holder of that blob shares.
     ///
-    /// Requests for the same blob share one RPC, RPCs carry at most `MAX_BATCH` digests, and
-    /// only as many run at once as the client is configured for; when they are all busy, new
+    /// Requests for the same blob share one RPC, RPCs carry at most as many digests as the
+    /// client is configured for (`buck2_re_client.presence_check_max_batch`), and only as many
+    /// run at once as it is configured for too; when they are all busy, new
     /// requests queue up and leave together, so batching only happens under load and a lone
     /// request goes out immediately. Queued digests leave in arrival order. A batch goes out
     /// under the use case of its oldest digest's first asker: every caller works in the daemon's
@@ -300,6 +300,7 @@ struct Batcher {
     /// For the RPC tasks to report back on.
     tx: mpsc::UnboundedSender<Message>,
     max_rpcs: usize,
+    max_batch: usize,
     rpcs: usize,
     pending: BuckMutMap<Key, Slot>,
     /// Arrival order, one lane per negative-cache policy; a key is in a lane iff it is pending.
@@ -373,7 +374,7 @@ impl Batcher {
                 return;
             };
             let mut batch = Vec::new();
-            while batch.len() < MAX_BATCH
+            while batch.len() < self.max_batch
                 && let Some(key) = self.order[lane].pop_front()
             {
                 let mut slot = self
@@ -628,7 +629,7 @@ mod tests {
             self.started.notify_one();
             if self
                 .hold
-                .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |n| n.checked_sub(1))
+                .try_update(Ordering::Relaxed, Ordering::Relaxed, |n| n.checked_sub(1))
                 .is_ok()
             {
                 self.release.notified().await;
@@ -685,7 +686,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_answers_from_the_digest_without_an_rpc() -> buck2_error::Result<()> {
-        let presence = Arc::new(CasPresence::new(1));
+        let presence = Arc::new(CasPresence::new(1, 50));
         let stub = Stub::new(|_| 3600);
         let fresh = TrackedFileDigest::new_expires(
             digest("fresh").data().dupe(),
@@ -708,7 +709,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_results_follow_input_order_and_stamp_the_digest() -> buck2_error::Result<()> {
-        let presence = Arc::new(CasPresence::new(4));
+        let presence = Arc::new(CasPresence::new(4, 50));
         let (present, missing) = (digest("present"), digest("missing"));
         let present_hash = present.to_re().hash;
         let stub = Stub::new(move |d| if d.hash == present_hash { 3600 } else { -1 });
@@ -740,7 +741,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_batches_while_the_rpcs_are_busy() -> buck2_error::Result<()> {
-        let presence = Arc::new(CasPresence::new(1));
+        let presence = Arc::new(CasPresence::new(1, 50));
         let stub = Stub::new(|_| 3600).holding(1);
         let (a, b, c) = (digest("a"), digest("b"), digest("c"));
 
@@ -765,7 +766,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_a_cancelled_caller_does_not_cancel_the_rpc() -> buck2_error::Result<()> {
-        let presence = Arc::new(CasPresence::new(1));
+        let presence = Arc::new(CasPresence::new(1, 50));
         let stub = Stub::new(|_| 3600).holding(1);
         let a = digest("cancelled");
 
@@ -793,7 +794,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_a_digest_nobody_waits_for_any_more_is_not_asked() -> buck2_error::Result<()> {
-        let presence = Arc::new(CasPresence::new(1));
+        let presence = Arc::new(CasPresence::new(1, 50));
         let stub = Stub::new(|_| 3600).holding(1);
         let (a, b, c) = (digest("in flight"), digest("abandoned"), digest("after"));
 
@@ -814,7 +815,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_a_failed_rpc_fails_only_its_batch() -> buck2_error::Result<()> {
-        let presence = Arc::new(CasPresence::new(1));
+        let presence = Arc::new(CasPresence::new(1, 50));
         let failing = Stub::new(|_| 3600).failing();
         let a = digest("fails");
 
@@ -834,7 +835,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_a_batch_goes_out_under_its_oldest_askers_use_case() -> buck2_error::Result<()> {
-        let presence = Arc::new(CasPresence::new(1));
+        let presence = Arc::new(CasPresence::new(1, 50));
         let stub = Stub::new(|_| 3600).holding(1);
         let (first_uc, second_uc) = (
             RemoteExecutorUseCase::new("first".to_owned()),
@@ -885,7 +886,7 @@ mod tests {
     #[tokio::test]
     async fn test_policies_do_not_share_an_rpc_and_are_served_oldest_first()
     -> buck2_error::Result<()> {
-        let presence = Arc::new(CasPresence::new(1));
+        let presence = Arc::new(CasPresence::new(1, 50));
         let stub = Stub::new(|_| 3600).holding(2);
         let (a0, a1, a2, b1) = (digest("a0"), digest("a1"), digest("a2"), digest("b1"));
 
@@ -947,7 +948,7 @@ mod tests {
                 Ok(GetDigestsTtlResponse::default())
             }
         }
-        let presence = Arc::new(CasPresence::new(1));
+        let presence = Arc::new(CasPresence::new(1, 50));
         let err = presence
             .check(
                 Arc::new(Short),

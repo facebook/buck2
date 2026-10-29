@@ -11,7 +11,10 @@ load(
     "dynamic_with_content_based_path",
     "failing_run_with_content_based_path",
     "failing_validation_with_content_based_path",
-    "ignores_content_based_artifact",
+    "ignore_artifacts_content_based_artifact",
+    "ignore_artifacts_nested_under_hidden",
+    "ignore_artifacts_rejects_hidden_content_based_artifact",
+    "ignore_artifacts_skips_failing_static_path_dep",
     "incremental_action",
     "non_content_based_exec_dep",
     "not_eligible_for_dedupe",
@@ -22,6 +25,7 @@ load(
     "run_with_symlink_to_non_cbp_input",
     "rust_pattern_consumer",
     "rust_pattern_producer",
+    "salt_hidden_dependency",
     "sets_inconsistent_params",
     "slow_running_local_action_with_content_based_path",
     "symlink",
@@ -135,10 +139,6 @@ dynamic_new_with_content_based_path(
 
 use_projection_with_content_based_path(
     name = "use_projection_with_content_based_path",
-)
-
-ignores_content_based_artifact(
-    name = "ignores_content_based_artifact",
 )
 
 slow_running_local_action_with_content_based_path(
@@ -277,3 +277,25 @@ rust_pattern_producer(
     )
     for i in range(_N)
 ]
+
+ignore_artifacts_content_based_artifact(
+    name = "ignore_artifacts_content_based_artifact",
+    data = read_config("test", "stamp_data", "hello world"),
+)
+
+ignore_artifacts_skips_failing_static_path_dep(
+    name = "ignore_artifacts_skips_failing_static_path_dep",
+)
+
+ignore_artifacts_rejects_hidden_content_based_artifact(
+    name = "ignore_artifacts_rejects_hidden_content_based_artifact",
+)
+
+ignore_artifacts_nested_under_hidden(
+    name = "ignore_artifacts_nested_under_hidden",
+)
+
+salt_hidden_dependency(
+    name = "salt_hidden_dependency",
+    data = read_config("test", "stamp_data", "hello world"),
+)

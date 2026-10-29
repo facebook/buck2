@@ -31,6 +31,7 @@ use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::assert;
 use crate::docs::DocItem;
+use crate::docs::DocMember;
 use crate::docs::DocType;
 use crate::docs::markdown::render_doc_item_no_link;
 use crate::docs::multipage::DocModuleInfo;
@@ -177,8 +178,9 @@ fn module(builder: &mut GlobalsBuilder) {
         #[starlark(require = pos)] a: i32,
         b: i32,
         #[starlark(require = named)] c: i32,
+        #[starlark(require = named, default = 0, doc_hidden)] undocumented: i32,
     ) -> anyhow::Result<Magic> {
-        let _unused = (a, b, c);
+        let _unused = (a, b, c, undocumented);
         Ok(Magic)
     }
 }
@@ -290,6 +292,19 @@ fn native_docs_module() {
     );
     assert!(!res.contains("starlark::assert::all_true"));
     assert!(res.contains(r#"string_default: str = "my_default"#));
+}
+
+#[test]
+fn doc_hidden_param_is_accepted_but_undocumented() {
+    let mut a = assert::Assert::new();
+    a.globals(get_globals());
+    a.pass("pos_either_named(1, 2, c = 3, undocumented = 4)");
+
+    let docs = get_globals().documentation();
+    let Some(DocItem::Member(DocMember::Function(f))) = docs.members.get("pos_either_named") else {
+        panic!("`pos_either_named` should be documented as a function");
+    };
+    assert!(f.params.doc_params().all(|p| p.name != "undocumented"));
 }
 
 fn test_globals_docs_render(with_linked_type: bool, render_signature_at_bottom: bool) {

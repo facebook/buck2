@@ -11,10 +11,9 @@
 
 import json
 
-import pytest
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 from buck2.tests.e2e_util.helper.golden import golden
 
 
@@ -23,33 +22,31 @@ Tests to ensure that the `buck docs` command works as expected
 """
 
 
-@buck_test()
-async def test_docs_returns(buck: Buck) -> None:
-    result = await buck.docs("starlark")
-    result.check_returncode()
-    decoded = json.loads(result.stdout)
-    assert decoded == []
+class DocsTest(BuckTestCase):
+    @buck_test()
+    async def test_docs_returns(self, buck: Buck) -> None:
+        result = await buck.docs("starlark")
+        result.check_returncode()
+        decoded = json.loads(result.stdout)
+        assert decoded == []
 
+    @buck_test()
+    async def test_prelude_docs(self, buck: Buck) -> None:
+        result = await buck.docs("starlark", "prelude//:prelude.bzl")
+        result.check_returncode()
+        decoded = json.loads(result.stdout)
+        golden(
+            output=json.dumps(decoded, indent=2),
+            rel_path="prelude_docs.golden.json",
+        )
 
-@buck_test()
-async def test_prelude_docs(buck: Buck) -> None:
-    result = await buck.docs("starlark", "prelude//:prelude.bzl")
-    result.check_returncode()
-    decoded = json.loads(result.stdout)
-    golden(
-        output=json.dumps(decoded, indent=2),
-        rel_path="prelude_docs.golden.json",
-    )
-
-
-@pytest.mark.xfail(reason="until we ban non .bzl paths, this would be valid")
-@buck_test()
-async def test_docs_fail_with_invalid_patterns(buck: Buck) -> None:
-    await expect_failure(
-        buck.docs("starlark", "not_an_import_path"),
-        stderr_regex="Import path must have suffix .*: `root//not_an_import_path`",
-    )
-    await expect_failure(
-        buck.docs("starlark", "//cell"),
-        stderr_regex="Import path must have suffix .*: `root//cell`",
-    )
+    @buck_test()
+    async def test_docs_fail_with_invalid_patterns(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.docs("starlark", "not_an_import_path"),
+            stderr_regex="Import path must have suffix .*: `root//not_an_import_path`",
+        )
+        await expect_failure(
+            buck.docs("starlark", "//cell"),
+            stderr_regex="Import path must have suffix .*: `root//cell`",
+        )

@@ -7,7 +7,6 @@
 
 %%% % @format
 -module(extract_from_otp).
--compile(warn_missing_spec_all).
 -author("loscher@meta.com").
 -moduledoc """
 Take parts of the OTP a release is built from, and introspect the versions it ships
@@ -17,6 +16,8 @@ usage:
   extract_from_otp.erl extract_into Wildcard Target
   extract_from_otp.erl Wildcard Target
 """.
+-compile(warn_missing_spec_all).
+-compile({inline, [bin/1]}).
 
 %% escript API
 -export([
@@ -50,7 +51,6 @@ main(_) ->
 %%% Internal functions
 %%%-----------------------------------------------------------------------------
 
--compile({inline, [bin/1]}).
 -spec bin(IoListOrBinary :: iolist() | binary()) -> binary().
 bin(X) -> erlang:iolist_to_binary(X).
 

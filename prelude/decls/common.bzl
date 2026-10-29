@@ -11,24 +11,11 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
+load("@prelude//:platform_exe_constants.bzl", "SUPPORTED_OSES")
 load("@prelude//cxx:cxx_toolchain_types.bzl", _RuntimeDependencyHandling = "RuntimeDependencyHandling")
 
 def validate_uri(_s):
     return True
-
-prelude_rule = record(
-    name = field(str),
-    docs = field([str, None], None),
-    examples = field([str, None], None),
-    further = field([str, None], None),
-    attrs = field(dict[str, Attr]),
-    impl = field([typing.Callable, None], None),
-    uses_plugins = field([list[plugins.PluginKind], None], None),
-    supports_incoming_transition = field([bool, None], None),
-    is_toolchain_rule = field([bool, None], None),
-    # TODO(mgd): should be `transition | None`, but `transition` does not work as type.
-    cfg = field(typing.Any | None, None),
-)
 
 AbiGenerationMode = ["class", "source", "source_only", "none"]
 
@@ -66,7 +53,11 @@ LinkableDepType = ["static", "static_pic", "shared"]
 
 OnDuplicateEntry = ["fail", "overwrite", "append"]
 
+PlatformExePlatform = SUPPORTED_OSES
+
 RawHeadersAsHeadersMode = ["enabled", "disabled"]
+
+TargetCpuType = ["arm", "armv7", "arm64", "arm64e", "x86", "x86_64", "mips", "riscv64"]
 
 TestType = ["junit", "junit5", "testng"]
 
@@ -213,6 +204,31 @@ def _inject_test_env_arg():
         "_inject_test_env": attrs.default_only(attrs.dep(default = "prelude//test/tools:inject_test_env")),
     }
 
+def _has_content_based_path_attr():
+    return {
+        "has_content_based_path": attrs.bool(
+            default = select({
+                "DEFAULT": False,
+                # @oss-disable[end= ]: "config//os/constraints:android": True,
+                # @oss-disable[end= ]: "config//runtime/constraints:android-host-test": True,
+                # @oss-disable[end= ]: "config//runtime/constraints:android-unit-test": True,
+            })
+        ),
+    }
+
+def _optional_has_content_based_path_attr():
+    return {
+        "has_content_based_path": attrs.option(
+            attrs.bool(),
+            default = select({
+                "DEFAULT": None,
+                # @oss-disable[end= ]: "config//os/constraints:android": True,
+                # @oss-disable[end= ]: "config//runtime/constraints:android-host-test": True,
+                # @oss-disable[end= ]: "config//runtime/constraints:android-unit-test": True,
+            }),
+        ),
+    }
+
 def _licenses_arg():
     return {
         "licenses": attrs.list(
@@ -258,4 +274,6 @@ buck = struct(
     inject_test_env_arg = _inject_test_env_arg,
     licenses_arg = _licenses_arg,
     contacts_arg = _contacts_arg,
+    has_content_based_path_attr = _has_content_based_path_attr,
+    optional_has_content_based_path_attr = _optional_has_content_based_path_attr,
 )

@@ -38,7 +38,7 @@ use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileName;
 use buck2_hash::BuckDashMap;
-use buck2_hash::BuckIndexMap;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_hash::BuckMutMap;
 use buck2_util::time_span::TimeSpan;
 use buck2_worker_proto::ExecuteCommand;
@@ -116,7 +116,7 @@ impl WorkerInitError {
                 // implies that it is the primary command and that exit code != 0
                 manager.failure(
                     execution_kind,
-                    BuckIndexMap::default(),
+                    BuckMutInsertionMap::default(),
                     std_streams,
                     *exit_code,
                     CommandExecutionMetadata::empty(TimeSpan::empty_now()),
@@ -128,7 +128,7 @@ impl WorkerInitError {
             WorkerInitError::ConnectionTimeout(..) | WorkerInitError::SpawnFailed(..) => manager
                 .failure(
                     execution_kind,
-                    BuckIndexMap::default(),
+                    BuckMutInsertionMap::default(),
                     CommandStdStreams::Local {
                         stdout: Default::default(),
                         stderr: format!("Error initializing worker: {self}").into_bytes(),
@@ -266,6 +266,7 @@ async fn spawn_worker(
     let env: Vec<(OsString, OsString)> = env.into_iter().chain(worker_env).collect();
 
     let (liveliness_observer, liveliness_guard) = LivelinessGuard::create();
+    let diagnostics = WorkerDiagnostics::new();
 
     let spawn_fut = spawn_via_forkserver(
         forkserver,
@@ -339,13 +340,15 @@ async fn spawn_worker(
 
     let (child_exited_observer, child_exited_guard) = LivelinessGuard::create();
     tokio::spawn(async move {
-        drop(check_exit.await);
+        let result = check_exit.await;
+        diagnostics.exit_observed(&result);
+        drop(result);
         drop(child_exited_guard);
     });
 
     tracing::info!("Connected to socket for spawned worker: {}", socket_path);
     let client = if streaming {
-        WorkerClient::stream(channel)
+        WorkerClient::stream(channel, diagnostics)
             .await
             .map_err(|e| WorkerInitError::SpawnFailed(e.to_string()))?
     } else {
@@ -357,6 +360,7 @@ async fn spawn_worker(
         child_exited_observer,
         std_redirects,
         liveliness_guard,
+        diagnostics,
     ))
 }
 
@@ -437,6 +441,207 @@ impl WorkerPool {
     }
 }
 
+/// Process-local, generated correlation only; not a process id or a globally unique identity.
+#[derive(Clone, Copy, Dupe)]
+struct WorkerDiagnostics {
+    ordinal: u64,
+}
+
+impl WorkerDiagnostics {
+    fn new() -> Self {
+        static NEXT_ORDINAL: AtomicU64 = AtomicU64::new(1);
+        Self {
+            ordinal: NEXT_ORDINAL.fetch_add(1, Ordering::Relaxed),
+        }
+    }
+
+    fn exit_observed(self, result: &buck2_error::Result<GatherOutputStatus>) {
+        let kind = match result {
+            Ok(GatherOutputStatus::Finished { exit_code, .. }) => {
+                tracing::info!(
+                    target: "buck2_worker_diagnostic",
+                    worker_ordinal = self.ordinal,
+                    event = "exit-result-observed",
+                    exit_kind = "finished",
+                    exit_code = *exit_code,
+                    "Worker diagnostic receipt"
+                );
+                return;
+            }
+            Ok(GatherOutputStatus::SpawnFailed(_)) => WorkerExitKind::SpawnFailed,
+            Ok(GatherOutputStatus::Cancelled) => WorkerExitKind::Cancelled,
+            Ok(GatherOutputStatus::TimedOut(_)) => WorkerExitKind::TimedOut,
+            Err(_) => WorkerExitKind::ObservationError,
+        };
+        tracing::info!(
+            target: "buck2_worker_diagnostic",
+            worker_ordinal = self.ordinal,
+            event = "exit-result-observed",
+            exit_kind = %kind,
+            "Worker diagnostic receipt"
+        );
+    }
+
+    fn handle_drop_start(self) {
+        tracing::info!(
+            target: "buck2_worker_diagnostic",
+            worker_ordinal = self.ordinal,
+            event = "handle-drop-start",
+            "Worker diagnostic receipt"
+        );
+    }
+}
+
+#[derive(derive_more::Display)]
+enum WorkerExitKind {
+    #[display("spawn-failed")]
+    SpawnFailed,
+    #[display("cancelled")]
+    Cancelled,
+    #[display("timed-out")]
+    TimedOut,
+    #[display("observation-error")]
+    ObservationError,
+}
+
+type WorkerResponseWaiters = BuckDashMap<u64, tokio::sync::oneshot::Sender<ExecuteResponseStream>>;
+
+struct WorkerResponseReader {
+    diagnostics: WorkerDiagnostics,
+    sequence: u64,
+}
+
+impl WorkerResponseReader {
+    fn new(diagnostics: WorkerDiagnostics) -> Self {
+        Self {
+            diagnostics,
+            sequence: 0,
+        }
+    }
+
+    fn response(
+        &mut self,
+        response: Result<ExecuteResponseStream, Status>,
+        waiters: &WorkerResponseWaiters,
+    ) {
+        self.sequence += 1;
+        match response {
+            Ok(response) => {
+                tracing::info!(
+                    target: "buck2_worker_diagnostic",
+                    worker_ordinal = self.diagnostics.ordinal,
+                    event = "response-item-observed",
+                    reader_sequence = self.sequence,
+                    request_id = response.id,
+                    "Worker diagnostic receipt"
+                );
+                match waiters.remove(&response.id) {
+                    Some(waiter) => {
+                        let id = response.id;
+                        if waiter.1.send(response).is_err() {
+                            tracing::warn!(
+                                id = id,
+                                "Error passing streaming worker response to waiter"
+                            );
+                        }
+                    }
+                    None => {
+                        tracing::warn!(
+                            id = response.id,
+                            "Missing waiter for streaming worker response",
+                        );
+                    }
+                };
+            }
+            Err(e) => {
+                tracing::warn!(error = e.to_string(), "Response error in worker stream");
+                if tracing::enabled!(target: "buck2_worker_diagnostic", tracing::Level::INFO) {
+                    // Independent sampled observations: abandoned receivers remain registered,
+                    // and the map/receivers can race either count. These are not active-job counts.
+                    let registered_entries_observed = waiters.len();
+                    let open_receiver_entries_observed = waiters
+                        .iter()
+                        .filter(|entry| !entry.value().is_closed())
+                        .count();
+                    tracing::info!(
+                        target: "buck2_worker_diagnostic",
+                        worker_ordinal = self.diagnostics.ordinal,
+                        event = "response-error-observed",
+                        reader_sequence = self.sequence,
+                        tonic_code = e.code() as i32,
+                        registered_entries_observed,
+                        open_receiver_entries_observed,
+                        "Worker diagnostic receipt"
+                    );
+                }
+            }
+        }
+    }
+
+    fn eof(&self) {
+        tracing::info!(
+            target: "buck2_worker_diagnostic",
+            worker_ordinal = self.diagnostics.ordinal,
+            event = "response-stream-eof-observed",
+            reader_sequence = self.sequence,
+            "Worker diagnostic receipt"
+        );
+    }
+}
+
+#[derive(derive_more::Display)]
+enum WorkerRequestOutcome {
+    #[display("send-failed")]
+    SendFailed,
+    #[display("response-returned")]
+    ResponseReturned,
+    #[display("response-body-missing")]
+    ResponseBodyMissing,
+    #[display("receive-closed")]
+    ReceiveClosed,
+    #[display("stream-closed")]
+    StreamClosed,
+    #[display("future-dropped-before-return")]
+    FutureDroppedBeforeReturn,
+}
+
+/// Emits an observation only. In particular, it neither owns nor removes a waiter.
+struct WorkerRequestReceipt {
+    diagnostics: WorkerDiagnostics,
+    id: u64,
+    outcome: WorkerRequestOutcome,
+}
+
+impl WorkerRequestReceipt {
+    fn new(diagnostics: WorkerDiagnostics, id: u64) -> Self {
+        tracing::info!(
+            target: "buck2_worker_diagnostic",
+            worker_ordinal = diagnostics.ordinal,
+            event = "request-wait-registered",
+            request_id = id,
+            "Worker diagnostic receipt"
+        );
+        Self {
+            diagnostics,
+            id,
+            outcome: WorkerRequestOutcome::FutureDroppedBeforeReturn,
+        }
+    }
+}
+
+impl Drop for WorkerRequestReceipt {
+    fn drop(&mut self) {
+        tracing::info!(
+            target: "buck2_worker_diagnostic",
+            worker_ordinal = self.diagnostics.ordinal,
+            event = "request-wait-ended",
+            request_id = self.id,
+            outcome = %self.outcome,
+            "Worker diagnostic receipt"
+        );
+    }
+}
+
 #[derive(Clone)]
 enum WorkerClient {
     Single(worker_client::WorkerClient<Channel>),
@@ -444,7 +649,8 @@ enum WorkerClient {
         ids: Arc<AtomicU64>,
         stream: UnboundedSender<ExecuteCommandStream>,
         stream_closed_observer: Arc<dyn LivelinessObserver>,
-        waiters: Arc<BuckDashMap<u64, tokio::sync::oneshot::Sender<ExecuteResponseStream>>>,
+        waiters: Arc<WorkerResponseWaiters>,
+        diagnostics: WorkerDiagnostics,
     },
 }
 
@@ -457,7 +663,7 @@ impl WorkerClient {
         )
     }
 
-    async fn stream(channel: Channel) -> Result<Self, Status> {
+    async fn stream(channel: Channel, diagnostics: WorkerDiagnostics) -> Result<Self, Status> {
         let mut client = worker_streaming_client::WorkerStreamingClient::new(channel)
             .max_encoding_message_size(MAX_MESSAGE_SIZE_BYTES)
             .max_decoding_message_size(MAX_MESSAGE_SIZE_BYTES);
@@ -465,8 +671,7 @@ impl WorkerClient {
         let stream = client
             .execute_stream(tonic::Request::new(UnboundedReceiverStream::new(rx)))
             .await?;
-        let waiters: Arc<BuckDashMap<u64, tokio::sync::oneshot::Sender<ExecuteResponseStream>>> =
-            Default::default();
+        let waiters: Arc<WorkerResponseWaiters> = Default::default();
         let (stream_closed_observer, stream_closed_guard) = LivelinessGuard::create();
         {
             let waiters = waiters.dupe();
@@ -474,35 +679,11 @@ impl WorkerClient {
                 use futures::StreamExt;
 
                 let mut stream = stream.into_inner();
+                let mut reader = WorkerResponseReader::new(diagnostics);
                 while let Some(response) = stream.next().await {
-                    match response {
-                        Ok(response) => {
-                            match waiters.remove(&response.id) {
-                                Some(waiter) => {
-                                    let id = response.id;
-                                    if waiter.1.send(response).is_err() {
-                                        tracing::warn!(
-                                            id = id,
-                                            "Error passing streaming worker response to waiter"
-                                        );
-                                    }
-                                }
-                                None => {
-                                    tracing::warn!(
-                                        id = response.id,
-                                        "Missing waiter for streaming worker response",
-                                    );
-                                }
-                            };
-                        }
-                        Err(e) => {
-                            tracing::warn!(
-                                error = e.to_string(),
-                                "Response error in worker stream"
-                            );
-                        }
-                    };
+                    reader.response(response, &waiters);
                 }
+                reader.eof();
                 drop(stream_closed_guard);
             });
         }
@@ -511,6 +692,7 @@ impl WorkerClient {
             stream: tx,
             stream_closed_observer,
             waiters,
+            diagnostics,
         })
     }
 
@@ -522,6 +704,7 @@ impl WorkerClient {
                 stream,
                 stream_closed_observer,
                 waiters,
+                diagnostics,
             } => {
                 let id = ids.fetch_add(1, Ordering::Acquire);
                 let req = ExecuteCommandStream {
@@ -530,9 +713,20 @@ impl WorkerClient {
                 };
                 let (tx, rx) = tokio::sync::oneshot::channel();
                 waiters.insert(id, tx);
-                stream.send(req)?;
+                let mut receipt = WorkerRequestReceipt::new(*diagnostics, id);
+                if let Err(err) = stream.send(req) {
+                    receipt.outcome = WorkerRequestOutcome::SendFailed;
+                    return Err(err.into());
+                }
                 tokio::select! {
+                    // A real answer beats a stream that closed right after it.
+                    biased;
                     response = rx => {
+                        receipt.outcome = match &response {
+                            Ok(response) if response.response.is_some() => WorkerRequestOutcome::ResponseReturned,
+                            Ok(_) => WorkerRequestOutcome::ResponseBodyMissing,
+                            Err(_) => WorkerRequestOutcome::ReceiveClosed,
+                        };
                         // `response` is a proto3 message field, so a worker can leave it out.
                         response?.response.ok_or_else(|| {
                             buck2_error::buck2_error!(
@@ -543,6 +737,7 @@ impl WorkerClient {
                         })
                     }
                     _ = stream_closed_observer.while_alive() => {
+                        receipt.outcome = WorkerRequestOutcome::StreamClosed;
                         Err(buck2_error::buck2_error!(ErrorTag::Tier0, "Stream closed while waiting for response"))
                     },
                 }
@@ -586,6 +781,7 @@ pub struct WorkerHandle {
     child_exited_observer: Arc<dyn LivelinessObserver>,
     std_redirects: StdRedirectPaths,
     _liveliness_guard: LivelinessGuard,
+    diagnostics: WorkerDiagnostics,
 }
 
 impl WorkerHandle {
@@ -594,13 +790,21 @@ impl WorkerHandle {
         child_exited_observer: Arc<dyn LivelinessObserver>,
         std_redirects: StdRedirectPaths,
         liveliness_guard: LivelinessGuard,
+        diagnostics: WorkerDiagnostics,
     ) -> Self {
         Self {
             client,
             child_exited_observer,
             std_redirects,
             _liveliness_guard: liveliness_guard,
+            diagnostics,
         }
+    }
+}
+
+impl Drop for WorkerHandle {
+    fn drop(&mut self) {
+        self.diagnostics.handle_drop_start();
     }
 }
 
@@ -899,11 +1103,16 @@ mod tests {
 /// these use. Kept apart from `tests` so neither needs per-item `cfg` attributes.
 #[cfg(all(test, unix))]
 mod worker_handle_tests {
+    use std::fmt::Debug;
+    use std::future::Future;
     use std::pin::Pin;
     use std::sync::Arc;
+    use std::sync::Mutex;
     use std::sync::atomic::AtomicU32;
     use std::sync::atomic::AtomicU64;
     use std::sync::atomic::Ordering;
+    use std::task::Context;
+    use std::task::Poll;
     use std::time::Duration;
 
     use buck2_common::liveliness_observer::LivelinessGuard;
@@ -911,6 +1120,7 @@ mod worker_handle_tests {
     use buck2_execute_local::GatherOutputStatus;
     use buck2_execute_local::StdRedirectPaths;
     use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+    use buck2_hash::BuckMutMap;
     use buck2_worker_proto::ExecuteCommand;
     use buck2_worker_proto::ExecuteCommandStream;
     use buck2_worker_proto::ExecuteEvent;
@@ -920,16 +1130,29 @@ mod worker_handle_tests {
     use buck2_worker_proto::worker_server::Worker;
     use buck2_worker_proto::worker_streaming_server::WorkerStreaming;
     use buck2_worker_proto::worker_streaming_server::WorkerStreamingServer;
+    use dupe::Dupe;
     use futures::Stream;
     use futures::StreamExt;
+    use futures::task::noop_waker_ref;
     use tonic::Request;
     use tonic::Response;
     use tonic::Status;
     use tonic::transport::Channel;
     use tonic::transport::Server;
+    use tracing::Event;
+    use tracing::Metadata;
+    use tracing::Subscriber;
+    use tracing::field::Field;
+    use tracing::field::Visit;
+    use tracing::span::Attributes;
+    use tracing::span::Id;
+    use tracing::span::Record;
 
     use super::WorkerClient;
+    use super::WorkerDiagnostics;
     use super::WorkerHandle;
+    use super::WorkerResponseReader;
+    use super::WorkerResponseWaiters;
     use super::tests::MockWorker;
     use super::tests::start_server;
 
@@ -974,6 +1197,7 @@ mod worker_handle_tests {
                 stderr: path("stderr"),
             },
             handle_guard,
+            WorkerDiagnostics::new(),
         );
         (handle, child_alive_guard)
     }
@@ -1166,7 +1390,9 @@ mod worker_handle_tests {
     #[tokio::test]
     async fn test_streaming_response_without_body_is_an_error() {
         let (channel, _server) = start_streaming_server(NoBodyStreamingWorker).await;
-        let mut client = WorkerClient::stream(channel).await.unwrap();
+        let mut client = WorkerClient::stream(channel, WorkerDiagnostics::new())
+            .await
+            .unwrap();
         let err = client.execute(no_body_request()).await.err().unwrap();
         assert!(
             format!("{err:#}").contains("Worker sent a response without a body for request"),
@@ -1199,5 +1425,589 @@ mod worker_handle_tests {
         assert_eq!(timeout_seen_by_worker(1500).await, 2);
         assert_eq!(timeout_seen_by_worker(500).await, 1);
         assert_eq!(timeout_seen_by_worker(2000).await, 2);
+    }
+
+    fn test_handle(client: WorkerClient) -> (WorkerHandle, LivelinessGuard) {
+        let diagnostics = match &client {
+            WorkerClient::Single(_) => WorkerDiagnostics::new(),
+            WorkerClient::Stream { diagnostics, .. } => *diagnostics,
+        };
+        let (child_exited_observer, child_alive_guard) = LivelinessGuard::create();
+        let (_, handle_guard) = LivelinessGuard::create();
+        let path = |name: &str| {
+            AbsNormPathBuf::from(format!("/tmp/buck2_worker_test/{name}")).expect("absolute path")
+        };
+        let h = WorkerHandle::new(
+            client,
+            child_exited_observer,
+            StdRedirectPaths {
+                stdout: path("stdout"),
+                stderr: path("stderr"),
+            },
+            handle_guard,
+            diagnostics,
+        );
+        (h, child_alive_guard)
+    }
+
+    #[derive(Clone, Default)]
+    struct WorkerReceiptRecorder {
+        events: Arc<Mutex<Vec<BuckMutMap<String, String>>>>,
+        response_warnings: Arc<AtomicU32>,
+        diagnostics_disabled: bool,
+    }
+
+    struct WorkerReceiptFields(BuckMutMap<String, String>);
+
+    impl Visit for WorkerReceiptFields {
+        fn record_debug(&mut self, field: &Field, value: &dyn Debug) {
+            self.0.insert(field.name().to_owned(), format!("{value:?}"));
+        }
+
+        fn record_str(&mut self, field: &Field, value: &str) {
+            self.0.insert(field.name().to_owned(), value.to_owned());
+        }
+
+        fn record_u64(&mut self, field: &Field, value: u64) {
+            self.0.insert(field.name().to_owned(), value.to_string());
+        }
+
+        fn record_i64(&mut self, field: &Field, value: i64) {
+            self.0.insert(field.name().to_owned(), value.to_string());
+        }
+    }
+
+    impl Subscriber for WorkerReceiptRecorder {
+        fn enabled(&self, metadata: &Metadata<'_>) -> bool {
+            metadata.target() != "buck2_worker_diagnostic" || !self.diagnostics_disabled
+        }
+
+        fn new_span(&self, _span: &Attributes<'_>) -> Id {
+            Id::from_u64(1)
+        }
+
+        fn record(&self, _span: &Id, _values: &Record<'_>) {}
+
+        fn record_follows_from(&self, _span: &Id, _follows: &Id) {}
+
+        fn event(&self, event: &Event<'_>) {
+            if event.metadata().target() == "buck2_worker_diagnostic" {
+                let mut fields = WorkerReceiptFields(Default::default());
+                event.record(&mut fields);
+                self.events.lock().unwrap().push(fields.0);
+            } else if event.metadata().target().ends_with("executors::worker")
+                && event.metadata().fields().field("error").is_some()
+            {
+                // Count the preserved warning without visiting its freeform error field.
+                self.response_warnings.fetch_add(1, Ordering::Relaxed);
+            }
+        }
+
+        fn enter(&self, _span: &Id) {}
+
+        fn exit(&self, _span: &Id) {}
+    }
+
+    #[tokio::test]
+    async fn test_worker_handle_drop_receipt_is_payload_free() {
+        let recorder = WorkerReceiptRecorder::default();
+        tracing::subscriber::with_default(recorder.clone(), || {
+            let channel = Channel::from_static("http://127.0.0.1:1").connect_lazy();
+            let (handle, _child_alive) = test_handle(WorkerClient::single(channel));
+            drop(handle);
+        });
+        let events = recorder.events.lock().unwrap();
+        assert_eq!(events.len(), 1, "missing worker handle-drop observation");
+        assert_eq!(events[0]["event"], "handle-drop-start");
+        assert!(events[0].contains_key("worker_ordinal"));
+        assert!(
+            events[0]
+                .keys()
+                .all(|key| matches!(key.as_str(), "message" | "worker_ordinal" | "event"))
+        );
+    }
+
+    #[test]
+    fn test_worker_reader_preserves_duplicate_errors_and_eof_observations() {
+        let recorder = WorkerReceiptRecorder::default();
+        let diagnostics = WorkerDiagnostics::new();
+        let waiters = WorkerResponseWaiters::default();
+        let (tx, mut rx) = tokio::sync::oneshot::channel();
+        waiters.insert(7, tx);
+        let (observer, guard) = LivelinessGuard::create_sync();
+        tracing::subscriber::with_default(recorder.clone(), || {
+            let mut reader = WorkerResponseReader::new(diagnostics);
+            reader.response(Err(Status::unknown("SYNTHETIC_PRIVATE_PAYLOAD")), &waiters);
+            reader.response(Err(Status::unknown("SYNTHETIC_PRIVATE_PAYLOAD")), &waiters);
+            reader.eof();
+            assert!(
+                observer.is_alive_sync(),
+                "receipt must not drop stream liveness"
+            );
+            assert_eq!(
+                waiters.len(),
+                1,
+                "error observations must not remove waiters"
+            );
+            assert!(!waiters.get(&7).unwrap().is_closed());
+        });
+        drop(guard);
+        assert!(!observer.is_alive_sync());
+        assert!(matches!(
+            rx.try_recv(),
+            Err(tokio::sync::oneshot::error::TryRecvError::Empty)
+        ));
+        assert_eq!(recorder.response_warnings.load(Ordering::Relaxed), 2);
+        let events = recorder.events.lock().unwrap();
+        assert_eq!(events.len(), 3);
+        assert_eq!(events[0]["reader_sequence"], "1");
+        assert_eq!(events[1]["reader_sequence"], "2");
+        assert_eq!(events[2]["reader_sequence"], "2");
+        assert_eq!(events[2]["event"], "response-stream-eof-observed");
+        for event in &events[..2] {
+            assert_eq!(event["worker_ordinal"], diagnostics.ordinal.to_string());
+            assert_eq!(
+                event["tonic_code"],
+                (tonic::Code::Unknown as i32).to_string()
+            );
+            assert_eq!(event["registered_entries_observed"], "1");
+            assert_eq!(event["open_receiver_entries_observed"], "1");
+            assert!(
+                !event.contains_key("request_id"),
+                "a stream error has no request id"
+            );
+            assert!(event.keys().all(|key| matches!(
+                key.as_str(),
+                "message"
+                    | "worker_ordinal"
+                    | "event"
+                    | "reader_sequence"
+                    | "tonic_code"
+                    | "registered_entries_observed"
+                    | "open_receiver_entries_observed"
+            )));
+        }
+        assert!(
+            events
+                .iter()
+                .flat_map(|event| event.values())
+                .all(|value| !value.contains("SYNTHETIC_PRIVATE_PAYLOAD"))
+        );
+    }
+
+    #[test]
+    fn test_worker_reader_disabled_diagnostics_preserve_errors_and_waiters() {
+        let recorder = WorkerReceiptRecorder {
+            diagnostics_disabled: true,
+            ..Default::default()
+        };
+        let waiters = WorkerResponseWaiters::default();
+        let (tx, _rx) = tokio::sync::oneshot::channel();
+        waiters.insert(7, tx);
+        tracing::subscriber::with_default(recorder.clone(), || {
+            let mut reader = WorkerResponseReader::new(WorkerDiagnostics::new());
+            reader.response(Err(Status::unknown("SYNTHETIC_PRIVATE_PAYLOAD")), &waiters);
+            reader.response(Err(Status::unknown("SYNTHETIC_PRIVATE_PAYLOAD")), &waiters);
+            reader.eof();
+            assert_eq!(reader.sequence, 2);
+            assert_eq!(waiters.len(), 1);
+            assert!(!waiters.get(&7).unwrap().is_closed());
+        });
+        assert!(recorder.events.lock().unwrap().is_empty());
+        assert_eq!(recorder.response_warnings.load(Ordering::Relaxed), 2);
+    }
+
+    #[test]
+    fn test_worker_reader_response_receipt_is_payload_free_and_delivery_unchanged() {
+        let recorder = WorkerReceiptRecorder::default();
+        let diagnostics = WorkerDiagnostics::new();
+        let waiters = WorkerResponseWaiters::default();
+        let (tx, mut rx) = tokio::sync::oneshot::channel();
+        waiters.insert(7, tx);
+        tracing::subscriber::with_default(recorder.clone(), || {
+            let mut reader = WorkerResponseReader::new(diagnostics);
+            reader.response(
+                Ok(ExecuteResponseStream {
+                    id: 7,
+                    response: Some(ExecuteResponse {
+                        exit_code: 5,
+                        stderr: "SYNTHETIC_PRIVATE_PAYLOAD".to_owned(),
+                        timed_out_after_s: None,
+                    }),
+                }),
+                &waiters,
+            );
+            reader.eof();
+        });
+        let response = rx.try_recv().unwrap().response.unwrap();
+        assert_eq!(response.exit_code, 5);
+        assert_eq!(response.stderr, "SYNTHETIC_PRIVATE_PAYLOAD");
+        assert!(waiters.is_empty());
+        let events = recorder.events.lock().unwrap();
+        assert_eq!(events.len(), 2);
+        let event = &events[0];
+        assert_eq!(event["event"], "response-item-observed");
+        assert_eq!(event["worker_ordinal"], diagnostics.ordinal.to_string());
+        assert_eq!(event["request_id"], "7");
+        assert_eq!(event["reader_sequence"], "1");
+        assert!(!event.contains_key("registered_entries_observed"));
+        assert!(!event.contains_key("open_receiver_entries_observed"));
+        assert!(event.keys().all(|key| matches!(
+            key.as_str(),
+            "message" | "worker_ordinal" | "event" | "request_id" | "reader_sequence"
+        )));
+        assert!(
+            event
+                .values()
+                .all(|value| !value.contains("SYNTHETIC_PRIVATE_PAYLOAD"))
+        );
+    }
+
+    #[tokio::test]
+    async fn test_worker_handle_receipt_preserves_arc_and_owner_guard_lifetime() {
+        let recorder = WorkerReceiptRecorder::default();
+        tracing::subscriber::with_default(recorder.clone(), || {
+            let channel = Channel::from_static("http://127.0.0.1:1").connect_lazy();
+            let (child_observer, _child_guard) = LivelinessGuard::create();
+            let (owner_observer, owner_guard) = LivelinessGuard::create_sync();
+            let path = AbsNormPathBuf::from("/tmp/buck2_worker_test/unused".to_owned()).unwrap();
+            let handle = Arc::new(WorkerHandle::new(
+                WorkerClient::single(channel),
+                child_observer,
+                StdRedirectPaths {
+                    stdout: path.clone(),
+                    stderr: path,
+                },
+                owner_guard,
+                WorkerDiagnostics::new(),
+            ));
+            let clone = handle.dupe();
+            drop(handle);
+            assert!(owner_observer.is_alive_sync());
+            assert!(recorder.events.lock().unwrap().is_empty());
+            drop(clone);
+            assert!(!owner_observer.is_alive_sync());
+        });
+        let events = recorder.events.lock().unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0]["event"], "handle-drop-start");
+    }
+
+    struct WorkerStreamFixture {
+        client: WorkerClient,
+        commands: tokio::sync::mpsc::UnboundedReceiver<ExecuteCommandStream>,
+        waiters: Arc<WorkerResponseWaiters>,
+        stream_guard: Option<LivelinessGuard>,
+    }
+
+    impl WorkerStreamFixture {
+        fn new() -> Self {
+            let (stream, commands) = tokio::sync::mpsc::unbounded_channel();
+            let (stream_closed_observer, stream_guard) = LivelinessGuard::create();
+            let waiters: Arc<WorkerResponseWaiters> = Default::default();
+            Self {
+                client: WorkerClient::Stream {
+                    ids: Default::default(),
+                    stream,
+                    stream_closed_observer,
+                    waiters: waiters.dupe(),
+                    diagnostics: WorkerDiagnostics::new(),
+                },
+                commands,
+                waiters,
+                stream_guard: Some(stream_guard),
+            }
+        }
+    }
+
+    #[test]
+    fn test_worker_request_receipts_preserve_all_closed_outcomes() {
+        for outcome in [
+            "send-failed",
+            "response-returned",
+            "response-body-missing",
+            "receive-closed",
+            "stream-closed",
+            "future-dropped-before-return",
+        ] {
+            let recorder = WorkerReceiptRecorder::default();
+            tracing::subscriber::with_default(recorder.clone(), || {
+                let mut fixture = WorkerStreamFixture::new();
+                if outcome == "send-failed" {
+                    fixture.commands.close();
+                }
+                let mut future = Box::pin(fixture.client.execute(no_body_request()));
+                let mut context = Context::from_waker(noop_waker_ref());
+                let first = future.as_mut().poll(&mut context);
+                if outcome == "send-failed" {
+                    assert!(matches!(first, Poll::Ready(Err(_))));
+                    return;
+                }
+                assert!(first.is_pending());
+                let command = fixture.commands.try_recv().unwrap();
+                assert_eq!(command.id, 0);
+                match outcome {
+                    "response-returned" | "response-body-missing" => {
+                        let response = (outcome == "response-returned").then(|| ExecuteResponse {
+                            exit_code: 7,
+                            stderr: "SYNTHETIC_PRIVATE_PAYLOAD".to_owned(),
+                            timed_out_after_s: None,
+                        });
+                        fixture
+                            .waiters
+                            .remove(&0)
+                            .unwrap()
+                            .1
+                            .send(ExecuteResponseStream { response, id: 0 })
+                            .unwrap();
+                        if outcome == "response-returned" {
+                            // Both arms ready: the unchanged bias must still choose the response.
+                            drop(fixture.stream_guard.take());
+                        }
+                    }
+                    "receive-closed" => {
+                        fixture.waiters.remove(&0);
+                    }
+                    "stream-closed" => {
+                        drop(fixture.stream_guard.take());
+                    }
+                    "future-dropped-before-return" => {
+                        drop(future);
+                        assert_eq!(fixture.waiters.len(), 1);
+                        assert!(fixture.waiters.get(&0).unwrap().is_closed());
+                        return;
+                    }
+                    _ => unreachable!(),
+                }
+                let result = match future.as_mut().poll(&mut context) {
+                    Poll::Ready(result) => result,
+                    Poll::Pending => panic!("terminal control did not complete request"),
+                };
+                if outcome == "response-returned" {
+                    let response = result.unwrap();
+                    assert_eq!(response.exit_code, 7);
+                    assert_eq!(response.stderr, "SYNTHETIC_PRIVATE_PAYLOAD");
+                } else {
+                    assert!(
+                        result.is_err(),
+                        "diagnostics must not turn failure into success"
+                    );
+                }
+            });
+            let events = recorder.events.lock().unwrap();
+            let ended = events
+                .iter()
+                .find(|event| event["event"] == "request-wait-ended")
+                .unwrap();
+            assert_eq!(ended["outcome"], outcome);
+            assert_eq!(ended["request_id"], "0");
+            assert!(ended.keys().all(|key| matches!(
+                key.as_str(),
+                "message" | "worker_ordinal" | "event" | "request_id" | "outcome"
+            )));
+            assert!(
+                events
+                    .iter()
+                    .flat_map(|event| event.values())
+                    .all(|value| !value.contains("SYNTHETIC_PRIVATE_PAYLOAD"))
+            );
+        }
+    }
+
+    #[test]
+    fn test_worker_cancelled_receiver_observations_do_not_clean_waiters() {
+        let recorder = WorkerReceiptRecorder::default();
+        tracing::subscriber::with_default(recorder.clone(), || {
+            let mut fixture = WorkerStreamFixture::new();
+            let diagnostics = match &fixture.client {
+                WorkerClient::Stream { diagnostics, .. } => *diagnostics,
+                _ => unreachable!(),
+            };
+            let mut future = Box::pin(fixture.client.execute(no_body_request()));
+            let mut context = Context::from_waker(noop_waker_ref());
+            assert!(future.as_mut().poll(&mut context).is_pending());
+            drop(future);
+            let (tx, _live_receiver) = tokio::sync::oneshot::channel();
+            fixture.waiters.insert(99, tx);
+            let mut reader = WorkerResponseReader::new(diagnostics);
+            reader.response(
+                Err(Status::unknown("SYNTHETIC_PRIVATE_PAYLOAD")),
+                &fixture.waiters,
+            );
+            assert_eq!(
+                fixture.waiters.len(),
+                2,
+                "no cancellation cleanup in diagnostics"
+            );
+        });
+        let events = recorder.events.lock().unwrap();
+        let error = events
+            .iter()
+            .find(|event| event["event"] == "response-error-observed")
+            .unwrap();
+        assert_eq!(error["registered_entries_observed"], "2");
+        assert_eq!(error["open_receiver_entries_observed"], "1");
+    }
+
+    #[test]
+    fn test_worker_clones_share_ordinal_and_instances_distinguish_request_zero() {
+        let recorder = WorkerReceiptRecorder::default();
+        tracing::subscriber::with_default(recorder.clone(), || {
+            let mut first = WorkerStreamFixture::new();
+            let mut cloned = first.client.clone();
+            let mut second = WorkerStreamFixture::new();
+            let mut context = Context::from_waker(noop_waker_ref());
+            for client in [&mut first.client, &mut cloned, &mut second.client] {
+                let mut future = Box::pin(client.execute(no_body_request()));
+                assert!(future.as_mut().poll(&mut context).is_pending());
+            }
+        });
+        let events = recorder.events.lock().unwrap();
+        let registered: Vec<_> = events
+            .iter()
+            .filter(|event| event["event"] == "request-wait-registered")
+            .collect();
+        assert_eq!(registered.len(), 3);
+        assert_eq!(
+            registered[0]["worker_ordinal"],
+            registered[1]["worker_ordinal"]
+        );
+        assert_ne!(
+            registered[0]["worker_ordinal"],
+            registered[2]["worker_ordinal"]
+        );
+        assert_eq!(registered[0]["request_id"], "0");
+        assert_eq!(registered[1]["request_id"], "1");
+        assert_eq!(registered[2]["request_id"], "0");
+    }
+
+    #[test]
+    fn test_worker_exit_receipts_exclude_payloads_and_preserve_results() {
+        let recorder = WorkerReceiptRecorder::default();
+        let diagnostics = WorkerDiagnostics::new();
+        let results = [
+            Ok(GatherOutputStatus::Finished {
+                exit_code: 7,
+                execution_stats: None,
+            }),
+            Ok(GatherOutputStatus::SpawnFailed(
+                "SYNTHETIC_PRIVATE_PAYLOAD".to_owned(),
+            )),
+            Ok(GatherOutputStatus::Cancelled),
+            Ok(GatherOutputStatus::TimedOut(Duration::from_secs(3))),
+            Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Tier0,
+                "SYNTHETIC_PRIVATE_PAYLOAD"
+            )),
+        ];
+        tracing::subscriber::with_default(recorder.clone(), || {
+            for result in &results {
+                diagnostics.exit_observed(result);
+            }
+        });
+        assert!(matches!(
+            &results[0],
+            Ok(GatherOutputStatus::Finished { exit_code: 7, .. })
+        ));
+        assert!(results[4].is_err());
+        let events = recorder.events.lock().unwrap();
+        let kinds: Vec<_> = events
+            .iter()
+            .map(|event| event["exit_kind"].as_str())
+            .collect();
+        assert_eq!(
+            kinds,
+            [
+                "finished",
+                "spawn-failed",
+                "cancelled",
+                "timed-out",
+                "observation-error"
+            ]
+        );
+        assert_eq!(events[0]["exit_code"], "7");
+        for (index, event) in events.iter().enumerate() {
+            assert_eq!(event.contains_key("exit_code"), index == 0);
+            assert!(event.keys().all(|key| matches!(
+                key.as_str(),
+                "message" | "worker_ordinal" | "event" | "exit_kind" | "exit_code"
+            )));
+            assert!(
+                event
+                    .values()
+                    .all(|value| !value.contains("SYNTHETIC_PRIVATE_PAYLOAD"))
+            );
+        }
+    }
+
+    /// A streaming worker that answers each request and then ends its response stream, as when
+    /// the worker process exits right after writing its last answer.
+    struct AnswerThenCloseWorker;
+
+    #[tonic::async_trait]
+    impl WorkerStreaming for AnswerThenCloseWorker {
+        type ExecuteStreamStream = ResponseStream;
+
+        async fn execute_stream(
+            &self,
+            req: Request<tonic::Streaming<ExecuteCommandStream>>,
+        ) -> Result<Response<Self::ExecuteStreamStream>, Status> {
+            let mut inbound = req.into_inner();
+            let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+            tokio::spawn(async move {
+                if let Some(Ok(cmd)) = inbound.next().await {
+                    let _unused = tx.send(Ok(ExecuteResponseStream {
+                        response: Some(ExecuteResponse {
+                            exit_code: 7,
+                            stderr: "answer".to_owned(),
+                            timed_out_after_s: None,
+                        }),
+                        id: cmd.id,
+                    }));
+                }
+                // Returning drops `tx`: the response stream ends right after the answer.
+            });
+            Ok(Response::new(Box::pin(
+                tokio_stream::wrappers::UnboundedReceiverStream::new(rx),
+            )))
+        }
+    }
+
+    /// Runs 40 commands against workers that answer and then close, and counts how many answers
+    /// came back and how many were reported as a closed stream.
+    async fn answered_and_lost() -> (usize, usize) {
+        let mut answered = 0;
+        let mut lost = 0;
+        for _ in 0..40 {
+            let (channel, _server) = start_streaming_server(AnswerThenCloseWorker).await;
+            let client = WorkerClient::stream(channel, WorkerDiagnostics::new())
+                .await
+                .unwrap();
+            let (h, _child_alive) = test_handle(client);
+            let (observer, _alive) = LivelinessGuard::create();
+            let r = h.exec_cmd(&[], vec![], None, observer.as_ref()).await;
+            match r.status {
+                GatherOutputStatus::Finished { exit_code: 7, .. } => {
+                    assert_eq!(r.stderr, b"answer");
+                    answered += 1;
+                }
+                GatherOutputStatus::SpawnFailed(msg) => {
+                    assert!(
+                        msg.contains("Stream closed while waiting for response"),
+                        "{msg}"
+                    );
+                    lost += 1;
+                }
+                other => panic!("unexpected {other:?}"),
+            }
+        }
+        (answered, lost)
+    }
+
+    /// An answer that arrives together with the end of the stream is returned.
+    #[tokio::test(flavor = "current_thread")]
+    async fn test_streaming_answer_kept_when_stream_closes_right_after() {
+        let (answered, lost) = answered_and_lost().await;
+        assert_eq!((answered, lost), (40, 0));
     }
 }

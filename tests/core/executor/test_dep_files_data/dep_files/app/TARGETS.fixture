@@ -65,6 +65,11 @@ dep_file_with_preceding_actions(
     name = "dep_file_with_preceding_actions",
 )
 
+anon_owned_run(
+    name = "anon_owned_run",
+    marker_content = read_config("test", "anon_marker_content", "anon"),
+)
+
 dir_output_dep_file(
     name = "dir_output_dep_file",
     used_input_contents = read_config("test", "used_input_contents", "default"),

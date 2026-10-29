@@ -1,0 +1,1 @@
+consumer(name = "platform_flavor", dep = "//lib:lib#android-arm64,shared")

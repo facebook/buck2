@@ -33,7 +33,6 @@ use strong_hash::StrongHash;
 
 use crate::arc_str::base::ArcStrBase;
 use crate::arc_str::base::ArcStrBaseInner;
-use crate::arc_str::base::ArcStrBaseInnerConst;
 use crate::arc_str::base::ArcStrLenStrategy;
 use crate::size_assert;
 
@@ -50,7 +49,7 @@ unsafe impl ArcStrLenStrategy for ArcStrProperties {
     }
 
     #[inline]
-    fn inner_empty() -> &'static ArcStrBaseInnerConst<Self> {
+    fn inner_empty() -> &'static ArcStrBaseInner<Self> {
         &INNER_EMPTY
     }
 
@@ -71,7 +70,7 @@ pub struct ArcStr {
 size_assert::same_size!(ArcStr, Arc<str>);
 size_assert::same_size!(Option<ArcStr>, Arc<str>);
 
-static INNER_EMPTY: ArcStrBaseInnerConst<ArcStrProperties> = ArcStrBaseInner::EMPTY;
+static INNER_EMPTY: ArcStrBaseInner<ArcStrProperties> = ArcStrBaseInner::empty();
 
 impl ArcStr {
     #[inline]
@@ -184,6 +183,10 @@ impl ArcErase for ArcStr {
         None
     }
 
+    fn is_unique(&self) -> bool {
+        self.base.is_unique()
+    }
+
     fn serialize_inner(
         &self,
         ser: &mut dyn PagableSerializer,
@@ -207,6 +210,7 @@ mod tests {
     use std::sync::atomic;
 
     use dupe::Dupe;
+    use pagable::arc_erase::ArcErase;
 
     use crate::arc_str::ArcStr;
 
@@ -247,12 +251,25 @@ mod tests {
     }
 
     #[test]
+    fn test_is_unique() {
+        let s = ArcStr::from("hello");
+        assert!(ArcErase::is_unique(&s));
+        let s2 = s.dupe();
+        assert!(!ArcErase::is_unique(&s));
+        drop(s2);
+        assert!(ArcErase::is_unique(&s));
+        assert!(!ArcErase::is_unique(&ArcStr::from("")));
+    }
+
+    #[test]
     fn test_little_stress_test() {
-        for i in 0..100 {
+        // Interpreted, a string costs milliseconds on the Windows CI hosts.
+        let (rounds, churn) = if cfg!(miri) { (20, 100) } else { (100, 1000) };
+        for i in 0..rounds {
             let strings = (0..i)
                 .map(|i| ArcStr::from(i.to_string()))
                 .collect::<Vec<_>>();
-            for j in 0..1000 {
+            for j in 0..churn {
                 let _ignore = ArcStr::from(j.to_string());
             }
             for (k, s) in strings.iter().enumerate() {

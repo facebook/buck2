@@ -6,10 +6,24 @@ source_listing()
 
 prelude = native
 
+prelude.python_bootstrap_library(
+    name = "class_to_source_map_lib",
+    srcs = ["class_to_source_map.py"],
+    visibility = ["prelude//java/tools/..."],
+)
+
+prelude.python_bootstrap_binary(
+    name = "compiler_class_to_source_map",
+    main = "compiler_class_to_source_map.py",
+    visibility = ["PUBLIC"],
+    deps = [":class_to_source_map_lib"],
+)
+
 prelude.python_bootstrap_binary(
     name = "gen_class_to_source_map",
     main = "gen_class_to_source_map.py",
     visibility = ["PUBLIC"],
+    deps = [":class_to_source_map_lib"],
 )
 
 prelude.python_bootstrap_binary(
@@ -77,7 +91,9 @@ prelude.python_library(
 prelude.python_library(
     name = "scripts-typing",
     srcs = [
+        "class_to_source_map.py",
         "compile_and_package.py",
+        "compiler_class_to_source_map.py",
         "fat_jar.py",
         "gen_class_to_source_map.py",
         "list_class_names.py",
@@ -101,6 +117,7 @@ prelude.python_test(
 prelude.python_test(
     name = "test_gen_class_to_source_map",
     srcs = [
+        "class_to_source_map.py",
         "gen_class_to_source_map.py",
         "tests/test_gen_class_to_source_map.py",
     ],
@@ -121,6 +138,16 @@ prelude.python_test(
     srcs = [
         "merge_class_to_source_maps.py",
         "tests/test_merge_class_to_source_maps.py",
+    ],
+    base_module = "",
+)
+
+prelude.python_test(
+    name = "test_compiler_class_to_source_map",
+    srcs = [
+        "class_to_source_map.py",
+        "compiler_class_to_source_map.py",
+        "tests/test_compiler_class_to_source_map.py",
     ],
     base_module = "",
 )

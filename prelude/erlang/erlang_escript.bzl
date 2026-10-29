@@ -7,6 +7,8 @@
 # above-listed licenses.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
+load(":attrs.bzl", "erlang_rule_attributes")
 load(":erlang_build.bzl", "erlang_build")
 load(":erlang_dependencies.bzl", "flatten_dependencies")
 load(":erlang_info.bzl", "ErlangAppInfo")
@@ -213,3 +215,43 @@ parse_bin(Bin) ->
         {ok, Tokens, _} = erl_scan:string(binary_to_list(Bin)),
         erl_parse:parse_term(Tokens).
         """
+
+erlang_escript = prelude_rule(
+    name = "erlang_escript",
+    impl = erlang_escript_impl,
+    docs = """
+        The `erlang_escript` target builds and runs bundled escripts. Please refer to the
+        [OTP documentation](https://www.erlang.org/doc/man/escript.html) for more details about escripts.
+
+        Escripts by default always try to use the module that has the same name as the escripts basename as entry point, e.g. if
+        the escript is called `script.escript` then running the escript will try to call `script:main/1`. Both name and
+        main module can be overwritten though.
+
+        The target name doubles as the default escript name. If the `main_module` attribute is not used, the escript filename will
+        be `<name>.escript`.
+    """,
+    examples = """
+        ```
+        erlang_escript(
+            name = "script",
+            main_module = "main_module",
+            script_name = "the_script",
+            deps = [
+                ":escript_app",
+            ],
+            emu_args = ["+sbtu", "+A1"],
+        )
+
+        erlang_application(
+            name = "escript_app",
+            srcs = ["src/main_module.erl"],
+            applications = [
+                "kernel",
+                "stdlib",
+            ],
+        )
+        ```
+    """,
+    further = None,
+    attrs = erlang_rule_attributes["erlang_escript"],
+)

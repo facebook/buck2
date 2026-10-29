@@ -25,6 +25,7 @@ import com.facebook.buck.jvm.cd.command.PostBuildParams;
 import com.facebook.buck.jvm.cd.command.kotlin.BuildKotlinCommand;
 import com.facebook.buck.jvm.cd.serialization.kotlin.ActionMetadataSerializer;
 import com.facebook.buck.jvm.java.ActionMetadata;
+import com.facebook.buck.jvm.java.CompilerClassToSourceMap;
 import com.facebook.buck.jvm.kotlin.KotlinStepsBuilder;
 import com.facebook.buck.jvm.kotlin.cd.analytics.KotlinCDAnalytics;
 import com.facebook.buck.jvm.kotlin.cd.analytics.logger.KotlinCDLogger;
@@ -115,6 +116,12 @@ public class KotlinCDCommand implements JvmCDCommand {
         BuildKotlinCommand.Companion.fromProto(
             proto.getBuildCommand(), Optional.ofNullable(buckScratchPath));
     this.postBuildParams = PostBuildParams.Companion.fromProto(proto.getPostBuildParams());
+    CompilerClassToSourceMap.prepare(
+        buildKotlinCommand
+            .getBaseJarCommand()
+            .getCompilerOutputPathsValue()
+            .getLibraryCompilerOutputPath(),
+        buildKotlinCommand.getBaseJarCommand().getBuildCellRootPath().getPath());
     this.buildUuid = env.get("BUCK_BUILD_ID");
     this.executionPlatform = env.get("INSIDE_RE_WORKER") != null ? "remote_execution" : "local";
     KotlinCDAnalytics kotlinCDAnalytics = initKotlinCDAnalytics();
@@ -360,6 +367,16 @@ public class KotlinCDCommand implements JvmCDCommand {
 
   @Override
   public void postExecute() throws IOException {
+    CompilerClassToSourceMap.writeCombined(
+        buildKotlinCommand
+            .getBaseJarCommand()
+            .getCompilerOutputPathsValue()
+            .getLibraryCompilerOutputPath(),
+        buildKotlinCommand.getBaseJarCommand().getBuildCellRootPath().getPath(),
+        // The shared javaSrcs protocol field carries both .java and .kt inputs.
+        buildKotlinCommand.getBaseJarCommand().getJavaSrcs().stream()
+            .map(RelPath::getPath)
+            .collect(Collectors.toList()));
     maybeCreateIncrementalStateDir();
     maybeRunPostProcessor();
     maybeWriteClassAbi();

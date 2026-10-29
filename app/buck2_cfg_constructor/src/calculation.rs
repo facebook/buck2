@@ -22,8 +22,7 @@ use buck2_interpreter_for_build::interpreter::package_file_calculation::EvalPack
 use buck2_node::cfg_constructor::CfgConstructorCalculationImpl;
 use buck2_node::cfg_constructor::CfgConstructorImpl;
 use buck2_node::cfg_constructor::CfgConstructorModifiers;
-use buck2_node::metadata::value::MetadataValue;
-use buck2_node::modifiers::PackageCfgModifiersValue;
+use buck2_node::modifiers::CfgModifiers;
 use buck2_node::nodes::unconfigured::TargetNodeRef;
 use buck2_node::rule_type::RuleType;
 use buck2_node::super_package::SuperPackage;
@@ -111,8 +110,8 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
         #[display("CfgConstructorInvocationKey")]
         #[pagable_typetag(dice::DiceKeyDyn)]
         struct CfgConstructorInvocationKey {
-            package_cfg_modifiers: Option<PackageCfgModifiersValue>,
-            target_cfg_modifiers: Option<MetadataValue>,
+            package_cfg_modifiers: Option<CfgModifiers>,
+            target_cfg_modifiers: Option<CfgModifiers>,
             cfg: ConfigurationData,
             modifiers: CfgConstructorModifiers,
             rule_type: RuleType,
@@ -132,6 +131,13 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
                         internal_error!("Global cfg constructor instance should exist")
                     })?;
                 let highest_priority_modifiers = self.modifiers.render(&self.cfg)?;
+                // TODO(jtbraun) drive these errors to zero and turn these into errors at PACKAGE/BUCK load time
+                if let Some(m) = &self.package_cfg_modifiers {
+                    m.report_unresolvable();
+                }
+                if let Some(m) = &self.target_cfg_modifiers {
+                    m.report_unresolvable();
+                }
                 cfg_constructor
                     .eval(
                         ctx,
@@ -180,10 +186,7 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
             );
         }
 
-        let target_cfg_modifiers = target
-            .target_modifiers()?
-            .filter(|t| !t.is_empty())
-            .map(|t| MetadataValue(t.as_json()));
+        let target_cfg_modifiers = target.target_modifiers()?.filter(|t| !t.is_empty());
 
         // If there are no PACKAGE/target/cli modifiers, return the original configuration without computing DICE call
         // TODO(scottcao): This is just for rollout purpose. Remove once modifier is rolled out

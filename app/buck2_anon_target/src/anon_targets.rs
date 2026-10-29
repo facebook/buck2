@@ -56,6 +56,7 @@ use buck2_core::deferred::base_deferred_key::BaseDeferredKeyDyn;
 use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::execution_types::execution::ExecutionPlatformResolutionPartial;
+use buck2_core::execution_types::execution_group::ExecutionGroup;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern::PatternData;
 use buck2_core::pattern::pattern::lex_target_pattern;
@@ -71,6 +72,8 @@ use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::span_async;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_hash::BuckFixedSortedMap;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_interpreter::factory::BuckStarlarkModule;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
@@ -81,12 +84,13 @@ use buck2_interpreter_for_build::attrs::coerce::arc_str_interner::ArcStrInterner
 use buck2_interpreter_for_build::rule::FrozenStarlarkRuleCallable;
 use buck2_interpreter_for_build::rule::frozen_rule_attribute_spec;
 use buck2_node::attrs::attr_type::AttrType;
-use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::spec::internal::is_internal_attr;
 use buck2_node::bzl_or_bxl_path::BzlOrBxlPath;
+use buck2_node::rule_type::RuleType;
 use buck2_node::rule_type::StarlarkRuleType;
 use buck2_util::arc_str::ArcStr;
 use buck2_util::time_span::TimeSpan;
+use buck2_util::vec2::Vec2;
 use derive_more::Display;
 use dice::Demand;
 use dice::DiceComputations;
@@ -108,9 +112,6 @@ use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
 use starlark::values::dict::UnpackDictEntries;
-use starlark_map::ordered_map::OrderedMap;
-use starlark_map::small_map::SmallMap;
-use starlark_map::vec2::Vec2;
 
 use crate::anon_promises::AnonPromises;
 use crate::anon_target_attr::AnonTargetAttr;
@@ -145,6 +146,18 @@ pub enum AnonTargetsError {
     InternalAttribute(String),
     #[error("Missing attribute `{0}`")]
     MissingAttribute(String),
+    #[error(
+        "Rule `{0}` declares execution groups, which anon targets do not have. Use a rule without execution groups, and pass `exec_group` to `anon_target()` to run it on the platform of one of the caller's groups"
+    )]
+    RuleWithExecutionGroups(String),
+    #[error(
+        "Anon target of rule `{rule}` is created in execution group `{group}`, which has no compatible execution platform. Run `buck2 audit execution-platform-resolution` on the target to see why each platform was skipped"
+    )]
+    NoExecutionPlatformForGroup { rule: String, group: String },
+    #[error(
+        "The anon target uses the default execution group, which the rule does not declare. Pass `exec_group`, or add `DefaultExecGroup` to `exec_groups`"
+    )]
+    DefaultExecutionGroupNotDeclared,
     #[error("Query macros are not supported")]
     QueryMacroNotSupported,
 }
@@ -242,6 +255,7 @@ impl AnonTargetKey {
 
     fn prepare_anon_target_data<'v>(
         execution_platform: &ExecutionPlatformResolution,
+        uses_execution_groups: bool,
         rule: ValueTyped<'v, FrozenStarlarkRuleCallable<'v>>,
         attributes: UnpackDictEntries<&'v str, Value<'v>>,
     ) -> buck2_error::Result<(
@@ -250,13 +264,20 @@ impl AnonTargetKey {
         AnonAttrValues,
         ConfigurationNoExec,
     )> {
+        if rule.declares_execution_groups() {
+            return Err(
+                AnonTargetsError::RuleWithExecutionGroups(rule.rule_type().name.clone()).into(),
+            );
+        }
+
         let mut name = None;
 
         let entries = attributes.entries;
         let attrs_spec = rule.attributes();
-        let anon_attr_ctx = AnonAttrCtx::new(execution_platform);
+        let anon_attr_ctx = AnonAttrCtx::new(execution_platform, uses_execution_groups);
 
-        let mut provided: SmallMap<&str, Value> = SmallMap::with_capacity(entries.len());
+        let mut provided: BuckMutInsertionMap<&str, Value> =
+            BuckMutInsertionMap::with_capacity(entries.len());
         for (k, v) in entries {
             if k == "name" {
                 name = Some(Self::coerce_name(v)?);
@@ -281,8 +302,8 @@ impl AnonTargetKey {
             let value = match provided.get(k) {
                 Some(v) => Self::coerce_to_anon_target_attr(a.coercer(), *v, &anon_attr_ctx)
                     .with_buck_error_context(|| format!("Error coercing attribute `{k}`"))?,
-                None => match a.default() {
-                    Some(x) => Self::coerced_to_anon_target_attr(k, x, a.coercer())?,
+                None => match a.default_as_ref() {
+                    Some(x) => AnonTargetAttr::from_attr_ref(k, x, a.coercer())?,
                     None => return Err(AnonTargetsError::MissingAttribute(k.to_owned()).into()),
                 },
             };
@@ -304,14 +325,21 @@ impl AnonTargetKey {
         ))
     }
 
+    /// `uses_execution_groups` is whether the creator declares named execution groups or creates
+    /// the anon target with `exec_group`.
     pub(crate) fn new<'v>(
         execution_platform: &ExecutionPlatformResolution,
+        uses_execution_groups: bool,
         rule: ValueTyped<'v, FrozenStarlarkRuleCallable<'v>>,
         attributes: UnpackDictEntries<&'v str, Value<'v>>,
         owner_key: &BaseDeferredKey,
     ) -> buck2_error::Result<Self> {
-        let (rule_type, name, attrs, exec_cfg) =
-            Self::prepare_anon_target_data(execution_platform, rule, attributes)?;
+        let (rule_type, name, attrs, exec_cfg) = Self::prepare_anon_target_data(
+            execution_platform,
+            uses_execution_groups,
+            rule,
+            attributes,
+        )?;
 
         let global_cfg_options = match owner_key {
             BaseDeferredKey::TargetLabel(_) => None,
@@ -402,14 +430,6 @@ impl AnonTargetKey {
         attr.coerce_item(ctx, x)
     }
 
-    fn coerced_to_anon_target_attr(
-        attr_name: &str,
-        x: &CoercedAttr,
-        ty: &AttrType,
-    ) -> buck2_error::Result<AnonTargetAttr> {
-        AnonTargetAttr::from_coerced_attr(attr_name, x, ty)
-    }
-
     pub(crate) async fn resolve<'d>(
         &self,
         dice: &mut DiceComputations<'d>,
@@ -455,7 +475,7 @@ impl AnonTargetKey {
             ),
             Vec::new(),
         )
-        .finalize(OrderedMap::new());
+        .finalize(BuckFixedSortedMap::new());
 
         span_async(
             buck2_data::AnalysisStart {
@@ -556,7 +576,7 @@ impl AnonTargetKey {
                     // into anon targets
                     Some(
                         eval.heap()
-                            .alloc_typed(AnalysisPlugins::new(SmallMap::new()))
+                            .alloc_typed(AnalysisPlugins::new(BuckMutInsertionMap::new()))
                             .into(),
                     ),
                     registry,
@@ -617,7 +637,8 @@ impl AnonTargetKey {
                         num_declared_artifacts,
                         validations,
                         requested_anon_targets,
-                    ),
+                        RuleType::Starlark(self.0.rule_type().dupe()),
+                    )?,
                     split_instants,
                 ),
             ))
@@ -629,13 +650,20 @@ impl AnonTargetKey {
 /// Several attribute functions need a context, make one that is mostly useless.
 pub(crate) struct AnonAttrCtx {
     pub(crate) execution_platform_resolution: ExecutionPlatformResolution,
+    /// Whether the creator declares named execution groups or creates the anon target with
+    /// `exec_group`.
+    pub(crate) uses_execution_groups: bool,
     str_interner: ArcStrInterner,
 }
 
 impl AnonAttrCtx {
-    fn new(execution_platform_resolution: &ExecutionPlatformResolution) -> Self {
+    fn new(
+        execution_platform_resolution: &ExecutionPlatformResolution,
+        uses_execution_groups: bool,
+    ) -> Self {
         Self {
             execution_platform_resolution: execution_platform_resolution.clone(),
+            uses_execution_groups,
             str_interner: ArcStrInterner::new(),
         }
     }
@@ -709,8 +737,42 @@ impl<'v> AnonTargetsRegistry<'v> {
         rule: ValueTyped<'v, FrozenStarlarkRuleCallable<'v>>,
         attributes: UnpackDictEntries<&'v str, Value<'v>>,
         owner_key: &BaseDeferredKey,
+        execution_group: Option<&ExecutionGroup>,
     ) -> buck2_error::Result<AnonTargetKey> {
-        AnonTargetKey::new(&self.execution_platform, rule, attributes, owner_key)
+        if matches!(execution_group, None | Some(ExecutionGroup::Default))
+            && !self.execution_platform.default_execution_group_declared()
+        {
+            return Err(AnonTargetsError::DefaultExecutionGroupNotDeclared.into());
+        }
+        match execution_group {
+            None => AnonTargetKey::new(
+                &self.execution_platform,
+                self.execution_platform.has_execution_groups(),
+                rule,
+                attributes,
+                owner_key,
+            ),
+            Some(group) => {
+                // Fails for an unspecified resolution, which resolves no group, as registering an
+                // action in any group does.
+                if let ExecutionGroup::Named(named) = group
+                    && self.execution_platform.platform_for_group(group)?.is_none()
+                {
+                    return Err(AnonTargetsError::NoExecutionPlatformForGroup {
+                        rule: rule.rule_type().name.clone(),
+                        group: named.to_string(),
+                    }
+                    .into());
+                }
+                AnonTargetKey::new(
+                    &self.execution_platform.resolution_for_group(group)?,
+                    true,
+                    rule,
+                    attributes,
+                    owner_key,
+                )
+            }
+        }
     }
 
     pub(crate) fn register_one(

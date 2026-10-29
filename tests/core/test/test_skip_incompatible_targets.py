@@ -12,36 +12,37 @@
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test, env
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase, env
 
 
-@buck_test()
-@env(
-    "BUCK2_ALLOW_INTERNAL_TEST_RUNNER_DO_NOT_USE", "1"
-)  # needed to avoid failure on missing buck2-tpx in buck-out
-async def test_test_skip_incompatible_targets(buck: Buck) -> None:
-    targetA = "root//:compatible-with-A"
-    targetB = "root//:compatible-with-B"
-    platformA = "root//:platA"
+class SkipIncompatibleTargetsTest(BuckTestCase):
+    @buck_test()
+    @env(
+        "BUCK2_ALLOW_INTERNAL_TEST_RUNNER_DO_NOT_USE", "1"
+    )  # needed to avoid failure on missing buck2-tpx in buck-out
+    async def test_test_skip_incompatible_targets(self, buck: Buck) -> None:
+        targetA = "root//:compatible-with-A"
+        targetB = "root//:compatible-with-B"
+        platformA = "root//:platA"
 
-    await expect_failure(
-        buck.test(
+        await expect_failure(
+            buck.test(
+                targetA,
+                targetB,
+                f"--target-platforms={platformA}",
+                test_executor="",
+            ),
+            stderr_regex=rf"{targetB}\s*is incompatible with {platformA}#.*$",
+        )
+
+        result = await buck.test(
             targetA,
             targetB,
             f"--target-platforms={platformA}",
+            "--skip-incompatible-targets",
             test_executor="",
-        ),
-        stderr_regex=rf"{targetB}\s*is incompatible with {platformA}#.*$",
-    )
+        )
+        assert targetA in result.stderr
+        assert targetB not in result.stderr
 
-    result = await buck.test(
-        targetA,
-        targetB,
-        f"--target-platforms={platformA}",
-        "--skip-incompatible-targets",
-        test_executor="",
-    )
-    assert targetA in result.stderr
-    assert targetB not in result.stderr
-
-    result.check_returncode()
+        result.check_returncode()

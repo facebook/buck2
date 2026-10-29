@@ -22,6 +22,7 @@ use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::starlark_value;
+use strong_hash::StrongHash;
 
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetError;
@@ -35,7 +36,8 @@ use crate::interpreter::rule_defs::transitive_set::TransitiveSetError;
     Freeze,
     PartialEq,
     Allocative,
-    StarlarkPagable
+    StarlarkPagable,
+    StrongHash
 )]
 pub enum TransitiveSetOrdering {
     /// Preorder depth-first traversal, visiting parent node first, then children in an unspecified

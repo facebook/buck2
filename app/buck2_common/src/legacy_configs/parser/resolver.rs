@@ -11,8 +11,8 @@
 use std::collections::BTreeMap;
 use std::sync::LazyLock;
 
+use buck2_hash::BuckFixedSortedMap;
 use regex::Regex;
-use starlark_map::sorted_map::SortedMap;
 
 use crate::legacy_configs::configs::LegacyBuckConfigSection;
 use crate::legacy_configs::configs::ResolvedValue;
@@ -116,10 +116,10 @@ pub struct ConfigResolver {
 impl ConfigResolver {
     pub fn resolve(
         values: BTreeMap<String, SectionBuilder>,
-    ) -> buck2_error::Result<SortedMap<String, LegacyBuckConfigSection>> {
+    ) -> buck2_error::Result<BuckFixedSortedMap<String, LegacyBuckConfigSection>> {
         let mut resolver = Self { values };
         resolver.resolve_all()?;
-        Ok(SortedMap::from_iter(
+        Ok(BuckFixedSortedMap::from_iter(
             resolver.values.into_iter().map(|(k, v)| (k, v.finish())),
         ))
     }

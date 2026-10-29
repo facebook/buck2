@@ -33,6 +33,14 @@ pub enum HydrationCommand {
     PageIn(PageInCommand),
     /// Summarize which DICE node values are resident in memory vs paged out.
     Status(StatusCommand),
+    /// Drop the resident DICE values whose rows already hold them, as memory pressure would.
+    Evict(EvictCommand),
+}
+
+#[derive(Debug, clap::Parser)]
+pub struct EvictCommand {
+    #[clap(flatten)]
+    event_log_opts: CommonEventLogOptions,
 }
 
 #[derive(Debug, clap::Parser)]
@@ -63,13 +71,16 @@ impl HydrationCommand {
             HydrationCommand::PageOut(_) => HydrationSubcommand::PageOut,
             HydrationCommand::PageIn(_) => HydrationSubcommand::PageIn,
             HydrationCommand::Status(_) => HydrationSubcommand::Status,
+            HydrationCommand::Evict(_) => HydrationSubcommand::Evict,
         }
     }
 
     fn wait(&self) -> bool {
         match self {
             HydrationCommand::Status(c) => c.wait,
-            HydrationCommand::PageOut(_) | HydrationCommand::PageIn(_) => false,
+            HydrationCommand::PageOut(_)
+            | HydrationCommand::PageIn(_)
+            | HydrationCommand::Evict(_) => false,
         }
     }
 }
@@ -104,7 +115,7 @@ impl StreamingCommand for HydrationCommand {
             )
             .await??;
 
-        // Only `status` returns a report; page-out / page-in leave it `None`.
+        // Only `status` and `evict` return a report; page-out / page-in leave it `None`.
         if let Some(summary) = response.summary {
             buck2_client_ctx::println!("{}", summary.trim_end())?;
         }
@@ -126,6 +137,7 @@ impl StreamingCommand for HydrationCommand {
             HydrationCommand::PageOut(c) => &c.event_log_opts,
             HydrationCommand::PageIn(c) => &c.event_log_opts,
             HydrationCommand::Status(c) => &c.event_log_opts,
+            HydrationCommand::Evict(c) => &c.event_log_opts,
         }
     }
 

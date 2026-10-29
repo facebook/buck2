@@ -21,11 +21,13 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::V
 use buck2_build_api::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineSink;
+use buck2_build_api::interpreter::rule_defs::cmd_args::InputProperties;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact::fs::ExecutorFs;
 use derive_more::Display;
 use dupe::Dupe;
+use mini_vec::MiniBoxSlice;
 use pagable::Pagable;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
@@ -50,7 +52,7 @@ pub(crate) enum DepFileFingerprintFormat {
     },
     Args {
         is_executable: bool,
-        macro_files: Option<Box<[Artifact]>>,
+        macro_files: Option<MiniBoxSlice<Artifact>>,
     },
 }
 
@@ -100,7 +102,11 @@ impl<'v> StarlarkDepFileFingerprint<'v> {
                     .visit_artifacts(visitor)?;
                 if let Some(files) = macro_files {
                     for artifact in files {
-                        visitor.visit_input(ArtifactGroup::Artifact(artifact.dupe()), Vec::new());
+                        visitor.visit_input(
+                            ArtifactGroup::Artifact(artifact.dupe()),
+                            InputProperties::default(),
+                            Vec::new(),
+                        );
                     }
                 }
                 Ok(())

@@ -13,11 +13,11 @@ load(
 )
 load(
     "@prelude//cxx:cxx_toolchain_types.bzl",
-    "RuntimeDependencyHandling",  # @unused Used as a type
+    "RuntimeDependencyHandling",
 )
 load(
     "@prelude//cxx:link_groups_types.bzl",
-    "LinkGroupInfo",  # @unused Used as a type
+    "LinkGroupInfo",
 )
 load(
     "@prelude//linking:link_info.bzl",
@@ -30,8 +30,9 @@ load(
 )
 load(
     "@prelude//linking:shared_libraries.bzl",
-    "SharedLibrary",  # @unused Used as a type
+    "SharedLibrary",
 )
+load("@prelude//linking:types.bzl", "LinkPreference")
 load(":argsfiles.bzl", "CompileArgsfiles")
 load(
     ":compile_types.bzl",
@@ -40,7 +41,7 @@ load(
 )
 load(
     ":cxx_sources.bzl",
-    "CxxSrcWithFlags",  # @unused Used as a type
+    "CxxSrcWithFlags",
 )
 load(
     ":headers.bzl",
@@ -48,7 +49,7 @@ load(
 )
 load(
     ":link_groups.bzl",
-    "LinkGroupLibSpec",  # @unused Used as a type
+    "LinkGroupLibSpec",
 )
 load(
     ":linker.bzl",
@@ -63,8 +64,6 @@ load(
     ":xcode.bzl",
     "cxx_populate_xcode_attributes",
 )
-
-LinkPreference = enum("default", "full", "incremental")
 
 CxxLibraryInfo = provider(
     fields = dict(
@@ -210,6 +209,7 @@ CxxRuleConstructorParams = record(
     # Define which providers to generate.
     generate_providers = field(CxxRuleProviderParams, CxxRuleProviderParams()),
     force_full_hybrid_if_capable = field(bool, False),
+    force_remote_link_if_capable = field(bool, False),
     # Whether shared libs for executables should generate a shared lib link tree.
     exe_shared_libs_link_tree = field(bool, True),
     extra_link_deps = field(list[LinkableProviders], []),

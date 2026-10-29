@@ -33,17 +33,18 @@ use buck2_build_signals::env::WaitingData;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_core::category::CategoryRef;
 use buck2_core::content_hash::ContentBasedPathHash;
-use buck2_error::BuckErrorOptionContext;
+use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::WriteRequest;
-use buck2_hash::BuckIndexMap;
-use buck2_hash::BuckIndexSet;
-use buck2_hash::buck_indexmap;
+use buck2_hash::BuckMutInsertionMap;
+use buck2_hash::BuckMutInsertionSet;
+use buck2_hash::buck_mut_insertion_map;
 use dupe::Dupe;
 use hmap::ByteOrder;
 use hmap::HeaderMap;
+use hmap::PathStyle;
 use hmap::WriteFormat;
 use pagable::Pagable;
 use pagable::pagable_typetag;
@@ -53,6 +54,7 @@ use starlark::values::Value;
 use starlark::values::dict::DictRef;
 use starlark::values::dict::DictType;
 
+use crate::actions::impls::produce;
 use crate::actions::impls::write::CommandLineContentBasedInputVisitor;
 
 #[derive(Debug, buck2_error::Error)]
@@ -95,7 +97,7 @@ pub(crate) struct UnregisteredWriteHmapAction {}
 impl UnregisteredAction for UnregisteredWriteHmapAction {
     fn register(
         self: Box<Self>,
-        outputs: BuckIndexSet<BuildArtifact>,
+        outputs: BuckMutInsertionSet<BuildArtifact>,
         starlark_data: Option<OwnedFrozen<Value<'static>>>,
         _error_handler: Option<OwnedFrozen<Value<'static>>>,
     ) -> buck2_error::Result<Box<dyn Action>> {
@@ -114,7 +116,7 @@ struct WriteHmapAction {
 impl WriteHmapAction {
     fn new(
         contents: OwnedFrozen<Value<'static>>,
-        outputs: BuckIndexSet<BuildArtifact>,
+        outputs: BuckMutInsertionSet<BuildArtifact>,
     ) -> buck2_error::Result<Self> {
         let mut outputs = outputs.into_iter();
 
@@ -136,31 +138,34 @@ impl WriteHmapAction {
     ) -> buck2_error::Result<Vec<u8>> {
         self.contents.by_ref(|v| {
             let mappings = DictRef::unpack_value_err(*v)?;
-            encode_hmap(mappings.iter().map(|(name, entry)| {
-                let name = <&str>::unpack_value_err(name)?;
-                let (artifact, subpath) =
-                    <(ValueAsInputArtifactLike, &str)>::unpack_value_err(entry)?;
-                let artifact = artifact.0.get_bound_artifact()?;
-                let artifact_path =
-                    artifact.resolve_path(fs.fs(), artifact_path_mapping.get(&artifact))?;
-                let mut path =
-                    path_format(artifact_path.as_ref(), fs.path_separator()).into_owned();
-                if !subpath.is_empty() {
-                    // Match the non-native strings to preserve hmap bytes and cache keys.
-                    // cmd_args expands `{}` in subpaths and keeps their other spelling.
-                    let subpath = if subpath.contains("{}") {
-                        Cow::Owned(subpath.replace("{}", &path))
-                    } else {
-                        Cow::Borrowed(subpath)
-                    };
-                    path.push('/');
-                    path.push_str(&subpath);
-                }
-                Ok((
-                    hmap_wrapper_arg(Cow::Borrowed(name)),
-                    hmap_wrapper_arg(Cow::Owned(path)),
-                ))
-            }))
+            encode_hmap(
+                fs.path_separator(),
+                mappings.iter().map(|(name, entry)| {
+                    let name = <&str>::unpack_value_err(name)?;
+                    let (artifact, subpath) =
+                        <(ValueAsInputArtifactLike, &str)>::unpack_value_err(entry)?;
+                    let artifact = artifact.0.get_bound_artifact()?;
+                    let artifact_path =
+                        artifact.resolve_path(fs.fs(), artifact_path_mapping.get(&artifact))?;
+                    let mut path =
+                        path_format(artifact_path.as_ref(), fs.path_separator()).into_owned();
+                    if !subpath.is_empty() {
+                        // Match the non-native strings to preserve hmap bytes and cache keys.
+                        // cmd_args expands `{}` in subpaths and keeps their other spelling.
+                        let subpath = if subpath.contains("{}") {
+                            Cow::Owned(subpath.replace("{}", &path))
+                        } else {
+                            Cow::Borrowed(subpath)
+                        };
+                        path.push('/');
+                        path.push_str(&subpath);
+                    }
+                    Ok((
+                        hmap_wrapper_arg(Cow::Borrowed(name)),
+                        hmap_wrapper_arg(Cow::Owned(path)),
+                    ))
+                }),
+            )
         })
     }
 }
@@ -201,8 +206,8 @@ impl Action for WriteHmapAction {
         &self,
         fs: &ExecutorFs,
         artifact_path_mapping: &dyn ArtifactPathMapper,
-    ) -> buck2_error::Result<BuckIndexMap<String, String>> {
-        Ok(buck_indexmap! {
+    ) -> buck2_error::Result<BuckMutInsertionMap<String, String>> {
+        Ok(buck_mut_insertion_map! {
             "contents_hex".to_owned() => hex::encode(self.get_contents(fs, artifact_path_mapping)?),
         })
     }
@@ -214,43 +219,36 @@ impl Action for WriteHmapAction {
     ) -> Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError> {
         let fs = ctx.fs();
 
-        let mut execution_start = None;
-        let value = ctx
-            .materializer()
-            .declare_write(Box::new(|| {
-                execution_start = Some(Instant::now());
-                let content =
-                    self.get_contents(&ctx.executor_fs(), &ctx.artifact_path_mapping(None))?;
-                let path = fs.resolve_build(
-                    self.output.get_path(),
-                    if self.output.get_path().is_content_based_path() {
-                        let digest = TrackedFileDigest::from_content(
-                            &content,
-                            ctx.digest_config().cas_digest_config(),
-                        );
-                        Some(ContentBasedPathHash::new(digest.raw_digest().as_bytes())?)
-                    } else {
-                        None
-                    }
-                    .as_ref(),
-                )?;
-                Ok(vec![WriteRequest {
-                    path,
-                    content,
-                    is_executable: false,
-                    path_kind: self.output.get_path().path_resolution_method(),
-                }])
-            }))
-            .await?
-            .into_iter()
-            .next()
-            .internal_error("Write did not execute")?;
+        let execution_start = Instant::now();
+        let content = self.get_contents(&ctx.executor_fs(), &ctx.artifact_path_mapping(None))?;
+        let path = fs.resolve_build(
+            self.output.get_path(),
+            if self.output.get_path().is_content_based_path() {
+                let digest = TrackedFileDigest::from_content(
+                    &content,
+                    ctx.digest_config().cas_digest_config(),
+                );
+                Some(ContentBasedPathHash::new(digest.raw_digest().as_bytes())?)
+            } else {
+                None
+            }
+            .as_ref(),
+        )?;
+        let (value, _) = produce::write_here(
+            ctx,
+            WriteRequest {
+                path,
+                content,
+                is_executable: false,
+                path_kind: self.output.get_path().path_resolution_method(),
+            },
+        )
+        .await?;
 
-        let wall_time = Instant::now()
-            - execution_start.internal_error("Action did not set execution_start")?;
+        let wall_time = Instant::now() - execution_start;
 
         Ok((
-            ActionOutputs::new(buck_indexmap![self.output.get_path().dupe() => value]),
+            ActionOutputs::new(buck_mut_insertion_map![self.output.get_path().dupe() => value]),
             ActionExecutionMetadata {
                 dep_file_db_writes_queued: 0,
                 execution_kind: ActionExecutionKind::Simple,
@@ -280,6 +278,7 @@ fn hmap_wrapper_arg(value: Cow<'_, str>) -> Cow<'_, str> {
 }
 
 fn encode_hmap<'v>(
+    path_separator: PathSeparatorKind,
     mappings: impl IntoIterator<Item = buck2_error::Result<(Cow<'v, str>, Cow<'v, str>)>>,
 ) -> buck2_error::Result<Vec<u8>> {
     let mut entries = BTreeMap::new();
@@ -289,8 +288,14 @@ fn encode_hmap<'v>(
         // Clang uses this entry to stop searching later header maps.
         entries.insert(value.clone(), value);
     }
-    let hmap = HeaderMap::from_mappings(entries.into_iter(), WriteFormat::PythonHmaptool)
-        .map_err(|error| from_any_with_tag(error, buck2_error::ErrorTag::Input))?;
+    // Match the action's Python writer, which can run on a different OS from buckd.
+    let path_style = match path_separator {
+        PathSeparatorKind::Unix => PathStyle::Unix,
+        PathSeparatorKind::Windows => PathStyle::Windows,
+    };
+    let hmap =
+        HeaderMap::from_mappings(entries.into_iter(), WriteFormat::PythonHmaptool(path_style))
+            .map_err(|error| from_any_with_tag(error, buck2_error::ErrorTag::Input))?;
     Ok(hmap.to_bytes(ByteOrder::Little))
 }
 
@@ -300,6 +305,29 @@ mod tests {
     use sha1::Sha1;
 
     use super::*;
+
+    #[test]
+    fn encodes_fixed_mappings_for_action_path_style() {
+        for (path_separator, expected) in [
+            (
+                PathSeparatorKind::Unix,
+                "31ae93cbbda69db3eedfa7eb9bb32444baced2bb",
+            ),
+            (
+                PathSeparatorKind::Windows,
+                "0d904775ed13764063c8b18394677645ed59bfa5",
+            ),
+        ] {
+            let mappings = [
+                ("foo.h", r".\foo.h"),
+                ("alias.h", r"C:\headers with spaces\actual.h"),
+            ]
+            .into_iter()
+            .map(|(key, value)| Ok((Cow::Borrowed(key), Cow::Borrowed(value))));
+            let bytes = encode_hmap(path_separator, mappings).unwrap();
+            assert_eq!(hex::encode(Sha1::digest(bytes)), expected);
+        }
+    }
 
     #[test]
     fn encodes_fixed_native_mappings() {
@@ -339,7 +367,8 @@ mod tests {
             let mappings = mappings
                 .iter()
                 .map(|&(key, value)| Ok((Cow::Borrowed(key), Cow::Owned(value.to_owned()))));
-            let bytes = encode_hmap(mappings).expect("header map should encode");
+            let bytes =
+                encode_hmap(PathSeparatorKind::Unix, mappings).expect("header map should encode");
             assert_eq!(hex::encode(Sha1::digest(bytes)), expected, "{name}");
         }
     }

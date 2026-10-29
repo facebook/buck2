@@ -18,7 +18,7 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_hash::BuckIndexMap;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -79,10 +79,10 @@ pub(crate) async fn audit_cell(
     aliases: bool,
     cwd: &ProjectRelativePath,
     fs: &ProjectRoot,
-) -> buck2_error::Result<BuckIndexMap<String, AbsNormPathBuf>> {
+) -> buck2_error::Result<BuckMutInsertionMap<String, AbsNormPathBuf>> {
     let cells = ctx.get_cell_resolver().await?;
     let this_resolver = ctx.get_cell_alias_resolver_for_dir(cwd).await?;
-    let mappings: BuckIndexMap<_, _> = {
+    let mappings: BuckMutInsertionMap<_, _> = {
         if aliases_to_resolve.is_empty() {
             if aliases {
                 this_resolver

@@ -16,7 +16,6 @@ use buck2_fs::paths::file_name::FileNameBuf;
 use derivative::Derivative;
 use derive_more::Display;
 use pagable::Pagable;
-use sorted_vector_map::SortedVectorMap;
 
 use crate::directory::directory_hasher::DirectoryDigester;
 use crate::directory::entry::DirectoryEntry;
@@ -70,7 +69,7 @@ where
     D: FingerprintedDirectory<L, H>,
 {
     pub fn new(
-        entries: SortedVectorMap<FileNameBuf, DirectoryEntry<D, L>>,
+        entries: SortedSliceMap<FileNameBuf, DirectoryEntry<D, L>>,
         hasher: &impl DirectoryDigester<L, H>,
         exhaustiveness: Exhaustiveness,
     ) -> Self {
@@ -104,7 +103,7 @@ where
             "Exhaustive directories must contain only exhaustive directories",
         );
         Self {
-            entries: SortedSliceMap::from(entries),
+            entries,
             size,
             fingerprint,
             exhaustiveness_hash,

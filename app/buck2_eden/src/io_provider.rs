@@ -24,8 +24,10 @@ use buck2_common::io::IoProvider;
 use buck2_common::io::ReadDirOutcome;
 use buck2_common::io::fs::FsIoProvider;
 use buck2_common::io::fs::ReadUncheckedOptions;
+use buck2_common::io::report_invalid_file_names;
 use buck2_core;
 use buck2_core::buck2_env;
+use buck2_core::fs::i_project_rel_path::IProjectRelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::io_counters::IoCounterKey;
@@ -33,6 +35,7 @@ use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
 use buck2_error::ErrorTag;
+use buck2_fs::paths::file_name::FileNameBuf;
 use compact_str::CompactString;
 use dupe::Dupe;
 use edenfs::FileAttributes;
@@ -128,7 +131,7 @@ impl EdenIoProvider {
 
     async fn read_path_metadata_if_exists_impl(
         &self,
-        path: &ProjectRelativePathBuf,
+        path: IProjectRelativePath,
     ) -> buck2_error::Result<PathMetadataResult> {
         let _guard = IoCounterKey::StatEden.guard();
 
@@ -191,7 +194,7 @@ impl EdenIoProvider {
 
                     let meta = self
                         .fs
-                        .read_unchecked(path.clone(), options)
+                        .read_unchecked(path.to_buf(), options)
                         .await
                         .with_buck_error_context(|| {
                             format!(
@@ -259,7 +262,7 @@ impl EdenIoProvider {
 
     async fn read_dir_impl(
         &self,
-        path: ProjectRelativePathBuf,
+        path: IProjectRelativePath,
     ) -> buck2_error::Result<ReadDirOutcome> {
         let _guard = IoCounterKey::ReadDirEden.guard();
 
@@ -289,23 +292,22 @@ impl EdenIoProvider {
 
         let data = match res {
             edenfs::DirListAttributeDataOrError::dirListAttributeData(data) => data,
-            edenfs::DirListAttributeDataOrError::error(err) => {
-                match err.errorCode {
-                    Some(libc::ENOENT) => return Err(EdenError::from(err).into()),
-                    Some(libc::EACCES) => {
-                        tracing::debug!(
-                            "readdir({}): permission denied, treating as restricted directory",
-                            path
-                        );
-                        return Ok(ReadDirOutcome::EdenPermissionDenied);
-                    }
-                    Some(libc::EINVAL) | Some(libc::ENOTDIR) => {
-                        // Fallback to regular file I/O if we get EINVAL or ENOTDIR because that means it's a symlink
-                        return self.fs.read_dir_impl(path).await;
-                    }
-                    _ => return Err(EdenError::from(err).into()),
+            edenfs::DirListAttributeDataOrError::error(err) => match err.errorCode {
+                Some(libc::ENOENT) => return Err(EdenError::from(err).into()),
+                Some(libc::EACCES) => {
+                    tracing::debug!(
+                        "readdir({}): permission denied, treating as restricted directory",
+                        path
+                    );
+                    return Ok(ReadDirOutcome::EdenPermissionDenied);
                 }
-            }
+                Some(libc::EINVAL) | Some(libc::ENOTDIR) => {
+                    // A symlink at or above the path, which plain file IO follows. Goes with the
+                    // diff that refuses reads through symlinks.
+                    return self.fs.read_dir_impl(path).await;
+                }
+                _ => return Err(EdenError::from(err).into()),
+            },
             edenfs::DirListAttributeDataOrError::UnknownField(code) => {
                 return Err(buck2_error::buck2_error!(
                     buck2_error::ErrorTag::IoEden,
@@ -317,58 +319,63 @@ impl EdenIoProvider {
 
         tracing::debug!("readdir({}): {} entries", path, data.len());
 
-        let entries = data
-            .into_iter()
-            .map(|(file_name, attrs)| {
-                let file_name = CompactString::from_utf8(file_name)
-                    .buck_error_context("Filename is not UTF-8")?;
+        let mut entries = Vec::with_capacity(data.len());
+        let mut invalid_names = Vec::new();
+        for (file_name, attrs) in data {
+            let file_name =
+                CompactString::from_utf8(file_name).buck_error_context("Filename is not UTF-8")?;
+            let Ok(file_name) = FileNameBuf::try_from(file_name.clone()) else {
+                invalid_names.push(file_name.into_string());
+                continue;
+            };
 
-                let attr_data = match attrs.into_result() {
-                    Ok(data) => data,
-                    Err(EdenError::PosixError { code, .. }) if code == libc::EACCES => {
-                        // EACCES on per-entry attributes means this is a tented directory --
-                        // tenting is tree-level only in EdenFS, so if a file were tented its
-                        // parent dir would have been restricted instead.
-                        tracing::debug!(
-                            "readdir({}): permission denied on entry `{}`, treating as restricted directory",
-                            path,
-                            file_name
-                        );
-                        return Ok(RawDirEntry {
-                            file_name,
-                            file_type: FileType::Directory,
-                        });
-                    }
-                    Err(e) => return Err(e.into()),
-                };
+            let attr_data = match attrs.into_result() {
+                Ok(data) => data,
+                Err(EdenError::PosixError { code, .. }) if code == libc::EACCES => {
+                    // EACCES on per-entry attributes means this is a tented directory --
+                    // tenting is tree-level only in EdenFS, so if a file were tented its
+                    // parent dir would have been restricted instead.
+                    tracing::debug!(
+                        "readdir({}): permission denied on entry `{}`, treating as restricted directory",
+                        path,
+                        file_name
+                    );
+                    entries.push(RawDirEntry {
+                        file_name,
+                        file_type: FileType::Directory,
+                    });
+                    continue;
+                }
+                Err(e) => return Err(e.into()),
+            };
 
-                let source_control_type = attr_data
-                    .sourceControlType
-                    .internal_error("Missing sourceControlType")?
-                    .into_result()?;
+            let source_control_type = attr_data
+                .sourceControlType
+                .internal_error("Missing sourceControlType")?
+                .into_result()?;
 
-                let file_type = match source_control_type {
-                    SourceControlType::TREE => FileType::Directory,
-                    SourceControlType::REGULAR_FILE | SourceControlType::EXECUTABLE_FILE => {
-                        FileType::File
-                    }
-                    SourceControlType::SYMLINK => FileType::Symlink,
-                    _ => FileType::Unknown,
-                };
+            let file_type = match source_control_type {
+                SourceControlType::TREE => FileType::Directory,
+                SourceControlType::REGULAR_FILE | SourceControlType::EXECUTABLE_FILE => {
+                    FileType::File
+                }
+                SourceControlType::SYMLINK => FileType::Symlink,
+                _ => FileType::Unknown,
+            };
 
-                buck2_error::Ok(RawDirEntry {
-                    file_name,
-                    file_type,
-                })
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+            entries.push(RawDirEntry {
+                file_name,
+                file_type,
+            });
+        }
+        report_invalid_file_names(&path, &invalid_names);
 
         Ok(ReadDirOutcome::Entries(entries))
     }
 
     async fn read_file_if_exists_impl(
         &self,
-        path: ProjectRelativePathBuf,
+        path: IProjectRelativePath,
     ) -> buck2_error::Result<Option<String>> {
         let _guard = IoCounterKey::Read.guard();
         let params = GetFileContentRequest {
@@ -412,15 +419,15 @@ impl EdenIoProvider {
                                     Set env var `BUCK2_DISABLE_EDEN_THRIFT_READ=true` if this is constantly an issue: {:#}",
                                     error
                                 ),
-                            )
-                            .ok();
+                            );
 
                             return self.fs.read_file_if_exists_impl(path).await;
                         }
                         EdenError::PosixError { code, .. }
                             if code == libc::EINVAL || code == libc::ENOTDIR =>
                         {
-                            // Fallback to regular file I/O if we get EINVAL or ENOTDIR because that means it's a symlink
+                            // A symlink at or above the path, which plain file IO follows. Goes
+                            // with the diff that refuses reads through symlinks.
                             return self.fs.read_file_if_exists_impl(path).await;
                         }
                         _ => Err(eden_error.into()),
@@ -441,9 +448,9 @@ impl EdenIoProvider {
 impl IoProvider for EdenIoProvider {
     async fn read_path_metadata_if_exists_impl(
         &self,
-        path: ProjectRelativePathBuf,
+        path: IProjectRelativePath,
     ) -> buck2_error::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>> {
-        match self.read_path_metadata_if_exists_impl(&path).await {
+        match self.read_path_metadata_if_exists_impl(path).await {
             Ok(PathMetadataResult::Result(res)) => Ok(res),
             Ok(PathMetadataResult::Error(err)) => {
                 match err {
@@ -451,15 +458,15 @@ impl IoProvider for EdenIoProvider {
                         tracing::debug!("getAttributesFromFilesV2({}): ENOENT", path);
                         Ok(None)
                     }
-                    EdenError::PosixError { code, .. }
-                        if code == libc::EINVAL || code == libc::ENOTDIR =>
-                    {
-                        // If we get EINVAL it means the target wasn't a file, and since we know it
-                        // existed and it wasn't a dir, then that means it must be a symlink. If we get
-                        // ENOTDIR, that means we tried to traverse a path component that was a
-                        // symlink. In both cases, we need to both a) handle ExternalSymlink and b)
-                        // look through to the target, so we do that.
-                        tracing::debug!("getAttributesFromFilesV2({}): fallthrough", path);
+                    EdenError::PosixError { code, .. } if code == libc::EINVAL => {
+                        // Eden versions that do not report `SourceControlType::SYMLINK` say
+                        // EINVAL for a symlink instead. The parents are plain directories by the
+                        // `IoProvider` contract, so one look at the path itself is all there is
+                        // to do, and `None` if it is gone by now.
+                        tracing::debug!(
+                            "getAttributesFromFilesV2({}): EINVAL, reading as symlink",
+                            path
+                        );
                         self.fs.read_path_metadata_if_exists_impl(path).await
                     }
                     _ => Err(err.into()),
@@ -471,7 +478,7 @@ impl IoProvider for EdenIoProvider {
 
     async fn read_file_if_exists_impl(
         &self,
-        path: ProjectRelativePathBuf,
+        path: IProjectRelativePath,
     ) -> buck2_error::Result<Option<String>> {
         if buck2_env!("BUCK2_ENABLE_EDEN_THRIFT_READ", bool)? || self.use_eden_thrift_read {
             self.read_file_if_exists_impl(path)
@@ -486,7 +493,7 @@ impl IoProvider for EdenIoProvider {
 
     async fn read_dir_impl(
         &self,
-        path: ProjectRelativePathBuf,
+        path: IProjectRelativePath,
     ) -> buck2_error::Result<ReadDirOutcome> {
         self.read_dir_impl(path)
             .await

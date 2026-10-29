@@ -96,7 +96,7 @@ impl ConfiguredStringWithMacrosExt for ConfiguredStringWithMacros {
             }
         };
 
-        let configured_macros = if self.anon_target_compatible {
+        let configured_macros = if self.anon_target_compatible() {
             Some(self)
         } else {
             None
@@ -137,6 +137,7 @@ fn resolve_configured_macro<'v>(
             // A RunInfo is an arg-like value.
             Ok(ResolvedMacro::ArgLike(CommandLineArg::new(run_info)?))
         }
+        ConfiguredMacro::InGroup(box (inner, _)) => resolve_configured_macro(inner, ctx, pkg),
         ConfiguredMacro::Source(p) => {
             let buck_path = SourcePath::new(pkg.dupe(), p.path().dupe());
             Ok(ResolvedMacro::Source(SourceArtifact::new(buck_path).into()))

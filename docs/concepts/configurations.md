@@ -451,11 +451,10 @@ gone.
 
 ## Execution groups
 
-Execution groups are a future feature that will allow a rule to perform
-execution platform resolution multiple times and then specify in which
-of the resolved platforms each action runs in.
-
-Traditionally, each target resolves a single execution platform.
+By default, each target resolves a single execution platform. Execution
+groups let a rule resolve one execution platform per group and choose the
+group that each action runs in. See
+[Execution groups](../rule_authors/execution_groups.md).
 
 ## See also
 
@@ -463,3 +462,4 @@ Traditionally, each target resolves a single execution platform.
 - [Configuration transitions](./transitions.md)
 - [Configurations for rule authors](../rule_authors/configurations.md)
 - [Configuration transitions for rule authors](../rule_authors/configuration_transitions.md)
+- [Execution groups](../rule_authors/execution_groups.md)

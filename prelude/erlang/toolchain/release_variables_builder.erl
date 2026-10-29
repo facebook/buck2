@@ -19,6 +19,7 @@ name or version, to a release startup shell script.
 usage:
   release_variables_builder.escript release_variables
 """.
+-compile(warn_missing_spec_all).
 
 -export([main/1]).
 

@@ -83,17 +83,26 @@ async fn find_matching_action(
             // TODO(cjhopman): We should probably just support iterating over declared artifacts rather than
             // this more complex approach.
             let mut maybe_match: Option<BuildArtifact> = None;
+            let analysis_values = analysis.analysis_values()?;
+            let action_outputs = analysis_values
+                .iter_actions()
+                .flat_map(|action| match action {
+                    Ok(action) => Either::Left(
+                        match action.action().outputs() {
+                            Cow::Borrowed(outputs) => Either::Left(outputs.iter().duped()),
+                            Cow::Owned(outputs) => Either::Right(outputs.into_iter()),
+                        }
+                        .map(Ok),
+                    ),
+                    Err(error) => Either::Right(std::iter::once(Err(error))),
+                });
 
-            for build_artifact in analysis
-                .analysis_values()
+            for build_artifact in analysis_values
                 .iter_dynamic_lambda_outputs()?
-                .chain(analysis.analysis_values().iter_actions().flat_map(|v| {
-                    match v.action().outputs() {
-                        Cow::Borrowed(v) => Either::Left(v.iter().duped()),
-                        Cow::Owned(v) => Either::Right(v.into_iter()),
-                    }
-                }))
+                .map(Ok)
+                .chain(action_outputs)
             {
+                let build_artifact = build_artifact?;
                 if let Some(action_key_match) = check_output_path(&build_artifact, &short_path)? {
                     match action_key_match {
                         ActionKeyMatch::Exact(key) => {

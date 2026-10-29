@@ -103,20 +103,9 @@ def get_modifier_info(refs: dict[str, ProviderCollection], modifier: Modifier, l
                     default = None
             elif key != "_type":
                 cfg_info = refs[key][ConfigurationInfo]
-                root_values = cfg_info.root_values
-                if cfg_info.values or root_values:
-                    buckconfig_values = cfg_info.values | root_values
-                    soft_error(
-                        "starlark_config_setting_non_empty_buckconfig_values_in_conditional_modifier",
-                        "config_setting `{}` defines buckconfig values {} which are NOT supported in conditional modifiers.\n".format(key, buckconfig_values)
-                        + "These buckconfig values are being IGNORED.\n\n"
-                        + "Action required: Remove the `values` and `root_values` parameters from this config_setting {} and use only `constraint_values` instead.\n".format(
-                            key
-                        )
-                        + "Note: This may become a hard error in the future to prevent silent misconfiguration.",
-                        quiet = True,
-                        stack = False,
-                    )
+
+                # FIXME(nero): A `config_setting` with `values` or `root_values` should be rejected
+                # here; conditional modifiers silently ignore them.
                 if sub_modifier:
                     sub_constraint_setting, sub_modifier_info = get_modifier_info(refs, sub_modifier, location)
                     constraint_settings.add(sub_constraint_setting)

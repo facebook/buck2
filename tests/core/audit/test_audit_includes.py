@@ -15,7 +15,7 @@ from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.api.buck_result import BuckResult
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
 def _includes(output: BuckResult) -> list[str]:
@@ -28,24 +28,25 @@ def _includes(output: BuckResult) -> list[str]:
     )
 
 
-@buck_test()
-async def test_audit_includes(buck: Buck, tmp_path: Path) -> None:
-    expected_includes = ["example.json", "incl.bzl", "prelude.bzl"]
-    # Using project relative path.
-    output = await buck.audit("includes", "TARGETS.fixture")
-    assert _includes(output) == expected_includes
-
-    # Using project relative path when in a subdirectory.
-    await buck.audit("includes", "TARGETS.fixture", rel_cwd=Path("dir"))
-    assert _includes(output) == expected_includes
-
-    # Using absolute path.
-    output = await buck.audit("includes", f"{buck.cwd}/TARGETS.fixture")
-    assert _includes(output) == expected_includes
-
-    if os.name != "nt":
-        # Create symlink to the project root in a temporary directory.
-        (tmp_path / "symlink").symlink_to(buck.cwd)
-
-        output = await buck.audit("includes", f"{tmp_path}/symlink/TARGETS.fixture")
+class AuditIncludesTest(BuckTestCase):
+    @buck_test()
+    async def test_audit_includes(self, buck: Buck, tmp_path: Path) -> None:
+        expected_includes = ["example.json", "incl.bzl", "prelude.bzl"]
+        # Using project relative path.
+        output = await buck.audit("includes", "TARGETS.fixture")
         assert _includes(output) == expected_includes
+
+        # Using project relative path when in a subdirectory.
+        await buck.audit("includes", "TARGETS.fixture", rel_cwd=Path("dir"))
+        assert _includes(output) == expected_includes
+
+        # Using absolute path.
+        output = await buck.audit("includes", f"{buck.cwd}/TARGETS.fixture")
+        assert _includes(output) == expected_includes
+
+        if os.name != "nt":
+            # Create symlink to the project root in a temporary directory.
+            (tmp_path / "symlink").symlink_to(buck.cwd)
+
+            output = await buck.audit("includes", f"{tmp_path}/symlink/TARGETS.fixture")
+            assert _includes(output) == expected_includes

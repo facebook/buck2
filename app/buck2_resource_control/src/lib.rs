@@ -9,7 +9,6 @@
  */
 
 #![feature(trait_alias)]
-#![feature(used_with_arg)]
 
 use futures::Stream;
 use tokio::sync::mpsc;
@@ -92,6 +91,13 @@ pub mod memory_tracker {
     #[derive(Allocative)]
     pub struct MemoryTracker {
         pub cgroup_tree: BuckCgroupTree,
+    }
+
+    impl MemoryTracker {
+        /// Never signals pressure; its sender is already gone.
+        pub fn memory_pressure(&self) -> tokio::sync::watch::Receiver<bool> {
+            tokio::sync::watch::Sender::new(false).subscribe()
+        }
     }
 
     pub type MemoryTrackerHandle = Arc<MemoryTracker>;

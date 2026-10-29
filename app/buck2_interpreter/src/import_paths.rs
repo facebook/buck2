@@ -21,6 +21,7 @@ use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::paths::CellRelativePathBuf;
+use buck2_core::pattern::parse_package::maybe_parse_cell_path;
 use dice::DiceComputations;
 use dice::EqualityBehavior;
 use dice::Key;
@@ -55,9 +56,13 @@ impl ImplicitImportPaths {
                 property: "includes",
             })?
             .map(|i| {
-                let (cell_alias, path): (&str, &str) = i.split_once("//").unwrap_or(("", &*i));
-                let path = CellRelativePathBuf::try_from(path.to_owned())?;
-                let path = CellPath::new(cell_alias_resolver.resolve(cell_alias)?, path.to_buf());
+                let path = match maybe_parse_cell_path(&i, cell_alias_resolver)? {
+                    Some(cell_path) => cell_path,
+                    None => {
+                        let path = CellRelativePathBuf::try_from(i.to_string())?;
+                        CellPath::new(cell_alias_resolver.resolve_self(), &path)
+                    }
+                };
 
                 // root imports are only going to be used by a top-level module in the cell they
                 // are defined, so we can set the build_file_cell early.

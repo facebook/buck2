@@ -12,6 +12,12 @@ on:
         required: true
         type: string
 
+env:
+  # rust-cache keeps only the dependency artifacts between runs, so every run
+  # compiles the workspace crates from scratch and incremental compilation only
+  # costs time and disk.
+  CARGO_INCREMENTAL: 0
+
 jobs:
   get_prelude_hash:
     name: Get the latest prelude hash
@@ -55,10 +61,11 @@ jobs:
           - os: 'ubuntu-26.04'
             triple: 'riscv64gc-unknown-linux-gnu'
             cross: true
-          - os: 'macos-15'
+          # macos-15-xlarge is a Meta larger runner; forks get the standard one.
+          - os: ${{ github.repository_owner == 'facebook' && 'macos-15-xlarge' || 'macos-15' }}
             triple: 'aarch64-apple-darwin'
             cross: true
-          - os: 'macos-15'
+          - os: ${{ github.repository_owner == 'facebook' && 'macos-15-xlarge' || 'macos-15' }}
             triple: 'x86_64-apple-darwin'
           - os: 'windows-2025'
             triple: 'x86_64-pc-windows-msvc'
@@ -81,10 +88,9 @@ jobs:
         with:
           toolchain: ${{ steps.read_rust_toolchain.outputs.value }}
           targets: ${{ matrix.target.triple }}
-      - uses: Swatinem/rust-cache@v2
-        with:
-          prefix-key: buck2-upload
-          key: ${{ matrix.target.triple }}
+      # No rust-cache here: the repository's Actions cache holds 10 GB, and
+      # the nine release targets' dependency caches alone outgrow it, evicting
+      # the caches the pull-request workflows depend on.
       - uses: actions-rs/install@v0.1
         if: matrix.target.cross
         with:

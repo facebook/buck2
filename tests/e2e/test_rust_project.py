@@ -13,30 +13,31 @@ import json
 import os
 import subprocess
 
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test(inplace=True)
-async def test_rust_binary() -> None:
-    rust_project_bin = os.environ["RUST_PROJECT_BIN"]
+class RustProjectTest(BuckTestCase):
+    @buck_test(inplace=True)
+    async def test_rust_binary(self) -> None:
+        rust_project_bin = os.environ["RUST_PROJECT_BIN"]
 
-    env = os.environ.copy()
-    env["BUCK2_HARD_ERROR"] = "false"
+        env = os.environ.copy()
+        env["BUCK2_HARD_ERROR"] = "false"
 
-    result = subprocess.run(
-        [
-            rust_project_bin,
-            "develop",
-            "--stdout",
-            "--pretty",
-            "fbcode//buck2/tests/targets/rules/rust/hello_world:welcome",
-        ],
-        stdout=subprocess.PIPE,
-        env=env,
-    )
+        result = subprocess.run(
+            [
+                rust_project_bin,
+                "develop",
+                "--stdout",
+                "--pretty",
+                "fbcode//buck2/tests/targets/rules/rust/hello_world:welcome",
+            ],
+            stdout=subprocess.PIPE,
+            env=env,
+        )
 
-    json_generated = json.loads(result.stdout)
+        json_generated = json.loads(result.stdout)
 
-    assert "sysroot" in json_generated.keys()
-    assert "sysroot_src" in json_generated.keys()
-    assert "crates" in json_generated.keys()
+        assert "sysroot" in json_generated.keys()
+        assert "sysroot_src" in json_generated.keys()
+        assert "crates" in json_generated.keys()

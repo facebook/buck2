@@ -182,7 +182,7 @@ public class MiniAapt {
         if (!isAValuesDir(dirName)) {
           throw new ResourceParseException("'%s' is not a valid values directory.", dirName);
         }
-        processValuesFile(fullPath);
+        references.addAll(processValuesFile(fullPath));
       } else {
         processNonValuesFile(fullPath, dirName);
         if (fullPath.endsWith("styles.xml")) {
@@ -287,7 +287,9 @@ public class MiniAapt {
    * </ul>
    */
   @VisibleForTesting
-  void processValuesFile(Path valuesFile) throws IOException, ResourceParseException {
+  ImmutableSet<RDotTxtEntry> processValuesFile(Path valuesFile)
+      throws IOException, ResourceParseException {
+    ImmutableSet.Builder<RDotTxtEntry> references = ImmutableSet.builder();
     try (InputStream stream = new BufferedInputStream(Files.newInputStream(valuesFile))) {
       Document dom = parseXml(valuesFile, stream);
       Element root = Objects.requireNonNull(dom.getDocumentElement());
@@ -297,7 +299,7 @@ public class MiniAapt {
       // resource map, which ensures a build break will show up at build time
       // rather than being hidden until generated resources are updated.
       if (root.getAttribute("exclude-from-buck-resource-map").equals("true")) {
-        return;
+        return ImmutableSet.of();
       }
 
       for (Node node = root.getFirstChild(); node != null; node = node.getNextSibling()) {
@@ -348,7 +350,94 @@ public class MiniAapt {
 
         RType rType = Objects.requireNonNull(RESOURCE_TYPES.get(resourceType));
         addToResourceCollector(node, rType);
+        if (rType == RType.STYLE) {
+          processStyleItemReferences(node, references);
+        }
       }
+    }
+    return references.build();
+  }
+
+  private void processStyleItemReferences(
+      Node style, ImmutableSet.Builder<RDotTxtEntry> references) {
+    for (Node item = style.getFirstChild(); item != null; item = item.getNextSibling()) {
+      if (item.getNodeType() != Node.ELEMENT_NODE
+          || !ITEM_TAG.equals(item.getNodeName())
+          || hasStyleSpans(item)) {
+        continue;
+      }
+      addStyleItemReference(item.getTextContent().trim(), references);
+    }
+  }
+
+  private static boolean hasStyleSpans(Node node) {
+    for (Node child = node.getFirstChild(); child != null; child = child.getNextSibling()) {
+      if (child.getNodeType() == Node.ELEMENT_NODE
+          && (!isXliffElement(child) || hasStyleSpans(child))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static boolean isXliffElement(Node node) {
+    String name = node.getNodeName();
+    int colon = name.indexOf(':');
+    String namespaceAttribute = colon < 0 ? "xmlns" : "xmlns:" + name.substring(0, colon);
+    for (Node ancestor = node; ancestor instanceof Element; ancestor = ancestor.getParentNode()) {
+      Element element = (Element) ancestor;
+      if (element.hasAttribute(namespaceAttribute)) {
+        return "urn:oasis:names:tc:xliff:document:1.2"
+            .equals(element.getAttribute(namespaceAttribute));
+      }
+    }
+    return false;
+  }
+
+  private void addStyleItemReference(String value, ImmutableSet.Builder<RDotTxtEntry> references) {
+    if (value.length() < 2 || (value.charAt(0) != '@' && value.charAt(0) != '?')) {
+      return;
+    }
+    boolean themeReference = value.charAt(0) == '?';
+    boolean createId = value.startsWith("@+");
+    String resourceName = value.substring(createId || value.charAt(1) == '*' ? 2 : 1);
+    int colon = resourceName.indexOf(':');
+    int slash = resourceName.indexOf('/');
+    if (colon >= 0) {
+      int packageStart = slash >= 0 && slash < colon ? slash + 1 : 0;
+      String resourcePackage = resourceName.substring(packageStart, colon);
+      if (resourcePackage.isEmpty() || resourcePackage.equals("android")) {
+        return;
+      }
+      resourceName = resourceName.substring(0, packageStart) + resourceName.substring(colon + 1);
+    }
+
+    slash = resourceName.indexOf('/');
+    RType rType;
+    String name;
+    if (slash < 0) {
+      if (!themeReference) {
+        return;
+      }
+      rType = RType.ATTR;
+      name = resourceName;
+    } else {
+      String type = resourceName.substring(0, slash);
+      rType = RESOURCE_TYPES.get(type);
+      if (rType == null || !type.equals(rType.toString())) {
+        return;
+      }
+      name = resourceName.substring(slash + 1);
+    }
+    if (name.isEmpty()
+        || (themeReference && rType != RType.ATTR)
+        || (createId && rType != RType.ID)) {
+      return;
+    }
+    if (createId) {
+      resourceCollector.addIntResourceIfNotPresent(RType.ID, sanitizeName(name));
+    } else {
+      references.add(new FakeRDotTxtEntry(IdType.INT, rType, sanitizeName(name)));
     }
   }
 
@@ -451,27 +540,33 @@ public class MiniAapt {
       for (int i = 0; i < nodesUsingIds.getLength(); i++) {
         String resourceName =
             Objects.requireNonNull(Objects.requireNonNull(nodesUsingIds.item(i)).getNodeValue());
-        int slashPosition = resourceName.indexOf('/');
-        if ((resourceName.charAt(0) != '@' && resourceName.charAt(0) != '?')
-            || slashPosition == -1) {
-          throw new ResourceParseException("Invalid definition of a resource: '%s'", resourceName);
-        }
-
-        String rawRType = resourceName.substring(1, slashPosition);
-        String name = resourceName.substring(slashPosition + 1);
-
         String nodeName = Objects.requireNonNull(nodesUsingIds.item(i)).getNodeName();
-        if (name.startsWith("android:") || nodeName.startsWith("tools:")) {
+        if (nodeName.startsWith("tools:")) {
           continue;
         }
-        if (!RESOURCE_TYPES.containsKey(rawRType)) {
-          throw new ResourceParseException("Invalid reference '%s' in '%s'", resourceName, xmlFile);
-        }
-        RType rType = Objects.requireNonNull(RESOURCE_TYPES.get(rawRType));
-
-        references.add(new FakeRDotTxtEntry(IdType.INT, rType, sanitizeName(name)));
+        addReference(resourceName, xmlFile, references);
       }
     }
+  }
+
+  private static void addReference(
+      String resourceName, Path xmlFile, ImmutableSet.Builder<RDotTxtEntry> references)
+      throws ResourceParseException {
+    int slashPosition = resourceName.indexOf('/');
+    if ((resourceName.charAt(0) != '@' && resourceName.charAt(0) != '?') || slashPosition == -1) {
+      throw new ResourceParseException("Invalid definition of a resource: '%s'", resourceName);
+    }
+
+    String rawRType = resourceName.substring(1, slashPosition);
+    String name = resourceName.substring(slashPosition + 1);
+    if (name.startsWith("android:")) {
+      return;
+    }
+    if (!RESOURCE_TYPES.containsKey(rawRType)) {
+      throw new ResourceParseException("Invalid reference '%s' in '%s'", resourceName, xmlFile);
+    }
+    RType rType = Objects.requireNonNull(RESOURCE_TYPES.get(rawRType));
+    references.add(new FakeRDotTxtEntry(IdType.INT, rType, sanitizeName(name)));
   }
 
   private static Document parseXml(Path filepath, InputStream inputStream)

@@ -6,6 +6,9 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
+load("@prelude//android:build_only_native_code.bzl", "is_build_only_native_code")
+load("@prelude//decls:common.bzl", "buck")
 load("@prelude//java:java_providers.bzl", "JavaLibraryInfo", "JavaPackagingDepTSet", "JavaPackagingInfo")
 load("@prelude//utils:type_defs.bzl", "is_tuple")
 
@@ -198,3 +201,31 @@ def java_annotation_processor_impl(ctx: AnalysisContext) -> list[Provider]:
         ),
         DefaultInfo(default_output = None, other_outputs = [transitive_deps.project_as_args("full_jar_args")]),
     ]
+
+java_annotation_processor = prelude_rule(
+    name = "java_annotation_processor",
+    impl = java_annotation_processor_impl,
+    docs = """
+        A `java_annotation_processor()` rule declares a Java annotation
+        processor (identified by `processor_class`) that can be referenced
+        from `java_library()` and `kotlin_library()` rules to run during
+        compilation.
+    """,
+    examples = None,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        {
+            "deps": attrs.list(attrs.dep(), default = []),
+            "does_not_affect_abi": attrs.bool(default = False),
+            "isolate_class_loader": attrs.bool(default = False),
+            "processor_class": attrs.string(default = ""),
+            "supports_abi_generation_from_source": attrs.bool(default = False),
+            "runs_on_java_only": attrs.bool(default = False),
+            "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
+        }
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
+    ),
+)

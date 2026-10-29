@@ -14,8 +14,13 @@ use std::fmt::Display;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_core::cells::CellResolver;
+use buck2_core::execution_types::execution_group::ExecutionGroup;
+use buck2_core::execution_types::execution_group::NamedExecutionGroup;
 use buck2_core::plugins::PluginKind;
 use buck2_error::BuckErrorOptionContext;
+use buck2_hash::BuckMutInsertionMap;
+use buck2_interpreter::execution_group::ExecutionGroupArg;
 use buck2_interpreter::late_binding_ty::AnalysisContextReprLate;
 use buck2_interpreter::late_binding_ty::ProviderReprLate;
 use buck2_interpreter::late_binding_ty::TransitionReprLate;
@@ -24,12 +29,13 @@ use buck2_interpreter::types::rule::FROZEN_PROMISE_ARTIFACT_MAPPINGS_GET_IMPL;
 use buck2_interpreter::types::rule::FROZEN_RULE_GET_IMPL;
 use buck2_interpreter::types::transition::transition_id_from_value;
 use buck2_node::attrs::attr::Attribute;
-use buck2_node::attrs::display::AttrDisplayWithContextExt;
+use buck2_node::attrs::spec::AttributeId;
 use buck2_node::attrs::spec::AttributeSpec;
 use buck2_node::bzl_or_bxl_path::BzlOrBxlPath;
 use buck2_node::nodes::unconfigured::RuleKind;
-use buck2_node::nodes::unconfigured::TargetNode;
+use buck2_node::nodes::unconfigured::UnsealedTargetNode;
 use buck2_node::rule::Rule;
+use buck2_node::rule::RuleExecutionGroup;
 use buck2_node::rule::RuleIncomingTransition;
 use buck2_node::rule_type::RuleType;
 use buck2_node::rule_type::StarlarkRuleType;
@@ -70,14 +76,16 @@ use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::starlark_value;
 use starlark::values::typing::StarlarkCallable;
 use starlark::values::typing::StarlarkCallableChecked;
-use starlark_map::small_map::SmallMap;
 
+use crate::attrs::coerce::ctx::MemoizedCoercionCtx;
 use crate::attrs::starlark_attribute::StarlarkAttribute;
+use crate::attrs::starlark_attribute::ToolMarks;
 use crate::interpreter::build_context::BuildContext;
 use crate::interpreter::build_context::PerFileTypeContext;
+use crate::interpreter::extra_value::InterpreterExtraValue;
 use crate::interpreter::module_internals::ModuleInternals;
 use crate::nodes::attr_spec::AttributeSpecExt;
-use crate::nodes::unconfigured::TargetNodeExt;
+use crate::nodes::unconfigured::UnsealedTargetNodeExt;
 use crate::plugins::PluginKindArg;
 
 pub static NAME_ATTRIBUTE_FIELD: &str = "name";
@@ -110,6 +118,15 @@ pub struct StarlarkRuleCallable<'v> {
     cfg: RuleIncomingTransition,
     /// The plugins that are used by these targets
     uses_plugins: Vec<PluginKind>,
+    /// The named execution groups these targets use
+    execution_groups: Vec<RuleExecutionGroup>,
+    /// Whether these targets may use the default execution group
+    default_execution_group: bool,
+    /// The attribute constraining the execution platform of the default execution group only
+    default_exec_compatible_with_attr: Option<AttributeId>,
+    /// In a rule with named execution groups, the attributes with an `attrs.arg()` without
+    /// `exec_group`; their values must not refer to tools.
+    ungrouped_arg_attrs: Vec<AttributeId>,
     /// This kind of the rule, e.g. whether it can be used in configuration context.
     rule_kind: RuleKind,
     /// The raw docstring for this rule
@@ -124,13 +141,13 @@ pub struct StarlarkRuleCallable<'v> {
 /// Mappings of promise artifact name to the starlark function that will produce it, for anon targets.
 #[derive(Debug, ProvidesStaticType, Trace, NoSerialize, Allocative)]
 struct ArtifactPromiseMappings<'v> {
-    mappings: SmallMap<StringValue<'v>, Value<'v>>,
+    mappings: BuckMutInsertionMap<StringValue<'v>, Value<'v>>,
 }
 
 /// Mappings of frozen promise artifact name to the frozen starlark function that will produce it, for anon targets.
 #[derive(Debug, ProvidesStaticType, Allocative, StarlarkPagable)]
 pub struct FrozenArtifactPromiseMappings<'v> {
-    pub mappings: SmallMap<StringValue<'v>, Value<'v>>,
+    pub mappings: BuckMutInsertionMap<StringValue<'v>, Value<'v>>,
 }
 
 impl<'v> Display for StarlarkRuleCallable<'v> {
@@ -162,6 +179,66 @@ enum RuleError {
     CfgAndSupportsIncomingTransition,
     #[error("{0} rules do not support incoming transitions")]
     RuleDoesNotSupportIncomingTransition(&'static str),
+    #[error(
+        "Attribute `{0}` uses the default execution group, which the rule does not declare. Add `DefaultExecGroup` to `exec_groups`, or put the dependency in a named execution group"
+    )]
+    DefaultExecutionGroupNotDeclared(String),
+    #[error(
+        "Attribute `{attr}` contains an `{function}` without `exec_group`. A rule that declares named execution groups must give every exec dep and toolchain dep an execution group: add `exec_group = DefaultExecGroup` (and list `DefaultExecGroup` in `exec_groups`) or a named execution group"
+    )]
+    ToolAttributeWithoutExecutionGroup {
+        attr: String,
+        function: &'static str,
+    },
+    #[error(
+        "Attribute `{0}` constrains the default execution group, which the rule does not declare. Add `DefaultExecGroup` to `exec_groups`, or constrain a named execution group"
+    )]
+    DefaultExecCompatibleWithNotDeclared(String),
+    #[error(
+        "The default of attribute `{attr}` contains `$({macro_})`, a tool, in an `attrs.arg()` without `exec_group`. In a rule that declares named execution groups, an `attrs.arg()` that refers to tools must name its execution group: give it `exec_group = DefaultExecGroup` (and list `DefaultExecGroup` in `exec_groups`) or a named execution group"
+    )]
+    ToolInUngroupedArgDefault { attr: String, macro_: String },
+    #[error(
+        "Target `{target}`: attribute `{attr}` contains `$({macro_})`, a tool, in an `attrs.arg()` without `exec_group`. The rule declares named execution groups, so an `attrs.arg()` that refers to tools must name its execution group; this is fixed in the rule, by giving that `attrs.arg()` an `exec_group`, not in the BUCK file"
+    )]
+    ToolInUngroupedArg {
+        target: String,
+        attr: String,
+        macro_: String,
+    },
+    #[error(
+        "The rule uses plugins, which are dependencies in the default execution group, but does not declare it. Add `DefaultExecGroup` to `exec_groups`"
+    )]
+    PluginsWithoutDefaultExecutionGroup,
+    #[error(
+        "Execution groups of a rule must have distinct names; `{name}` is listed more than once{defined_in}"
+    )]
+    DuplicateExecutionGroup { name: String, defined_in: String },
+    #[error(
+        "Toolchain rules cannot use execution groups; their exec deps belong to the execution group of the rule depending on the toolchain"
+    )]
+    ExecutionGroupsOnToolchainRule,
+    #[error(
+        "Configuration rules cannot use execution groups; their targets are configured without an execution platform"
+    )]
+    ExecutionGroupsOnConfigurationRule,
+    #[error(
+        "Attribute `{attr}` uses execution group `{group}`, which the rule does not declare. Declared execution groups: [{declared}]{message}"
+    )]
+    UndeclaredExecutionGroup {
+        attr: String,
+        group: String,
+        declared: String,
+        message: String,
+    },
+    #[error(
+        "Execution group `{group}` has more than one `attrs.exec_compatible_with()` attribute: `{first}` and `{second}`"
+    )]
+    MultipleExecCompatibleWith {
+        group: String,
+        first: String,
+        second: String,
+    },
 }
 
 impl<'v> AllocValue<'v> for StarlarkRuleCallable<'v> {
@@ -180,6 +257,7 @@ impl<'v> StarlarkRuleCallable<'v> {
         is_configuration_rule: bool,
         is_toolchain_rule: bool,
         uses_plugins: Vec<PluginKind>,
+        execution_groups: Vec<ExecutionGroup>,
         artifact_promise_mappings: Option<ArtifactPromiseMappings<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> buck2_error::Result<StarlarkRuleCallable<'v>> {
@@ -200,6 +278,23 @@ impl<'v> StarlarkRuleCallable<'v> {
                 "unreachable, since bxl.anon_rule is not registered for eval for bzl files"
             ),
         };
+
+        let tool_marks: Vec<(String, ToolMarks)> = attrs
+            .entries
+            .iter()
+            .map(|(name, attr)| ((*name).to_owned(), attr.tool_marks()))
+            .collect();
+
+        let exec_compatible_with_attrs: Vec<(String, ExecutionGroup)> = attrs
+            .entries
+            .iter()
+            .filter_map(|(name, attr)| {
+                Some((
+                    (*name).to_owned(),
+                    attr.exec_compatible_with_group()?.dupe(),
+                ))
+            })
+            .collect();
 
         let sorted_validated_attrs = attrs
             .entries
@@ -247,6 +342,21 @@ impl<'v> StarlarkRuleCallable<'v> {
             artifact_promise_mappings.is_some(),
             &cfg,
         )?;
+
+        let (
+            execution_groups,
+            default_execution_group,
+            default_exec_compatible_with_attr,
+            ungrouped_arg_attrs,
+        ) = validate_execution_groups(
+            execution_groups,
+            rule_kind,
+            &attributes,
+            exec_compatible_with_attrs,
+            build_context.cell_resolver(),
+            &tool_marks,
+            !uses_plugins.is_empty(),
+        )?;
         let ty = Ty::ty_function(attributes.ty_function());
 
         Ok(StarlarkRuleCallable {
@@ -258,6 +368,10 @@ impl<'v> StarlarkRuleCallable<'v> {
             cfg,
             rule_kind,
             uses_plugins,
+            execution_groups,
+            default_execution_group,
+            default_exec_compatible_with_attr,
+            ungrouped_arg_attrs,
             docs: Some(doc.to_owned()),
             ignore_attrs_for_profiling: build_context.ignore_attrs_for_profiling,
             artifact_promise_mappings,
@@ -268,7 +382,7 @@ impl<'v> StarlarkRuleCallable<'v> {
         implementation: RuleImpl<'v>,
         attrs: UnpackDictEntries<&'v str, &'v StarlarkAttribute>,
         doc: &str,
-        artifact_promise_mappings: SmallMap<
+        artifact_promise_mappings: BuckMutInsertionMap<
             StringValue<'v>,
             StarlarkCallable<'v, (Value<'static>,), UnpackList<Value<'static>>>,
         >,
@@ -283,11 +397,12 @@ impl<'v> StarlarkRuleCallable<'v> {
             false,
             false,
             Vec::new(),
+            Vec::new(),
             Some(ArtifactPromiseMappings {
                 mappings: artifact_promise_mappings
                     .iter()
                     .map(|(k, v)| (*k, v.0))
-                    .collect::<SmallMap<_, _>>(),
+                    .collect::<BuckMutInsertionMap<_, _>>(),
             }),
             eval,
         )
@@ -297,7 +412,7 @@ impl<'v> StarlarkRuleCallable<'v> {
         implementation: StarlarkCallable<'v, (Value<'static>,), ListType<Value<'static>>>,
         attrs: UnpackDictEntries<&'v str, &'v StarlarkAttribute>,
         doc: &str,
-        artifact_promise_mappings: SmallMap<
+        artifact_promise_mappings: BuckMutInsertionMap<
             StringValue<'v>,
             StarlarkCallable<'v, (Value<'static>,), UnpackList<Value<'static>>>,
         >,
@@ -320,7 +435,7 @@ impl<'v> StarlarkRuleCallable<'v> {
         >,
         attrs: UnpackDictEntries<&'v str, &'v StarlarkAttribute>,
         doc: &str,
-        artifact_promise_mappings: SmallMap<
+        artifact_promise_mappings: BuckMutInsertionMap<
             StringValue<'v>,
             StarlarkCallable<'v, (Value<'static>,), UnpackList<Value<'static>>>,
         >,
@@ -347,7 +462,7 @@ impl<'v> StarlarkRuleCallable<'v> {
         let params = parameters_spec.documentation_with_default_value_formatter(
             parameter_types,
             parameter_docs,
-            |v| v.as_display_no_ctx().to_string(),
+            String::clone,
         );
 
         let function_docs = DocFunction::from_docstring(
@@ -359,6 +474,232 @@ impl<'v> StarlarkRuleCallable<'v> {
 
         DocItem::Member(DocMember::Function(function_docs))
     }
+}
+
+/// Checks the `exec_groups` a rule declares, and that every execution group its attributes
+/// use is among them. Returns the named groups, whether the rule may use the default execution
+/// group (implicitly when it declares no named groups, otherwise only when listed), and the
+/// `attrs.exec_compatible_with()` attribute of the default group. In a rule with named groups,
+/// every exec dep and toolchain dep must name its execution group, `DefaultExecGroup`
+/// included; args without one are recorded so their values can be checked for tools.
+fn validate_execution_groups(
+    execution_groups: Vec<ExecutionGroup>,
+    rule_kind: RuleKind,
+    attributes: &AttributeSpec,
+    exec_compatible_with_attrs: Vec<(String, ExecutionGroup)>,
+    cell_resolver: &CellResolver,
+    tool_marks: &[(String, ToolMarks)],
+    uses_plugins: bool,
+) -> buck2_error::Result<(
+    Vec<RuleExecutionGroup>,
+    bool,
+    Option<AttributeId>,
+    Vec<AttributeId>,
+)> {
+    // The project-relative path of the file that defines `group`, or its cell path when that
+    // does not resolve, so the error that names the file always surfaces.
+    let defining_file = |group: &NamedExecutionGroup| {
+        let file = group.defining_file();
+        match cell_resolver.resolve_path(file) {
+            Ok(path) => path.to_string(),
+            Err(_) => file.to_string(),
+        }
+    };
+
+    if !execution_groups.is_empty() {
+        match rule_kind {
+            RuleKind::Normal => {}
+            RuleKind::Toolchain => return Err(RuleError::ExecutionGroupsOnToolchainRule.into()),
+            RuleKind::Configuration => {
+                return Err(RuleError::ExecutionGroupsOnConfigurationRule.into());
+            }
+        }
+    }
+
+    let mut declared: Vec<RuleExecutionGroup> = Vec::with_capacity(execution_groups.len());
+    let mut default_listed = false;
+    for group in execution_groups {
+        let group = match group {
+            ExecutionGroup::Default if default_listed => {
+                return Err(RuleError::DuplicateExecutionGroup {
+                    name: group.to_string(),
+                    defined_in: String::new(),
+                }
+                .into());
+            }
+            ExecutionGroup::Default => {
+                default_listed = true;
+                continue;
+            }
+            ExecutionGroup::Named(group) => group,
+        };
+        // Names, not `(name, .bzl file)`, must be distinct: users see a target's groups by name.
+        if let Some(first) = declared.iter().find(|g| g.group.name() == group.name()) {
+            let defined_in = if first.group == group {
+                String::new()
+            } else {
+                format!(
+                    " (defined in `{}` and in `{}`)",
+                    defining_file(&first.group),
+                    defining_file(&group)
+                )
+            };
+            return Err(RuleError::DuplicateExecutionGroup {
+                name: group.name().to_owned(),
+                defined_in,
+            }
+            .into());
+        }
+        declared.push(RuleExecutionGroup {
+            group,
+            exec_compatible_with_attr: None,
+        });
+    }
+
+    let mut used: Vec<(&str, NamedExecutionGroup)> = Vec::new();
+    for (name, _, attr) in attributes.attr_specs() {
+        attr.coercer()
+            .for_each_named_execution_group(&mut |group| used.push((name, group.dupe())));
+    }
+    used.extend(
+        exec_compatible_with_attrs
+            .iter()
+            .filter_map(|(name, group)| match group {
+                ExecutionGroup::Named(group) => Some((name.as_str(), group.dupe())),
+                ExecutionGroup::Default => None,
+            }),
+    );
+    if rule_kind == RuleKind::Toolchain
+        && !(used.is_empty() && exec_compatible_with_attrs.is_empty())
+    {
+        return Err(RuleError::ExecutionGroupsOnToolchainRule.into());
+    }
+    if let Some((attr, group)) = used
+        .into_iter()
+        .find(|(_, g)| !declared.iter().any(|d| &d.group == g))
+    {
+        return Err(RuleError::UndeclaredExecutionGroup {
+            attr: attr.to_owned(),
+            group: group.name().to_owned(),
+            declared: declared
+                .iter()
+                .map(|g| format!("`{}`", g.group))
+                .collect::<Vec<_>>()
+                .join(", "),
+            message: match group.same_name_in(declared.iter().map(|d| &d.group)) {
+                Some(d) => format!(
+                    ". The declared `{}` is defined in `{}`, this one in `{}`",
+                    group.name(),
+                    defining_file(d),
+                    defining_file(&group)
+                ),
+                None => String::new(),
+            },
+        }
+        .into());
+    }
+
+    let mut default_exec_compatible_with_attr: Option<AttributeId> = None;
+    for (name, group) in exec_compatible_with_attrs {
+        let slot = match &group {
+            ExecutionGroup::Default => &mut default_exec_compatible_with_attr,
+            ExecutionGroup::Named(named) => {
+                &mut declared
+                    .iter_mut()
+                    .find(|d| &d.group == named)
+                    .expect("checked above that every used group is declared")
+                    .exec_compatible_with_attr
+            }
+        };
+        if let Some(first) = slot {
+            return Err(RuleError::MultipleExecCompatibleWith {
+                group: group.to_string(),
+                first: attributes.attribute_name_by_id(*first).to_owned(),
+                second: name,
+            }
+            .into());
+        }
+        *slot = Some(
+            attributes
+                .attribute_id_by_name(&name)
+                .expect("every attribute of the rule is in its spec"),
+        );
+    }
+
+    if !declared.is_empty() {
+        if let Some((attr, function)) = tool_marks
+            .iter()
+            .find_map(|(attr, marks)| Some((attr, marks.first_unmarked_dep()?)))
+        {
+            return Err(RuleError::ToolAttributeWithoutExecutionGroup {
+                attr: attr.clone(),
+                function,
+            }
+            .into());
+        }
+    }
+
+    // In a rule with named groups, only args without tools may omit `exec_group`; target values
+    // are checked when targets are created, defaults here.
+    let mut ungrouped_arg_attrs = Vec::new();
+    if !declared.is_empty() {
+        for (attr, marks) in tool_marks {
+            if !marks.contains(ToolMarks::UNMARKED_ARG) {
+                continue;
+            }
+            let tool = match attributes.attribute(attr) {
+                Some(a) => match a.default_as_ref() {
+                    Some(default) => default.first_ungrouped_tool_macro(a.coercer(), None)?,
+                    None => None,
+                },
+                None => None,
+            };
+            if let Some(tool) = tool {
+                return Err(RuleError::ToolInUngroupedArgDefault {
+                    attr: attr.clone(),
+                    macro_: tool,
+                }
+                .into());
+            }
+            ungrouped_arg_attrs.push(
+                attributes
+                    .attribute_id_by_name(attr)
+                    .expect("every attribute of the rule is in its spec"),
+            );
+        }
+    }
+
+    let default_execution_group = declared.is_empty() || default_listed;
+    if !default_execution_group {
+        if let Some(attr) = attributes
+            .attr_specs()
+            .find(|(_, _, attr)| attr.coercer().uses_default_execution_group())
+            .map(|(attr, _, _)| attr)
+            .or_else(|| {
+                tool_marks
+                    .iter()
+                    .find(|(_, marks)| marks.contains(ToolMarks::DEFAULT_GROUP_ARG))
+                    .map(|(attr, _)| attr.as_str())
+            })
+        {
+            return Err(RuleError::DefaultExecutionGroupNotDeclared(attr.to_owned()).into());
+        }
+        if let Some(attr) = default_exec_compatible_with_attr {
+            return Err(RuleError::DefaultExecCompatibleWithNotDeclared(
+                attributes.attribute_name_by_id(attr).to_owned(),
+            )
+            .into());
+        }
+        if uses_plugins {
+            return Err(RuleError::PluginsWithoutDefaultExecutionGroup.into());
+        }
+    }
+    Ok((
+        declared,
+        default_execution_group,
+        default_exec_compatible_with_attr,
+        ungrouped_arg_attrs,
+    ))
 }
 
 #[starlark_value(type = "Rule")]
@@ -443,7 +784,7 @@ impl<'v> Freeze<'v> for StarlarkRuleCallable<'v> {
 
         let artifact_promise_mappings = match self.artifact_promise_mappings {
             Some(artifacts) => {
-                let mut mappings = SmallMap::new();
+                let mut mappings = BuckMutInsertionMap::new();
                 for (name, implementation) in artifacts.mappings {
                     mappings.insert(name.freeze(freezer)?, implementation.freeze(freezer)?);
                 }
@@ -459,6 +800,9 @@ impl<'v> Freeze<'v> for StarlarkRuleCallable<'v> {
                 cfg: self.cfg,
                 rule_kind: self.rule_kind,
                 uses_plugins: self.uses_plugins,
+                execution_groups: self.execution_groups,
+                default_execution_group: self.default_execution_group,
+                default_exec_compatible_with_attr: self.default_exec_compatible_with_attr,
             }),
             rule_type,
             implementation: frozen_impl,
@@ -467,6 +811,7 @@ impl<'v> Freeze<'v> for StarlarkRuleCallable<'v> {
             ty: self.ty,
             ignore_attrs_for_profiling: self.ignore_attrs_for_profiling,
             artifact_promise_mappings,
+            ungrouped_arg_attrs: self.ungrouped_arg_attrs,
         })
     }
 }
@@ -495,6 +840,9 @@ pub struct FrozenStarlarkRuleCallable<'v> {
     ty: Ty,
     ignore_attrs_for_profiling: bool,
     artifact_promise_mappings: Option<FrozenArtifactPromiseMappings<'v>>,
+    /// See `StarlarkRuleCallable::ungrouped_arg_attrs`.
+    #[starlark_pagable(pagable)]
+    ungrouped_arg_attrs: Vec<AttributeId>,
 }
 
 fn downcast_frozen_rule<'v>(
@@ -522,7 +870,7 @@ pub(crate) fn init_frozen_promise_artifact_mappings_get_impl() {
             .as_ref()
             .artifact_promise_mappings
             .as_ref()
-            .map_or_else(SmallMap::new, |m| m.mappings.clone()))
+            .map_or_else(BuckMutInsertionMap::new, |m| m.mappings.clone()))
     })
 }
 
@@ -533,6 +881,50 @@ impl<'v> FrozenStarlarkRuleCallable<'v> {
 
     pub fn attributes(&self) -> &AttributeSpec {
         &self.rule.attributes
+    }
+
+    pub fn declares_execution_groups(&self) -> bool {
+        !self.rule.execution_groups.is_empty()
+    }
+
+    /// Rejects tools in the values of `attrs.arg()` attributes without `exec_group` in a rule
+    /// that declares named execution groups.
+    fn check_ungrouped_args(
+        &self,
+        target_node: &UnsealedTargetNode,
+        internals: &ModuleInternals,
+    ) -> buck2_error::Result<()> {
+        if self.ungrouped_arg_attrs.is_empty() {
+            return Ok(());
+        }
+        let pkg = target_node.label.pkg();
+        internals
+            .attr_coercion_context()
+            .with_attr_arena_ref(|arena| {
+                for &id in &self.ungrouped_arg_attrs {
+                    let Some(value) = target_node.attributes.get(id) else {
+                        continue;
+                    };
+                    let name = target_node.rule.attributes.attribute_name_by_id(id);
+                    let attr = target_node
+                        .rule
+                        .attributes
+                        .attribute(name)
+                        .internal_error("attribute id is in the rule's spec")?;
+                    if let Some(tool) = arena
+                        .view(value)
+                        .first_ungrouped_tool_macro(attr.coercer(), Some(pkg.dupe()))?
+                    {
+                        return Err(RuleError::ToolInUngroupedArg {
+                            target: target_node.label.to_string(),
+                            attr: name.to_owned(),
+                            macro_: tool,
+                        }
+                        .into());
+                    }
+                }
+                Ok(())
+            })
     }
 
     pub fn artifact_promise_mappings(&self) -> &Option<FrozenArtifactPromiseMappings<'v>> {
@@ -563,15 +955,21 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkRuleCallable<'v> {
             // The body of the callable returned by `rule()`.
             // Records the target in this package's `TargetMap`.
             let internals = ModuleInternals::from_context(eval, self.rule.rule_type.name())?;
-            let target_node = TargetNode::from_params(
+            let coercion_ctx = MemoizedCoercionCtx {
+                base: internals.attr_coercion_context(),
+                memo: &InterpreterExtraValue::get(eval.module())?.coerce_memo,
+            };
+            let target_node = UnsealedTargetNode::from_params(
                 self.rule.dupe(),
                 internals.package(),
                 internals,
+                &coercion_ctx,
                 param_parser,
                 arg_count,
                 self.ignore_attrs_for_profiling,
                 call_stack,
             )?;
+            self.check_ungrouped_args(&target_node, internals)?;
             internals.record(target_node)?;
             Ok(Value::new_none())
         })
@@ -619,6 +1017,8 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
         #[starlark(require = named, default = false)] is_toolchain_rule: bool,
         #[starlark(require = named, default = UnpackListOrTuple::default())]
         uses_plugins: UnpackListOrTuple<PluginKindArg>,
+        #[starlark(require = named, default = UnpackListOrTuple::default())]
+        exec_groups: UnpackListOrTuple<ExecutionGroupArg>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkRuleCallable<'v>> {
         Ok(StarlarkRuleCallable::new(
@@ -633,6 +1033,11 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
                 .items
                 .into_iter()
                 .map(|PluginKindArg { plugin_kind }| plugin_kind)
+                .collect(),
+            exec_groups
+                .items
+                .into_iter()
+                .map(|ExecutionGroupArg { group }| group)
                 .collect(),
             None,
             eval,
@@ -650,7 +1055,7 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
         >,
         #[starlark(require = named)] attrs: UnpackDictEntries<&'v str, &'v StarlarkAttribute>,
         #[starlark(require = named, default = "")] doc: &str,
-        #[starlark(require = named)] artifact_promise_mappings: SmallMap<
+        #[starlark(require = named)] artifact_promise_mappings: BuckMutInsertionMap<
             StringValue<'v>,
             StarlarkCallable<'v, (Value<'static>,), UnpackList<Value<'static>>>,
         >,

@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::borrow::Cow;
 use std::cell::RefCell;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -17,7 +18,7 @@ use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
 use buck2_hash::BuckDashMap;
-use starlark_map::small_set::SmallSet;
+use buck2_hash::BuckFixedSortedSet;
 
 use crate::env::buck2_env;
 
@@ -65,7 +66,7 @@ pub fn buck2_hard_error_env() -> buck2_error::Result<Option<&'static str>> {
 enum ShowSoftErrorConfig {
     Disabled,
     All,
-    Selected(SmallSet<String>),
+    Selected(BuckFixedSortedSet<String>),
 }
 
 impl ShowSoftErrorConfig {
@@ -98,102 +99,204 @@ pub fn buck2_show_soft_errors_env() -> buck2_error::Result<Option<&'static str>>
     buck2_env!("BUCK2_SHOW_SOFT_ERRORS")
 }
 
-static HARD_ERROR_PANIC_ALLOWLIST: LazyLock<SmallSet<String>> =
-    LazyLock::new(|| SmallSet::from_iter(["spawn_version_control_collector_failed".to_owned()]));
+static HARD_ERROR_PANIC_ALLOWLIST: LazyLock<BuckFixedSortedSet<String>> = LazyLock::new(|| {
+    BuckFixedSortedSet::from_iter(["spawn_version_control_collector_failed".to_owned()])
+});
 
-/// Throw a "soft_error" ie. a non-fatal error logged to logview.
-/// Errors will not be logged to stderr as warnings to the user, unless `quiet=false` is passed.
-/// Logview will generate tasks for each error category, unless `task=false` is passed.
-/// If `deprecation=true` this error should ideally become a hard error in the future.
+/// Records a non-fatal error to telemetry without failing the command.
 ///
-/// The macro lives in this crate to allow it be made available everywhere.
-/// Calling programs are responsible for calling initialize() to provide a handler for
-/// logging these soft_errors.
+/// Reports are counted per category in Logview ([internal
+/// link](https://www.internalfb.com/logview/overview/buck2)), where the buck2 oncall watches them,
+/// so a category should name one specific thing going wrong.
 ///
-/// You should pass two arguments:
+/// Under `BUCK2_HARD_ERROR`, which buck2's own tests set, the report fails the command instead: the
+/// macro returns the error from the enclosing function, the way `?` would. A call site with nowhere
+/// to return an error to uses [`soft_error_or_panic!`]. A report on an error path that is being
+/// returned anyway is a [`tag_error!`] or [`tag_result!`].
 ///
-/// * The category string that will remain constant and identifies this specific soft error
-///   (used to report as a key).
-/// * The error is a `buck2_error::Error`.
+/// [`deprecation!`] is a small specialization of this macro for deprecated codepaths.
 ///
-/// Soft errors from Meta internal runs can be viewed
-/// [in logview](https://www.internalfb.com/logview/overview/buck2).
+/// ## Example
 ///
-/// You'll get the error back as the Ok() value if it wasn't thrown, otherwise you get a Err() to
-/// propagate.
+/// See [`StructuredErrorOptions`] for the options:
 ///
-/// Example (see [StructuredErrorOptions] for all key=value options):
 /// ```ignore
-/// soft_error!(
-///     "soft_error_category",
-///     buck2_error::buck2_error!(
-///         buck2_error::ErrorTag::Tier0,
-///         "Did something bad with {}",
-///         value,
-///     )
-///     .into(),
-///     quiet = false,
-/// )?;
+/// soft_error!("cas_missing", err);
+/// soft_error!("dep_only_incompatible_custom", err, task: false);
 /// ```
-pub macro soft_error {
-    ($category:expr, $err:expr) => {
-        $crate::soft_error::soft_error!($category, $err,)
-    },
-    ($category:expr, $err:expr, $($k:ident : $v:expr),+) => {
-        $crate::soft_error::soft_error!($category, $err, $($k: $v,)*)
-    },
-    ($category:expr, $err:expr, $($k:ident : $v:expr ,)*) => { {
-        $crate::soft_error::handle_soft_error(
+pub macro soft_error($category:expr, $err:expr $(, $k:ident : $v:expr)* $(,)?) {
+    {
+        let _reported = $crate::soft_error::report!($category, $err $(, $k: $v)*)?;
+    }
+}
+
+/// [`soft_error!`] for a call site with nowhere to return an error to: a `Drop` impl, a thread,
+/// an event sink, a closure that hands back a plain value. Under `BUCK2_HARD_ERROR` the report
+/// panics there.
+///
+/// ```ignore
+/// soft_error_or_panic!("write_lease_released_unsettled", err);
+/// ```
+pub macro soft_error_or_panic($category:expr, $err:expr $(, $k:ident : $v:expr)* $(,)?) {
+    $crate::soft_error::panic_on_hard_error($crate::soft_error::report!(
+        $category,
+        $err
+        $(, $k: $v)*
+    ))
+}
+
+/// Log a use of a deprecated codepath.
+///
+/// A variant of `soft_error!` specifically for deprecations, generally of external-facing features.
+///
+/// The only distinction from `soft_error!` is that these get a separate logview prefix and require
+/// passing an `owner` and `started` date.
+///
+/// The `owner` and `started` date are not directly used for anything; their purpose is to provide
+/// gentle social encouragement to complete deprecations promptly. While it is not actively
+/// monitored, as a general policy deprecations that have made no progress in six months are subject
+/// to deletion without warning; they can be brought back when someone intends to work on them. If
+/// there is a codepath that you think should return an error but you do not intend to take any
+/// steps towards making that happen in the near future, a `FIXME` comment is typically the
+/// appropriate step.
+///
+/// ## Example
+///
+/// ```ignore
+/// deprecation!("platform_flavor", err, owner: "yournamehere", started: "2023-03-09");
+/// ```
+pub macro deprecation($category:expr, $err:expr, owner: $owner:expr, started: $started:expr $(, $k:ident : $v:expr)* $(,)?) {
+    {
+        let _reported = $crate::soft_error::report!(
             $category,
             $err,
-            (file!(), line!(), column!()),
-            $crate::soft_error::StructuredErrorOptions {
-                $($k: $v,)*
-                ..Default::default()
-            }
-        )
-    } },
+            kind: $crate::soft_error::SoftErrorKind::Deprecation {
+                owner: Some(::std::borrow::Cow::Borrowed($owner)),
+                started: Some(::std::borrow::Cow::Borrowed($started)),
+            },
+            user_facing: false
+            $(, $k: $v)*
+        )?;
+    }
 }
 
-/// Tag and report this error. Return said error.
-pub macro tag_error {
-    ($category:expr, $err:expr) => {
-        $crate::soft_error::tag_error!($category, $err,)
-    },
-    ($category:expr, $err:expr, $($k:ident : $v:expr),+) => {
-        $crate::soft_error::tag_error!($category, $err, $($k: $v,)*)
-    },
-    ($category:expr, $err:expr, $($k:ident : $v:expr ,)*) => {
-        match $crate::soft_error::soft_error!($category, $err, $($k: $v,)*) {
-            Ok(err) => err,
-            Err(err) => err,
-        }
-    },
+/// [`deprecation!`] for a call site with nowhere to return an error to, as
+/// [`soft_error_or_panic!`].
+pub macro deprecation_or_panic($category:expr, $err:expr, owner: $owner:expr, started: $started:expr $(, $k:ident : $v:expr)* $(,)?) {
+    $crate::soft_error::panic_on_hard_error($crate::soft_error::report!(
+        $category,
+        $err,
+        kind: $crate::soft_error::SoftErrorKind::Deprecation {
+            owner: Some(::std::borrow::Cow::Borrowed($owner)),
+            started: Some(::std::borrow::Cow::Borrowed($started)),
+        },
+        user_facing: false
+        $(, $k: $v)*
+    ))
 }
 
-/// If this result is an error, tag it, then return the result.
-pub macro tag_result {
-    ($category:expr, $res:expr) => {
-        $crate::soft_error::tag_result($category, $res,)
-    },
-    ($category:expr, $err:expr, $($k:ident : $v:expr),+) => {
-        $crate::soft_error::tag_result!($category, $err, $($k: $v,)*)
-    },
-    ($category:expr, $res:expr, $($k:ident : $v:expr ,)*) => {
-        $res.map_err(|err| $crate::soft_error::tag_error!($category, err, $($k: $v,)*))
+/// Emit a warning visible on console to the user that has invoked the command.
+///
+/// As a general principle, buck2 does not do warnings.
+///
+/// If you are going to use this, the bar to clear is extremely high: You must be reasonably
+/// confident that the human or agent who sees this warning on console finds it immediately valuable
+/// in a large fraction of each and every specific circumstance in which this warning is shown.
+///
+/// Warnings should never be about things the user didn't or won't change (such as code checked into
+/// the repo) or that are out of their control (such as CLI flags when buck is invoked by a script).
+///
+/// Instead of a warning, consider:
+///  - Returning an error with an appropriate message asking the user to clarify their intent, fix
+///    their configuration, remove the use of a deprecated API, whatever.
+///  - Using `soft_error!` to log evidence of unreliability or other exceptional circumstances that
+///    do not necessarily adversely effect the user at this particular moment for later inspection
+///    by the oncall or others.
+///  - Making use of superconsole to report progress and the state of the invocation.
+///
+/// Warnings are additionally treated like soft errors in that they are logged for monitoring,
+/// produce failures in tests, etc.
+///
+/// ## Example
+///
+/// ```ignore
+/// warn_user!("eden_buck_out", err);
+/// ```
+pub macro warn_user($category:expr, $err:expr $(, $k:ident : $v:expr)* $(,)?) {
+    {
+        let _reported =
+            $crate::soft_error::report!($category, $err, user_facing: true $(, $k: $v)*)?;
+    }
+}
+
+/// [`warn_user!`] for a call site with nowhere to return an error to, as
+/// [`soft_error_or_panic!`].
+pub macro warn_user_or_panic($category:expr, $err:expr $(, $k:ident : $v:expr)* $(,)?) {
+    $crate::soft_error::panic_on_hard_error($crate::soft_error::report!(
+        $category,
+        $err,
+        user_facing: true
+        $(, $k: $v)*
+    ))
+}
+
+/// Reports the error and hands it back, for an error path that returns it anyway.
+pub macro tag_error($category:expr, $err:expr $(, $k:ident : $v:expr)* $(,)?) {
+    match $crate::soft_error::report!($category, $err $(, $k: $v)*) {
+        Ok(err) => err,
+        Err(err) => err,
+    }
+}
+
+/// [`tag_error!`] for the error of a `Result`, which is then returned unchanged.
+pub macro tag_result($category:expr, $res:expr $(, $k:ident : $v:expr)* $(,)?) {
+    $res.map_err(|err| $crate::soft_error::tag_error!($category, err $(, $k: $v)*))
+}
+
+/// The report behind the macros above, which exist to record the call site. A reporter with a
+/// location of its own calls [`handle_soft_error`].
+#[doc(hidden)]
+pub macro report($category:expr, $err:expr $(, $k:ident : $v:expr)* $(,)?) {
+    $crate::soft_error::handle_soft_error(
+        $category,
+        $err,
+        (file!(), line!(), column!()),
+        $crate::soft_error::StructuredErrorOptions {
+            $($k: $v,)*
+            ..Default::default()
+        },
+    )
+}
+
+/// What an `_or_panic` call site does with the hard-error policy: the error has nowhere to go,
+/// so it is a panic.
+pub fn panic_on_hard_error(reported: Result<buck2_error::Error, buck2_error::Error>) {
+    if let Err(e) = reported {
+        panic!("{e:#}");
+    }
+}
+
+/// Who a report is for.
+#[derive(Debug, Clone)]
+pub enum SoftErrorKind {
+    /// Something went wrong. The buck2 oncall watches these; the user sees the ones that are not
+    /// quiet.
+    SoftError,
+    /// Something that is being removed was used. `owner` is the person driving the removal and
+    /// `started` the day (`YYYY-MM-DD`) the deprecation went in; both are absent only for
+    /// deprecations declared outside the code, where nothing records them.
+    Deprecation {
+        owner: Option<Cow<'static, str>>,
+        started: Option<Cow<'static, str>>,
     },
 }
 
 pub struct StructuredErrorOptions {
-    /// Log this error (to our event log and possibly to a task), but do not print it to stderr.
-    pub quiet: bool,
+    pub kind: SoftErrorKind,
+    /// Also print the error to the console. Set by [`warn_user!`], which says who that is for.
+    pub user_facing: bool,
     /// Create a task for this error.
     pub task: bool,
-    pub deprecation: bool,
-    /// When true, this soft error will be promoted to a hard error in open source builds.
-    /// Use this for deprecation/migration errors that OSS users should see.
-    /// Monitoring/logging errors should leave this as false (the default).
-    pub error_on_oss: bool,
     pub daemon_in_memory_state_is_corrupted: bool,
     pub daemon_materializer_state_is_corrupted: bool,
     pub action_cache_is_corrupted: bool,
@@ -208,10 +311,9 @@ pub struct StructuredErrorOptions {
 impl Default for StructuredErrorOptions {
     fn default() -> Self {
         Self {
-            quiet: true,
+            kind: SoftErrorKind::SoftError,
+            user_facing: false,
             task: true,
-            deprecation: false,
-            error_on_oss: false,
             daemon_in_memory_state_is_corrupted: false,
             daemon_materializer_state_is_corrupted: false,
             action_cache_is_corrupted: false,
@@ -220,8 +322,8 @@ impl Default for StructuredErrorOptions {
     }
 }
 
-// Hidden because an implementation detail of `soft_error!`.
-#[doc(hidden)]
+/// What [`soft_error!`] and [`deprecation!`] expand to. Only for reporters whose kind or owner is
+/// known at run time, such as deprecations declared in buckconfig or Starlark.
 pub fn handle_soft_error(
     category: &str,
     err: buck2_error::Error,
@@ -229,15 +331,20 @@ pub fn handle_soft_error(
     options: StructuredErrorOptions,
 ) -> Result<buck2_error::Error, buck2_error::Error> {
     validate_logview_category(category)?;
+    if let SoftErrorKind::Deprecation {
+        started: Some(started),
+        ..
+    } = &options.kind
+    {
+        validate_deprecation_start(started)?;
+    }
 
     let context = soft_error_context()?;
 
     let mut options = options;
-    if options.quiet && context.show_soft_error_config.should_show(category) {
-        options.quiet = false;
+    if context.show_soft_error_config.should_show(category) {
+        options.user_facing = true;
     }
-
-    let error_on_oss = options.error_on_oss;
 
     // We want to limit each error to appearing at most 10 times in a build (no point spamming people)
     if context.should_emit(loc) {
@@ -254,15 +361,6 @@ pub fn handle_soft_error(
     }
     if context.hard_error_config.should_hard_error(category) {
         return Err(err.context("Upgraded warning to failure via $BUCK2_HARD_ERROR"));
-    }
-
-    // @oss-disable: let is_open_source = false;
-    let is_open_source = true; // @oss-enable
-    if is_open_source && error_on_oss {
-        // In open source builds, only deprecation/migration soft errors (those with
-        // error_on_oss: true) are promoted to hard errors. Monitoring/logging soft errors
-        // are no-ops, matching internal behavior.
-        return Err(err);
     }
 
     Ok(err)
@@ -368,7 +466,7 @@ impl SoftErrorContext {
 
 fn increment_soft_error_counter(count: &AtomicUsize) -> bool {
     count
-        .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |count| {
+        .try_update(Ordering::Relaxed, Ordering::Relaxed, |count| {
             (count < 10).then_some(count + 1)
         })
         .is_ok()
@@ -378,7 +476,7 @@ fn increment_soft_error_counter(count: &AtomicUsize) -> bool {
 #[derive(Debug, PartialEq, Eq)]
 enum HardErrorConfig {
     Bool(bool),
-    Selected(SmallSet<String>),
+    Selected(BuckFixedSortedSet<String>),
     Panic,
 }
 
@@ -440,6 +538,27 @@ struct InvalidHardErrorConfig(String);
 enum InvalidSoftError {
     #[error("Invalid category, must be lower_snake_case, got `{0}`")]
     InvalidCategory(String),
+    #[error("Invalid deprecation start, must be a `YYYY-MM-DD` date, got `{0}`")]
+    InvalidDeprecationStart(String),
+}
+
+/// The start of a deprecation is a calendar day as `YYYY-MM-DD`; it is there to be read, so the
+/// shape is all that is checked.
+fn validate_deprecation_start(started: &str) -> buck2_error::Result<()> {
+    let bytes = started.as_bytes();
+    let well_formed = bytes.len() == 10
+        && bytes.iter().enumerate().all(|(i, b)| {
+            if i == 4 || i == 7 {
+                *b == b'-'
+            } else {
+                b.is_ascii_digit()
+            }
+        });
+    if well_formed {
+        Ok(())
+    } else {
+        Err(InvalidSoftError::InvalidDeprecationStart(started.to_owned()).into())
+    }
 }
 
 /// A category must be a-z with no consecutive underscores. Or we raise an error.
@@ -546,6 +665,14 @@ pub(crate) mod tests {
 
         assert!(capture_soft_error_context().is_none());
         Ok(())
+    }
+
+    #[test]
+    fn test_validate_deprecation_start() {
+        assert_matches!(validate_deprecation_start("2026-10-25"), Ok(_));
+        assert_matches!(validate_deprecation_start("2026-1-25"), Err(_));
+        assert_matches!(validate_deprecation_start("yesterday"), Err(_));
+        assert_matches!(validate_deprecation_start("2026/10/25"), Err(_));
     }
 
     #[test]

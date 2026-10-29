@@ -58,13 +58,15 @@ use crate::key::DiceKey;
 use crate::key::DiceKeyErased;
 use crate::key_index::DiceKeyIndex;
 use crate::metrics::AllocWindow;
+use crate::metrics::EvictionSnapshot;
 use crate::metrics::PageInKeyTypeMetrics;
 use crate::metrics::PagingMemoryMetrics;
 use crate::metrics::PagingMemorySnapshot;
 use crate::value::DiceValidValue;
+use crate::value::HydratedValue;
 use crate::value::PageOutResult;
 
-/// On-disk backend for pagable DICE storage, from `buck2_hydration.pagable_storage_backend`.
+/// On-disk backend for pagable DICE storage, from `hydration.pagable_storage_backend`.
 #[derive(
     Allocative,
     Clone,
@@ -76,6 +78,7 @@ use crate::value::PageOutResult;
     PartialEq,
     Eq
 )]
+#[serde(rename_all = "snake_case")]
 pub enum PagableStorageBackend {
     /// SQLite database files.
     #[default]
@@ -84,6 +87,56 @@ pub enum PagableStorageBackend {
     Sled,
     /// Serializes but discards data (no I/O).
     Noop,
+}
+
+/// Which values a page-out writes, from `hydration.page_out_policy`.
+#[derive(
+    Allocative,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Dupe,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq
+)]
+#[serde(rename_all = "snake_case")]
+pub enum PageOutPolicy {
+    /// A key's value is paged out at most once: a value recomputed or read back
+    /// after a page-out stays resident, with no row to fall back on.
+    OncePerKey,
+    /// Each value is written at most once: a recomputed value is written by the
+    /// next page-out and stays resident, backed by its row, as does a value read
+    /// back from its row. A backed value can be evicted again without a write.
+    #[default]
+    OncePerValue,
+}
+
+/// When the values a page-out writes leave memory, from `hydration.eviction_policy`.
+#[derive(
+    Allocative,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Dupe,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq
+)]
+#[serde(rename_all = "snake_case")]
+pub enum EvictionPolicy {
+    /// A page-out evicts the values it writes that were never paged out before;
+    /// the idle page-out after a command is where memory is given back.
+    OnIdle,
+    /// A page-out evicts nothing: what it writes stays resident, backed by its
+    /// row, until resource control sees memory pressure, which evicts every
+    /// backed value.
+    #[default]
+    OnMemoryPressure,
 }
 
 impl PagableStorageBackend {
@@ -158,6 +211,18 @@ pub struct DiceStorage {
     /// `soft_error`) instead of reporting 0. `Arc` so `dupe`d handles share one cache.
     #[allocative(skip)]
     cached_db_size_bytes: Arc<ArcSwap<Result<u64, Arc<std::io::Error>>>>,
+    /// Which values a page-out writes; see [`PageOutPolicy`].
+    page_out_policy: PageOutPolicy,
+    /// When the values a page-out writes leave memory; see [`EvictionPolicy`].
+    eviction_policy: EvictionPolicy,
+}
+
+/// What the core state is given about paging: where to record what paging moves, and which
+/// values a page-out writes. A `Dice` without storage never pages and has none.
+#[derive(Clone, Dupe)]
+pub(crate) struct PagingSetup {
+    pub(crate) memory: Arc<PagingMemoryMetrics>,
+    pub(crate) page_out_policy: PageOutPolicy,
 }
 
 impl DiceStorage {
@@ -171,6 +236,26 @@ impl DiceStorage {
             paging_memory: Arc::new(PagingMemoryMetrics::default()),
             path: None,
             cached_db_size_bytes: Arc::new(ArcSwap::new(Arc::new(Ok(0)))),
+            page_out_policy: PageOutPolicy::default(),
+            eviction_policy: EvictionPolicy::default(),
+        }
+    }
+
+    /// Sets which values a page-out writes; see [`PageOutPolicy`]. Only before the storage is
+    /// given to a `Dice`, whose core state reads the policy once.
+    pub fn set_page_out_policy(&mut self, policy: PageOutPolicy) {
+        self.page_out_policy = policy;
+    }
+
+    /// Sets when the values a page-out writes leave memory; see [`EvictionPolicy`].
+    pub fn set_eviction_policy(&mut self, policy: EvictionPolicy) {
+        self.eviction_policy = policy;
+    }
+
+    pub(crate) fn paging_setup(&self) -> PagingSetup {
+        PagingSetup {
+            memory: self.paging_memory.dupe(),
+            page_out_policy: self.page_out_policy,
         }
     }
 
@@ -193,12 +278,6 @@ impl DiceStorage {
     /// was created.
     pub(crate) fn storage_io_snapshot(&self) -> StorageIoSnapshot {
         self.io_metrics.snapshot()
-    }
-
-    /// Shared with the core state thread so it can charge the memory that
-    /// evicting values actually releases.
-    pub(crate) fn paging_memory_metrics(&self) -> Arc<PagingMemoryMetrics> {
-        self.paging_memory.dupe()
     }
 
     /// Cumulative memory paging has moved, measured from the allocator.
@@ -362,8 +441,16 @@ impl DiceStorage {
         // values stay resident.
         let frontier = self.storage.commit_frontier();
         bind_in_parallel(&self.storage, finished.take_covered(&frontier)).await;
-        evict_in_batches(state_handle, pending.take_covered(&frontier));
-        self.storage.release_memory();
+        commit_in_batches(
+            state_handle,
+            pending.take_covered(&frontier),
+            self.eviction_policy,
+        );
+        // Evictions are fire-and-forget. The sweep must run after the core has
+        // processed every one, or the arcs of late evictions stay pinned until
+        // the next sweep. State requests are FIFO, so any round trip is the barrier.
+        let _ = state_handle.pagable_node_counts().await;
+        self.release_after_evictions();
         // The append-only store only changes here; refresh the cached size so the
         // command-end path reports it without a filesystem walk.
         self.refresh_db_size_bytes().await;
@@ -378,6 +465,38 @@ impl DiceStorage {
         }
         flushed?;
         Ok(())
+    }
+
+    /// Drops the resident values a row already backs, one read back or written by an earlier
+    /// page-out, without writing anything: those backed when the call starts, not ones that
+    /// become backed while it runs. Returns how many values were evicted. Runs alongside
+    /// computations: a lookup of an evicted value reads it back.
+    pub(crate) async fn evict_backed(&self, state_handle: &CoreStateHandle) -> u64 {
+        // In batches of keys, so the core thread stays responsive between them.
+        const EVICT_BATCH_KEYS: usize = 1000;
+        // Bounded by what was backed at the start. Computations run meanwhile, and under
+        // `OncePerValue` each value one reads back is backed again by the next batch; evicting
+        // those would be evicting what is in use, and would never end while anything runs. They
+        // are left for the next eviction.
+        self.paging_memory.record_eviction();
+        let target = state_handle.pagable_node_counts().await.backed as u64;
+        let mut evicted = 0;
+        while evicted < target {
+            let batch = state_handle.evict_backed(EVICT_BATCH_KEYS).await;
+            if batch == 0 {
+                break;
+            }
+            evicted += batch;
+        }
+        self.release_after_evictions();
+        evicted
+    }
+
+    /// Frees what evictions the core has applied left behind: the backend's caches and the
+    /// arc-cache bindings whose values the evictions dropped.
+    fn release_after_evictions(&self) {
+        self.storage.release_memory();
+        self.storage.arc_cache().evict_expired();
     }
 
     fn page_out_chunk(
@@ -397,12 +516,15 @@ impl DiceStorage {
             if cancelled() {
                 break;
             }
-            if let Some((data_key, ticket)) = self.page_out_value(&key_dyn, &value, finished)? {
+            if let Some((data_key, serialized_bytes, ticket)) =
+                self.page_out_value(&key_dyn, &value, finished)?
+            {
                 pending.push(
                     dice_key,
                     PageOutResult {
                         serialized_value: value,
                         data_key,
+                        serialized_bytes,
                     },
                     ticket,
                 );
@@ -426,7 +548,7 @@ impl DiceStorage {
         key_dyn: &DiceKeyErased,
         value: &DiceValidValue,
         finished: &ArcSerCache,
-    ) -> anyhow::Result<Option<(DataKey, WriteTicket)>> {
+    ) -> anyhow::Result<Option<(DataKey, u64, WriteTicket)>> {
         let storage_context = self.storage.storage_context();
         let mut serializer = SerializerForPaging::new(storage_context);
         let serialize_result = match key_dyn {
@@ -446,11 +568,12 @@ impl DiceStorage {
             Some(Err(e)) => Err(e),
             Some(Ok(())) => {
                 let (data, arcs) = serializer.finish();
+                let serialized_bytes = data.len() as u64;
                 match self
                     .storage
                     .page_out_item_ticketed(data, arcs, finished, storage_context)
                 {
-                    Ok(key_and_ticket) => Ok(Some(key_and_ticket)),
+                    Ok((data_key, ticket)) => Ok(Some((data_key, serialized_bytes, ticket))),
                     Err(PageOutError::Failed(e)) => Err(e),
                     Err(PageOutError::AlreadyFailed) => Ok(None),
                 }
@@ -483,8 +606,8 @@ impl DiceStorage {
                     .collect();
                 tokio::spawn(async move {
                     for (dice_key, key_dyn, data_key) in &items {
-                        let value = storage.hydrate(key_dyn, *data_key).await?;
-                        state_handle.rehydrate(*dice_key, *data_key, value);
+                        let hydrated = storage.hydrate(key_dyn, *data_key).await?;
+                        state_handle.rehydrate(*dice_key, *data_key, hydrated);
                     }
                     Ok::<_, anyhow::Error>(())
                 })
@@ -502,13 +625,17 @@ impl DiceStorage {
         self.paging_memory.nodes_paged_out()
     }
 
+    pub(crate) fn eviction_snapshot(&self) -> EvictionSnapshot {
+        self.paging_memory.eviction_snapshot()
+    }
+
     /// Deserialize the value at `data_key` back into a `DiceValidValue` via `key_dyn`'s
     /// `ValueSerialize`.
     pub(crate) async fn hydrate(
         &self,
         key_dyn: &DiceKeyErased,
         data_key: DataKey,
-    ) -> anyhow::Result<DiceValidValue> {
+    ) -> anyhow::Result<HydratedValue> {
         let fetch_start = Instant::now();
         let data = self.storage.fetch_data(&data_key).await?;
         let fetch_us = fetch_start.elapsed().as_micros() as u64;
@@ -555,7 +682,10 @@ impl DiceStorage {
             },
         );
 
-        Ok(DiceValidValue::from_arc(arc))
+        Ok(HydratedValue {
+            value: DiceValidValue::from_arc(arc),
+            serialized_bytes: bytes,
+        })
     }
 }
 
@@ -619,7 +749,11 @@ async fn evict_as_rows_commit(
         tokio::time::sleep(Duration::from_millis(250)).await;
         let frontier = storage.storage.commit_frontier();
         bind_in_parallel(&storage.storage, finished.take_covered(&frontier)).await;
-        evict_in_batches(&state_handle, pending.take_covered(&frontier));
+        commit_in_batches(
+            &state_handle,
+            pending.take_covered(&frontier),
+            storage.eviction_policy,
+        );
     }
 }
 
@@ -650,12 +784,16 @@ async fn bind_in_parallel(
     }
 }
 
-/// Sends evictions in batches small enough to keep the core thread responsive.
-fn evict_in_batches(state_handle: &CoreStateHandle, mut keys: Vec<(DiceKey, PageOutResult)>) {
-    const EVICT_BATCH_SIZE: usize = 1000;
+/// Sends committed rows in batches small enough to keep the core thread responsive.
+fn commit_in_batches(
+    state_handle: &CoreStateHandle,
+    mut keys: Vec<(DiceKey, PageOutResult)>,
+    eviction_policy: EvictionPolicy,
+) {
+    const COMMIT_BATCH_SIZE: usize = 1000;
     while !keys.is_empty() {
-        let rest = keys.split_off(keys.len().min(EVICT_BATCH_SIZE));
-        state_handle.evict_keys(std::mem::replace(&mut keys, rest));
+        let rest = keys.split_off(keys.len().min(COMMIT_BATCH_SIZE));
+        state_handle.commit_page_out(std::mem::replace(&mut keys, rest), eviction_policy);
     }
 }
 

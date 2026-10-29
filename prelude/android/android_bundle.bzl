@@ -6,6 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//android:android_apk.bzl", "get_install_info")
 load("@prelude//android:android_binary.bzl", "get_binary_info")
@@ -25,6 +26,7 @@ load("@prelude//android:util.bzl", "package_validators_decorator")
 load("@prelude//java/utils:java_more_utils.bzl", "get_path_separator_for_exec_os")
 load("@prelude//target_stats:target_stats.bzl", "target_stats_aggregate_providers_and_subtargets")
 load("@prelude//utils:argfile.bzl", "argfile")
+load(":attrs.bzl", "ANDROID_BUNDLE_ATTRS")
 
 def android_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     android_binary_info = get_binary_info(ctx, use_proto_format = True)
@@ -188,3 +190,18 @@ def build_bundle(
     actions.run(bundle_builder_args, category = "bundle_build")
 
     return output_bundle
+
+android_bundle = prelude_rule(
+    name = "android_bundle",
+    impl = android_bundle_impl,
+    docs = """
+        An `android_bundle()` rule is used to generate an Android App Bundle
+        (AAB). It shares most attributes with `android_binary()`, but produces
+        an AAB file instead of an APK. App Bundles are the recommended
+        publishing format for Google Play, enabling optimized APK delivery
+        per device configuration.
+    """,
+    examples = None,
+    further = None,
+    attrs = ANDROID_BUNDLE_ATTRS,
+)

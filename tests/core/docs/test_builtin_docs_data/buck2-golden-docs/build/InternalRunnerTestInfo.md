@@ -5,6 +5,7 @@
 ## InternalRunnerTestInfo.contacts
 ## InternalRunnerTestInfo.default\_executor
 ## InternalRunnerTestInfo.env
+## InternalRunnerTestInfo.exec\_group
 ## InternalRunnerTestInfo.executor\_overrides
 ## InternalRunnerTestInfo.labels
 ## InternalRunnerTestInfo.listing\_command

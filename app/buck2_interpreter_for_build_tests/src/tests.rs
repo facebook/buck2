@@ -8,11 +8,15 @@
  * above-listed licenses.
  */
 
+use std::sync::Arc;
+
 use buck2_common::dice::cells::SetCellResolver;
 use buck2_common::dice::data::testing::SetTestingIoProvider;
 use buck2_common::file_ops::baseline::FileSystemBaseline;
 use buck2_common::file_ops::baseline::SetFileSystemBaseline;
 use buck2_common::file_ops::io::initialize_read_dir_cache;
+use buck2_common::ignores::ignore_set::IgnoreSet;
+use buck2_common::ignores::ignore_set::SetIgnoreSet;
 use buck2_common::legacy_configs::cells::ExternalBuckconfigData;
 use buck2_common::legacy_configs::dice::SetLegacyConfigs;
 use buck2_common::settings::PackageVisibilityDefaultIntersection;
@@ -51,9 +55,18 @@ pub(crate) async fn calculation_with_package_visibility_mode(
     fs: &ProjectRootTemp,
     package_visibility_default_intersection: PackageVisibilityDefaultIntersection,
 ) -> DiceTransaction {
+    let resolver = CellResolver::testing_with_name_and_path(
+        CellName::testing_new("root"),
+        CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("".to_owned())),
+    );
+
     let mut dice = Dice::builder();
     dice.set(EventDispatcher::null());
     dice.set_testing_io_provider(fs);
+    dice.set_ignore_set(Arc::new(
+        IgnoreSet::testing_new_single_cell(resolver.dupe(), CellName::testing_new("root"), "")
+            .unwrap(),
+    ));
     let dice = dice.build(DetectCycles::Enabled);
     let root = dice.new_root().await;
 
@@ -65,12 +78,7 @@ pub(crate) async fn calculation_with_package_visibility_mode(
         .set_package_visibility_default_intersection(package_visibility_default_intersection);
     let mut ctx = dice.updater_with_data(root, per_transaction_data);
 
-    let resolver = CellResolver::testing_with_name_and_path(
-        CellName::testing_new("root"),
-        CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("".to_owned())),
-    );
-
-    ctx.set_cell_resolver(resolver.dupe()).unwrap();
+    ctx.set_cell_resolver(resolver).unwrap();
     ctx.set_file_system_baseline(FileSystemBaseline::unique())
         .unwrap();
     ctx.set_interpreter_context(

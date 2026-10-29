@@ -19,12 +19,12 @@ def _get_python_library_manifests_from_analysis_result(analysis_result: bxl.Anal
         return None
     return python_source_db_info.manifests
 
-def _get_python_library_manifests_from_targets(ctx: bxl.Context, targets: bxl.UnconfiguredTargetSet) -> list[PythonLibraryManifestsTSet]:
+def _get_python_library_manifests_from_targets(ctx: bxl.Context, targets: bxl.TargetSet[bxl.UnconfiguredTargetNode]) -> list[PythonLibraryManifestsTSet]:
     configured_targets = ctx.configured_targets(targets, modifiers = ctx.modifiers)
     return filter(None, [_get_python_library_manifests_from_analysis_result(analysis_result) for analysis_result in ctx.analysis(configured_targets).values()])
 
 def get_python_library_manifests_tset_from_targets(
-    ctx: bxl.Context, actions: AnalysisActions, root_targets: bxl.UnconfiguredTargetSet
+    ctx: bxl.Context, actions: AnalysisActions, root_targets: bxl.TargetSet[bxl.UnconfiguredTargetNode]
 ) -> PythonLibraryManifestsTSet:
     return actions.tset(
         PythonLibraryManifestsTSet,

@@ -56,6 +56,7 @@ load(
 load(
     "@prelude//linking:execution_preference.bzl",
     "LinkExecutionPreference",
+    "get_link_execution_preference",
 )
 load(
     "@prelude//linking:link_info.bzl",
@@ -315,6 +316,7 @@ def generate_rustdoc_test(
         is_proc_macro = False,
         explicit_sysroot_deps = compile_ctx.dep_ctx.explicit_sysroot_deps,
         panic_runtime = compile_ctx.dep_ctx.panic_runtime,
+        linker_deps = compile_ctx.dep_ctx.linker_deps,
     )
     transitive_srcs = ctx.actions.tset(
         RustSourcesTSet,
@@ -581,8 +583,10 @@ def miri_command(
 
     # Never written, but the driver validates `-o` like rustc: without it the
     # output would be `<crate name>` in the cwd, which may be an existing
-    # directory.
-    miri_out = ctx.actions.write(ctx.actions.declare_output("__miri_out"), [""])
+    # directory. The path must not exist: an existing read-only file fails the
+    # driver's writability check.
+    miri_out_placeholder = ctx.actions.write(ctx.actions.declare_output("__miri_out", "placeholder"), [""])
+    miri_out = cmd_args(miri_out_placeholder, parent = 1, format = "{}" + compile_ctx.path_sep + "out")
 
     miri_cmd = cmd_args(
         [cmd_args("--env=", k, "=", v, delimiter = "") for (k, v) in plain_env.items()],
@@ -718,6 +722,7 @@ def rust_compile(
     rustc_cmd = cmd_args(
         # Lints go first to allow other args to override them.
         lints,
+        getattr(ctx.attrs, "clippy_flags", []) if emit == Emit("clippy") else [],
         # Report unused --extern crates in the notification stream.
         ["--json=unused-externs-silent", "-Wunused-crate-dependencies"] if toolchain_info.report_unused_deps else [],
         common_args.args,
@@ -1543,7 +1548,14 @@ def _compute_common_args(
         "--crate-type={}".format(crate_type.value),
         "-Crelocation-model={}".format(params.reloc_model.value),
         "--edition={}".format(edition),
-        "-Cmetadata={}".format(_metadata(compile_ctx, ctx.label, is_rustdoc_test)[0]),
+        "-Cmetadata={}".format(
+            _metadata(
+                compile_ctx,
+                ctx.label,
+                is_rustdoc_test,
+                _host_agnostic_proc_macro(crate_type, emit, is_rustdoc_test, incremental_enabled),
+            )[0]
+        ),
         # JSON diagnostics are for `rustc_action.py`; commands run at test time
         # print rendered text directly.
         ["--error-format=json", "--json=diagnostic-rendered-ansi"] if not (is_rustdoc_test or is_miri_run) else [],
@@ -1565,6 +1577,9 @@ def _compute_common_args(
         if toolchain_info.pgo_profile and toolchain_info.explicit_sysroot_deps and toolchain_info.explicit_sysroot_deps.core
         else [],
         _rustc_flags(toolchain_info.rustc_flags, toolchain_info),
+        _rustc_flags(toolchain_info.rustc_proc_macro_flags, toolchain_info)
+        if _host_agnostic_proc_macro(crate_type, emit, is_rustdoc_test, incremental_enabled)
+        else [],
         # `rustc_check_flags` is specifically interpreted as flags that are used
         # only on the metadata-fast graph.
         _rustc_flags(toolchain_info.rustc_check_flags, toolchain_info) if dep_metadata_kind == MetadataKind("fast") else [],
@@ -1609,13 +1624,23 @@ def rust_compile_invalidation_inputs(
         profile_mode = None,
     ).args
 
+def _host_agnostic_proc_macro(crate_type: CrateType, emit: Emit, is_rustdoc_test: bool, incremental_enabled: bool) -> bool:
+    return crate_type == CrateType("proc-macro") and emit != Emit("clippy") and not is_rustdoc_test and not incremental_enabled
+
 # Returns the full label and its hash. The full label is used for `-Cmetadata`
 # which provided the primary disambiguator for two otherwise identically named
 # crates. The hash is added to the filename to give them a lower likelihood of
 # duplicate names, but it doesn't matter if they collide.
-def _metadata(compile_ctx: CompileContext, label: Label, is_rustdoc_test: bool) -> (str, str):
+def _metadata(
+    compile_ctx: CompileContext,
+    label: Label,
+    is_rustdoc_test: bool,
+    host_agnostic_proc_macro: bool,
+) -> (str, str):
     raw_target = str(label.raw_target())
-    configuration_hash = compile_ctx.toolchain_info.configuration_hash or label.configured_target().config().hash
+    configuration_hash = (
+        compile_ctx.toolchain_info.proc_macro_configuration_hash if host_agnostic_proc_macro else compile_ctx.toolchain_info.configuration_hash
+    ) or label.configured_target().config().hash
     metadata = "{}#{}".format(raw_target, configuration_hash)
 
     if is_rustdoc_test:
@@ -1779,7 +1804,15 @@ def _rustc_emit(
         # Don't support profiles with predeclared outputs
         crate_name_and_extra_for_profile = None
     else:
-        extra_hash = "-" + _metadata(compile_ctx, ctx.label, False)[1]
+        extra_hash = (
+            "-"
+            + _metadata(
+                compile_ctx,
+                ctx.label,
+                False,
+                _host_agnostic_proc_macro(crate_type, emit, False, incremental_enabled),
+            )[1]
+        )
         emit_args.add("-Cextra-filename={}".format(extra_hash))
         crate_name_and_extra_for_profile = simple_crate + extra_hash
 
@@ -1948,7 +1981,7 @@ def _rustc_invoke(
 ) -> Invoke:
     toolchain_info = compile_ctx.toolchain_info
 
-    plain_env, path_env = process_env(compile_ctx, toolchain_info.rustc_env | ctx.attrs.env)
+    plain_env, path_env = _base_rustc_env(ctx, compile_ctx)
 
     more_plain_env, more_path_env = process_env(compile_ctx, env)
     plain_env.update(more_plain_env)
@@ -1992,6 +2025,8 @@ def _rustc_invoke(
         compile_cmd.add(cmd_args(build_status.as_output(), format = "--failure-filter={}"))
         for out in required_outputs:
             compile_cmd.add("--required-output", out.short_path, out.as_output())
+        if common_args.emit == Emit("expand"):
+            compile_cmd.add("--keep-outputs-on-error")
 
     if strip_dwo_members != None:
         compile_cmd.add(strip_dwo_members)
@@ -2006,12 +2041,15 @@ def _rustc_invoke(
         has_content_based_path = use_cbp,
     )
 
-    local_only = False
+    local_only = incremental_enabled
     prefer_local = False
-    if incremental_enabled:
-        local_only = True
-    elif common_args.crate_type == CrateType("bin") and common_args.emit == Emit("link") and link_cxx_binary_locally(ctx):
-        prefer_local = True
+    weight = 1
+    if common_args.crate_type == CrateType("bin") and common_args.emit == Emit("link"):
+        # A rustc-driven binary link is as heavy on the host as a cxx link of
+        # the same binary, so it shares the toolchain's link weight.
+        weight = compile_ctx.cxx_toolchain_info.linker_info.link_weight
+        if not incremental_enabled and link_cxx_binary_locally(ctx):
+            prefer_local = True
 
     if is_clippy:
         category = "clippy"
@@ -2060,6 +2098,7 @@ def _rustc_invoke(
         compile_cmd,
         local_only = local_only,
         prefer_local = prefer_local,
+        weight = weight,
         category = category,
         identifier = identifier,
         no_outputs_cleanup = incremental_enabled,
@@ -2089,9 +2128,23 @@ def _long_command(ctx: AnalysisContext, exe: RunInfo, args: cmd_args, argfile_na
         ),
     )
 
-_DOUBLE_ESCAPED_NEWLINE_RE = regex("\\\\n")
-_ESCAPED_NEWLINE_RE = regex("\\n")
-_ESCAPED_CARRIAGE_RETURN_RE = regex("\\r")
+# An escape per character that cannot sit on one line of the `rustc_action` argfile: the
+# backslash first, so that one left-to-right pass decodes, then every separator Python's
+# `str.splitlines` recognises. `rustc_action.py` undoes this.
+_RUSTC_ACTION_ENV_ESCAPES = [
+    ("\\", "\\\\"),
+    ("\n", "\\n"),
+    ("\r", "\\r"),
+    ("\x0b", "\\v"),
+    ("\x0c", "\\f"),
+    ("\x1c", "\\x1c"),
+    ("\x1d", "\\x1d"),
+    ("\x1e", "\\x1e"),
+    ("\x85", "\\x85"),
+    ("\u2028", "\\u2028"),
+    ("\u2029", "\\u2029"),
+]
+_RUSTC_ACTION_ENV_REPLACE_REGEX = [(regex("\\x{%x}" % ord(raw)), escaped) for raw, escaped in _RUSTC_ACTION_ENV_ESCAPES]
 _DIRECTORY_ENV = [
     "CARGO_MANIFEST_DIR",
     "OUT_DIR",
@@ -2105,9 +2158,15 @@ _DIRECTORY_ENV = [
 # paths to absolute paths so they'll work in any context. Hence the need to
 # distinguish path from non-path. (This will not work if the value contains both
 # path and non-path content, but we'll burn that bridge when we get to it.)
+def _env_value_needs_escape(value: str) -> bool:
+    for raw, _ in _RUSTC_ACTION_ENV_ESCAPES:
+        if raw in value:
+            return True
+    return False
+
 def process_env(
     compile_ctx: CompileContext, env: dict[str, str | ResolvedStringWithMacros | Artifact], escape_for_rustc_action: bool = True
-) -> (dict[str, cmd_args], dict[str, cmd_args]):
+) -> (dict[str, cmd_args | str | ResolvedStringWithMacros], dict[str, cmd_args]):
     # Values with inputs (ie artifact references).
     path_env = {}
 
@@ -2115,24 +2174,19 @@ def process_env(
     plain_env = {}
 
     for k, v in env.items():
+        if type(v) == "string" and not (escape_for_rustc_action and _env_value_needs_escape(v)):
+            plain_env[k] = v
+            continue
+
         arg = cmd_args(v)
         if len(arg.inputs) > 0:
             path_env[k] = arg
         elif escape_for_rustc_action:
-            # Environment variables may have newlines, escape them for now.
-            # Will be unescaped in rustc_action.
-            # Variable may have "\\n" as well.
-            # Example: \\n\n -> \\\n\n -> \\\\n\\n
-            plain_env[k] = cmd_args(
-                v,
-                replace_regex = [
-                    (_DOUBLE_ESCAPED_NEWLINE_RE, "\\\n"),
-                    (_ESCAPED_NEWLINE_RE, "\\n"),
-                    (_ESCAPED_CARRIAGE_RETURN_RE, "\\r"),
-                ],
-            )
+            plain_env[k] = cmd_args(v, replace_regex = _RUSTC_ACTION_ENV_REPLACE_REGEX)
         else:
-            plain_env[k] = arg
+            # No escaping requested and no inputs to track: retain the value
+            # itself rather than a single-element `cmd_args` wrapper.
+            plain_env[k] = v
 
     # If CARGO_MANIFEST_DIR is not already expressed in terms of $(location ...)
     # of some target, then interpret it as a relative path inside of the crate's
@@ -2171,7 +2225,7 @@ def process_env(
     # (which is the repo root in Buck builds).
     for key in _DIRECTORY_ENV:
         value = plain_env.pop(key, None)
-        if value:
+        if value != None:
             path_env[key] = cmd_args(
                 compile_ctx.symlinked_srcs,
                 compile_ctx.path_sep,
@@ -2186,6 +2240,15 @@ def _dist_thinlto_enabled(ctx: AnalysisContext, compile_ctx: CompileContext) -> 
         return False
     linker_info = compile_ctx.cxx_toolchain_info.linker_info
     return linker_info.supports_distributed_thinlto and linker_info.lto_mode == LtoMode("thin")
+
+def _base_rustc_env(ctx: AnalysisContext, compile_ctx: CompileContext) -> (dict[str, cmd_args | str], dict[str, cmd_args]):
+    cached = compile_ctx.processed_env.get("rustc")
+    if cached == None:
+        cached = process_env(compile_ctx, compile_ctx.toolchain_info.rustc_env | ctx.attrs.env)
+        compile_ctx.processed_env["rustc"] = cached
+
+    # Fresh dicts for the caller to extend with emit-specific values.
+    return (dict(cached[0]), dict(cached[1]))
 
 def get_inherited_link_args(
     ctx: AnalysisContext,
@@ -2228,7 +2291,16 @@ def get_inherited_link_args(
 
     return inherited_link_args
 
-def rust_link_shared(ctx: AnalysisContext, compile_ctx: CompileContext, dep_link_style: LinkStrategy, static_lib: LinkInfo) -> LinkedObject:
+def rust_link_shared(
+    ctx: AnalysisContext,
+    compile_ctx: CompileContext,
+    dep_link_style: LinkStrategy,
+    static_lib: LinkInfo,
+    # Defaults to `shared/<soname>`, carrying the soname as `DT_SONAME`.
+    # A Python extension is loaded by file path and has no soname.
+    output: str | None = None,
+    set_soname: bool = True,
+) -> LinkedObject:
     inherited_link_args = get_inherited_link_args(
         ctx,
         compile_ctx,
@@ -2263,7 +2335,7 @@ def rust_link_shared(ctx: AnalysisContext, compile_ctx: CompileContext, dep_link
 
     return cxx_link_shared_library(
         ctx = ctx,
-        output = "shared/" + compile_ctx.soname,
+        output = output or "shared/" + compile_ctx.soname,
         opts = link_options(
             links = link_args,
             link_execution_preference = LinkExecutionPreference("any"),
@@ -2271,7 +2343,7 @@ def rust_link_shared(ctx: AnalysisContext, compile_ctx: CompileContext, dep_link
             # `rust_library` has no `allow_cache_upload` attribute
             allow_cache_upload = None,
         ),
-        name = compile_ctx.soname,
+        name = compile_ctx.soname if set_soname else None,
     ).linked_object
 
 def rust_link_binary(
@@ -2414,10 +2486,9 @@ def rust_link_binary(
         LinkArgs(infos = [LinkInfo(external_debug_info = external_debug_info)]),
     ]
 
-    if link_cxx_binary_locally(ctx, compile_ctx.cxx_toolchain_info):
+    link_execution_preference = get_link_execution_preference(ctx, [])
+    if link_execution_preference == LinkExecutionPreference("any") and link_cxx_binary_locally(ctx, compile_ctx.cxx_toolchain_info):
         link_execution_preference = LinkExecutionPreference("local")
-    else:
-        link_execution_preference = LinkExecutionPreference("any")
 
     return cxx_link_into(
         ctx = ctx,

@@ -12,18 +12,19 @@
 import re
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_compatible_with(buck: Buck) -> None:
-    for good in ["root//:pass", "root//:pass2"]:
-        out = await buck.cquery(good)
-        assert re.match(
-            "{} \\(.*\\)\n".format(good),
-            out.stdout,
-        )
+class CompatibleWithTest(BuckTestCase):
+    @buck_test()
+    async def test_compatible_with(self, buck: Buck) -> None:
+        for good in ["root//:pass", "root//:pass2"]:
+            out = await buck.cquery(good)
+            assert re.match(
+                "{} \\(.*\\)\n".format(good),
+                out.stdout,
+            )
 
-    for bad in ["root//:fail", "root//:fail2"]:
-        out = await buck.cquery(bad)
-        assert out.stdout == ""
+        for bad in ["root//:fail", "root//:fail2"]:
+            out = await buck.cquery(bad)
+            assert out.stdout == ""

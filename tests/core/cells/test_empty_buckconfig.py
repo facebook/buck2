@@ -11,12 +11,13 @@
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_empty_buckconfig(buck: Buck) -> None:
-    await expect_failure(
-        buck.uquery("//..."),
-        stderr_regex="No cell name for the root path",
-    )
+class EmptyBuckconfigTest(BuckTestCase):
+    @buck_test()
+    async def test_empty_buckconfig(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.uquery("//..."),
+            stderr_regex="No cell name for the root path",
+        )

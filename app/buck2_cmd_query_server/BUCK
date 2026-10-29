@@ -32,6 +32,5 @@ rust_library(
         "//buck2/app/buck2_util:buck2_util",
         "//buck2/dice/dice:dice",
         "//buck2/gazebo/dupe:dupe",
-        "//buck2/starlark-rust/starlark_map:starlark_map",
     ],
 )

@@ -13,77 +13,77 @@ import json
 import re
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
 def _replace_hash(s: str) -> str:
     return re.sub(r"\b[0-9a-f]{16}\b", "<HASH>", s)
 
 
-@buck_test()
-async def test_ctargets_basic(buck: Buck) -> None:
-    result = await buck.ctargets(
-        "root//:gum",
-        "--target-platforms=root//:p",
-    )
-    [line] = result.stdout.splitlines()
-    line = _replace_hash(line)
-    assert line == "root//:gum (root//:p#<HASH>)"
+class CtargetsBasicTest(BuckTestCase):
+    @buck_test()
+    async def test_ctargets_basic(self, buck: Buck) -> None:
+        result = await buck.ctargets(
+            "root//:gum",
+            "--target-platforms=root//:p",
+        )
+        [line] = result.stdout.splitlines()
+        line = _replace_hash(line)
+        assert line == "root//:gum (root//:p#<HASH>)"
 
+    @buck_test()
+    async def test_ctargets_json(self, buck: Buck) -> None:
+        result = await buck.ctargets(
+            "root//:chocolate",
+            "--json",
+        )
 
-@buck_test()
-async def test_ctargets_json(buck: Buck) -> None:
-    result = await buck.ctargets(
-        "root//:chocolate",
-        "--json",
-    )
+        [output] = json.loads(result.stdout)
 
-    [output] = json.loads(result.stdout)
-
-    output["buck.type"]
-    output["buck.deps"]
-    output["buck.inputs"]
-    output["buck.package"]
-    output["name"]
-    assert output["default_target_platform"] == "root//:p"
-    output["visibility"]
-    output["within_view"]
-
-
-@buck_test()
-async def test_ctargets_multi_json(buck: Buck) -> None:
-    result = await buck.ctargets(
-        "root//:",
-        "--json",
-    )
-
-    outputs = json.loads(result.stdout)
-
-    assert len(outputs) == 3
-
-    for output in outputs:
         output["buck.type"]
         output["buck.deps"]
         output["buck.inputs"]
         output["buck.package"]
-
-        name = output["name"]
-        if name == "chocolate":
-            assert output["default_target_platform"] == "root//:p"
-
+        output["name"]
+        assert output["default_target_platform"] == "root//:p"
         output["visibility"]
         output["within_view"]
 
+    @buck_test()
+    async def test_ctargets_multi_json(self, buck: Buck) -> None:
+        result = await buck.ctargets(
+            "root//:",
+            "--json",
+        )
 
-@buck_test()
-async def test_ctargets_output_attribute(buck: Buck) -> None:
-    result = await buck.ctargets(
-        "root//:chocolate", "--output-attribute=default_*", "--output-attribute=name"
-    )
+        outputs = json.loads(result.stdout)
 
-    [output] = json.loads(result.stdout)
+        assert len(outputs) == 3
 
-    assert {
-        "name": "chocolate",
-        "default_target_platform": "root//:p",
-    } == output
+        for output in outputs:
+            output["buck.type"]
+            output["buck.deps"]
+            output["buck.inputs"]
+            output["buck.package"]
+
+            name = output["name"]
+            if name == "chocolate":
+                assert output["default_target_platform"] == "root//:p"
+
+            output["visibility"]
+            output["within_view"]
+
+    @buck_test()
+    async def test_ctargets_output_attribute(self, buck: Buck) -> None:
+        result = await buck.ctargets(
+            "root//:chocolate",
+            "--output-attribute=default_*",
+            "--output-attribute=name",
+        )
+
+        [output] = json.loads(result.stdout)
+
+        assert {
+            "name": "chocolate",
+            "default_target_platform": "root//:p",
+        } == output

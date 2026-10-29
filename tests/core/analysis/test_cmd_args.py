@@ -10,9 +10,10 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_output_artifact_in_relative_to(buck: Buck) -> None:
-    await buck.build("//:output_artifact_in_relative_to")
+class CmdArgsTest(BuckTestCase):
+    @buck_test()
+    async def test_output_artifact_in_relative_to(self, buck: Buck) -> None:
+        await buck.build("//:output_artifact_in_relative_to")

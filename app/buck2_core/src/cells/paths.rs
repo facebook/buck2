@@ -257,6 +257,14 @@ impl CellRelativePath {
         self.0.strip_prefix(&base.as_ref().0)
     }
 
+    /// The remainder of `self` after `base`, or `None` if `base` is not a prefix of `self`.
+    pub fn strip_prefix_opt<P>(&self, base: &P) -> Option<&ForwardRelativePath>
+    where
+        P: ?Sized + AsRef<CellRelativePath>,
+    {
+        self.0.strip_prefix_opt(&base.as_ref().0)
+    }
+
     /// Determines whether `base` is a prefix of `self`.
     ///
     /// ```
@@ -387,7 +395,7 @@ impl CellRelativePathBuf {
     }
 
     pub fn testing_new(s: &str) -> CellRelativePathBuf {
-        CellRelativePathBuf::try_from(s.to_owned()).unwrap()
+        CellRelativePath::testing_new(s).to_owned()
     }
 
     /// Creates a new 'CellRelativePathBuf' with a given capacity used to create the internal

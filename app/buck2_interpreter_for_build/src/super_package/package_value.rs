@@ -16,6 +16,8 @@ use allocative::Allocative;
 use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
 use buck2_error::conversion::from_any_with_tag;
+use buck2_hash::BuckFixedInsertionMap;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_node::metadata::key::MetadataKey;
 use buck2_node::metadata::key::MetadataKeyRef;
@@ -37,7 +39,6 @@ use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::none::NoneType;
-use starlark_map::small_map::SmallMap;
 
 use crate::interpreter::build_context::BuildContext;
 use crate::interpreter::package_file_extra::PackageFileExtra;
@@ -53,7 +54,9 @@ enum PackageValueError {
 
 #[derive(Debug, Default, Allocative, Pagable)]
 pub struct SuperPackageValuesImpl {
-    values: SmallMap<MetadataKey, OwnedFrozenStarlarkPackageValue>,
+    /// In the order the values were written, which is the order `audit package-values` prints
+    /// them in.
+    values: BuckFixedInsertionMap<MetadataKey, OwnedFrozenStarlarkPackageValue>,
 }
 
 impl SuperPackageValuesImpl {
@@ -73,16 +76,19 @@ impl SuperPackageValuesImpl {
 
     pub(crate) fn merge(
         parent: &Arc<dyn SuperPackageValues>,
-        this_package: SmallMap<MetadataKey, OwnedFrozenStarlarkPackageValue>,
+        this_package: BuckMutInsertionMap<MetadataKey, OwnedFrozenStarlarkPackageValue>,
     ) -> buck2_error::Result<Arc<dyn SuperPackageValues>> {
         if this_package.is_empty() {
             Ok(parent.dupe())
         } else {
             let parent = Self::get(&**parent)?;
-            let mut merged_package_values = parent.values.clone();
-            merged_package_values.extend(this_package);
             Ok(Arc::new(SuperPackageValuesImpl {
-                values: merged_package_values,
+                values: parent
+                    .values
+                    .iter()
+                    .map(|(key, value)| (key.dupe(), value.dupe()))
+                    .chain(this_package)
+                    .collect(),
             }))
         }
     }
@@ -98,8 +104,10 @@ impl SuperPackageValues for SuperPackageValuesImpl {
         self.values.is_empty()
     }
 
-    fn package_values_json(&self) -> buck2_error::Result<SmallMap<MetadataKey, serde_json::Value>> {
-        let mut values = SmallMap::with_capacity(self.values.len());
+    fn package_values_json(
+        &self,
+    ) -> buck2_error::Result<BuckMutInsertionMap<MetadataKey, serde_json::Value>> {
+        let mut values = BuckMutInsertionMap::with_capacity(self.values.len());
         for (key, value) in &self.values {
             values.insert(key.clone(), value.to_json_value()?);
         }
@@ -166,6 +174,11 @@ impl OwnedFrozenStarlarkPackageValue {
             .by_ref(|v| v.to_json_value())
             .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
             .internal_error("Not valid JSON, should have been validated at construction")
+    }
+
+    /// Reads the value without copying it to a heap.
+    pub(crate) fn with_value<R>(&self, f: impl for<'v> FnOnce(Value<'v>) -> R) -> R {
+        self.0.by_ref(|v| f(*v))
     }
 
     pub fn add_to_heap<'v>(&self, heap: Heap<'v>) -> Value<'v> {

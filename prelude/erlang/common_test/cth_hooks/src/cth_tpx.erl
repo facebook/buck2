@@ -46,6 +46,7 @@
 
 %% For tests purposes
 
+-include_lib("kernel/include/logger.hrl").
 -include("method_ids.hrl").
 
 %% ----------------------- Types --------------------------
@@ -158,8 +159,9 @@ Whether a crash asks to be reported to tpx as an infra failure rather than a tes
 failure.
 
 A test or callback opts in by crashing with `error(test_infra_error)` or
-`error({test_infra_error, Reason})`. tpx retries infra failures transparently and
-records them outside the failure band, so they do not break a diff.
+`error({test_infra_error, Reason})`, or via a configured `infra_failure_classifier`
+module. tpx retries infra failures transparently and records them outside the
+failure band, so they do not break a diff.
 
 Only the wrapper shapes CT itself adds are unwrapped. The marker is deliberately not
 searched for inside arbitrary terms, so an ordinary failure that happens to carry the
@@ -174,16 +176,37 @@ is_infra_error({failed, {_Suite, _Callback, Reason}}) ->
     is_infra_error(Reason);
 is_infra_error({'EXIT', Reason}) ->
     is_infra_error(Reason);
+is_infra_error({'EXIT', _Pid, Reason}) ->
+    is_infra_error(Reason);
 is_infra_error({Reason, Stacktrace}) when is_list(Stacktrace) ->
     is_infra_error(Reason);
 is_infra_error({Tag, Reason}) when Tag =:= skip; Tag =:= fail; Tag =:= error ->
     is_infra_error(Reason);
-is_infra_error(_Reason) ->
-    false.
+is_infra_error(Reason) ->
+    classify_infra_failure(Reason).
+
+-spec classify_infra_failure(term()) -> boolean().
+classify_infra_failure(Reason) ->
+    case common_util:get_env(infra_failure_classifier) of
+        {ok, Classifier} when is_atom(Classifier) ->
+            try
+                Classifier:is_infra_failure(Reason) =:= true
+            catch
+                Class:Error:Stack ->
+                    ?LOG_WARNING(
+                        "infra_failure_classifier ~tp:is_infra_failure/1 failed: ~ts",
+                        [Classifier, erl_error:format_exception(Class, Error, Stack)]
+                    ),
+                    false
+            end;
+        _ ->
+            false
+    end.
 
 -doc """
 The outcome to record for a failing method: `infra_failure` if it opted in via
-`test_infra_error`, otherwise the usual `failed`.
+`test_infra_error` or is classified by the configured `infra_failure_classifier`,
+otherwise the usual `failed`.
 """.
 -spec fail_outcome(Reason) -> failed | infra_failure when Reason :: term().
 fail_outcome(Reason) ->
@@ -275,7 +298,7 @@ Called before init_per_suite is called.
 -spec pre_init_per_suite(ct_suite(), ct_config(), hook_state()) -> {ct_config_or_skip_or_fail(), hook_state()}.
 pre_init_per_suite(Suite, Config, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Config, fun(State) ->
-        State1 = collect_start_info(State, ?INIT_PER_SUITE, Suite),
+        State1 = collect_start_info(State, ?INIT_PER_SUITE),
         {Config, State1#state{
             suite = Suite,
             groups = [],
@@ -312,9 +335,9 @@ post_init_per_suite(_Suite, _Config, Return, HookState) ->
     end).
 
 -spec pre_end_per_suite(ct_suite(), ct_config(), hook_state()) -> {ct_config(), hook_state()}.
-pre_end_per_suite(Suite, Config, HookState) ->
+pre_end_per_suite(_Suite, Config, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Config, fun(State) ->
-        {Config, collect_start_info(State, ?END_PER_SUITE, Suite)}
+        {Config, collect_start_info(State, ?END_PER_SUITE)}
     end).
 
 -spec post_end_per_suite(ct_suite(), ct_config(), ct_config_or_skip_or_fail_or_term(), hook_state()) ->
@@ -330,6 +353,11 @@ post_end_per_suite(
         State1 = add_result(?END_PER_SUITE, skipped, Desc, State0),
         {Error, clear_suite(State1)}
     end);
+%% Workaround OTP bug (https://github.com/erlang/otp/issues/11647):
+%% `test_server:process_return_val1` does not treat a `{fail, Reason}` return from
+%% `end_per_suite` as a failure (and an earlier CTH's `post_end_per_suite` returning
+%% `{fail, Reason}` does not update `Config`), so `Config` has no `{tc_status, ...}`
+%% entry. Match `{fail, Reason}` in `Return` explicitly.
 post_end_per_suite(
     Suite,
     _Config,
@@ -341,21 +369,21 @@ post_end_per_suite(
         State1 = add_result(?END_PER_SUITE, fail_outcome(Reason), Desc, State0),
         {Error, clear_suite(State1)}
     end);
-post_end_per_suite(
-    Suite,
-    _Config,
-    {error, Reason} = Error,
-    HookState
-) ->
-    on_shared_state(HookState, ?FUNCTION_NAME, Error, fun(State0) ->
-        Desc = fmt_init_or_end(Suite, end_per_suite, Reason, ~"FAILED"),
-        State1 = add_result(?END_PER_SUITE, fail_outcome(Reason), Desc, State0),
-        {Error, clear_suite(State1)}
-    end);
-post_end_per_suite(_Suite, _Config, Return, HookState) ->
+post_end_per_suite(Suite, Config, Return, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Return, fun(State0) ->
-        %% clean TC state
-        State1 = add_result(?END_PER_SUITE, passed, ~"", State0),
+        State1 =
+            case lists:keyfind(tc_status, 1, Config) of
+                {tc_status, Status} when Status =/= ok ->
+                    Reason =
+                        case Status of
+                            {failed, Reason0} -> Reason0;
+                            _ -> Status
+                        end,
+                    Desc = fmt_init_or_end(Suite, end_per_suite, Reason, ~"FAILED"),
+                    add_result(?END_PER_SUITE, fail_outcome(Reason), Desc, State0);
+                _ ->
+                    add_result(?END_PER_SUITE, passed, ~"", State0)
+            end,
         {Return, clear_suite(State1)}
     end).
 
@@ -368,13 +396,13 @@ clear_suite(State) ->
     }.
 
 -spec pre_init_per_group(ct_suite(), ct_groupname(), ct_config(), hook_state()) -> {ct_config(), hook_state()}.
-pre_init_per_group(_SuiteName, Group, Config, HookState) ->
+pre_init_per_group(_SuiteName, _Group, Config, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Config, fun
         (State = #state{groups = [_ | Groups], previous_group_failed = true}) ->
-            State1 = collect_start_info(State, ?INIT_PER_GROUP, Group),
+            State1 = collect_start_info(State, ?INIT_PER_GROUP),
             {Config, State1#state{groups = Groups, previous_group_failed = false}};
         (#state{} = State) ->
-            {Config, collect_start_info(State, ?INIT_PER_GROUP, Group)}
+            {Config, collect_start_info(State, ?INIT_PER_GROUP)}
     end).
 
 -spec post_init_per_group(ct_suite(), ct_groupname(), ct_config(), ct_config_or_skip_or_fail_or_term(), hook_state()) ->
@@ -441,9 +469,9 @@ fail_group(State) ->
     State#state{previous_group_failed = true}.
 
 -spec pre_end_per_group(ct_suite(), ct_groupname(), ct_config(), hook_state()) -> {ct_config(), hook_state()}.
-pre_end_per_group(_SuiteName, Group, Config, HookState) ->
+pre_end_per_group(_SuiteName, _Group, Config, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Config, fun(State) ->
-        {Config, collect_start_info(State, ?END_PER_GROUP, Group)}
+        {Config, collect_start_info(State, ?END_PER_GROUP)}
     end).
 
 -spec post_end_per_group(ct_suite(), ct_groupname(), ct_config(), ct_config_or_skip_or_fail_or_term(), hook_state()) ->
@@ -460,6 +488,11 @@ post_end_per_group(
         State1 = add_result(?END_PER_GROUP, skipped, Desc, State0),
         {Error, State1#state{groups = tl(Groups)}}
     end);
+%% Workaround OTP bug (https://github.com/erlang/otp/issues/11647):
+%% `test_server:process_return_val1` does not treat a `{fail, Reason}` return from
+%% `end_per_group` as a failure (and an earlier CTH's `post_end_per_group` returning
+%% `{fail, Reason}` does not update `Config`), so `Config` has no `{tc_status, ...}`
+%% entry. Match `{fail, Reason}` in `Return` explicitly.
 post_end_per_group(
     Suite,
     _Group,
@@ -472,21 +505,21 @@ post_end_per_group(
         State1 = add_result(?END_PER_GROUP, fail_outcome(Reason), Desc, State0),
         {Error, State1#state{groups = tl(Groups)}}
     end);
-post_end_per_group(
-    Suite,
-    _Group,
-    _Config,
-    {error, Reason} = Error,
-    HookState
-) ->
-    on_shared_state(HookState, ?FUNCTION_NAME, Error, fun(State0 = #state{groups = Groups}) ->
-        Desc = fmt_init_or_end(Suite, end_per_group, Reason, ~"FAILED"),
-        State1 = add_result(?END_PER_GROUP, fail_outcome(Reason), Desc, State0),
-        {Error, State1#state{groups = tl(Groups)}}
-    end);
-post_end_per_group(_Suite, _Group, _Config, Return, HookState) ->
+post_end_per_group(Suite, _Group, Config, Return, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Return, fun(State0 = #state{groups = Groups}) ->
-        State1 = add_result(?END_PER_GROUP, passed, ~"", State0),
+        State1 =
+            case lists:keyfind(tc_status, 1, Config) of
+                {tc_status, Status} when Status =/= ok ->
+                    Reason =
+                        case Status of
+                            {failed, Reason0} -> Reason0;
+                            _ -> Status
+                        end,
+                    Desc = fmt_init_or_end(Suite, end_per_group, Reason, ~"FAILED"),
+                    add_result(?END_PER_GROUP, fail_outcome(Reason), Desc, State0);
+                _ ->
+                    add_result(?END_PER_GROUP, passed, ~"", State0)
+            end,
         {Return, State1#state{groups = tl(Groups)}}
     end).
 
@@ -499,8 +532,8 @@ pre_init_per_testcase(_Suite, TestCase, Config, HookState) ->
         %%  2) For the whole testcase = init + actual_testcase + end
         %% The reason behind is that capturing the timing for the actual_testcase
         %% is not straightforward, as there is no pre/post method for it.
-        State1 = collect_start_info(State, {TestCase, ?INIT_PER_TESTCASE}, TestCase),
-        State2 = collect_start_info(State1, {TestCase, ?MAIN_TESTCASE}, TestCase),
+        State1 = collect_start_info(State, {TestCase, ?INIT_PER_TESTCASE}),
+        State2 = collect_start_info(State1, {TestCase, ?MAIN_TESTCASE}),
         {Config, State2}
     end).
 
@@ -613,7 +646,7 @@ method_name(Method, Groups) ->
 -spec pre_end_per_testcase(ct_suite(), ct_testname(), ct_config(), hook_state()) -> {ct_config(), hook_state()}.
 pre_end_per_testcase(_Suite, TC, Config, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Config, fun(State) ->
-        {Config, collect_start_info(State, {TC, ?END_PER_TESTCASE}, TC)}
+        {Config, collect_start_info(State, {TC, ?END_PER_TESTCASE})}
     end).
 
 -spec post_end_per_testcase(ct_suite(), ct_testname(), ct_config(), ct_config_or_skip_or_fail_or_term(), hook_state()) ->
@@ -735,11 +768,10 @@ write_output({file, FN}, JSON) ->
 write_output(stdout, JSON) ->
     io:format(user, "~tp", [JSON]).
 
--spec collect_start_info(State, MethodId, Context) -> shared_state() when
+-spec collect_start_info(State, MethodId) -> shared_state() when
     State :: shared_state(),
-    MethodId :: method_id(),
-    Context :: atom().
-collect_start_info(#state{start_info = ST0} = State, MethodId, _Context) ->
+    MethodId :: method_id().
+collect_start_info(#state{start_info = ST0} = State, MethodId) ->
     ProgressLine = ct_stdout:emit_progress(
         State#state.cached_user_process,
         State#state.ct_stdout_fingerprint,

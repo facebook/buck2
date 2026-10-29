@@ -325,7 +325,7 @@ def _get_output_file_map(ctx: AnalysisContext, srcs: list[CxxSrcWithFlags]) -> _
             }
             swiftdeps.append(swiftdeps_artifact)
             all_outputs.append(swiftdeps_artifact)
-            if toolchain.use_depsfiles and not get_incremental_file_hashing_enabled(ctx):
+            if toolchain.use_depsfiles and not get_incremental_file_hashing_enabled(ctx) and not get_incremental_split_actions(ctx):
                 deps_artifact = ctx.actions.declare_output("__swift_incremental__/objects/" + file_name + ".d", has_content_based_path = uses_content_based_paths)
                 depfiles.append(deps_artifact)
                 all_outputs.append(deps_artifact)

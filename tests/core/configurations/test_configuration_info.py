@@ -9,24 +9,23 @@
 # pyre-strict
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_configuration_info_api(buck: Buck) -> None:
-    await buck.bxl("//test.bxl:configuration_info")
+class ConfigurationInfoTest(BuckTestCase):
+    @buck_test()
+    async def test_configuration_info_api(self, buck: Buck) -> None:
+        await buck.bxl("//test.bxl:configuration_info")
 
+    @buck_test()
+    async def test_select_resolves_constraint_setting_default(self, buck: Buck) -> None:
+        result = await buck.cquery("root//:probe", "--output-attribute", "mode")
+        assert '"mode": "dev"' in result.stdout, result.stdout
 
-@buck_test()
-async def test_select_resolves_constraint_setting_default(buck: Buck) -> None:
-    result = await buck.cquery("root//:probe", "--output-attribute", "mode")
-    assert '"mode": "dev"' in result.stdout, result.stdout
-
-
-@buck_test()
-async def test_transition_can_insert_constraint_value(buck: Buck) -> None:
-    result = await buck.cquery(
-        "deps(root//:with_transitioned_dep)", "--output-attribute", "mode"
-    )
-    assert '"mode": "dev"' in result.stdout, result.stdout
-    assert '"mode": "opt"' in result.stdout, result.stdout
+    @buck_test()
+    async def test_transition_can_insert_constraint_value(self, buck: Buck) -> None:
+        result = await buck.cquery(
+            "deps(root//:with_transitioned_dep)", "--output-attribute", "mode"
+        )
+        assert '"mode": "dev"' in result.stdout, result.stdout
+        assert '"mode": "opt"' in result.stdout, result.stdout

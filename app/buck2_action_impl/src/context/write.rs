@@ -11,6 +11,7 @@
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_artifact::artifact::output_type::OutputType;
+use buck2_build_api::actions::ActionName;
 use buck2_build_api::actions::impls::json::JsonUnpack;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
@@ -20,6 +21,7 @@ use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use buck2_build_api::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
+use buck2_build_api::interpreter::rule_defs::cmd_args::InputProperties;
 use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
 use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCommandLineValueUnpack;
 use buck2_build_api::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
@@ -28,8 +30,10 @@ use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedMacro;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact::fs::ExecutorFs;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_hash::BuckMutMap;
-use buck2_hash::buck_indexset;
+use buck2_hash::buck_mut_insertion_set;
+use buck2_interpreter::execution_group::ExecutionGroupArg;
 use dupe::Dupe;
 use either::Either;
 use sha1::Digest;
@@ -43,7 +47,6 @@ use starlark::values::ValueOf;
 use starlark::values::ValueTyped;
 use starlark::values::none::NoneOr;
 use starlark::values::type_repr::StarlarkTypeRepr;
-use starlark_map::small_set::SmallSet;
 
 use crate::actions::impls::dep_file_fingerprint::DepFileFingerprintFormat;
 use crate::actions::impls::dep_file_fingerprint::StarlarkDepFileFingerprint;
@@ -53,6 +56,8 @@ use crate::actions::impls::write_hmap::UnregisteredWriteHmapAction;
 use crate::actions::impls::write_hmap::visit_hmap_artifacts;
 use crate::actions::impls::write_json::UnregisteredWriteJsonAction;
 use crate::actions::impls::write_macros::UnregisteredWriteMacrosToFileAction;
+use crate::context::execution_group::action_execution_group;
+use crate::context::execution_group::check_default_execution_group_declared;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]
@@ -93,7 +98,7 @@ type WriteReturnValue<'v> =
 /// However, we do need to always run this visitor, because it verifies that any content-based
 /// inputs are bound. It will also collect "associated artifacts", if requested.
 struct CommandLineInputVisitor {
-    associated_artifacts: SmallSet<ArtifactGroup>,
+    associated_artifacts: BuckMutInsertionSet<ArtifactGroup>,
     with_associated_artifacts: bool,
 }
 
@@ -107,7 +112,12 @@ impl CommandLineInputVisitor {
 }
 
 impl<'v> CommandLineArtifactVisitor<'v> for CommandLineInputVisitor {
-    fn visit_input(&mut self, input: ArtifactGroup, _tags: Vec<&ArtifactTag>) {
+    fn visit_input(
+        &mut self,
+        input: ArtifactGroup,
+        _props: InputProperties,
+        _tags: Vec<&ArtifactTag>,
+    ) {
         if self.with_associated_artifacts {
             self.associated_artifacts.insert(input.dupe());
         }
@@ -120,11 +130,12 @@ impl<'v> CommandLineArtifactVisitor<'v> for CommandLineInputVisitor {
     fn visit_declared_artifact(
         &mut self,
         declared_artifact: buck2_artifact::artifact::artifact_type::DeclaredArtifact<'v>,
+        props: InputProperties,
         tags: Vec<&ArtifactTag>,
     ) -> buck2_error::Result<()> {
         if self.with_associated_artifacts || declared_artifact.has_content_based_path() {
             let artifact = declared_artifact.ensure_bound()?.into_artifact();
-            self.visit_input(ArtifactGroup::Artifact(artifact), tags);
+            self.visit_input(ArtifactGroup::Artifact(artifact), props, tags);
         }
 
         Ok(())
@@ -154,6 +165,9 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
     ///   rendering artifact paths. You generally shouldn't use this if you plan to use this action
     ///   as the input for anything else, as this would effectively result in losing all shared
     ///   caching. (defaults to `False`)
+    /// * `exec_group` (optional): the execution group whose platform the written paths are for,
+    ///   such as the path separator. Pass the group of the actions that read the output. Defaults
+    ///   to the default execution group.
     fn write_json<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] output: OutputArtifactArg<'v>,
@@ -166,8 +180,10 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         #[starlark(require = named, default = NoneOr::None)] has_content_based_path: NoneOr<bool>,
         #[starlark(require = named, default = false)]
         use_dep_files_placeholder_for_content_based_paths: bool,
+        #[starlark(require = named, default = NoneOr::None)] exec_group: NoneOr<ExecutionGroupArg>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<impl AllocValue<'v> + use<'v>> {
+        let exec_group = action_execution_group(exec_group);
         if dep_files_fingerprint_using_canonical_paths && with_inputs {
             return Err(
                 buck2_error::Error::from(WriteActionError::DepFileFingerprintWithInputs).into(),
@@ -182,6 +198,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
             .into());
         }
         let mut this = this.state()?;
+        check_default_execution_group_declared(this.execution_platform(), &exec_group)?;
         let (declaration, output_artifact) = this.get_or_declare_output(
             eval,
             output,
@@ -195,8 +212,9 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         let mut visitor = CommandLineInputVisitor::new(false);
         cli.visit_contents(&mut visitor)?;
 
-        this.register_action(
-            buck_indexset![output_artifact],
+        let action_name = write_action_name("write_json", &output_artifact);
+        this.register_action_in_group(
+            buck_mut_insertion_set![output_artifact],
             UnregisteredWriteJsonAction::new(
                 pretty,
                 absolute,
@@ -204,6 +222,8 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
             ),
             Some(content.value),
             None,
+            exec_group,
+            action_name,
         )?;
 
         // TODO(cjhopman): The with_inputs thing can go away once we have artifact dependencies (we'll still
@@ -238,14 +258,21 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
     /// Each destination also maps to itself, to stop Clang searching later maps.
     /// Header contents are not inputs, except when needed to resolve content-based paths.
     /// Callers must add the headers as inputs to actions that use the map.
+    ///
+    /// * `exec_group` (optional): the execution group whose platform the written paths are for,
+    ///   such as the path separator. Pass the group of the actions that read the output. Defaults
+    ///   to the default execution group.
     fn _write_hmap<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] output: OutputArtifactArg<'v>,
         #[starlark(require = pos)] content: ValueOf<'v, HmapMappings<'v>>,
         #[starlark(require = named, default = NoneOr::None)] has_content_based_path: NoneOr<bool>,
+        #[starlark(require = named, default = NoneOr::None)] exec_group: NoneOr<ExecutionGroupArg>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<impl AllocValue<'v> + use<'v>> {
+        let exec_group = action_execution_group(exec_group);
         let mut this = this.state()?;
+        check_default_execution_group_declared(this.execution_platform(), &exec_group)?;
         let (declaration, output_artifact) = this.get_or_declare_output(
             eval,
             output,
@@ -254,11 +281,14 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         )?;
         let value = declaration.into_declared_artifact(AssociatedArtifacts::new());
         visit_hmap_artifacts(content.value, &mut CommandLineInputVisitor::new(false))?;
-        this.register_action(
-            buck_indexset![output_artifact],
+        let action_name = write_action_name("write_hmap", &output_artifact);
+        this.register_action_in_group(
+            buck_mut_insertion_set![output_artifact],
             UnregisteredWriteHmapAction {},
             Some(content.value),
             None,
+            exec_group,
+            action_name,
         )?;
         Ok(value)
     }
@@ -283,6 +313,9 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
     ///   rendering artifact paths. You generally shouldn't use this if you plan to use this action
     ///   as the input for anything else, as this would effectively result in losing all shared
     ///   caching.
+    /// * `exec_group` (optional): the execution group whose platform the written paths are for,
+    ///   such as the path separator. Pass the group of the actions that read the output. Defaults
+    ///   to the default execution group.
     ///
     /// The content is often a string, but can be any `ArgLike` value. This is occasionally useful
     /// for generating scripts to run as a part of another action. `cmd_args` in the content are
@@ -301,6 +334,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         #[starlark(require = named, default = NoneOr::None)] has_content_based_path: NoneOr<bool>,
         #[starlark(require = named, default = false)]
         use_dep_files_placeholder_for_content_based_paths: bool,
+        #[starlark(require = named, default = NoneOr::None)] exec_group: NoneOr<ExecutionGroupArg>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<WriteReturnValue<'v>> {
         fn count_write_to_file_macros(
@@ -341,7 +375,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         fn get_cli_inputs(
             with_inputs: bool,
             cli: &dyn CommandLineArgLike,
-        ) -> buck2_error::Result<SmallSet<ArtifactGroup>> {
+        ) -> buck2_error::Result<BuckMutInsertionSet<ArtifactGroup>> {
             let mut visitor = CommandLineInputVisitor::new(with_inputs);
             cli.visit_artifacts(&mut visitor)?;
             Ok(visitor.associated_artifacts)
@@ -360,7 +394,9 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
             )
             .into());
         }
+        let exec_group = action_execution_group(exec_group);
         let mut this = this.state()?;
+        check_default_execution_group_declared(this.execution_platform(), &exec_group)?;
         let (declaration, output_artifact) = this.get_or_declare_output(
             eval,
             output,
@@ -399,7 +435,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
                 format!("__macros/{sha}")
             };
 
-            let mut written_macro_files = buck_indexset![];
+            let mut written_macro_files = buck_mut_insertion_set![];
             for i in 0..written_macro_count {
                 let macro_file = this.declare_output(
                     None,
@@ -413,27 +449,33 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
             }
 
             let state = &mut *this;
+            let identifier = output_artifact
+                .get_path()
+                .with_short_path(|p| p.to_string());
             let action = UnregisteredWriteMacrosToFileAction::new(
-                output_artifact
-                    .get_path()
-                    .with_short_path(|p| p.to_string()),
+                identifier.clone(),
                 use_dep_files_placeholder_for_content_based_paths,
             );
-            state.register_action(
+            state.register_action_in_group(
                 written_macro_files.iter().map(|a| a.as_output()).collect(),
                 action,
                 Some(content_cli.to_value()),
                 None,
+                exec_group.dupe(),
+                || ActionName {
+                    category: "write_macros_to_file".to_owned(),
+                    identifier: Some(identifier),
+                },
             )?;
 
             written_macro_files
         } else {
-            buck_indexset![]
+            buck_mut_insertion_set![]
         };
 
         let action = {
             let maybe_macro_files = if allow_args {
-                let mut macro_files = buck_indexset![];
+                let mut macro_files = buck_mut_insertion_set![];
                 for a in &written_macro_files {
                     let artifact = a.dupe().ensure_bound()?.into_artifact();
                     macro_files.insert(artifact.dupe());
@@ -451,11 +493,14 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         };
         let fingerprint_macro_files =
             dep_files_fingerprint_using_canonical_paths.then(|| action.macro_files.clone());
-        this.register_action(
-            buck_indexset![output_artifact],
+        let action_name = write_action_name("write", &output_artifact);
+        this.register_action_in_group(
+            buck_mut_insertion_set![output_artifact],
             action,
             Some(content_cli.to_value()),
             None,
+            exec_group,
+            action_name,
         )?;
 
         if allow_args {
@@ -492,5 +537,17 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
             // Prefer simpler API when there is no possibility for write-to-file macros to be present in a content
             Ok(Either::Left(value))
         }
+    }
+}
+
+/// Names a write action in registration errors: its identifier is the path of its output.
+fn write_action_name<'v>(
+    category: &'static str,
+    output: &OutputArtifact<'v>,
+) -> impl FnOnce() -> ActionName + use<'v> {
+    let output = output.dupe();
+    move || ActionName {
+        category: category.to_owned(),
+        identifier: Some(output.get_path().with_full_path(|p| p.to_string())),
     }
 }

@@ -10,15 +10,16 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_print(buck: Buck) -> None:
-    result = await buck.targets("root//:")
-    assert "print me" in result.stderr
-    assert "print me" not in result.stdout
+class PrintTest(BuckTestCase):
+    @buck_test()
+    async def test_print(self, buck: Buck) -> None:
+        result = await buck.targets("root//:")
+        assert "print me" in result.stderr
+        assert "print me" not in result.stdout
 
-    result = await buck.build("root//:", "--no-buckd")
-    assert "print me" in result.stderr
-    assert "print me" not in result.stdout
+        result = await buck.build("root//:", "--no-buckd")
+        assert "print me" in result.stderr
+        assert "print me" not in result.stdout

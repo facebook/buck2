@@ -21,13 +21,15 @@ import org.jetbrains.kotlin.buildtools.api.ExperimentalBuildToolsApi
 import org.jetbrains.kotlin.buildtools.api.jvm.ClasspathSnapshotBasedIncrementalCompilationApproachParameters
 import org.jetbrains.kotlin.buildtools.api.jvm.JvmCompilationConfiguration
 
+// Legacy BTA API is DEPRECATION_ERROR from Kotlin 2.4; KotlinToolchains replaces it.
+@Suppress("DEPRECATION_ERROR")
 @OptIn(ExperimentalBuildToolsApi::class)
 internal class JvmCompilationConfigurationFactory(
     private val compilationService: CompilationService,
     private val kotlinCDLoggingContext: KotlinCDLoggingContext,
 ) {
 
-  fun create(mode: KotlincMode): JvmCompilationConfiguration =
+  fun create(mode: KotlincMode, forceRebuild: Boolean = false): JvmCompilationConfiguration =
       when (mode) {
         is NonIncremental -> {
           compilationService.makeJvmCompilationConfiguration()
@@ -49,6 +51,7 @@ internal class JvmCompilationConfigurationFactory(
                       setBuildDir(mode.buildDir.toFile())
                       usePreciseCompilationResultsBackup(true)
                       keepIncrementalCompilationCachesInMemory(true)
+                      if (forceRebuild) forceNonIncrementalMode(true)
 
                       val rebuildReason = mode.rebuildReason
                       if (rebuildReason != null) {

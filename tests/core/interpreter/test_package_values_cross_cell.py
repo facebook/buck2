@@ -10,14 +10,15 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 from buck2.tests.e2e_util.helper.golden import golden
 
 
-@buck_test()
-async def test_audit_package_values_cross_cell(buck: Buck) -> None:
-    stdout = (await buck.audit("package-values", "other//")).stdout
-    golden(
-        output=stdout,
-        rel_path="audit-package-values-cross-cell.golden.json",
-    )
+class PackageValuesCrossCellTest(BuckTestCase):
+    @buck_test()
+    async def test_audit_package_values_cross_cell(self, buck: Buck) -> None:
+        stdout = (await buck.audit("package-values", "other//")).stdout
+        golden(
+            output=stdout,
+            rel_path="audit-package-values-cross-cell.golden.json",
+        )

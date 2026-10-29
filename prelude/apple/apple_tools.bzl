@@ -27,6 +27,7 @@ def apple_tools_impl(ctx: AnalysisContext) -> list[Provider]:
             make_modulemap = ctx.attrs.make_modulemap[RunInfo],
             make_vfsoverlay = ctx.attrs.make_vfsoverlay[RunInfo],
             selective_debugging_scrubber = ctx.attrs.selective_debugging_scrubber[RunInfo],
+            selective_debugging_dsym_allowlist_tool = ctx.attrs.selective_debugging_dsym_allowlist_tool[RunInfo],
             xcframework_maker = ctx.attrs.xcframework_maker[RunInfo],
             framework_sanitizer = ctx.attrs.framework_sanitizer[RunInfo],
             static_archive_linker = ctx.attrs.static_archive_linker[RunInfo],

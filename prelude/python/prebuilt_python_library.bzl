@@ -6,6 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
 load(
     "@prelude//:resources.bzl",
     "gather_resources",
@@ -24,11 +25,15 @@ load(
     "cxx_merge_cpreprocessors",
     "format_system_include_arg",
 )
+load("@prelude//decls:common.bzl", "buck")
+load("@prelude//decls:third_party_common.bzl", "third_party_common")
+load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load(
     "@prelude//linking:linkable_graph.bzl",
     "create_linkable_graph",
     "create_linkable_graph_node",
 )
+load("@prelude//python:attrs.bzl", "create_manifest_for_source_dir_attr", "python_common")
 load(
     "@prelude//third-party:build.bzl",
     "create_third_party_build_root",
@@ -271,3 +276,103 @@ def prebuilt_python_library_impl(ctx: AnalysisContext) -> list[Provider]:
         )
 
     return providers
+
+prebuilt_python_library = prelude_rule(
+    name = "prebuilt_python_library",
+    impl = prebuilt_python_library_impl,
+    docs = """
+        A `prebuilt_python_library()` rule is used to include prebuilt python packages into the output of a
+        top-level `python_binary()` or `python_test()` rule.
+
+        These prebuilt libraries can either be [whl files](https://www.python.org/dev/peps/pep-0427/) or eggs
+
+        whls for most packages are available for download from [PyPI](https://pypi.org). The whl used may be
+        downloaded with `remote_file()`. However, Buck does not attempt to infer dependency information from pip,
+        so that information will have to be imparted by the user.
+
+        To create an egg for a package, run `python setup.py bdist_egg` in the package source distribution.
+    """,
+    examples = """
+        ```
+        # A simple prebuilt_python_library with no external dependencies.
+        remote_file(
+          name = "requests-download",
+          url = "https://files.pythonhosted.org/packages/51/bd/23c926cd341ea6b7dd0b2a00aba99ae0f828be89d72b2190f27c11d4b7fb/requests-2.22.0-py2.py3-none-any.whl",
+          sha1 = "e1fc28120002395fe1f2da9aacea4e15a449d9ee",
+          out = "requests-2.22.0-py2.py3-none-any.whl",
+        )
+
+        prebuilt_python_library(
+          name = "requests",
+          binary_src = ":requests-download",
+        )
+
+        # A slightly more complex example
+        prebuilt_python_library(
+          name = "greenlet",
+          binary_src = "greenlet-0.4.7-py2.7-macosx-10.10-x86_64.egg",
+        )
+
+        prebuilt_python_library(
+          name = "gevent",
+          binary_src = "gevent-1.0.2-py2.7-macosx-10.10-x86_64.egg",
+          deps = [
+            ":greenlet",
+          ],
+        )
+        ```
+    """,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        buck.labels_arg()
+        | {
+            "binary_src": attrs.option(
+                attrs.source(),
+                default = None,
+                doc = """
+                The path to the `.whl`, `.egg`, or `.tar.gz` archive to extract.
+
+                 Exactly one of `binary_src` and `source_dir` must be set. Note:
+                 `.egg` files have a very particular naming convention that must
+                 be followed, otherwise they will not be found at runtime.
+            """,
+            ),
+            "source_dir": attrs.option(
+                attrs.source(allow_directory = True),
+                default = None,
+                doc = """
+                A directory containing an already-materialized Python package.
+
+                 The directory is manifested in place without being copied or
+                 archived. Exactly one of `binary_src` and `source_dir` must be set.
+            """,
+            ),
+        }
+        | python_common.deps_arg()
+        | python_common.exclude_deps_from_merged_linking_arg()
+        | third_party_common.create_third_party_build_root_attrs()
+        | {
+            "cxx_header_dirs": attrs.option(attrs.list(attrs.string()), default = None),
+            "infer_cxx_header_dirs": attrs.bool(default = False),
+            "lazy_imports_analyzer": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
+            "strip_soabi_tags": attrs.bool(
+                default = False,
+                doc = """
+                    Strip the SOABI tags from extensions in the prebuilt library.
+
+                    Note that this should be considered unsafe, as it removes builtin
+                    protections that fail fast when a potententially incompatible
+                    native extension is imported.
+                """,
+            ),
+            "use_lifeguard_incremental": attrs.bool(default = False),
+            "_create_manifest_for_source_dir": create_manifest_for_source_dir_attr(),
+            "_extract": attrs.default_only(attrs.exec_dep(default = "prelude//python/tools:extract")),
+            "_python_internal_tools": python_common.internal_tools_arg(),
+            "_python_toolchain": toolchains_common.python(),
+        }
+        | buck.licenses_arg()
+        | buck.contacts_arg()
+    ),
+)

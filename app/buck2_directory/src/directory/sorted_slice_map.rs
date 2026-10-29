@@ -14,14 +14,12 @@ use std::slice;
 use allocative::Allocative;
 use mini_vec::MiniBoxSlice;
 use pagable::Pagable;
-use sorted_vector_map::SortedVectorMap;
 
 /// An immutable sorted key-value map with a single-word stack footprint and an exactly-sized
 /// allocation.
 ///
 /// This is the entry storage of fingerprinted directories, which exist in large enough numbers
-/// that the two extra words of a `SortedVectorMap` handle (and any excess capacity its
-/// construction left behind) are worth eliminating.
+/// that a one-word handle with no excess capacity is worth the binary-search lookups.
 #[derive(Clone, Debug, Allocative, Pagable)]
 pub struct SortedSliceMap<K, V> {
     entries: MiniBoxSlice<(K, V)>,
@@ -53,14 +51,6 @@ impl<K, V> SortedSliceMap<K, V> {
 
     pub fn iter(&self) -> Iter<'_, K, V> {
         Iter(self.entries.iter())
-    }
-}
-
-impl<K: Ord, V> From<SortedVectorMap<K, V>> for SortedSliceMap<K, V> {
-    fn from(map: SortedVectorMap<K, V>) -> Self {
-        Self {
-            entries: MiniBoxSlice::from(map.into_inner()),
-        }
     }
 }
 
@@ -131,8 +121,10 @@ impl<K, V> ExactSizeIterator for IntoIter<K, V> {}
 mod tests {
     use super::*;
 
-    fn map(pairs: Vec<(u32, &'static str)>) -> SortedSliceMap<u32, &'static str> {
-        SortedSliceMap::from(SortedVectorMap::from_iter(pairs))
+    fn map(mut pairs: Vec<(u32, &'static str)>) -> SortedSliceMap<u32, &'static str> {
+        pairs.sort_by_key(|(k, _)| *k);
+        pairs.dedup_by_key(|(k, _)| *k);
+        SortedSliceMap::from_iter(pairs)
     }
 
     #[test]
@@ -162,7 +154,7 @@ mod tests {
 
     #[test]
     fn test_empty() {
-        let m: SortedSliceMap<u32, ()> = SortedSliceMap::from(SortedVectorMap::new());
+        let m: SortedSliceMap<u32, ()> = SortedSliceMap::from_iter([]);
         assert!(m.is_empty());
         assert_eq!(m.get(&1), None);
         assert_eq!(m.iter().next(), None);

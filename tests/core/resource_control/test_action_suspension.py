@@ -14,16 +14,15 @@ import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-import pytest
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.api.buck_result import BuckResult
-from buck2.tests.e2e_util.buck_workspace import buck_test, env
+from buck2.tests.e2e_util.buck_workspace import (
+    buck_test,
+    BuckTestCase,
+    env,
+    parametrize,
+)
 from buck2.tests.e2e_util.helper.utils import filter_events
-
-
-# To not fail listing on Mac or Windows
-def test_dummy() -> None:
-    pass
 
 
 def _configure(buck: Buck, kill_and_retry: bool) -> None:
@@ -119,58 +118,64 @@ async def _check_suspends(  # noqa C901
     return num_suspended_actions
 
 
-@buck_test(skip_for_os=["darwin", "windows"], disable_daemon_cgroup=False)
-@env("BUCK2_HARD_ERROR", "panic")
-@pytest.mark.parametrize("kill_and_retry", [True, False])
-async def test_action_suspend(
-    buck: Buck,
-    kill_and_retry: bool,
-) -> None:
-    temp = TemporaryDirectory()
-    _configure(buck, kill_and_retry)
-    res = await buck.build_without_report(
-        ":sleep_10",
-        *_use_some_memory_args(buck, temp),
-    )
+class ActionSuspensionTest(BuckTestCase):
+    # To not fail listing on Mac or Windows
+    def test_dummy(self) -> None:
+        pass
 
-    await _check_suspends(buck, kill_and_retry, temp, res)
+    @buck_test(skip_for_os=["darwin", "windows"], disable_daemon_cgroup=False)
+    @env("BUCK2_HARD_ERROR", "panic")
+    @parametrize("kill_and_retry", [True, False])
+    async def test_action_suspend(
+        self,
+        buck: Buck,
+        kill_and_retry: bool,
+    ) -> None:
+        temp = TemporaryDirectory()
+        _configure(buck, kill_and_retry)
+        res = await buck.build_without_report(
+            ":sleep_10",
+            *_use_some_memory_args(buck, temp),
+        )
 
+        await _check_suspends(buck, kill_and_retry, temp, res)
 
-@buck_test(skip_for_os=["darwin", "windows"], disable_daemon_cgroup=False)
-@env("BUCK2_HARD_ERROR", "panic")
-@pytest.mark.parametrize("kill_and_retry", [True, False])
-async def test_action_suspend_stress_test(
-    buck: Buck,
-    kill_and_retry: bool,
-) -> None:
-    temp = TemporaryDirectory()
-    _configure(buck, kill_and_retry)
-    await buck.build(
-        ":very_fast_100",
-        *_use_some_memory_args(buck, temp),
-    )
+    @buck_test(skip_for_os=["darwin", "windows"], disable_daemon_cgroup=False)
+    @env("BUCK2_HARD_ERROR", "panic")
+    @parametrize("kill_and_retry", [True, False])
+    async def test_action_suspend_stress_test(
+        self,
+        buck: Buck,
+        kill_and_retry: bool,
+    ) -> None:
+        temp = TemporaryDirectory()
+        _configure(buck, kill_and_retry)
+        await buck.build(
+            ":very_fast_100",
+            *_use_some_memory_args(buck, temp),
+        )
 
+    # Only kill_and_retry is exercised. Deterministic memory pressure requires swap to be disabled
+    # for actions (see `memory_swap_max_actions` in the data `.buckconfig`); otherwise the overshoot
+    # is paged out cheaply and pressure never crosses the suspension threshold. cgroup_freeze is
+    # incompatible with that: freezing an action does not release its memory, so with swap off the
+    # still-running action stays throttled above memory.high and never makes progress, deadlocking the
+    # build. There is no swap setting that both builds pressure (needs swap off) and lets a freeze
+    # relieve it (needs swap on), so this scenario cannot be tested deterministically for freeze.
+    @buck_test(skip_for_os=["darwin", "windows"], disable_daemon_cgroup=False)
+    @parametrize("kill_and_retry", [True])
+    async def test_suspend_one_of_two(
+        self,
+        buck: Buck,
+        kill_and_retry: bool,
+    ) -> None:
+        temp = TemporaryDirectory()
+        _configure(buck, kill_and_retry)
 
-# Only kill_and_retry is exercised. Deterministic memory pressure requires swap to be disabled
-# for actions (see `memory_swap_max_actions` in the data `.buckconfig`); otherwise the overshoot
-# is paged out cheaply and pressure never crosses the suspension threshold. cgroup_freeze is
-# incompatible with that: freezing an action does not release its memory, so with swap off the
-# still-running action stays throttled above memory.high and never makes progress, deadlocking the
-# build. There is no swap setting that both builds pressure (needs swap off) and lets a freeze
-# relieve it (needs swap on), so this scenario cannot be tested deterministically for freeze.
-@buck_test(skip_for_os=["darwin", "windows"], disable_daemon_cgroup=False)
-@pytest.mark.parametrize("kill_and_retry", [True])
-async def test_suspend_one_of_two(
-    buck: Buck,
-    kill_and_retry: bool,
-) -> None:
-    temp = TemporaryDirectory()
-    _configure(buck, kill_and_retry)
+        res = await buck.build_without_report(
+            ":two_mutually_incompatible",
+            *_use_some_memory_args(buck, temp),
+        )
 
-    res = await buck.build_without_report(
-        ":two_mutually_incompatible",
-        *_use_some_memory_args(buck, temp),
-    )
-
-    num_suspends = await _check_suspends(buck, kill_and_retry, temp, res)
-    assert num_suspends == 1
+        num_suspends = await _check_suspends(buck, kill_and_retry, temp, res)
+        assert num_suspends == 1

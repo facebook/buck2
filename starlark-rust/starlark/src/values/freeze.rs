@@ -44,6 +44,10 @@ use std::cell::RefCell;
 use std::cell::UnsafeCell;
 use std::marker::PhantomData;
 
+use mini_map::MiniMutInsertionMap;
+use mini_map::MiniMutInsertionSet;
+use mini_vec::MiniBoxSlice;
+use mini_vec::MiniVec;
 use starlark_map::Hashed;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
@@ -288,6 +292,34 @@ where
     }
 }
 
+impl<'v, T> Freeze<'v> for MiniVec<T>
+where
+    T: Freeze<'v>,
+{
+    type Frozen<'fv> = MiniVec<T::Frozen<'fv>>;
+
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+        // Not `collect`: its `size_hint` through `Result` has a zero lower bound, which would
+        // leave growth slack behind in the frozen heap.
+        let mut frozen = MiniVec::with_capacity(self.len());
+        for v in self {
+            frozen.push(v.freeze(freezer)?);
+        }
+        Ok(frozen)
+    }
+}
+
+impl<'v, T> Freeze<'v> for MiniBoxSlice<T>
+where
+    T: Freeze<'v>,
+{
+    type Frozen<'fv> = MiniBoxSlice<T::Frozen<'fv>>;
+
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+        Ok(MiniBoxSlice::from(MiniVec::from(self).freeze(freezer)?))
+    }
+}
+
 impl<'v, T> Freeze<'v> for Option<T>
 where
     T: Freeze<'v>,
@@ -308,6 +340,45 @@ impl<'v, K: Freeze<'v>> Freeze<'v> for Hashed<K> {
             self.hash(),
             self.into_key().freeze(freezer)?,
         ))
+    }
+}
+
+impl<'v, K, V> Freeze<'v> for MiniMutInsertionMap<K, V>
+where
+    K: Freeze<'v>,
+    V: Freeze<'v>,
+{
+    type Frozen<'fv> = MiniMutInsertionMap<K::Frozen<'fv>, V::Frozen<'fv>>;
+
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+        let mut new = MiniMutInsertionMap::with_capacity(self.len());
+        for (key, value) in self.into_iter_hashed() {
+            let hash = key.hash();
+            let key = key.into_key().freeze(freezer)?;
+            // TODO(nga): verify hash unchanged after freeze.
+            let key = Hashed::new_unchecked(hash, key);
+            let value = value.freeze(freezer)?;
+            new.insert_hashed_unique_unchecked(key, value);
+        }
+        Ok(new)
+    }
+}
+
+impl<'v, T> Freeze<'v> for MiniMutInsertionSet<T>
+where
+    T: Freeze<'v>,
+{
+    type Frozen<'fv> = MiniMutInsertionSet<T::Frozen<'fv>>;
+
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+        let mut new = MiniMutInsertionSet::with_capacity(self.len());
+        for value in self.into_iter_hashed() {
+            let hash = value.hash();
+            let value = value.into_key().freeze(freezer)?;
+            // TODO(nga): verify hash unchanged after freeze.
+            new.insert_hashed_unique_unchecked(Hashed::new_unchecked(hash, value));
+        }
+        Ok(new)
     }
 }
 
