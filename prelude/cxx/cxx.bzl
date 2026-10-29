@@ -1223,6 +1223,7 @@ cxx_binary = prelude_rule(
     attrs = (
         cxx_binary_base_attrs()
         | {
+            "build_info_as_shared_library": attrs.bool(default = True),
             "_gen_build_info": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
             "_generated_build_info_data": attrs.option(attrs.source(), default = None),
             "_generated_build_info_enabled": attrs.bool(default = False),
@@ -1565,6 +1566,7 @@ cxx_test = prelude_rule(
         | cxx_binary_and_test_attrs()
         | re_test_common.test_args()
         | {
+            "build_info_as_shared_library": attrs.bool(default = True),
             "_gen_build_info": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
             "_generated_build_info_data": attrs.option(attrs.source(), default = None),
             "_generated_build_info_enabled": attrs.bool(default = False),

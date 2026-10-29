@@ -1155,6 +1155,7 @@ rust_binary = prelude_rule(
         | native_common.transformation_spec_arg()
         | buck.allow_cache_upload_arg()
         | {
+            "build_info_as_shared_library": attrs.bool(default = True),
             "_gen_build_info": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
             "_generated_build_info_args": attrs.list(attrs.arg(), default = []),
             "_generated_build_info_data": attrs.option(attrs.source(), default = None),
@@ -1247,6 +1248,7 @@ rust_test = prelude_rule(
         | native_common.transformation_spec_arg()
         | test_common.attributes()
         | {
+            "build_info_as_shared_library": attrs.bool(default = True),
             "_gen_build_info": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
             "_generated_build_info_args": attrs.list(attrs.arg(), default = []),
             "_generated_build_info_data": attrs.option(attrs.source(), default = None),
