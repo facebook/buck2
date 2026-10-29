@@ -593,7 +593,12 @@ def cxx_link_into(
         output = renamed
 
     if is_result_executable:
-        output = add_elf_sections_to_executable(ctx, output, has_content_based_path = output_has_content_based_path)
+        output = add_elf_sections_to_executable(
+            ctx,
+            output,
+            action_execution_properties = action_execution_properties,
+            has_content_based_path = output_has_content_based_path,
+        )
         output = stamp_build_info(
             ctx,
             output,
