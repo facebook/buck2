@@ -6,6 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//:attrs_validators.bzl", "validation_common")
 load("@prelude//:prelude_rule.bzl", "prelude_rule")
 load("@prelude//android:android_binary_resources_rules.bzl", "get_android_binary_resources_info")
 load("@prelude//android:android_library.bzl", "android_target_stats", "build_android_library", "optional_jars")
@@ -142,6 +143,8 @@ def robolectric_test_impl(ctx: AnalysisContext) -> list[Provider]:
     )
     providers.append(java_library_without_compiling_deps)
     providers.extend(target_stats_providers)
+    if java_providers.validation_info:
+        providers.append(java_providers.validation_info)
 
     return providers
 
@@ -246,5 +249,6 @@ robolectric_test = prelude_rule(
         | buck.licenses_arg()
         | buck.labels_arg()
         | buck.contacts_arg()
+        | validation_common.attrs_validators_arg()
     ),
 )
