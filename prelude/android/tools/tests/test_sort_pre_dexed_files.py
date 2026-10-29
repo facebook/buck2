@@ -380,18 +380,12 @@ class SortPreDexedFilesTest(unittest.TestCase):
                 all_classes.extend(entry["class_names"])
         self.assertCountEqual(all_classes, classes)
 
-    def test_oversized_lib_contiguous_chunking_clusters_tail(self):
-        """Pins current chunking of an oversized lib whose heavy classes
-        cluster at the tail of lib order.
-
-        NOTE: this pins the current contiguous class-count behavior (the
-        cut falls after class 25, stranding Heavy1-3 together in one
-        chunk); the pair-stride fix stacked on top changes the chunk
-        geometry.
-        """
-        # Heavy0-3 model consecutive heavy classes; Heavy1-3 (classes
-        # 25-27) stranded in one chunk have combined refs exceeding
-        # DEX_REF_LIMIT.
+    def test_oversized_lib_pair_stride_splits_clustered_tail(self):
+        """An oversized lib whose heavy classes cluster at the tail of lib
+        order must have them interleaved across chunks, while even-aligned
+        adjacent pairs stay in the same chunk."""
+        # The last 4 classes model consecutive heavy classes, each large
+        # enough that all 4 packed in one chunk would exceed DEX_REF_LIMIT.
         classes = ["com.Class{}".format(i) for i in range(24)] + [
             "com.Heavy{}".format(i) for i in range(4)
         ]
@@ -409,11 +403,14 @@ class SortPreDexedFilesTest(unittest.TestCase):
             filter_data, {"lib1": "//apps:lib1"}, weight_limit=_DEFAULT_WEIGHT_LIMIT
         )
 
-        # 72369 / 65536 = 1.10 -> chunk_size 25 -> [25, 3] split.
+        # NOTE: the pre-existing chunking tests only assert that a split
+        # happened and no classes were lost, so they pass under both old
+        # and new logic; this pins the chunk geometry itself.
+        # ceil(72369 / 65536) = 2 chunks, each forcing its own group
         groups = result["dex"]["secondary_groups"]
         self.assertEqual(len(groups), 2)
         chunked = [entry["class_names"] for group in groups for entry in group]
-        self.assertEqual(sorted(len(c) for c in chunked), [3, 25])
+        self.assertEqual(sorted(len(c) for c in chunked), [14, 14])
 
         def group_of(cls):
             for i, group in enumerate(groups):
@@ -422,13 +419,15 @@ class SortPreDexedFilesTest(unittest.TestCase):
                         return i
             self.fail("class {} missing from all groups".format(cls))
 
-        # Current geometry: the cut after class 25 strands Heavy1-3
-        # (classes 25-27) together in one chunk, whose combined refs
-        # exceed DEX_REF_LIMIT.
+        # The 4 consecutive heavy classes would exceed DEX_REF_LIMIT if
+        # packed in one chunk, so they must split 2+2 across chunks ...
         heavy = classes[24:]
-        self.assertNotEqual(group_of(heavy[0]), group_of(heavy[1]))
-        self.assertEqual(group_of(heavy[1]), group_of(heavy[2]))
+        self.assertEqual(group_of(heavy[0]), group_of(heavy[1]))
         self.assertEqual(group_of(heavy[2]), group_of(heavy[3]))
+        self.assertNotEqual(group_of(heavy[0]), group_of(heavy[2]))
+        # ... while every adjacent pair stays in the same chunk.
+        for i in range(0, 28, 2):
+            self.assertEqual(group_of(classes[i]), group_of(classes[i + 1]))
 
         all_classes = []
         for group in groups:
