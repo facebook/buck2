@@ -44,6 +44,14 @@ StripLibparStrategy = enum(
     "none",
 )
 
+# Structured version; `version` on PythonToolchainInfo is a display
+# label and should not be parsed.
+ToolchainPythonVersion = record(
+    version = str,
+    version_tuple = (int, int),
+    flavor = str,
+)
+
 PythonToolchainInfo = provider(
     # @unsorted-dict-items
     fields = {
@@ -56,6 +64,8 @@ PythonToolchainInfo = provider(
         "host_interpreter": provider_field(ArgLike | None, default = None),
         "interpreter": provider_field(ArgLike | None, default = None),
         "version": provider_field(str | None, default = None),
+        # None for toolchains that do not declare one.
+        "python_version": provider_field(ToolchainPythonVersion | None, default = None),
         "native_link_strategy": provider_field(str | None, default = None),  # Should be `NativeLinkStrategy`.
         "linker_flags": provider_field(ArgLike, default = []),
         "binary_linker_flags": provider_field(ArgLike, default = []),
@@ -119,6 +129,7 @@ def get_package_style(ctx: AnalysisContext) -> PackageStyle:
 python = struct(
     PythonToolchainInfo = PythonToolchainInfo,
     PythonPlatformInfo = PythonPlatformInfo,
+    ToolchainPythonVersion = ToolchainPythonVersion,
     PackageStyle = PackageStyle,
     NativeLinkStrategy = NativeLinkStrategy,
 )
