@@ -31,8 +31,9 @@ const ENABLED: SettingKey<bool> = SettingKey {
 ///
 /// This is its own section rather than a key in `agent_interactive` so it can roll out without
 /// bumping that section's version: rollouts are selected by exact version, so a bump would stop
-/// the existing rollouts of the other guards from applying. The guard still requires the
-/// `agent_interactive.enabled` master switch.
+/// the existing rollouts of the other guards from applying. The guard also ignores the
+/// `agent_interactive.enabled` master switch, so this section alone controls it and its GK can
+/// be A/B tested on its own.
 #[derive(
     Clone,
     Copy,
@@ -58,7 +59,7 @@ impl AgentConfigChangeSettings {
         settings: &[ENABLED.metadata],
     };
 
-    /// This section's switch only; the guard also checks `agent_interactive.enabled()`.
+    /// The guard's only switch.
     pub fn enabled(&self) -> bool {
         ENABLED
             .resolve(self.enabled)
@@ -85,7 +86,7 @@ mod tests {
                 "[agent_config_change]\nenabled = {value}",
             ))])?;
             assert_eq!(settings.invocation.agent_config_change.enabled(), expected);
-            // The section is independent of the master switch; the guard combines them.
+            // Setting this section does not turn on the master switch, which the guard ignores.
             assert!(!settings.invocation.agent_interactive.enabled());
         }
         Ok(())

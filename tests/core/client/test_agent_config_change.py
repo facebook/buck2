@@ -13,10 +13,7 @@ from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-ENABLED = (
-    "--setting=agent_interactive.enabled=true",
-    "--setting=agent_config_change.enabled=true",
-)
+ENABLED = ("--setting=agent_config_change.enabled=true",)
 DIRECT = "--agent-context=direct_call=true"
 ADVICE = r"Buck advice \[config_change\]"
 EXPLICIT_TAG = "agent_interactive.config_change.explicit"
@@ -123,11 +120,27 @@ class AgentConfigChangeTest(BuckTestCase):
             assert "Buck advice" not in result.stderr
 
     @buck_test()
+    async def test_master_switch_does_not_affect_the_guard(self, buck: Buck) -> None:
+        for master in ["true", "false"]:
+            await buck.targets("//:", "-c", "foo.bar=1", *ENABLED, DIRECT)
+            await expect_failure(
+                buck.targets(
+                    "//:",
+                    f"--setting=agent_interactive.enabled={master}",
+                    *ENABLED,
+                    DIRECT,
+                ),
+                stderr_regex=ADVICE,
+            )
+
+    @buck_test()
     async def test_disabled_and_non_direct_calls_keep_existing_behavior(
         self, buck: Buck
     ) -> None:
         for args in [
             (DIRECT,),
+            # The master switch alone does not turn on this guard.
+            ("--setting=agent_interactive.enabled=true", DIRECT),
             (
                 *ENABLED,
                 "--setting=agent_config_change.enabled=false",

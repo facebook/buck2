@@ -49,8 +49,10 @@ pub(crate) async fn check_agent_config_change(
 ) -> buck2_error::Result<()> {
     // Check the cheap conditions first: comparing configs clones the new data, and every
     // command that is not a guarded agent call should skip that.
-    // `agent_interactive.enabled` is the master switch for every agent guard.
-    let enabled = settings.agent_interactive.enabled() && settings.agent_config_change.enabled();
+    // Unlike the other agent guards, this one ignores the `agent_interactive.enabled` master
+    // switch. Requiring both would limit it to the intersection of two GK rollouts and leave no
+    // clean control group for an A/B test of this guard.
+    let enabled = settings.agent_config_change.enabled();
     let direct_call = is_direct_call(agent_context);
     if !enabled || !direct_call {
         return Ok(());
