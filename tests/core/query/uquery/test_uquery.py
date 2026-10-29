@@ -364,7 +364,8 @@ class UqueryTest(BuckTestCase):
 
         await expect_failure(
             buck.uquery("'root//bin:the_binary#some_flavor'"),
-            stderr_regex="buck1 flavor `#some_flavor` on `root//bin:the_binary#some_flavor` is not supported",
+            # Soft error, upgraded to a hard error by the test harness.
+            stderr_regex="buck1 flavor `#some_flavor` on `root//bin:the_binary#some_flavor` is deprecated",
         )
 
     @buck_test(data_dir="bxl_simple")

@@ -413,14 +413,16 @@ impl BuckOutPathResolver {
         label: &ConfiguredProvidersLabel,
         extra_path: Option<&ForwardRelativePath>,
     ) -> buck2_error::Result<ProjectRelativePathBuf> {
-        let path: String = match label.name() {
-            ProvidersName::Default => "default".to_owned(),
+        let path = match label.name() {
+            ProvidersName::Default => "default".into(),
             ProvidersName::NonDefault(nd) => match nd.as_ref() {
                 NonDefaultProvidersName::Named(names) => names
                     .iter()
                     // Replacing / with + to avoid the path clash for ["foo/bar"] and ["foo", "bar"]
                     .map(|name| name.as_str().replace("/", "+"))
-                    .join("/"),
+                    .join("/")
+                    .into(),
+                NonDefaultProvidersName::UnrecognizedFlavor(s) => s.dupe(),
             },
         };
         let path = ForwardRelativePath::unchecked_new(&path);

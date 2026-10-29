@@ -142,6 +142,12 @@ fn configured_label_methods(builder: &mut MethodsBuilder) {
                 NonDefaultProvidersName::Named(names) => {
                     NoneOr::Other(names.iter().map(|p| p.as_str()).collect())
                 }
+                NonDefaultProvidersName::UnrecognizedFlavor(_) => {
+                    unreachable!(
+                        "This should have been an error when looking up the corresponding analysis (`{}`)",
+                        this.label
+                    )
+                }
             },
         })
     }
@@ -276,6 +282,12 @@ fn label_methods(builder: &mut MethodsBuilder) {
             ProvidersName::NonDefault(flavor) => match flavor.as_ref() {
                 NonDefaultProvidersName::Named(names) => {
                     NoneOr::Other(names.iter().map(|p| p.as_str()).collect())
+                }
+                NonDefaultProvidersName::UnrecognizedFlavor(_) => {
+                    unreachable!(
+                        "This should have been an error when looking up the corresponding analysis (`{}`)",
+                        this.label
+                    )
                 }
             },
         })

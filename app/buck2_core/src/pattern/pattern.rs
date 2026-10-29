@@ -48,7 +48,7 @@ use crate::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use crate::pattern::pattern_type::PatternType;
 use crate::pattern::pattern_type::ProvidersPatternExtra;
 use crate::pattern::pattern_type::TargetPatternExtra;
-use crate::provider::flavors::flavor_error;
+use crate::provider::flavors::map_flavors;
 use crate::provider::label::NonDefaultProvidersName;
 use crate::provider::label::ProviderName;
 use crate::provider::label::ProvidersLabel;
@@ -122,8 +122,9 @@ pub(crate) fn split_providers_name<'a>(
     s: &'a str,
     full_pattern: &str,
 ) -> buck2_error::Result<(&'a str, ProvidersName)> {
-    if let Some((_, flavors)) = split1_opt_ascii(s, AsciiChar::new('#')) {
-        Err(flavor_error(flavors, full_pattern))
+    if let Some((t, flavors)) = split1_opt_ascii(s, AsciiChar::new('#')) {
+        let name = map_flavors(flavors, full_pattern)?;
+        Ok((t, name))
     } else if let Some((t, p)) = split1_opt_ascii(s, AsciiChar::new('[')) {
         let mut names = Vec::new();
 
@@ -817,14 +818,7 @@ fn lex_provider_pattern(
                 }
                 .into()
             } else if !pattern.is_empty() {
-                // Without a `:` this may be a package or a target; a `#` in it is a plain
-                // (invalid) path character, not a buck1 flavor. That matters for
-                // `attrs.one_of(attrs.dep(), attrs.source())`, which probes file names like
-                // `data#1.json` as labels first.
-                let (pattern, providers) = match split1_opt_ascii(pattern, AsciiChar::new('[')) {
-                    Some(_) => split_providers_name(pattern, full_pattern)?,
-                    None => (pattern, ProvidersName::Default),
-                };
+                let (pattern, providers) = split_providers_name(pattern, full_pattern)?;
                 PatternDataOrAmbiguous::Ambiguous {
                     pattern,
                     strip_package_trailing_slash,
@@ -1285,6 +1279,7 @@ mod tests {
     use crate::configuration::bound_label::BoundConfigurationLabel;
     use crate::configuration::builtin::BuiltinPlatform;
     use crate::configuration::hash::ConfigurationHash;
+    use crate::is_open_source;
     use crate::package::PackageLabel;
     use crate::pattern::pattern::InferTargetNames;
     use crate::pattern::pattern::Modifiers;
@@ -1911,22 +1906,31 @@ mod tests {
                 &alias_resolver(),
             )?
         );
+        Ok(())
+    }
 
-        // Buck1 flavors are an error that names the buck2 spelling.
-        let err = ParsedPattern::<ProvidersPatternExtra>::parse_precise(
-            "//package/path:target#shared",
+    #[test]
+    fn parse_providers_pattern_flavor() -> buck2_error::Result<()> {
+        let parsed = ParsedPattern::parse_precise(
+            "//package/path:target#flavor",
             CellName::testing_new("root"),
             &resolver(),
             &alias_resolver(),
-        )
-        .unwrap_err();
-        assert!(err.has_tag(buck2_error::ErrorTag::Buck1Flavor));
-        let msg = format!("{err:#}");
-        assert!(
-            msg.contains(
-                "buck1 flavor `#shared` on `//package/path:target#shared` is not supported"
-            ) && msg.contains("`[shared]`"),
-            "{msg}"
+        );
+        if is_open_source() {
+            let err = parsed.expect_err("a buck1 flavor is an error in open source");
+            assert!(format!("{err:?}").contains("is not supported"), "{err:?}");
+            return Ok(());
+        }
+        let (target_label, providers) = parsed?.as_literal("")?;
+        assert_eq!(
+            "root//package/path:target#flavor",
+            ProvidersPatternExtra::into_providers_label(
+                providers,
+                target_label.pkg(),
+                target_label.name()
+            )
+            .to_string(),
         );
         Ok(())
     }
