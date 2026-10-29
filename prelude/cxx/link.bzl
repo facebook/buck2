@@ -52,6 +52,7 @@ load(
 )
 load("@prelude//linking:stamp_build_info.bzl", "cxx_stamp_build_info", "stamp_build_info")
 load("@prelude//linking:strip.bzl", "strip_object")
+load("@prelude//utils:actions.bzl", "ActionExecutionAttributes")
 load("@prelude//utils:expect.bzl", "expect")
 load(
     ":anon_link.bzl",
@@ -504,6 +505,13 @@ def cxx_link_into(
     action_execution_properties = get_action_execution_attributes(
         opts.link_execution_preference,
     )
+    if is_incremental_link:
+        action_execution_properties = ActionExecutionAttributes(
+            prefer_local = False,
+            prefer_remote = False,
+            local_only = True,
+            full_hybrid = action_execution_properties.full_hybrid,
+        )
 
     enable_late_build_info_stamping = is_result_executable and cxx_stamp_build_info(ctx)
 
@@ -517,9 +525,9 @@ def cxx_link_into(
 
     ctx.actions.run(
         command,
-        prefer_local = action_execution_properties.prefer_local and not is_incremental_link,
-        prefer_remote = action_execution_properties.prefer_remote and not is_incremental_link,
-        local_only = action_execution_properties.local_only or is_incremental_link,
+        prefer_local = action_execution_properties.prefer_local,
+        prefer_remote = action_execution_properties.prefer_remote,
+        local_only = action_execution_properties.local_only,
         weight = opts.link_weight,
         category = category,
         identifier = opts.identifier,
