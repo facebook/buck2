@@ -29,6 +29,7 @@ load(
 )
 load("@prelude//linking:stamp_build_info.bzl", "stamp_build_info")
 load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
+load("@prelude//utils:actions.bzl", "ActionExecutionAttributes")
 load(
     "@prelude//utils:utils.bzl",
     "filter_and_map_idx",
@@ -286,7 +287,7 @@ def link(
     # the section; an external link runs the wrapper, which reserves the
     # placeholder when the rule stamps.
     if build_mode in [GoBuildMode("exe"), GoBuildMode("pie")]:
-        output = stamp_build_info(ctx, output, has_content_based_path = True)
+        output = stamp_build_info(ctx, output, ActionExecutionAttributes(), has_content_based_path = True)
 
     final_output = ctx.actions.copy_file(final_output_name, output, has_content_based_path = False)
 

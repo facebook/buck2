@@ -81,6 +81,7 @@ load("@prelude//linking:strip.bzl", "strip_debug_info")
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//rust/tools:attrs.bzl", "RustInternalToolsInfo")
+load("@prelude//utils:actions.bzl", "ActionExecutionAttributes")
 load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:cmd_script.bzl", "cmd_script")
 load(
@@ -1055,6 +1056,7 @@ def rust_compile(
             remarks_json = remarks_json,
         ),
         product = product,
+        action_execution_properties = invoke.action_execution_properties,
     )
 
 # --extern <crate>=<path> for direct dependencies
@@ -1917,6 +1919,7 @@ Invoke = record(
     diag_json = field(Artifact),
     build_status = field(Artifact | None),
     identifier = field(str | None),
+    action_execution_properties = field(ActionExecutionAttributes),
 )
 
 # Under `-Csplit-debuginfo=unpacked` (see `split_debuginfo_flags` in
@@ -2111,6 +2114,10 @@ def _rustc_invoke(
         diag_json = diag_json,
         build_status = build_status,
         identifier = identifier,
+        action_execution_properties = ActionExecutionAttributes(
+            local_only = local_only,
+            prefer_local = prefer_local,
+        ),
     )
 
 # Our rustc and rustdoc commands can have arbitrarily large number of `--extern`

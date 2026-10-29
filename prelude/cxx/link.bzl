@@ -602,6 +602,7 @@ def cxx_link_into(
         output = stamp_build_info(
             ctx,
             output,
+            action_execution_properties = action_execution_properties,
             links = opts.links,
             build_info_json = build_info_json,
         )

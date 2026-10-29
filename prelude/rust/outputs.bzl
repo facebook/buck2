@@ -6,6 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//utils:actions.bzl", "ActionExecutionAttributes")
 load(":link_info.bzl", "TransitiveDeps")
 
 # Outputs that are generally associated with object code compilation, as opposed to linking
@@ -69,6 +70,7 @@ LinkExtraction = record(
 # Output of `rust_compile`.
 RustcOutput = record(
     compile_output = RustcCompileOutput,
+    action_execution_properties = ActionExecutionAttributes,
     # What the compile produced beyond its diagnostics: a `RustcLinkedOutput`
     # exactly when rustc performed a link (see `crate_type_linked`), a
     # `LinkExtraction` exactly for bin crates compiled with `Emit("rlib")`, and

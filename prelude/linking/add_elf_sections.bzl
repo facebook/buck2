@@ -30,7 +30,7 @@ def add_elf_sections(
     sections: dict[str, Artifact],
     output: Artifact,
     category: str,
-    action_execution_properties: ActionExecutionAttributes | None = None,
+    action_execution_properties: ActionExecutionAttributes,
 ) -> Artifact:
     """
     Copy `obj` to `output`, adding each entry of `sections` as an ELF section
@@ -49,11 +49,6 @@ def add_elf_sections(
 
     if getattr(ctx.attrs, "optimize_for_action_throughput", False):
         action_execution_properties = ActionExecutionAttributes(prefer_remote = True)
-    elif action_execution_properties == None:
-        # objcopy rewrites the whole file. This can be run remotely, but it's often
-        # cheaper to do it locally for large binaries, especially on CI using
-        # limited hybrid.
-        action_execution_properties = ActionExecutionAttributes(prefer_local = True)
 
     ctx.actions.run(
         cmd,
