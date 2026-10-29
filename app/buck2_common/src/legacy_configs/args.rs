@@ -100,6 +100,33 @@ pub(crate) struct ResolvedConfigFlag {
     pub(crate) cell: Option<CellRootPathBuf>,
 }
 
+/// Renders the arg close to how it was passed on the command line, for user-facing messages.
+/// A cell-scoped flag shows the cell's root path rather than the alias the user typed, since
+/// the alias is not retained after resolution.
+impl std::fmt::Display for ResolvedLegacyConfigArg {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Flag(flag) => {
+                write!(f, "--config ")?;
+                if let Some(cell) = &flag.cell {
+                    write!(f, "{cell}//")?;
+                }
+                write!(
+                    f,
+                    "{}.{}={}",
+                    flag.section,
+                    flag.key,
+                    flag.value.as_deref().unwrap_or("")
+                )
+            }
+            Self::File(ResolvedConfigFile::Project(path)) => write!(f, "--config-file {path}"),
+            Self::File(ResolvedConfigFile::Global(file)) => {
+                write!(f, "--config-file {}", file.origin_path)
+            }
+        }
+    }
+}
+
 fn resolve_config_flag_arg(
     cell: Option<CellRootPathBuf>,
     raw_arg: &str,

@@ -74,11 +74,77 @@ pub struct ExternalPathBuckconfigData {
     pub(crate) origin_path: ConfigPath,
 }
 
+/// A human-readable description of how two `ExternalBuckconfigData` values differ.
+///
+/// This explains a change; it does not decide one. Callers must decide whether the values differ
+/// with `==` (which is what DICE uses), because a diff can be empty for values that are not equal.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct ExternalBuckconfigDataDiff {
+    /// Command-line config args (`--config`, `--config-file`) only in the new value.
+    pub added_args: Vec<String>,
+    /// Command-line config args only in the old value.
+    pub removed_args: Vec<String>,
+    /// Config files outside the repo (e.g. `/etc/buckconfig.d`, `~/.buckconfig.d`) that were added,
+    /// removed, or whose contents changed.
+    pub changed_external_files: Vec<String>,
+}
+
+impl ExternalBuckconfigDataDiff {
+    /// True when the values contain the same entries and differ only in their order or in how
+    /// many times an entry repeats. Such values are still unequal to DICE, because later entries
+    /// override earlier ones.
+    pub fn is_empty(&self) -> bool {
+        self.added_args.is_empty()
+            && self.removed_args.is_empty()
+            && self.changed_external_files.is_empty()
+    }
+}
+
 impl ExternalBuckconfigData {
     pub fn testing_default() -> Self {
         Self {
             external_path_configs: Vec::new(),
             args: Vec::new(),
+        }
+    }
+
+    /// Describes what changes from `self` to `new`. Arg and file lists are short (tens of entries),
+    /// so the quadratic membership checks are cheap enough to run once per command.
+    pub fn diff(&self, new: &Self) -> ExternalBuckconfigDataDiff {
+        let added_args = new
+            .args
+            .iter()
+            .filter(|arg| !self.args.contains(arg))
+            .map(|arg| arg.to_string())
+            .collect();
+        let removed_args = self
+            .args
+            .iter()
+            .filter(|arg| !new.args.contains(arg))
+            .map(|arg| arg.to_string())
+            .collect();
+
+        // A file whose contents changed is in both "only old" and "only new"; report it once.
+        let mut changed_external_files: Vec<String> = Vec::new();
+        let only_old = self
+            .external_path_configs
+            .iter()
+            .filter(|config| !new.external_path_configs.contains(config));
+        let only_new = new
+            .external_path_configs
+            .iter()
+            .filter(|config| !self.external_path_configs.contains(config));
+        for config in only_old.chain(only_new) {
+            let path = config.origin_path.to_string();
+            if !changed_external_files.contains(&path) {
+                changed_external_files.push(path);
+            }
+        }
+
+        ExternalBuckconfigDataDiff {
+            added_args,
+            removed_args,
+            changed_external_files,
         }
     }
 
@@ -457,7 +523,7 @@ impl BuckConfigBasedCells {
         .await
     }
 
-    async fn parse_single_cell_with_file_ops_inner(
+    pub(crate) async fn parse_single_cell_with_file_ops_inner(
         external_data: &ExternalBuckconfigData,
         file_ops: &mut dyn ConfigParserFileOps,
         cell_path: &CellRootPath,
@@ -647,6 +713,7 @@ mod tests {
     use buck2_core::cells::external::ExternalCellOrigin;
     use buck2_core::cells::external::GitCellSetup;
     use buck2_core::cells::name::CellName;
+    use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use dice::DiceComputations;
     use indoc::indoc;
 
@@ -655,9 +722,13 @@ mod tests {
     use crate::file_ops::delegate::FileOpsDelegate;
     use crate::legacy_configs::args::ConfigOverrideExt;
     use crate::legacy_configs::cells::BuckConfigBasedCells;
+    use crate::legacy_configs::cells::ExternalBuckconfigData;
+    use crate::legacy_configs::cells::ExternalPathBuckconfigData;
     use crate::legacy_configs::configs::testing::TestConfigParserFileOps;
     use crate::legacy_configs::configs::tests::assert_config_value;
+    use crate::legacy_configs::file_ops::ConfigPath;
     use crate::legacy_configs::key::BuckconfigKeyRef;
+    use crate::legacy_configs::parser::LegacyConfigParser;
 
     #[tokio::test]
     async fn test_cells() -> buck2_error::Result<()> {
@@ -1438,6 +1509,49 @@ mod tests {
 
         let e = format!("{e:?}");
         assert!(e.contains("not a valid SHA1 digest"), "error: {e}");
+
+        Ok(())
+    }
+
+    /// Parses `contents` as an external config file. The origin is project-relative so the test
+    /// runs on every platform; `diff` only uses it for display.
+    async fn external_file(
+        path: &str,
+        contents: &str,
+    ) -> buck2_error::Result<ExternalPathBuckconfigData> {
+        let origin_path = ConfigPath::Project(ProjectRelativePath::new(path)?.to_owned());
+        let mut file_ops = TestConfigParserFileOps::new(&[(path, contents)])?;
+        let mut parse_state = LegacyConfigParser::new();
+        parse_state
+            .parse_file(&origin_path, None, true, &mut file_ops)
+            .await?;
+        Ok(ExternalPathBuckconfigData {
+            parse_state,
+            origin_path,
+        })
+    }
+
+    #[tokio::test]
+    async fn test_external_data_diff_reports_changed_files() -> buck2_error::Result<()> {
+        let data = |external_path_configs| ExternalBuckconfigData {
+            external_path_configs,
+            args: Vec::new(),
+        };
+        let old = data(vec![
+            external_file("etc/a", "[foo]\nbar = 1").await?,
+            external_file("etc/b", "[foo]\nbaz = 1").await?,
+        ]);
+        let new = data(vec![
+            external_file("etc/a", "[foo]\nbar = 2").await?,
+            external_file("etc/c", "[foo]\nqux = 1").await?,
+        ]);
+
+        // `etc/a` changed contents, `etc/b` was removed, and `etc/c` was added.
+        let diff = old.diff(&new);
+        assert_eq!(diff.changed_external_files, vec!["etc/a", "etc/b", "etc/c"]);
+        assert!(diff.added_args.is_empty());
+        assert!(diff.removed_args.is_empty());
+        assert!(old.diff(&old).is_empty());
 
         Ok(())
     }
