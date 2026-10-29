@@ -411,6 +411,17 @@ impl Drop for WriteLease {
     }
 }
 
+/// What `Materializer::hold_or_take` answers.
+#[must_use = "hold the lease while reading the path, or make the content and report it"]
+pub enum HeldContent {
+    /// The path holds the content; the lease holds it for reading.
+    Found(ReadLease),
+    /// The path does not hold the content, and the lease holds it for writing: the caller puts
+    /// the content there, the whole of the path, and reports it with `declare_existing`, or
+    /// abandons the lease.
+    Missing(WriteLease),
+}
+
 /// A trait providing methods to asynchronously materialize artifacts.
 ///
 /// # Invariants
@@ -436,17 +447,6 @@ impl Drop for WriteLease {
 ///
 /// 4. Declare may delete any existing paths that conflict with the path that was
 ///    declared.
-/// What `Materializer::hold_or_take` answers.
-#[must_use = "hold the lease while reading the path, or make the content and report it"]
-pub enum HeldContent {
-    /// The path holds the content; the lease holds it for reading.
-    Found(ReadLease),
-    /// The path does not hold the content, and the lease holds it for writing: the caller puts
-    /// the content there, the whole of the path, and reports it with `declare_existing`, or
-    /// abandons the lease.
-    Missing(WriteLease),
-}
-
 #[async_trait]
 pub trait Materializer: Allocative + Send + Sync + 'static {
     /// Whether this materializer tracks disk state only, so that a producer that can make its

@@ -1851,7 +1851,7 @@ impl BuckTestOrchestrator<'_> {
             };
             let written = if materializer.is_disk_state() {
                 write_locally(
-                    &*materializer,
+                    materializer,
                     dice.get_blocking_executor(),
                     fs.fs(),
                     digest_config,

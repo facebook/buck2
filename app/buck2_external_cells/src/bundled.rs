@@ -450,7 +450,7 @@ async fn declare_all_source_artifacts(
         let mut values = Vec::with_capacity(requests.len());
         for request in requests {
             let (value, _) = write_locally(
-                &*materializer,
+                materializer,
                 blocking_executor,
                 artifact_fs.fs(),
                 ops.digest_config,

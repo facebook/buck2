@@ -150,7 +150,7 @@ pub(crate) async fn starlark_files(
     };
     let exclude = exclude
         .iter()
-        .map(|path| resolve(path))
+        .map(&resolve)
         .collect::<buck2_error::Result<Vec<_>>>()?;
 
     let mut files = Vec::new();

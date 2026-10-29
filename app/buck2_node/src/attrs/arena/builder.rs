@@ -16,7 +16,6 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_hash::BuckHasher;
 use buck2_hash::BuckMutMap;
-use buck2_util::arc_str::ArcS;
 use buck2_util::arc_str::PackedStr;
 use buck2_util::pointer_identity::StaticPointerIdentity;
 use buck2_util::pointer_identity::mix_addr;
