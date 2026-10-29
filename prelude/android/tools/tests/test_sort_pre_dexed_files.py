@@ -380,6 +380,62 @@ class SortPreDexedFilesTest(unittest.TestCase):
                 all_classes.extend(entry["class_names"])
         self.assertCountEqual(all_classes, classes)
 
+    def test_oversized_lib_contiguous_chunking_clusters_tail(self):
+        """Pins current chunking of an oversized lib whose heavy classes
+        cluster at the tail of lib order.
+
+        NOTE: this pins the current contiguous class-count behavior (the
+        cut falls after class 25, stranding Heavy1-3 together in one
+        chunk); the pair-stride fix stacked on top changes the chunk
+        geometry.
+        """
+        # Heavy0-3 model consecutive heavy classes; Heavy1-3 (classes
+        # 25-27) stranded in one chunk have combined refs exceeding
+        # DEX_REF_LIMIT.
+        classes = ["com.Class{}".format(i) for i in range(24)] + [
+            "com.Heavy{}".format(i) for i in range(4)
+        ]
+        filter_data = {
+            "lib1": {
+                "primary_dex_class_names": [],
+                "secondary_dex_class_names": classes,
+                "weight_estimate": "100",
+                "method_ref_count": "0",
+                "field_ref_count": "72369",
+                "type_ref_count": "0",
+            },
+        }
+        result = _sort(
+            filter_data, {"lib1": "//apps:lib1"}, weight_limit=_DEFAULT_WEIGHT_LIMIT
+        )
+
+        # 72369 / 65536 = 1.10 -> chunk_size 25 -> [25, 3] split.
+        groups = result["dex"]["secondary_groups"]
+        self.assertEqual(len(groups), 2)
+        chunked = [entry["class_names"] for group in groups for entry in group]
+        self.assertEqual(sorted(len(c) for c in chunked), [3, 25])
+
+        def group_of(cls):
+            for i, group in enumerate(groups):
+                for entry in group:
+                    if cls in entry["class_names"]:
+                        return i
+            self.fail("class {} missing from all groups".format(cls))
+
+        # Current geometry: the cut after class 25 strands Heavy1-3
+        # (classes 25-27) together in one chunk, whose combined refs
+        # exceed DEX_REF_LIMIT.
+        heavy = classes[24:]
+        self.assertNotEqual(group_of(heavy[0]), group_of(heavy[1]))
+        self.assertEqual(group_of(heavy[1]), group_of(heavy[2]))
+        self.assertEqual(group_of(heavy[2]), group_of(heavy[3]))
+
+        all_classes = []
+        for group in groups:
+            for entry in group:
+                all_classes.extend(entry["class_names"])
+        self.assertCountEqual(all_classes, classes)
+
     # --- Ordering and skipping ---
 
     def test_iteration_order_follows_lib_metadata_keys(self):
