@@ -686,7 +686,8 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
     if (abiListProperty.isEmpty()) {
       throw AndroidInstallException.deviceAbiUnknown()
     }
-    return abiListProperty.split(',')
+    // Trimmed like AdbHelper.deviceAbisBySerial: " armeabi-v7a" matches no ABI directory.
+    return abiListProperty.split(',').map { it.trim() }.filter { it.isNotEmpty() }
   }
 
   @Throws(Exception::class)

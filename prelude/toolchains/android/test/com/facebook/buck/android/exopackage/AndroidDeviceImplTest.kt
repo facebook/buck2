@@ -496,6 +496,14 @@ class AndroidDeviceImplTest {
   }
 
   @Test
+  fun testGetDeviceAbisTrimsTheAbiList() {
+    whenever(mockAdbUtils.executeAdbShellCommand("getprop ro.product.cpu.abilist", serialNumber))
+        .thenReturn("arm64-v8a, armeabi-v7a, armeabi")
+
+    assertEquals(listOf("arm64-v8a", "armeabi-v7a", "armeabi"), androidDevice.getDeviceAbis())
+  }
+
+  @Test
   fun testGetDeviceAbisWithoutAbiListThrows() {
     whenever(mockAdbUtils.executeAdbShellCommand("getprop ro.product.cpu.abilist", serialNumber))
         .thenReturn("")
