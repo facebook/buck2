@@ -496,6 +496,24 @@ class AndroidDeviceImplTest {
   }
 
   @Test
+  fun testGetDeviceAbisWithoutAbiListThrows() {
+    whenever(mockAdbUtils.executeAdbShellCommand("getprop ro.product.cpu.abilist", serialNumber))
+        .thenReturn("")
+    whenever(mockAdbUtils.executeAdbShellCommand("getprop ro.product.cpu.abi", serialNumber))
+        .thenReturn("x86")
+    whenever(mockAdbUtils.executeAdbShellCommand("getprop ro.product.cpu.abi2", serialNumber))
+        .thenReturn("")
+
+    try {
+      androidDevice.getDeviceAbis()
+      fail("Expected AndroidInstallException")
+    } catch (e: AndroidInstallException) {
+      assertEquals(setOf(AndroidInstallErrorTag.UNKNOWN_DEVICE_ABI), e.installError.tags)
+    }
+    verify(mockAdbUtils, never()).executeAdbShellCommand("getprop ro.product.cpu.abi", serialNumber)
+  }
+
+  @Test
   fun testGetDiskSpace() {
     whenever(
         mockAdbUtils.executeAdbShellCommand(

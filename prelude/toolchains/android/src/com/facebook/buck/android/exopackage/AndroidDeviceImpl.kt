@@ -683,13 +683,10 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
   @Throws(Exception::class)
   override fun getDeviceAbis(): List<String> {
     val abiListProperty = getProperty("ro.product.cpu.abilist")
-    if (abiListProperty.isNotEmpty()) {
-      return abiListProperty.split(',')
-    } else {
-      return listOf(getProperty("ro.product.cpu.abi"), getProperty("ro.product.cpu.abi2"))
-          .filter { it.isEmpty() }
-          .takeIf { it.isNotEmpty() } ?: throw AndroidInstallException.deviceAbiUnknown()
+    if (abiListProperty.isEmpty()) {
+      throw AndroidInstallException.deviceAbiUnknown()
     }
+    return abiListProperty.split(',')
   }
 
   @Throws(Exception::class)
