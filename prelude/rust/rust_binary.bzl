@@ -619,7 +619,7 @@ def _rust_binary_common(
         dwp_output = link.product.dwp_output
         pdb_output = link.product.pdb
         if enable_late_build_info_stamping:
-            stamp_build_info(ctx, link.product.output, link.action_execution_properties, final_output)
+            stamp_build_info(ctx, link.product.output, final_output)
 
     args = cmd_args(final_output, hidden = executable_shlib_args.runtime_files)
     external_debug_info = project_artifacts(

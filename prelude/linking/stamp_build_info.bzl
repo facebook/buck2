@@ -20,7 +20,6 @@ load(
     "get_link_info",
     "truncate_dep_metadata",
 )
-load("@prelude//utils:actions.bzl", "ActionExecutionAttributes")
 
 PRE_STAMPED_SUFFIX = "-pre_stamped"
 
@@ -58,7 +57,6 @@ def _get_library_versions(links: list[LinkArgs] | None) -> str:
 def stamp_build_info(
     ctx: AnalysisContext,
     obj: Artifact,
-    action_execution_properties: ActionExecutionAttributes,
     stamped_output: Artifact | None = None,
     has_content_based_path: bool = False,
     links: list[LinkArgs] | None = None,
@@ -68,8 +66,6 @@ def stamp_build_info(
     If necessary, add fb_build_info section to binary via late-stamping
     """
     if cxx_stamp_build_info(ctx):
-        if getattr(ctx.attrs, "optimize_for_action_throughput", False):
-            action_execution_properties = ActionExecutionAttributes(prefer_remote = True)
         if build_info_json == None:
             build_info = dict(ctx.attrs._build_info)
             library_versions = _get_library_versions(links)
@@ -100,7 +96,6 @@ def stamp_build_info(
                 {"fb_build_info": build_info_json},
                 stamped_output,
                 category = "stamp_build_info",
-                action_execution_properties = action_execution_properties,
             )
 
         cmd = cmd_args([
@@ -111,14 +106,16 @@ def stamp_build_info(
             stamped_output.as_output(),
         ])
 
+        # This can be run remotely, but it's often cheaper to do this locally for large
+        # binaries, especially on CI using limited hybrid
+        prefer_local = not getattr(ctx.attrs, "optimize_for_action_throughput", False)
+
         ctx.actions.run(
             cmd,
             identifier = obj.short_path,
             category = "stamp_build_info",
-            prefer_local = action_execution_properties.prefer_local,
-            prefer_remote = action_execution_properties.prefer_remote,
-            local_only = action_execution_properties.local_only,
-            force_full_hybrid_if_capable = action_execution_properties.full_hybrid,
+            prefer_local = prefer_local,
+            prefer_remote = not prefer_local,
             allow_cache_upload = toolchain.cxx_compiler_info.allow_cache_upload,
         )
         return stamped_output

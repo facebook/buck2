@@ -891,7 +891,6 @@ def cxx_gnu_dist_link(
         stamp_build_info(
             ctx,
             final_output,
-            action_execution_properties = link_action_execution_properties,
             links = opts.links,
             build_info_json = build_info_json,
         )
