@@ -56,7 +56,6 @@ buck_kotlin_library(
     ],
     deps = [
         "fbsource//fbandroid/java/com/facebook/kotlin/compilercompat:compilercompat",
-        "fbsource//fbandroid/java/com/facebook/kotlin/compilercompat:compilercompat_with_ka",
     ],
     exported_deps = [
         ":kosabi-common",
