@@ -23,7 +23,15 @@ pub enum Advice {
     Killall,
     Clean,
     NewIsolationDir,
+    /// The command drops config args that the daemon's state was built with, which changes its
+    /// buckconfig without asking for different values. Evaluated in the daemon, which is the only
+    /// place that knows the current configuration.
+    ConfigChange,
 }
+
+/// Tag for a config change that the command asked for with its own config args. The daemon allows
+/// such changes; the tag measures how often agents make them.
+pub const CONFIG_CHANGE_EXPLICIT_TAG: &str = "agent_interactive.config_change.explicit";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Decision {
@@ -39,6 +47,7 @@ impl Advice {
             Self::Killall => "killall",
             Self::Clean => "clean",
             Self::NewIsolationDir => "new_isolation_dir",
+            Self::ConfigChange => "config_change",
         }
     }
 
@@ -92,6 +101,18 @@ impl Advice {
                  and `--agent-context reason=\"<why killall is needed>\"`. \
                  This guard does not require user confirmation."
             }
+            Self::ConfigChange => {
+                "This command has not run, and the daemon's build state is unchanged.\n\n\
+                 It drops config arguments that the daemon's current configuration uses (listed \
+                 below), which changes that configuration. Running it invalidates cached parsing \
+                 and analysis results, and the next command that passes those arguments again pays \
+                 that cost again. If the change is not needed, add `--reuse-current-config` to keep \
+                 the current configuration (this ignores the command's config arguments).\n\n\
+                 If the configuration change is necessary, retry with \
+                 `--agent-context advice_ack=config_change` and \
+                 `--agent-context reason=\"<why this configuration is needed>\"`. \
+                 This guard does not require user confirmation."
+            }
         }
     }
 }
@@ -110,6 +131,8 @@ impl Decision {
             Self::Block(Advice::NewIsolationDir) => {
                 Some("agent_interactive.new_isolation_dir.block")
             }
+            Self::Acknowledged(Advice::ConfigChange) => Some("agent_interactive.config_change.ack"),
+            Self::Block(Advice::ConfigChange) => Some("agent_interactive.config_change.block"),
         }
     }
 }
@@ -118,9 +141,16 @@ impl Decision {
 mod tests {
     use super::*;
 
+    const ALL_ADVICE: [Advice; 4] = [
+        Advice::Killall,
+        Advice::Clean,
+        Advice::NewIsolationDir,
+        Advice::ConfigChange,
+    ];
+
     #[test]
     fn only_enabled_direct_calls_are_guarded() {
-        for advice in [Advice::Killall, Advice::Clean, Advice::NewIsolationDir] {
+        for advice in ALL_ADVICE {
             for (enabled, direct_call) in [(false, false), (false, true), (true, false)] {
                 let invocation = Invocation {
                     enabled,
@@ -134,7 +164,7 @@ mod tests {
 
     #[test]
     fn proceeding_requires_acknowledgement_and_reason() {
-        for advice in [Advice::Killall, Advice::Clean, Advice::NewIsolationDir] {
+        for advice in ALL_ADVICE {
             for (reason, expected) in [
                 (None, Decision::Block(advice)),
                 (Some(""), Decision::Block(advice)),

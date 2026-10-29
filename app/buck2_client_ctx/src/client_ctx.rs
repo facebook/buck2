@@ -168,6 +168,8 @@ impl<'a> ClientCommandContext<'a> {
             Advice::Killall => settings.killall_enabled(),
             Advice::Clean => settings.clean_enabled(),
             Advice::NewIsolationDir => settings.new_isolation_dir_enabled(),
+            // Only the daemon knows its current configuration, so it evaluates this advice.
+            Advice::ConfigChange => return Ok(Decision::Inactive),
         };
         Ok(advice.evaluate(
             &Invocation {
