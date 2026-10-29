@@ -178,6 +178,7 @@ pub(crate) mod state_machine {
     use assert_matches::assert_matches;
     use buck2_common::file_ops::metadata::Symlink;
     use buck2_core::error::SoftErrorContext;
+    use buck2_core::error::with_soft_error_context;
     use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_error::BuckErrorContext;
@@ -1571,6 +1572,41 @@ pub(crate) mod state_machine {
             assert_eq!(dm.io.take_log(), &[(Op::Materialize, target_path.clone()), ]);
             Ok(())
         }).await
+    }
+
+    #[tokio::test]
+    async fn test_cleanup_finished_after_invalidation() -> buck2_error::Result<()> {
+        ignore_stack_overflow_checks_for_future(async {
+            let (mut dm, mut channel) = make_processor(Default::default());
+            let path = make_path("foo/bar");
+            let value = ArtifactValue::file(dm.io.digest_config().empty_file());
+            dm.testing_declare(&path, value);
+
+            let pending = dm.tree.invalidate_paths_and_collect_futures(
+                vec![path.clone()],
+                dm.sqlite_db.as_mut(),
+                &dm.stats,
+            )?;
+            assert_eq!(pending.len(), 1);
+            join_all_existing_futs(pending).await?;
+            assert!(dm.tree.prefix_get(&mut path.iter()).is_none());
+
+            let completion = channel
+                .low_priority
+                .try_recv()
+                .expect("cleanup should have queued its completion");
+            assert_matches!(
+                completion,
+                LowPriorityMaterializerCommand::CleanupFinished { .. }
+            );
+            let context = Arc::new(SoftErrorContext::new("true", "")?);
+            with_soft_error_context(Some(context), || {
+                dm.testing_process_one_low_priority_command(completion);
+            });
+            assert!(dm.tree.prefix_get(&mut path.iter()).is_none());
+            Ok(())
+        })
+        .await
     }
 
     #[tokio::test]

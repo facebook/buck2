@@ -15,14 +15,12 @@ use allocative::Visitor;
 use allocative::ident_key;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_core::soft_error_or_panic;
 use buck2_directory::directory::directory::Directory;
 use buck2_directory::directory::directory_iterator::DirectoryIterator;
 use buck2_directory::directory::directory_ref::DirectoryRef;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_directory::directory::walk::unordered_entry_walk;
 use buck2_error::BuckErrorContext;
-use buck2_error::BuckErrorOptionContext;
 use buck2_error::internal_error;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::ActionDirectoryEntry;
@@ -493,28 +491,19 @@ impl ArtifactTree {
         version: Version,
         result: Result<(), SharedMaterializingError>,
     ) {
-        match self
-            .prefix_get_mut(&mut artifact_path.iter())
-            .internal_error("Path is vacant")
-        {
-            Ok(info) => {
-                if info.processing.current_version() > version {
-                    // We can only unset the future if version matches.
-                    // Otherwise, we may be unsetting a different future from a newer version.
-                    tracing::debug!("version conflict");
-                    return;
-                }
+        let Some(info) = self.prefix_get_mut(&mut artifact_path.iter()) else {
+            tracing::debug!("cleanup_finished after path invalidation");
+            return;
+        };
+        if info.processing.current_version() > version {
+            // We can only unset the future if version matches.
+            // Otherwise, we may be unsetting a different future from a newer version.
+            tracing::debug!("version conflict");
+            return;
+        }
 
-                if result.is_err() {
-                    // Leave it alone, don't keep retrying.
-                } else {
-                    info.processing = Processing::Done(version);
-                }
-            }
-            Err(e) => {
-                // NOTE: This shouldn't normally happen?
-                soft_error_or_panic!("cleanup_finished_vacant", e);
-            }
+        if result.is_ok() {
+            info.processing = Processing::Done(version);
         }
     }
 
