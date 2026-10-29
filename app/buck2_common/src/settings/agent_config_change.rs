@@ -1,0 +1,93 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is dual-licensed under either the MIT license found in the
+ * LICENSE-MIT file in the root directory of this source tree or the Apache
+ * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+ * of this source tree. You may select, at your option, one of the
+ * above-listed licenses.
+ */
+
+use allocative::Allocative;
+use dupe::Dupe;
+use serde::Deserialize;
+use serde::Serialize;
+
+use crate::settings::metadata::OverrideSource;
+use crate::settings::metadata::SectionMetadata;
+use crate::settings::metadata::SettingKey;
+use crate::settings::metadata::SettingKeyMetadata;
+
+const ENABLED: SettingKey<bool> = SettingKey {
+    metadata: SettingKeyMetadata {
+        name: "enabled",
+        overridable_in: &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
+    },
+    internal_default: Some(false),
+    oss_default: Some(false),
+};
+
+/// Block direct agent calls whose buckconfig would invalidate the daemon's state.
+///
+/// This is its own section rather than a key in `agent_interactive` so it can roll out without
+/// bumping that section's version: rollouts are selected by exact version, so a bump would stop
+/// the existing rollouts of the other guards from applying. The guard still requires the
+/// `agent_interactive.enabled` master switch.
+#[derive(
+    Clone,
+    Copy,
+    Dupe,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    Allocative
+)]
+#[serde(default, deny_unknown_fields)]
+pub struct AgentConfigChangeSettings {
+    enabled: Option<bool>,
+}
+
+impl AgentConfigChangeSettings {
+    /// Bump when the section's settings schema or semantics change.
+    pub(crate) const METADATA: SectionMetadata = SectionMetadata {
+        section_name: "agent_config_change",
+        section_version: 0,
+        settings: &[ENABLED.metadata],
+    };
+
+    /// This section's switch only; the guard also checks `agent_interactive.enabled()`.
+    pub fn enabled(&self) -> bool {
+        ENABLED
+            .resolve(self.enabled)
+            .expect("Agent config change guard has a default")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::settings::BuckSettings;
+    use crate::settings::parser::resolve_setting_flags;
+    use crate::settings::parser::table;
+
+    #[test]
+    fn disabled_unless_set() -> buck2_error::Result<()> {
+        assert!(
+            !BuckSettings::empty()
+                .invocation
+                .agent_config_change
+                .enabled()
+        );
+        for (value, expected) in [(true, true), (false, false)] {
+            let settings = resolve_setting_flags(vec![table(&format!(
+                "[agent_config_change]\nenabled = {value}",
+            ))])?;
+            assert_eq!(settings.invocation.agent_config_change.enabled(), expected);
+            // The section is independent of the master switch; the guard combines them.
+            assert!(!settings.invocation.agent_interactive.enabled());
+        }
+        Ok(())
+    }
+}

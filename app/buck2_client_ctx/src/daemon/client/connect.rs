@@ -1589,6 +1589,7 @@ mod tests {
             r#"{"agent_materialization":{"enabled":false}}"#,
             r#"{"agent_interactive":{"enabled":true,"killall_enabled":true,"clean_enabled":true,"new_isolation_dir_enabled":true}}"#,
             r#"{"agent_interactive":{"enabled":false}}"#,
+            r#"{"agent_config_change":{"enabled":true}}"#,
         ] {
             let req = request_with_settings(settings);
             let mut daemon = constraints(false);

@@ -17,6 +17,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
 
+use crate::settings::agent_config_change::AgentConfigChangeSettings;
 use crate::settings::agent_interactive::AgentInteractiveSettings;
 use crate::settings::agent_materialization::AgentMaterializationSettings;
 pub use crate::settings::analysis::AnalysisSection;
@@ -31,6 +32,7 @@ pub use crate::settings::package_visibility::PackageVisibilitySection;
 use crate::settings::package_visibility::PackageVisibilitySectionData;
 
 pub(crate) static ALL_SECTION_METADATA: &[SectionMetadata] = &[
+    AgentConfigChangeSettings::METADATA,
     AgentInteractiveSettings::METADATA,
     AgentMaterializationSettings::METADATA,
     AnalysisSection::METADATA,
@@ -43,6 +45,8 @@ pub(crate) static ALL_SECTION_METADATA: &[SectionMetadata] = &[
 #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Allocative)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct BuckSettingsData {
+    #[serde(default)]
+    agent_config_change: AgentConfigChangeSettings,
     #[serde(default)]
     agent_interactive: AgentInteractiveSettings,
     #[serde(default)]
@@ -93,6 +97,7 @@ pub struct BuckSettings {
 )]
 #[serde(default, deny_unknown_fields)]
 pub struct InvocationBuckSettings {
+    pub agent_config_change: AgentConfigChangeSettings,
     pub agent_interactive: AgentInteractiveSettings,
     pub agent_materialization: AgentMaterializationSettings,
 }
@@ -154,6 +159,7 @@ impl From<BuckSettingsData> for BuckSettings {
                 package_visibility: PackageVisibilitySection(Arc::new(data.package_visibility)),
             },
             invocation: InvocationBuckSettings {
+                agent_config_change: data.agent_config_change,
                 agent_interactive: data.agent_interactive,
                 agent_materialization: data.agent_materialization,
             },
@@ -272,22 +278,23 @@ mod tests {
     #[test]
     fn test_section_scope_applies_to_all_settings() -> buck2_error::Result<()> {
         let previous = BuckSettings::default();
-        for name in [
-            "enabled",
-            "killall_enabled",
-            "clean_enabled",
-            "new_isolation_dir_enabled",
+        for (section, name) in [
+            ("agent_interactive", "enabled"),
+            ("agent_interactive", "killall_enabled"),
+            ("agent_interactive", "clean_enabled"),
+            ("agent_interactive", "new_isolation_dir_enabled"),
+            ("agent_config_change", "enabled"),
         ] {
             let current: BuckSettings = serde_json::from_value(serde_json::json!({
-                "agent_interactive": {name: true},
+                section: {name: true},
             }))?;
             assert!(
                 current.daemon.changes_from(&previous.daemon).is_empty(),
-                "{name}"
+                "{section}.{name}"
             );
             let request = serde_json::to_string(&current.invocation)?;
             let values: Value = serde_json::from_str(&request)?;
-            assert_eq!(values["agent_interactive"][name], true);
+            assert_eq!(values[section][name], true);
             assert!(values.get("analysis").is_none());
             assert!(values.get("log_download").is_none());
             assert_eq!(
@@ -348,6 +355,7 @@ mod tests {
         assert_eq!(
             values,
             serde_json::json!({
+                "agent_config_change": {"enabled": null},
                 "agent_materialization": {"enabled": false},
                 "agent_interactive": {
                     "enabled": true,
