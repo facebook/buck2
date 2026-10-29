@@ -14,6 +14,8 @@ Archives are extracted into ``--output``. Existing directories are inspected in
 place, without copying, when ``--output`` is omitted.
 """
 
+from __future__ import annotations
+
 import argparse
 import configparser
 import glob

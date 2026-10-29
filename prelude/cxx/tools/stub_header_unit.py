@@ -19,6 +19,8 @@ Transforms compiler arguments:
 - Intercepts -MF to use a temporary file
 """
 
+from __future__ import annotations
+
 import hashlib
 import os
 import shlex
