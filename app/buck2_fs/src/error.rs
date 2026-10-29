@@ -391,6 +391,7 @@ impl<T> IoResultExt<T> for Result<T, IoError> {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(unix)]
     use super::*;
 
     #[cfg(unix)]
