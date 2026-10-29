@@ -2111,7 +2111,9 @@ _PRECOMPILE_OPTION_IGNORE_REGEX_STR = (
         "-gdwarf.*",
         # Profiling flags, used for PGO in the backend.
         "-fdebug-info-for-profiling",
+        "-fprofile-instr-use=.*",
         "-fprofile-sample-use=.*",
+        "-fprofile-use=.*",
     ])
     + ")$"
 )
