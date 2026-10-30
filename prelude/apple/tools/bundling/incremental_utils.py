@@ -225,15 +225,22 @@ def _list_directory_deterministically(
     for current_dir_path, dir_names, file_names in os.walk(directory):
         relative_dir = os.path.relpath(current_dir_path, directory)
         destination_dir = os.path.join(destination_prefix, relative_dir)
+        # `os.walk` lists a symlink to a directory among the directories but does not
+        # descend into it, so it is an entry of the bundle like a file.
+        linked_dir_names = [
+            dir_name
+            for dir_name in dir_names
+            if os.path.islink(os.path.join(current_dir_path, dir_name))
+        ]
         result += [
             (
                 Path(os.path.join(current_dir_path, file_name)),
                 Path(os.path.join(destination_dir, file_name)),
             )
-            for file_name in sorted(file_names)
+            for file_name in sorted(file_names + linked_dir_names)
         ]
         # Sort in order for walk to be deterministic.
-        dir_names.sort()
+        dir_names[:] = sorted(set(dir_names) - set(linked_dir_names))
     return result
 
 

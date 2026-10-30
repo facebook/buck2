@@ -95,9 +95,17 @@ class TestIncrementalSymlinks(unittest.TestCase):
             assemble_bundle(with_framework, Path("a.app"), _context(state), True, False)
             assemble_bundle(with_framework, Path("b.app"), None, True, False)
 
-    def test_adding_a_versioned_framework_fails(self) -> None:
+    def test_adding_a_versioned_framework_matches_a_fresh_bundle(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
-            # The framework's `Foo` symlink is new to the bundle, and the incremental path
-            # unlinks a changed symlink's old destination before copying it.
-            with self.assertRaises(FileNotFoundError):
-                self._bundle_main_then_add_framework(Path(temp_dir))
+            root = Path(temp_dir)
+            self._bundle_main_then_add_framework(root)
+            incremental = _layout(root / "a.app")
+            self.assertEqual(incremental, _layout(root / "b.app"))
+            framework = "Contents/Frameworks/Foo.framework"
+            current = (f"{framework}/Versions/Current", "symlink", "A")
+            self.assertIn(current, incremental)
+            self.assertIn(
+                (f"{framework}/Resources", "symlink", "Versions/Current/Resources"),
+                incremental,
+            )
+            self.assertEqual((root / "a.app" / framework / "Foo").read_text(), "binary")

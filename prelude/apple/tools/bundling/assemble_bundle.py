@@ -185,7 +185,8 @@ def _assemble_incrementally(
             old_resolved_symlink = old_symlink_destinations.get(dst, None)
             is_changed = new_resolved_symlink != old_resolved_symlink
             if is_changed:
-                project_relative_dst.unlink()
+                # A symlink new to the bundle has nothing to replace yet.
+                project_relative_dst.unlink(missing_ok=True)
         if is_changed:
             _LOGGER.debug(
                 f"Bundle item at path `{dst}` changed, updating with `{item.source}`."
