@@ -77,5 +77,9 @@ AppleToolsInfo = provider(
         "spm_packager": provider_field(RunInfo),
         "bundle_telemetry_logger": provider_field(RunInfo | None, default = None),
         "swiftmodule_change_analysis": provider_field(RunInfo | None, default = None),
+        # Rewrites a module's Swift sources into the `@_dynamicReplacement`
+        # thunks a hot-reload dylib is built from; absent when a toolchain does
+        # not provide it.
+        "make_swift_dynamic_thunk": provider_field(RunInfo | None, default = None),
     },
 )
