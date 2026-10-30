@@ -1267,19 +1267,19 @@ def _compute_transitive_deps(
     return transitive_deps, rust_debug_info, transitive_proc_macro_deps
 
 def rust_library_macro_wrapper(rust_library: typing.Callable) -> typing.Callable:
-    def wrapper(_proc_macro_alias_actual = None, **kwargs):
+    def wrapper(proc_macro_alias_actual = None, **kwargs):
         if kwargs.get("proc_macro") == True:
             name = kwargs["name"]
             if kwargs.get("crate", None) == None and kwargs.get("crate_dynamic", None) == None:
                 kwargs["crate"] = name.replace("-", "_")
 
-            if _proc_macro_alias_actual == None:
-                _proc_macro_alias_actual = ":_" + name
+            if proc_macro_alias_actual == None:
+                proc_macro_alias_actual = ":_" + name
 
             rust_proc_macro_alias(
                 name = name,
-                actual_exec = _proc_macro_alias_actual,
-                actual_plugin = _proc_macro_alias_actual,
+                actual_exec = proc_macro_alias_actual,
+                actual_plugin = proc_macro_alias_actual,
                 default_target_platform = kwargs.get("default_target_platform", None),
                 visibility = kwargs.pop("visibility", []),
                 _rust_toolchain = kwargs.get("_rust_toolchain", None),
