@@ -186,15 +186,15 @@ mod fbcode {
                         section: BUCK2_RE_CLIENT_CFG_SECTION,
                         property: "presence_check_concurrency",
                     })?
-                    .unwrap_or(100),
-                // The internal CAS client accepts up to 500 per RPC; 50 keeps the RPCs close in
-                // shape to the one-per-action calls `find_missing` made before the check existed.
+                    .unwrap_or(10),
+                // The internal CAS client accepts up to 500 per RPC; we see significant
+                // improvements from larger batching
                 presence_check_max_batch: legacy_config
                     .parse(BuckconfigKeyRef {
                         section: BUCK2_RE_CLIENT_CFG_SECTION,
                         property: "presence_check_max_batch",
                     })?
-                    .unwrap_or(50),
+                    .unwrap_or(500),
                 shared_casd_cache_path: legacy_config.parse(BuckconfigKeyRef {
                     section: BUCK2_RE_CLIENT_CFG_SECTION,
                     property: "cas_shared_cache",
@@ -395,9 +395,10 @@ mod fbcode {
         }
 
         fn action_cache_semaphore_size(&self) -> usize {
-            // See D116018045 for data showing that scaling this much higher doesn't really matter, and
-            // hurts Max RSS as more state is kept in-flight without actually completing anything faster
-            self.action_cache_semaphore_size.unwrap_or(1000)
+            // See D116018045 for data showing that scaling this much higher doesn't really matter
+            // at data center latency, and hurts Max RSS; on non-dc networks though, somewhat larger
+            // numbers are needed
+            self.action_cache_semaphore_size.unwrap_or(5000)
         }
 
         fn exec_semaphore_size(&self) -> usize {
