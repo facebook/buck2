@@ -2674,7 +2674,6 @@ dependencies = [
  "buck2_fs",
  "buck2_hash",
  "buck2_util",
- "cmp_any",
  "derive_more 2.1.1",
  "dice",
  "dupe",
