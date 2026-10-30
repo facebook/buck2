@@ -29,7 +29,7 @@ jobs:
   # (16-core-ubuntu) doesn't exist on forks; fall back to the standard
   # GitHub-hosted runner there.
   linux-build-with-buck2:
-    runs-on: ${{ github.repository_owner == 'facebook' && '16-core-ubuntu' || 'ubuntu-latest' }}
+    runs-on: ${{ github.repository_owner == 'meta' && '16-core-ubuntu' || 'ubuntu-latest' }}
     steps:
     - uses: actions/checkout@v6
     - uses: ./.github/actions/setup_rust_toolchain

@@ -62,10 +62,10 @@ jobs:
             triple: 'riscv64gc-unknown-linux-gnu'
             cross: true
           # macos-15-xlarge is a Meta larger runner; forks get the standard one.
-          - os: ${{ github.repository_owner == 'facebook' && 'macos-15-xlarge' || 'macos-15' }}
+          - os: ${{ github.repository_owner == 'meta' && 'macos-15-xlarge' || 'macos-15' }}
             triple: 'aarch64-apple-darwin'
             cross: true
-          - os: ${{ github.repository_owner == 'facebook' && 'macos-15-xlarge' || 'macos-15' }}
+          - os: ${{ github.repository_owner == 'meta' && 'macos-15-xlarge' || 'macos-15' }}
             triple: 'x86_64-apple-darwin'
           - os: 'windows-2025'
             triple: 'x86_64-pc-windows-msvc'

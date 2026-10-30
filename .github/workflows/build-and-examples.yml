@@ -13,14 +13,8 @@ env:
 
 jobs:
   macos-build-examples:
-    # Pinned to macos-14: on the macos-15 runner image `latest-stable` selects an
-    # Xcode/SDK that mis-targets the deployment SDK and breaks the `cargo build`
-    # step (actions/runner-images#12758). macos-14 resolves to a known-good Xcode 16.x.
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
-    - uses: maxim-lobanov/setup-xcode@v1.6.0
-      with:
-        xcode-version: latest-stable
     - uses: actions/checkout@v6
     - uses: ./.github/actions/setup_macos_env
     - uses: ./.github/actions/init_opam
@@ -91,7 +85,7 @@ jobs:
   # fall back to the standard GitHub-hosted runner there so the job doesn't
   # sit queued forever waiting for a runner that isn't available.
   windows-build-examples:
-    runs-on: ${{ github.repository_owner == 'facebook' && 'windows-8-core' || 'windows-latest' }}
+    runs-on: ${{ github.repository_owner == 'meta' && 'windows-8-core' || 'windows-latest' }}
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/setup_windows_env

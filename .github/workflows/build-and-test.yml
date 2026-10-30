@@ -29,7 +29,7 @@ jobs:
   # artifacts, so they run as separate jobs for wall time.
   #
   # Runner labels are repository (owner) specific, so the Meta larger runners
-  # (16-core-ubuntu, macos-14-xlarge, windows-8-core) don't exist on forks and
+  # (16-core-ubuntu, macos-15-xlarge, windows-8-core) don't exist on forks and
   # jobs requesting them would sit queued forever waiting for a runner that
   # isn't available. Fall back to the standard GitHub-hosted runners there.
   lint:
@@ -39,11 +39,11 @@ jobs:
       matrix:
         include:
           - name: linux
-            runs-on: ${{ github.repository_owner == 'facebook' && '16-core-ubuntu' || 'ubuntu-latest' }}
+            runs-on: ${{ github.repository_owner == 'meta' && '16-core-ubuntu' || 'ubuntu-latest' }}
           - name: macos
-            runs-on: ${{ github.repository_owner == 'facebook' && 'macos-14-xlarge' || 'macos-14' }}
+            runs-on: ${{ github.repository_owner == 'meta' && 'macos-15-xlarge' || 'macos-15' }}
           - name: windows
-            runs-on: ${{ github.repository_owner == 'facebook' && 'windows-8-core' || 'windows-latest' }}
+            runs-on: ${{ github.repository_owner == 'meta' && 'windows-8-core' || 'windows-latest' }}
     runs-on: ${{ matrix.runs-on }}
     steps:
     - uses: actions/checkout@v6
@@ -68,11 +68,11 @@ jobs:
       matrix:
         include:
           - name: linux
-            runs-on: ${{ github.repository_owner == 'facebook' && '16-core-ubuntu' || 'ubuntu-latest' }}
+            runs-on: ${{ github.repository_owner == 'meta' && '16-core-ubuntu' || 'ubuntu-latest' }}
           - name: macos
-            runs-on: ${{ github.repository_owner == 'facebook' && 'macos-14-xlarge' || 'macos-14' }}
+            runs-on: ${{ github.repository_owner == 'meta' && 'macos-15-xlarge' || 'macos-15' }}
           - name: windows
-            runs-on: ${{ github.repository_owner == 'facebook' && 'windows-8-core' || 'windows-latest' }}
+            runs-on: ${{ github.repository_owner == 'meta' && 'windows-8-core' || 'windows-latest' }}
     runs-on: ${{ matrix.runs-on }}
     steps:
     - uses: actions/checkout@v6
