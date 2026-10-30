@@ -378,7 +378,10 @@ mod tests {
         assert!(with_label("fbsource//third-party/rust/vendor/tokio:1").is_reindeer_third_party());
         assert!(with_label("fbsource//third-party/rust:tokio").is_reindeer_third_party());
         assert!(with_label("fbsource//third-party/rust/top:rustc").is_reindeer_third_party());
-        assert!(with_label("fbsource//third-party/rust-toolchain:std").is_reindeer_third_party());
+        assert!(
+            with_label("fbsource//third-party/rust-toolchain:rust_allocator")
+                .is_reindeer_third_party()
+        );
         assert!(
             with_label("fbsource//third-party/rust-toolchain/1.98.1/rust:core")
                 .is_reindeer_third_party()
