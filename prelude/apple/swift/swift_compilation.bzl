@@ -1169,6 +1169,7 @@ def _get_shared_flags(
     extra_search_paths_flags: list[ArgLike],
     inputs_tag: ArtifactTag,
     is_macro: bool,
+    thunk_of_module: SwiftCompiledModuleInfo | None = None,
 ) -> (cmd_args, Artifact | None):
     toolchain = get_swift_toolchain_info(ctx)
     cmd = cmd_args()
@@ -1314,10 +1315,12 @@ def _get_shared_flags(
             inputs_tag = inputs_tag,
             cmd = cmd,
             is_macro = is_macro,
+            map_module_name = module_name,
+            own_module = thunk_of_module,
         )
 
     _add_clang_deps_flags(ctx, pcm_deps_tset, cmd, inputs_tag)
-    _add_swift_deps_flags(ctx, cmd, is_macro)
+    _add_swift_deps_flags(ctx, cmd, is_macro, own_module = thunk_of_module)
 
     # Add flags for importing the ObjC part of this library
     _add_mixed_library_flags_to_cmd(
@@ -1325,6 +1328,7 @@ def _get_shared_flags(
         cmd,
         public_module,
         public_modulemap_pp_info,
+        import_underlying_module = thunk_of_module == None,
     )
 
     # Add toolchain and target flags last to allow for overriding defaults
@@ -1342,18 +1346,20 @@ def _add_swift_module_map_args(
     inputs_tag: ArtifactTag,
     cmd: cmd_args,
     is_macro: bool,
+    map_module_name: str,
+    own_module: SwiftCompiledModuleInfo | None = None,
 ) -> Artifact:
-    module_name = get_module_name(ctx)
     sdk_swiftmodule_deps_tset = [sdk_swiftmodule_deps_tset] if sdk_swiftmodule_deps_tset else []
-    all_deps_tset = ctx.actions.tset(
-        SwiftCompiledModuleTset,
-        children = _get_swift_paths_tsets(is_macro, ctx.attrs.deps + getattr(ctx.attrs, "exported_deps", []))
-        + [pcm_deps_tset, sdk_deps_tset]
-        + sdk_swiftmodule_deps_tset,
+    children = (
+        _get_swift_paths_tsets(is_macro, ctx.attrs.deps + getattr(ctx.attrs, "exported_deps", [])) + [pcm_deps_tset, sdk_deps_tset] + sdk_swiftmodule_deps_tset
     )
+    if own_module:
+        all_deps_tset = ctx.actions.tset(SwiftCompiledModuleTset, value = own_module, children = children)
+    else:
+        all_deps_tset = ctx.actions.tset(SwiftCompiledModuleTset, children = children)
     swift_module_map_artifact, swift_module_map_args = write_swift_module_map_with_deps(
         ctx,
-        module_name,
+        map_module_name,
         all_deps_tset,
     )
     cmd.add([
@@ -1364,7 +1370,12 @@ def _add_swift_module_map_args(
     ])
     return swift_module_map_artifact
 
-def _add_swift_deps_flags(ctx: AnalysisContext, cmd: cmd_args, is_macro: bool):
+def _add_swift_deps_flags(
+    ctx: AnalysisContext,
+    cmd: cmd_args,
+    is_macro: bool,
+    own_module: SwiftCompiledModuleInfo | None = None,
+):
     if uses_explicit_modules(ctx):
         cmd.add([
             "-Xcc",
@@ -1375,7 +1386,11 @@ def _add_swift_deps_flags(ctx: AnalysisContext, cmd: cmd_args, is_macro: bool):
             "-disable-implicit-swift-modules",
         ])
     else:
-        depset = ctx.actions.tset(SwiftCompiledModuleTset, children = _get_swift_paths_tsets(is_macro, ctx.attrs.deps + getattr(ctx.attrs, "exported_deps", [])))
+        children = _get_swift_paths_tsets(is_macro, ctx.attrs.deps + getattr(ctx.attrs, "exported_deps", []))
+        if own_module:
+            depset = ctx.actions.tset(SwiftCompiledModuleTset, value = own_module, children = children)
+        else:
+            depset = ctx.actions.tset(SwiftCompiledModuleTset, children = children)
         cmd.add(depset.project_as_args("module_search_path"))
 
         implicit_search_path_tset = get_implicit_framework_search_path_providers(
@@ -1396,13 +1411,18 @@ def _add_clang_deps_flags(ctx: AnalysisContext, pcm_deps_tset: SwiftCompiledModu
         cmd.add(cmd_args(preprocessors.set.project_as_args("modular_args"), prepend = "-Xcc"))
 
 def _add_mixed_library_flags_to_cmd(
-    ctx: AnalysisContext, cmd: cmd_args, underlying_module: SwiftCompiledModuleInfo | None, public_modulemap_pp_info: CPreprocessor | None
+    ctx: AnalysisContext,
+    cmd: cmd_args,
+    underlying_module: SwiftCompiledModuleInfo | None,
+    public_modulemap_pp_info: CPreprocessor | None,
+    import_underlying_module: bool = True,
 ) -> None:
     if uses_explicit_modules(ctx):
         if underlying_module:
             cmd.add(underlying_module.clang_importer_args)
             cmd.add(clang_module_file_args(underlying_module))
-            cmd.add("-import-underlying-module")
+            if import_underlying_module:
+                cmd.add("-import-underlying-module")
         return
 
     for objc_modulemap_pp_info in filter(None, [public_modulemap_pp_info]):
@@ -1418,7 +1438,7 @@ def _add_mixed_library_flags_to_cmd(
             cmd.add("-Xcc")
             cmd.add(arg)
 
-    if public_modulemap_pp_info:
+    if public_modulemap_pp_info and import_underlying_module:
         cmd.add("-import-underlying-module")
 
 def _get_swift_dependency_info(is_macro: bool, deps: list[Dependency]) -> list[SwiftDependencyInfo]:
