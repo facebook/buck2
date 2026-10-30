@@ -11,7 +11,6 @@
 use std::cell::RefCell;
 use std::sync::Arc;
 
-use buck2_common::settings::PackageVisibilityDefaultIntersection;
 use buck2_core::pattern::package::PackagePattern;
 use buck2_hash::BuckMutInsertionMap;
 use buck2_interpreter::paths::package::PackageFilePath;
@@ -25,6 +24,7 @@ use buck2_node::visibility::VisibilityLayerOrigin;
 use buck2_node::visibility::VisibilityPatternList;
 use buck2_node::visibility::VisibilitySpecification;
 use buck2_node::visibility::WithinViewSpecification;
+use buck2_settings::PackageVisibilityDefaultIntersection;
 use buck2_util::arc_str::ThinArcSlice;
 use dupe::Dupe;
 

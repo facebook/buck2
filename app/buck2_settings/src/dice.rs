@@ -12,7 +12,7 @@ use dice::DiceData;
 use dice::DiceDataBuilder;
 use dupe::Dupe;
 
-use crate::settings::DaemonBuckSettings;
+use crate::DaemonBuckSettings;
 
 /// Reads the daemon's Buck settings from DICE global data. Unlike buckconfig
 /// reads this is a plain lookup, not a tracked computation.
@@ -51,7 +51,7 @@ impl SetBuckSettings for DiceData {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::settings::BuckSettings;
+    use crate::BuckSettings;
 
     #[test]
     fn test_dice_exposes_only_daemon_settings() -> buck2_error::Result<()> {

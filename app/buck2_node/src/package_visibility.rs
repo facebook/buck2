@@ -14,7 +14,7 @@
 //! restarts the daemon), so it travels as per-transaction data rather than a
 //! DICE key — no invalidation is ever needed.
 
-use buck2_common::settings::PackageVisibilityDefaultIntersection;
+use buck2_settings::PackageVisibilityDefaultIntersection;
 use dice::UserComputationData;
 
 /// Per-transaction storage for the effective mode.

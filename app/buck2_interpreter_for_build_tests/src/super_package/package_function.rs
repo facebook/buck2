@@ -8,12 +8,12 @@
  * above-listed licenses.
  */
 
-use buck2_common::settings::PackageVisibilityDefaultIntersection;
 use buck2_core::fs::project::ProjectRootTemp;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::visibility::VisibilitySpecification;
+use buck2_settings::PackageVisibilityDefaultIntersection;
 
 use crate::tests::calculation;
 use crate::tests::calculation_with_package_visibility_mode;

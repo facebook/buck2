@@ -19,7 +19,6 @@ use buck2_common::ignores::ignore_set::IgnoreSet;
 use buck2_common::ignores::ignore_set::SetIgnoreSet;
 use buck2_common::legacy_configs::cells::ExternalBuckconfigData;
 use buck2_common::legacy_configs::dice::SetLegacyConfigs;
-use buck2_common::settings::PackageVisibilityDefaultIntersection;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
@@ -40,6 +39,7 @@ use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfig
 use buck2_interpreter_for_build::interpreter::context::SetInterpreterContext;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::package_visibility::HasPackageVisibilityDefaultIntersection;
+use buck2_settings::PackageVisibilityDefaultIntersection;
 use dice::DetectCycles;
 use dice::Dice;
 use dice::DiceTransaction;

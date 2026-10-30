@@ -18,6 +18,7 @@ buck2_core.workspace = true
 buck2_error.workspace = true
 buck2_hash.workspace = true
 buck2_node.workspace = true
+buck2_settings.workspace = true
 buck2_util.workspace = true
 derive_more.workspace = true
 dice.workspace = true

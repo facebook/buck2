@@ -29,10 +29,10 @@ use buck2_agent_interactive::Invocation;
 use buck2_common::legacy_configs::cells::ExternalBuckconfigData;
 use buck2_common::legacy_configs::cells::ExternalBuckconfigDataDiff;
 use buck2_common::legacy_configs::dice::HasInjectedLegacyConfigs;
-use buck2_common::settings::InvocationBuckSettings;
 use buck2_data::AgentContextEntry;
 use buck2_error::ErrorTag;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_settings::InvocationBuckSettings;
 use dice::DiceComputations;
 
 /// Blocks a direct agent call that drops config args injected in `existing` and thereby changes a

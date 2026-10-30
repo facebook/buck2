@@ -17,7 +17,6 @@ use std::fmt::Formatter;
 use std::time::Instant;
 
 use allocative::Allocative;
-use buck2_common::settings::dice::HasBuckSettings;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
@@ -30,6 +29,7 @@ use buck2_execute::digest_config::DigestConfig;
 use buck2_hash::BuckMutInsertionSet;
 use buck2_interpreter::late_binding_ty::AnalysisContextReprLate;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
+use buck2_settings::dice::HasBuckSettings;
 use buck2_util::late_binding::LateBinding;
 use derive_more::Display;
 use dice::DiceComputations;

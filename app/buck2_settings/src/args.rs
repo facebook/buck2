@@ -87,7 +87,7 @@ fn parse_setting_value(raw_value: &str, raw_arg: &str) -> buck2_error::Result<to
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::settings::parser::table;
+    use crate::parser::table;
 
     #[test]
     fn test_parse_setting_flag_arg_valid_formats() -> buck2_error::Result<()> {

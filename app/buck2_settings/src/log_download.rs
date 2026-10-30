@@ -15,10 +15,10 @@ use dupe::Dupe;
 use serde::Deserialize;
 use serde::Serialize;
 
-use crate::settings::metadata::OverrideSource;
-use crate::settings::metadata::SectionMetadata;
-use crate::settings::metadata::SettingKey;
-use crate::settings::metadata::SettingKeyMetadata;
+use crate::metadata::OverrideSource;
+use crate::metadata::SectionMetadata;
+use crate::metadata::SettingKey;
+use crate::metadata::SettingKeyMetadata;
 
 const URL: SettingKey<&'static str> = SettingKey {
     metadata: SettingKeyMetadata {
@@ -80,12 +80,12 @@ impl LogDownloadSection {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::settings::BuckSettings;
-    use crate::settings::metadata::SettingKeyRef;
-    use crate::settings::metadata::find_setting_metadata;
-    use crate::settings::parser::resolve_setting_flags;
-    use crate::settings::parser::table;
-    use crate::settings::settings::ALL_SECTION_METADATA;
+    use crate::BuckSettings;
+    use crate::metadata::SettingKeyRef;
+    use crate::metadata::find_setting_metadata;
+    use crate::parser::resolve_setting_flags;
+    use crate::parser::table;
+    use crate::settings::ALL_SECTION_METADATA;
 
     #[test]
     fn test_default_log_use_manifold() {

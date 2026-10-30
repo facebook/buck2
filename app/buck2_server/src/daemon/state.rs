@@ -36,8 +36,6 @@ use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::legacy_configs::parse_buckconfig_metadata;
-use buck2_common::settings::DaemonBuckSettings;
-use buck2_common::settings::PackageVisibilityDefaultIntersection;
 use buck2_common::sqlite::sqlite_db::SqliteDb;
 use buck2_common::sqlite::sqlite_db::SqliteIdentity;
 use buck2_common::tenant::TenantKey;
@@ -105,6 +103,8 @@ use buck2_resource_control::memory_tracker;
 use buck2_resource_control::memory_tracker::MemoryTrackerHandle;
 use buck2_server_ctx::concurrency::ConcurrencyHandler;
 use buck2_server_ctx::ctx::LockedPreviousCommandData;
+use buck2_settings::DaemonBuckSettings;
+use buck2_settings::PackageVisibilityDefaultIntersection;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dice::EvictionPolicy;
 use dupe::Dupe;
@@ -1734,9 +1734,9 @@ mod tests {
 
     use buck2_cli_proto::TenantIdentity;
     use buck2_common::legacy_configs::configs::testing::parse;
-    use buck2_common::settings::DaemonBuckSettings;
     use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_fs::paths::file_name::FileNameBuf;
+    use buck2_settings::DaemonBuckSettings;
     use indoc::indoc;
 
     use super::*;

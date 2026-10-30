@@ -33,7 +33,6 @@ use buck2_common::client_utils::retrying;
 use buck2_common::daemon_dir::DaemonDir;
 use buck2_common::init::DaemonStartupConfig;
 use buck2_common::invocation_paths::InvocationPaths;
-use buck2_common::settings::BuckSettingChange;
 use buck2_core::buck2_env;
 use buck2_data::DaemonWasStartedReason;
 use buck2_error::BuckErrorContext;
@@ -45,6 +44,7 @@ use buck2_events::daemon_id::DaemonId;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_resource_control::spawn_daemon::create_daemon_spawn_command;
+use buck2_settings::BuckSettingChange;
 use buck2_util::truncate::truncate;
 use buck2_wrapper_common::invocation_id::TraceId;
 use buck2_wrapper_common::kill::process_exists;
@@ -1496,8 +1496,8 @@ fn is_nested_invocation(
 
 #[cfg(test)]
 mod tests {
-    use buck2_common::settings::BuckSettings;
     use buck2_error::internal_error;
+    use buck2_settings::BuckSettings;
 
     use super::*;
 

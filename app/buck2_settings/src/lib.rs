@@ -8,7 +8,11 @@
  * above-listed licenses.
  */
 
-//! Typed buck settings, replaces buckconfig for core buck2 settings.
+//! Typed Buck settings: the configuration buck2 core reads about itself,
+//! replacing the buckconfig keys it used to read. Values come from
+//! `.bucksettings.toml` files, the wrapper's rollout cache, and `--setting`;
+//! every key is declared in this crate with its type, defaults, scope, and
+//! override policy, and nothing here is readable from Starlark.
 
 pub mod agent_config_change;
 pub mod agent_interactive;

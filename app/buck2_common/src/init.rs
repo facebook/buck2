@@ -19,6 +19,8 @@ use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileName;
 #[cfg(fbcode_build)]
 use buck2_http::ProxyHostAllowlist;
+use buck2_settings::BuckSettingChange;
+use buck2_settings::DaemonBuckSettings;
 use dice::EvictionPolicy;
 use dice::PagableStorageBackend;
 use dice::PageOutPolicy;
@@ -28,8 +30,6 @@ use serde::Serialize;
 
 use crate::legacy_configs::configs::LegacyBuckConfig;
 use crate::legacy_configs::key::BuckconfigKeyRef;
-use crate::settings::BuckSettingChange;
-use crate::settings::DaemonBuckSettings;
 
 pub const DEFAULT_RETAINED_EVENT_LOGS: usize = 12;
 
@@ -812,12 +812,12 @@ impl DaemonStartupConfig {
 
 #[cfg(test)]
 mod tests {
+    use buck2_settings::parser::resolve_setting_flags;
+    use buck2_settings::parser::table;
     use indoc::indoc;
 
     use super::*;
     use crate::legacy_configs::configs::testing::parse;
-    use crate::settings::parser::resolve_setting_flags;
-    use crate::settings::parser::table;
 
     #[test]
     fn test_startup_config_serialization() -> buck2_error::Result<()> {
@@ -888,6 +888,28 @@ mod tests {
                 FileName::new("v2").expect("The default isolation dir should be valid"),
             )
             .expect("Idle page-out should enable hydration");
+        assert!(hydration.page_out_on_idle);
+        Ok(())
+    }
+
+    #[test]
+    fn test_idle_page_out_scope_selects_isolation_dirs() -> buck2_error::Result<()> {
+        let config = parse(&[("config", "")], "config")?;
+        let settings = resolve_setting_flags(vec![table(
+            "[hydration]\nenable_paging = true\npage_out_on_idle = true\npage_out_on_idle_isolation_dir_scope = \"non_default\"",
+        )])?;
+        let startup_config = DaemonStartupConfig::new(&config, &settings.daemon, false)?;
+        assert_eq!(
+            startup_config.idle_page_out_config_for_isolation_dir(
+                FileName::new("v2").expect("The default isolation dir should be valid"),
+            ),
+            None,
+        );
+        let hydration = startup_config
+            .idle_page_out_config_for_isolation_dir(
+                FileName::new("custom").expect("The test isolation dir should be valid"),
+            )
+            .expect("Idle page-out should be enabled outside the default daemon");
         assert!(hydration.page_out_on_idle);
         Ok(())
     }

@@ -17,19 +17,19 @@ use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::settings::agent_config_change::AgentConfigChangeSettings;
-use crate::settings::agent_interactive::AgentInteractiveSettings;
-use crate::settings::agent_materialization::AgentMaterializationSettings;
-pub use crate::settings::analysis::AnalysisSection;
-use crate::settings::analysis::AnalysisSectionData;
-pub use crate::settings::hydration::HydrationSection;
-use crate::settings::hydration::HydrationSectionData;
-pub use crate::settings::log_download::LogDownloadSection;
-use crate::settings::log_download::LogDownloadSectionData;
-use crate::settings::metadata::SectionMetadata;
-pub use crate::settings::package_visibility::PackageVisibilityDefaultIntersection;
-pub use crate::settings::package_visibility::PackageVisibilitySection;
-use crate::settings::package_visibility::PackageVisibilitySectionData;
+use crate::agent_config_change::AgentConfigChangeSettings;
+use crate::agent_interactive::AgentInteractiveSettings;
+use crate::agent_materialization::AgentMaterializationSettings;
+pub use crate::analysis::AnalysisSection;
+use crate::analysis::AnalysisSectionData;
+pub use crate::hydration::HydrationSection;
+use crate::hydration::HydrationSectionData;
+pub use crate::log_download::LogDownloadSection;
+use crate::log_download::LogDownloadSectionData;
+use crate::metadata::SectionMetadata;
+pub use crate::package_visibility::PackageVisibilityDefaultIntersection;
+pub use crate::package_visibility::PackageVisibilitySection;
+use crate::package_visibility::PackageVisibilitySectionData;
 
 pub(crate) static ALL_SECTION_METADATA: &[SectionMetadata] = &[
     AgentConfigChangeSettings::METADATA,
@@ -117,7 +117,7 @@ impl InvocationBuckSettings {
 /// this struct participates in restart checks and may be retained in global state.
 ///
 /// ```compile_fail
-/// use buck2_common::settings::DaemonBuckSettings;
+/// use buck2_settings::DaemonBuckSettings;
 /// DaemonBuckSettings::default().agent_materialization.enabled();
 /// ```
 #[derive(

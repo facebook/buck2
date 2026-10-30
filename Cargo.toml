@@ -149,6 +149,7 @@ members = [
   "app/buck2_server_commands",
   "app/buck2_server_ctx",
   "app/buck2_server_starlark_debug",
+  "app/buck2_settings",
   "app/buck2_subscription_proto",
   "app/buck2_test",
   "app/buck2_test_api",
@@ -320,6 +321,7 @@ buck2_server = { path = "app/buck2_server" }
 buck2_server_commands = { path = "app/buck2_server_commands" }
 buck2_server_ctx = { path = "app/buck2_server_ctx" }
 buck2_server_starlark_debug = { path = "app/buck2_server_starlark_debug" }
+buck2_settings = { path = "app/buck2_settings" }
 buck2_sketches = { path = "buck2_sketches" }
 buck2_subscription_proto = { path = "app/buck2_subscription_proto" }
 buck2_test = { path = "app/buck2_test" }

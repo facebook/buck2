@@ -21,21 +21,21 @@ use buck2_fs::paths::abs_path::AbsPath;
 use buck2_fs::paths::abs_path::AbsPathBuf;
 use serde::de::DeserializeOwned;
 
-use crate::settings::BuckSettings;
-use crate::settings::metadata::OverrideSource;
-use crate::settings::metadata::SectionMetadata;
-use crate::settings::metadata::SettingKeyRef;
-use crate::settings::metadata::SettingSource;
-use crate::settings::metadata::find_setting_metadata;
-use crate::settings::path::DEFAULT_SETTINGS_SOURCES;
-use crate::settings::path::DOT_BUCKSETTINGS;
-use crate::settings::path::SettingsSource as SettingsPathSource;
+use crate::BuckSettings;
+use crate::metadata::OverrideSource;
+use crate::metadata::SectionMetadata;
+use crate::metadata::SettingKeyRef;
+use crate::metadata::SettingSource;
+use crate::metadata::find_setting_metadata;
+use crate::path::DEFAULT_SETTINGS_SOURCES;
+use crate::path::DOT_BUCKSETTINGS;
+use crate::path::SettingsSource as SettingsPathSource;
 #[cfg(fbcode_build)]
-use crate::settings::path::rollouts_path;
+use crate::path::rollouts_path;
 #[cfg(fbcode_build)]
-use crate::settings::rollouts::select_rollout_table;
-use crate::settings::settings::ALL_SECTION_METADATA;
-use crate::settings::settings::BuckSettingsData;
+use crate::rollouts::select_rollout_table;
+use crate::settings::ALL_SECTION_METADATA;
+use crate::settings::BuckSettingsData;
 
 /// Source of a setting value.
 #[derive(Debug, PartialEq, Eq, derive_more::Display)]
@@ -326,8 +326,8 @@ fn resolve(layers: Vec<SettingsLayer>) -> buck2_error::Result<BuckSettings> {
     Ok(data.into())
 }
 
-#[cfg(test)]
-pub(crate) fn resolve_setting_flags(tables: Vec<toml::Table>) -> buck2_error::Result<BuckSettings> {
+/// Resolves `tables` as if each were a `--setting` layer. For tests.
+pub fn resolve_setting_flags(tables: Vec<toml::Table>) -> buck2_error::Result<BuckSettings> {
     resolve(
         tables
             .into_iter()
@@ -415,8 +415,8 @@ fn parse_settings_with_home(
     resolve(layers)
 }
 
-#[cfg(test)]
-pub(crate) fn table(content: &str) -> toml::Table {
+/// Parses TOML that is known to be valid. For tests.
+pub fn table(content: &str) -> toml::Table {
     toml::from_str(content).unwrap()
 }
 
@@ -425,11 +425,11 @@ mod tests {
     use buck2_core::fs::project::ProjectRootTemp;
 
     use super::*;
-    use crate::settings::args::SettingOverride;
-    use crate::settings::args::parse_setting_flag_arg;
-    use crate::settings::metadata::SettingKeyMetadata;
-    use crate::settings::settings::testing::TestBuckSettingsData;
-    use crate::settings::settings::testing::TestSection;
+    use crate::args::SettingOverride;
+    use crate::args::parse_setting_flag_arg;
+    use crate::metadata::SettingKeyMetadata;
+    use crate::settings::testing::TestBuckSettingsData;
+    use crate::settings::testing::TestSection;
 
     impl MergedSettings {
         fn provenance(&self, key: SettingKeyRef<'_>) -> Option<&Provenance> {
@@ -507,10 +507,8 @@ mod tests {
         use buck2_fs::paths::file_name::FileName;
 
         use super::*;
-        use crate::init::DaemonStartupConfig;
-        use crate::legacy_configs::configs::testing::parse as parse_legacy_config;
-        use crate::settings::path::DOT_BUCKSETTINGS_LOCAL;
-        use crate::settings::settings::ALL_SECTION_METADATA;
+        use crate::path::DOT_BUCKSETTINGS_LOCAL;
+        use crate::settings::ALL_SECTION_METADATA;
 
         const REPO_URL: &str = "https://repo/";
 
@@ -695,7 +693,7 @@ mod tests {
             Ok(())
         }
 
-        fn startup_config_for(rollout: Option<&str>) -> buck2_error::Result<DaemonStartupConfig> {
+        fn settings_for(rollout: Option<&str>) -> buck2_error::Result<BuckSettings> {
             let repo = ProjectRootTemp::new()?;
             repo.write_file(
                 DOT_BUCKSETTINGS,
@@ -709,47 +707,36 @@ mod tests {
                 DOT_BUCKSETTINGS_LOCAL,
                 "[log_download]\nlog_use_manifold = true\n",
             );
-            let settings = parse_settings_with_home(
+            parse_settings_with_home(
                 repo.path().root().as_abs_path(),
                 Some(home.path().root().as_abs_path()),
                 None,
                 &[],
-            )?;
-            let config = parse_legacy_config(&[("config", "")], "config")?;
-            DaemonStartupConfig::new(&config, &settings.daemon, false)
+            )
         }
 
         #[test]
-        fn rollout_value_changes_startup_config() -> buck2_error::Result<()> {
-            let before = startup_config_for(Some(&rollout_toml("log_url = \"https://before/\"")))?;
-            let after = startup_config_for(Some(&rollout_toml("log_url = \"https://after/\"")))?;
-            assert!(!before.buck_settings_changes_from(&after).is_empty());
+        fn rollout_value_changes_daemon_settings() -> buck2_error::Result<()> {
+            let before = settings_for(Some(&rollout_toml("log_url = \"https://before/\"")))?;
+            let after = settings_for(Some(&rollout_toml("log_url = \"https://after/\"")))?;
+            assert!(!after.daemon.changes_from(&before.daemon).is_empty());
             Ok(())
         }
 
         #[test]
-        fn hydration_rollout_configures_startup() -> buck2_error::Result<()> {
-            let startup_config = startup_config_for(Some(&hydration_rollout_toml(
+        fn hydration_rollout_scopes_idle_page_out() -> buck2_error::Result<()> {
+            let settings = settings_for(Some(&hydration_rollout_toml(
                 "enable_paging = true\npage_out_on_idle = true\npage_out_on_idle_isolation_dir_scope = \"non_default\"",
             )))?;
-            assert!(
-                startup_config
-                    .daemon_buck_settings()
-                    .hydration
-                    .enable_paging()
-            );
-            assert_eq!(
-                startup_config.idle_page_out_config_for_isolation_dir(
-                    FileName::new("v2").expect("The default isolation dir should be valid"),
-                ),
-                None,
-            );
-            let hydration = startup_config
-                .idle_page_out_config_for_isolation_dir(
-                    FileName::new("custom").expect("The test isolation dir should be valid"),
-                )
-                .expect("The rollout should enable idle page-out outside the default daemon");
-            assert!(hydration.page_out_on_idle);
+            let hydration = &settings.daemon.hydration;
+            assert!(hydration.enable_paging());
+            assert!(hydration.page_out_on_idle());
+            assert!(!hydration.page_out_on_idle_applies_to_isolation_dir(
+                FileName::new("v2").expect("The default isolation dir should be valid")
+            ));
+            assert!(hydration.page_out_on_idle_applies_to_isolation_dir(
+                FileName::new("custom").expect("The test isolation dir should be valid")
+            ));
             Ok(())
         }
 

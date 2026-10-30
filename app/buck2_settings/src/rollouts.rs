@@ -12,9 +12,9 @@
 
 use buck2_error::buck2_error;
 
-use crate::settings::metadata::SectionMetadata;
-use crate::settings::settings::ALL_SECTION_METADATA;
-use crate::settings::settings::BuckSettingsData;
+use crate::metadata::SectionMetadata;
+use crate::settings::ALL_SECTION_METADATA;
+use crate::settings::BuckSettingsData;
 
 /// Selects the exact compiled version of every registered settings section.
 ///

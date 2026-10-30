@@ -16,9 +16,9 @@ use pagable::Pagable;
 use serde::Deserialize;
 use serde::Serialize;
 
-use crate::settings::metadata::SectionMetadata;
-use crate::settings::metadata::SettingKey;
-use crate::settings::metadata::SettingKeyMetadata;
+use crate::metadata::SectionMetadata;
+use crate::metadata::SettingKey;
+use crate::metadata::SettingKeyMetadata;
 
 /// Controls whether ordinary `package(visibility=...)` declarations
 /// contribute to the visibility intersection by default.

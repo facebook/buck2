@@ -11,7 +11,6 @@
 use std::sync::Arc;
 
 use buck2_build_api::actions::execute::dice_data::set_fallback_executor_config;
-use buck2_common::settings::PackageVisibilityDefaultIntersection;
 use buck2_configured::execution::ExecutionPlatformsKey;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
@@ -52,6 +51,7 @@ use buck2_node::provider_id_set::ProviderIdSet;
 use buck2_node::rule_type::RuleType;
 use buck2_node::rule_type::StarlarkRuleType;
 use buck2_node::super_package::SuperPackage;
+use buck2_settings::PackageVisibilityDefaultIntersection;
 use buck2_util::arc_str::ArcSlice;
 use dice::UserComputationData;
 use dice::testing::DiceBuilder;

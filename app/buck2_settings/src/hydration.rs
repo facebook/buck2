@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_fs::paths::file_name::FileName;
+use buck2_wrapper_common::DEFAULT_ISOLATION_DIR;
 use dice::EvictionPolicy;
 use dice::PagableStorageBackend;
 use dice::PageOutPolicy;
@@ -19,11 +20,10 @@ use dupe::Dupe;
 use serde::Deserialize;
 use serde::Serialize;
 
-use crate::invocation_paths::DEFAULT_ISOLATION_DIR;
-use crate::settings::metadata::OverrideSource;
-use crate::settings::metadata::SectionMetadata;
-use crate::settings::metadata::SettingKey;
-use crate::settings::metadata::SettingKeyMetadata;
+use crate::metadata::OverrideSource;
+use crate::metadata::SectionMetadata;
+use crate::metadata::SettingKey;
+use crate::metadata::SettingKeyMetadata;
 
 const ENABLE_PAGING: SettingKey<bool> = SettingKey {
     metadata: SettingKeyMetadata {
@@ -213,10 +213,7 @@ impl HydrationSection {
             .expect("Eviction policy should have a default")
     }
 
-    pub(crate) fn page_out_on_idle_applies_to_isolation_dir(
-        &self,
-        isolation_dir: &FileName,
-    ) -> bool {
+    pub fn page_out_on_idle_applies_to_isolation_dir(&self, isolation_dir: &FileName) -> bool {
         match PAGE_OUT_ON_IDLE_ISOLATION_DIR_SCOPE
             .resolve(self.0.page_out_on_idle_isolation_dir_scope)
             .expect("Idle page-out isolation dir scope should have a default")
@@ -232,9 +229,9 @@ impl HydrationSection {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::settings::BuckSettings;
-    use crate::settings::parser::resolve_setting_flags;
-    use crate::settings::parser::table;
+    use crate::BuckSettings;
+    use crate::parser::resolve_setting_flags;
+    use crate::parser::table;
 
     #[test]
     fn test_default_hydration_settings() {

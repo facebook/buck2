@@ -20,7 +20,6 @@ use buck2_build_api::anon_target::GET_ANON_TARGET_NODE_INFO;
 use buck2_build_api::deferred::calculation::EVAL_ANON_TARGET;
 use buck2_cli_proto::new_generic::AnonTargetsRequest;
 use buck2_cli_proto::new_generic::AnonTargetsResponse;
-use buck2_common::settings::dice::HasBuckSettings;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
@@ -35,6 +34,7 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::pattern_parse_and_resolve::parse_and_resolve_patterns_to_targets_from_cli_args;
 use buck2_server_ctx::target_resolution_config::TargetResolutionConfig;
+use buck2_settings::dice::HasBuckSettings;
 use dupe::Dupe;
 use regex::RegexSet;
 

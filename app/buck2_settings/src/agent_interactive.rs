@@ -13,10 +13,10 @@ use dupe::Dupe;
 use serde::Deserialize;
 use serde::Serialize;
 
-use crate::settings::metadata::OverrideSource;
-use crate::settings::metadata::SectionMetadata;
-use crate::settings::metadata::SettingKey;
-use crate::settings::metadata::SettingKeyMetadata;
+use crate::metadata::OverrideSource;
+use crate::metadata::SectionMetadata;
+use crate::metadata::SettingKey;
+use crate::metadata::SettingKeyMetadata;
 
 const fn enabled_key(name: &'static str) -> SettingKey<bool> {
     SettingKey {
@@ -99,9 +99,9 @@ impl AgentInteractiveSettings {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::settings::BuckSettings;
-    use crate::settings::parser::resolve_setting_flags;
-    use crate::settings::parser::table;
+    use crate::BuckSettings;
+    use crate::parser::resolve_setting_flags;
+    use crate::parser::table;
 
     #[test]
     fn guards_require_both_switches() -> buck2_error::Result<()> {

@@ -20,8 +20,6 @@ use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 #[cfg(fbcode_build)]
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
-use buck2_common::settings::BuckSettings;
-use buck2_common::settings::parser::parse_settings;
 use buck2_core::buck2_env;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
@@ -37,6 +35,8 @@ use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::abs_path::AbsPath;
 use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_fs::working_dir::AbsWorkingDir;
+use buck2_settings::BuckSettings;
+use buck2_settings::parser::parse_settings;
 use prost::Message;
 
 /// Lazy-computed immediate config data. This is produced by reading the root buckconfig (but not

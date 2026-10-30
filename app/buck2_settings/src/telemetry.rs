@@ -22,7 +22,7 @@ use std::sync::Mutex;
 
 use buck2_hash::BuckMutSet;
 
-use crate::settings::BuckSettings;
+use crate::BuckSettings;
 
 /// Prefix of every settings hash, so that one seen on its own says what it
 /// identifies.
@@ -75,9 +75,9 @@ pub fn observe_settings(settings: &BuckSettings) -> Option<buck2_data::BuckSetti
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::settings::parser::resolve_setting_flags;
-    use crate::settings::parser::table;
-    use crate::settings::settings::ALL_SECTION_METADATA;
+    use crate::parser::resolve_setting_flags;
+    use crate::parser::table;
+    use crate::settings::ALL_SECTION_METADATA;
 
     #[test]
     fn test_snapshot_identifies_content() -> buck2_error::Result<()> {

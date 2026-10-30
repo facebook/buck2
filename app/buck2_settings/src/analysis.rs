@@ -15,10 +15,10 @@ use dupe::Dupe;
 use serde::Deserialize;
 use serde::Serialize;
 
-use crate::settings::metadata::OverrideSource;
-use crate::settings::metadata::SectionMetadata;
-use crate::settings::metadata::SettingKey;
-use crate::settings::metadata::SettingKeyMetadata;
+use crate::metadata::OverrideSource;
+use crate::metadata::SectionMetadata;
+use crate::metadata::SettingKey;
+use crate::metadata::SettingKeyMetadata;
 
 const RECORD_REQUESTED_ANON_TARGETS: SettingKey<bool> = SettingKey {
     metadata: SettingKeyMetadata {
