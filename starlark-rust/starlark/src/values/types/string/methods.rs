@@ -113,6 +113,40 @@ fn is_cased(c: char) -> bool {
         || c.to_lowercase().ne(std::iter::once(c))
 }
 
+/// The `chars` argument of `strip`, `lstrip` and `rstrip` as a set. Testing each character with
+/// `chars.contains(c)` scans all of `chars` every time, which makes stripping quadratic.
+struct StripChars {
+    /// Bit `i` is set if the ASCII character `i` is in `chars`.
+    ascii: u128,
+    /// The other characters of `chars`, sorted and deduplicated.
+    non_ascii: Vec<char>,
+}
+
+impl StripChars {
+    fn new(chars: &str) -> StripChars {
+        let mut ascii = 0;
+        let mut non_ascii = Vec::new();
+        for c in chars.chars() {
+            if c.is_ascii() {
+                ascii |= 1u128 << (c as u32);
+            } else {
+                non_ascii.push(c);
+            }
+        }
+        non_ascii.sort_unstable();
+        non_ascii.dedup();
+        StripChars { ascii, non_ascii }
+    }
+
+    fn contains(&self, c: char) -> bool {
+        if c.is_ascii() {
+            self.ascii & (1u128 << (c as u32)) != 0
+        } else {
+            self.non_ascii.binary_search(&c).is_ok()
+        }
+    }
+}
+
 #[starlark_module]
 pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// [string.elems](
@@ -702,7 +736,10 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<StringValue<'v>> {
         let res = match chars {
             None => this.trim_start(),
-            Some(s) => this.trim_start_matches(|c| s.contains(c)),
+            Some(s) => {
+                let s = StripChars::new(s);
+                this.trim_start_matches(|c| s.contains(c))
+            }
         };
         if res.len() == this.len() {
             Ok(this)
@@ -998,7 +1035,10 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<StringValue<'v>> {
         let res = match chars {
             None => this.trim_end(),
-            Some(s) => this.trim_end_matches(|c| s.contains(c)),
+            Some(s) => {
+                let s = StripChars::new(s);
+                this.trim_end_matches(|c| s.contains(c))
+            }
         };
         if res.len() == this.len() {
             Ok(this)
@@ -1203,7 +1243,10 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<StringValue<'v>> {
         let res = match chars {
             None => this.trim(),
-            Some(s) => this.trim_matches(|c| s.contains(c)),
+            Some(s) => {
+                let s = StripChars::new(s);
+                this.trim_matches(|c| s.contains(c))
+            }
         };
         if res.len() == this.len() {
             Ok(this)
@@ -1383,6 +1426,24 @@ mod tests {
         assert::eq(r#""中".isupper()"#, "False");
         assert::eq(r#""aǅ".islower()"#, "False");
         assert::eq(r#""a中".islower()"#, "True");
+    }
+
+    /// `chars` is a set of characters: ASCII at both ends of the range, non-ASCII, and
+    /// duplicates, in any order.
+    #[test]
+    fn test_strip_chars() {
+        assert::all_true(
+            r#"
+"\x00\x7fab\x7f\x00".strip("\x7f\x00") == "ab"
+"éaĩbéĩ".strip("ĩéĩé") == "aĩb"
+"éaĩbéĩ".lstrip("ĩéĩé") == "aĩbéĩ"
+"éaĩbéĩ".rstrip("ĩéĩé") == "éaĩb"
+"x!éx".strip("é!x") == ""
+"abc".strip("") == "abc"
+"".strip("abc") == ""
+("é" * 1000).strip("ĩ" * 1000 + "é") == ""
+"#,
+        );
     }
 
     #[test]
