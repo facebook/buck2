@@ -676,7 +676,6 @@ impl CleanStaleArtifactsCommand {
                     let error = error.context(format!(
                         "Error checking clean-stale artifact directory `{dir_abs}`"
                     ));
-                    tracing::warn!("Skipping clean-stale artifact directory: {error:#}");
                     if scan_error.is_none() {
                         scan_error = Some(PendingCleanFailure {
                             phase: CleanFailurePhase::RootDiscovery,
@@ -716,9 +715,6 @@ impl CleanStaleArtifactsCommand {
                 let dir_subtree = match dir_subtree {
                     Ok(dir_subtree) => dir_subtree,
                     Err(error) => {
-                        tracing::warn!(
-                            "Skipping clean-stale artifact directory after tree lookup failed: {error:#}"
-                        );
                         stats.scan_failed_directory_count += 1;
                         if scan_error.is_none() {
                             scan_error = Some(PendingCleanFailure {
@@ -755,9 +751,6 @@ impl CleanStaleArtifactsCommand {
                         "Error scanning clean-stale artifact directory `{}`",
                         io.fs().resolve(dir_path)
                     ));
-                    tracing::warn!(
-                        "Skipping the rest of a clean-stale artifact directory: {error:#}"
-                    );
                     stats.scan_failed_directory_count += 1;
                     if scan_error.is_none() {
                         scan_error = Some(PendingCleanFailure {
@@ -1090,8 +1083,7 @@ impl CleanStaleStatsExt for CleanStaleStats {
                 }
                 None
             }
-            CleanPathOutcome::UploadFailed { size, error } => {
-                tracing::warn!("Skipping upload-backed unmaterialization: {error:#}");
+            CleanPathOutcome::UploadFailed { size, .. } => {
                 self.unmaterialization_upload_failed_artifact_count += 1;
                 self.unmaterialization_upload_failed_bytes += size;
                 None
@@ -1333,14 +1325,9 @@ fn create_clean_fut<T: IoHandler>(
                     return CleanPathOutcome::Interrupted(size);
                 }
                 if let Err(error) = io
-                    .upload_materialized_artifact(
-                        path.clone(),
-                        upload.entry.dupe(),
-                        info.dupe(),
-                    )
+                    .upload_materialized_artifact(path.clone(), upload.entry.dupe(), info.dupe())
                     .await
                 {
-                    tracing::warn!(path = %path, "Failed to upload artifact before unmaterialization: {error:#}");
                     return CleanPathOutcome::UploadFailed { size, error };
                 }
 
@@ -1381,14 +1368,9 @@ fn create_clean_fut<T: IoHandler>(
                     }
                 }
 
-                let cleaned = clean_artifact(
-                    path.clone(),
-                    size,
-                    cancellations,
-                    &io,
-                    liveliness_observer,
-                )
-                .await;
+                let cleaned =
+                    clean_artifact(path.clone(), size, cancellations, &io, liveliness_observer)
+                        .await;
                 let result = match &cleaned {
                     CleanPathOutcome::Failed { error, .. } => {
                         Err(SharedMaterializingError::Error(error.dupe()))
@@ -1490,7 +1472,6 @@ pub(crate) async fn clean_artifact<T: IoHandler>(
     io: &Arc<T>,
     liveliness_observer: Arc<dyn LivelinessObserverSync>,
 ) -> CleanPathOutcome {
-    let path_for_error = path.clone();
     match io
         .clean_invalidated_path(
             CleanInvalidatedPathRequest {
@@ -1513,10 +1494,8 @@ pub(crate) async fn clean_artifact<T: IoHandler>(
                 // left behind. This is safe: materialization always cleans its
                 // destination first, so a later rematerialization surfaces the
                 // permission error at the point of use.
-                tracing::warn!("Skipping undeletable path in clean --stale: {e:#}");
                 CleanPathOutcome::SkippedPermissionDenied(size)
             } else {
-                tracing::warn!(path = %path_for_error, "Failed to delete path in clean --stale: {e:#}");
                 CleanPathOutcome::Failed { size, error: e }
             }
         }
@@ -1621,7 +1600,6 @@ pub(crate) async fn scratch_sweep<T: IoHandler>(
             // The root may not exist yet, or may vanish between listing and here.
             Err(e) if e.has_tag(ErrorTag::IoNotFound) => continue,
             Err(e) if e.has_tag(ErrorTag::IoPermissionDenied) => {
-                tracing::warn!("Skipping unreadable scratch root in scratch sweep: {e:#}");
                 stats.record_scan_unreadable();
                 continue;
             }
@@ -1638,7 +1616,6 @@ pub(crate) async fn scratch_sweep<T: IoHandler>(
             let child = match child {
                 Ok(child) => child,
                 Err(e) if e.kind() == ErrorKind::PermissionDenied => {
-                    tracing::warn!("Skipping unreadable entry in scratch sweep: {e:#}");
                     stats.record_scan_unreadable();
                     continue;
                 }
@@ -1646,10 +1623,6 @@ pub(crate) async fn scratch_sweep<T: IoHandler>(
             };
             let file_name = child.file_name();
             let Some(file_name) = file_name.to_str().and_then(|f| FileName::new(f).ok()) else {
-                tracing::warn!(
-                    "Skipping scratch entry with an invalid file name: `{}`",
-                    child.path().display()
-                );
                 stats.scan_invalid_filename_count += 1;
                 continue;
             };
@@ -1706,7 +1679,6 @@ pub fn get_size(path: &AbsNormPath, stats: &mut CleanStaleStats) -> buck2_error:
     let metadata = match path.symlink_metadata() {
         Ok(metadata) => metadata,
         Err(e) if e.kind() == ErrorKind::PermissionDenied => {
-            tracing::warn!("Skipping unstatable entry when computing size: {e:#}");
             stats.record_scan_unreadable();
             return Ok(0);
         }
@@ -1718,7 +1690,6 @@ pub fn get_size(path: &AbsNormPath, stats: &mut CleanStaleStats) -> buck2_error:
     let read_dir = match fs_util::read_dir(path) {
         Ok(read_dir) => read_dir,
         Err(e) if e.io_error_kind() == Some(ErrorKind::PermissionDenied) => {
-            tracing::warn!("Skipping unreadable directory when computing size: {e:#?}");
             stats.record_scan_unreadable();
             return Ok(0);
         }
@@ -1729,7 +1700,6 @@ pub fn get_size(path: &AbsNormPath, stats: &mut CleanStaleStats) -> buck2_error:
         let entry = match entry {
             Ok(entry) => entry,
             Err(e) if e.kind() == ErrorKind::PermissionDenied => {
-                tracing::warn!("Skipping unreadable entry when computing size: {e:#}");
                 stats.record_scan_unreadable();
                 continue;
             }
@@ -1835,7 +1805,6 @@ impl<T: IoHandler> StaleFinder<'_, T> {
                 // unreadable parent anyway, and leaving their tree/db state
                 // untouched means a later scan (after permissions are repaired)
                 // sees them again with metadata intact.
-                tracing::warn!("Skipping unreadable directory in clean --stale scan: {e:#}");
                 self.stats.record_scan_unreadable();
                 return Ok(());
             }
@@ -1846,7 +1815,6 @@ impl<T: IoHandler> StaleFinder<'_, T> {
             let child = match child {
                 Ok(child) => child,
                 Err(e) if e.kind() == ErrorKind::PermissionDenied => {
-                    tracing::warn!("Skipping unreadable entry in clean --stale scan: {e:#}");
                     self.stats.record_scan_unreadable();
                     continue;
                 }
@@ -1874,7 +1842,6 @@ impl<T: IoHandler> StaleFinder<'_, T> {
             let file_type = match child.file_type() {
                 Ok(file_type) => FileType::from(file_type),
                 Err(e) if e.kind() == ErrorKind::PermissionDenied => {
-                    tracing::warn!("Skipping unstatable entry in clean --stale scan: {e:#}");
                     self.stats.record_scan_unreadable();
                     continue;
                 }

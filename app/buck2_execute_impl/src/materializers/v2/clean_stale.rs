@@ -322,7 +322,6 @@ impl<T: IoHandler> Cleaner<T> {
                     let error = error.context(format!(
                         "Error checking clean-stale artifact directory `{dir_abs}`"
                     ));
-                    tracing::warn!("Skipping clean-stale artifact directory: {error:#}");
                     scan_error.get_or_insert(PendingCleanFailure {
                         phase: CleanFailurePhase::RootDiscovery,
                         error,
@@ -628,7 +627,6 @@ impl<T: IoHandler> Cleaner<T> {
             .upload_materialized_artifact(path.clone(), action_entry, info.dupe())
             .await
         {
-            tracing::warn!(path = %path, "Failed to upload artifact before unmaterialization: {error:#}");
             return (
                 CleanPathOutcome::UploadFailed { size, error },
                 CleanupOrigin::Uploaded,
@@ -971,7 +969,6 @@ impl<T: IoHandler> Scan<T> {
                         "Error scanning clean-stale artifact directory `{}`",
                         self.io.fs().resolve(&dir)
                     ));
-                    tracing::warn!("Skipping the rest of a clean-stale artifact directory: {e:#}");
                     stats.failed_directory += 1;
                     error.get_or_insert(PendingCleanFailure {
                         phase: CleanFailurePhase::Scan,
@@ -1000,7 +997,6 @@ impl<T: IoHandler> Scan<T> {
             Err(e) if e.has_tag(ErrorTag::IoPermissionDenied) => {
                 // Tracked roots beneath an unreadable directory stay as they are: they cannot
                 // be deleted through it anyway, and a later scan sees them again.
-                tracing::warn!("Skipping unreadable directory in clean --stale scan: {e:#}");
                 stats.unreadable += 1;
                 return Ok(());
             }
@@ -1010,7 +1006,6 @@ impl<T: IoHandler> Scan<T> {
             let child = match child {
                 Ok(child) => child,
                 Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
-                    tracing::warn!("Skipping unreadable entry in clean --stale scan: {e:#}");
                     stats.unreadable += 1;
                     continue;
                 }
@@ -1029,7 +1024,6 @@ impl<T: IoHandler> Scan<T> {
             let file_type = match child.file_type() {
                 Ok(file_type) => FileType::from(file_type),
                 Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
-                    tracing::warn!("Skipping unstatable entry in clean --stale scan: {e:#}");
                     stats.unreadable += 1;
                     continue;
                 }
