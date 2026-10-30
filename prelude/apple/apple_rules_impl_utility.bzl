@@ -203,6 +203,9 @@ def _apple_bundle_like_common_attrs():
         "_skip_adhoc_resigning_scrubbed_frameworks_default": _skip_adhoc_resigning_scrubbed_frameworks_default_attr(),
         "_skip_adhoc_resigning_scrubbed_frameworks_override": attrs.option(attrs.bool(), default = None),
         "_strict_provisioning_profile_search_default": _strict_provisioning_profile_search_default_attr(),
+        # Whether the configuration compiles Swift for dynamic replacement, the
+        # same attribute `apple_library` has; recorded in `BuildInfo.json`.
+        "_swift_dynamic_replacement_enabled": get_swift_dynamic_replacement_enabled(),
         APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_CONFIG_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
         APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_ATTR_NAME: attrs.bool(default = False),
         APPLE_EMBED_PROVISIONING_PROFILE_WHEN_ADHOC_CODE_SIGNING_CONFIG_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
