@@ -352,6 +352,7 @@ def _rust_binary_common(
 
     generated_build_info_link_args = []
     generated_build_info_link_objects = []
+    generated_build_info_shared_library_link_args = []
 
     resources = flatten_dict(
         gather_resources(
@@ -497,7 +498,7 @@ def _rust_binary_common(
         )
         if generated_build_info_shared_library:
             shared_libs.append(generated_build_info_shared_library.library)
-            generated_build_info_link_args.append(unpack_link_args(generated_build_info_shared_library.link_args))
+            generated_build_info_shared_library_link_args.append(unpack_link_args(generated_build_info_shared_library.link_args))
 
     # Decide whether the content-based output ships as a bare exe or a
     # `assembled_dir` bundle (see `_create_content_based_dist`). A binary with
@@ -584,7 +585,7 @@ def _rust_binary_common(
         if generated_build_info:
             generated_build_info_link_args.extend(generated_build_info.linker_flags)
             generated_build_info_link_args.extend(compile_generated_build_info(ctx, generated_build_info).objects)
-    extra_link_args = executable_shlib_args.extra_link_args + generated_build_info_link_args
+    extra_link_args = executable_shlib_args.extra_link_args + generated_build_info_shared_library_link_args + generated_build_info_link_args
 
     # Compile rust binary. Under `Emit("rlib")`, this only compiles: rustc's
     # synthesized objects are extracted and linked below.
@@ -633,7 +634,7 @@ def _rust_binary_common(
             extraction = extraction,
             dep_link_strategy = params.dep_link_strategy,
             reloc_model = params.reloc_model,
-            extra_link_args = executable_shlib_args.extra_link_args,
+            extra_link_args = executable_shlib_args.extra_link_args + generated_build_info_shared_library_link_args,
             binary_link_args = generated_build_info_link_objects + generated_build_info_link_args,
             inherited_link_args = native_link_args,
             dwo_output_directory = link.compile_output.dwo_output_directory,
