@@ -842,12 +842,10 @@ mod tests {
             BuckMutSet::from_iter([producer_key, consumer_key3, consumer_key4, root_key]),
             "each unique action should be sketched once"
         );
-        // TODO: The traversal dedups on the key it looked up, not the action that key
-        // resolves to, so the producer's inputs are re-walked once per alias.
         assert_eq!(
             COUNTED_INPUTS_CALLS.load(Ordering::Relaxed),
-            2,
-            "producer inputs are currently walked once per alias"
+            1,
+            "producer inputs should be walked once, not once per alias"
         );
     }
 

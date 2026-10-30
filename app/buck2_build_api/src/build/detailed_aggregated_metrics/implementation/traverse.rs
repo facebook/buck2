@@ -16,6 +16,7 @@ use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::BuckErrorOptionContext;
+use buck2_hash::BuckMutSet;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use dupe::Dupe;
 use starlark::values::OwnedFrozen;
@@ -221,9 +222,17 @@ impl<'a> Graph<'a> {
             state.enqueue(root);
         }
 
+        // Several keys can resolve to one action: each output of a dynamic_output is
+        // its own key bound to the action that produces it.
+        let mut visited_actions = BuckMutSet::default();
         while let Some(item) = state.pop() {
             let node = self.lookup_node(item)?;
             complete = complete && !node.is_missing();
+            if let Node::Action(action) = &node
+                && !visited_actions.insert(action.key().dupe())
+            {
+                continue;
+            }
             visit(self, &node, &mut state)?;
         }
 
@@ -242,14 +251,14 @@ impl<'a> Graph<'a> {
 }
 
 struct TraversalState {
-    visited: buck2_hash::BuckMutSet<Key>,
+    visited: BuckMutSet<Key>,
     queue: Vec<Key>,
 }
 
 impl TraversalState {
     fn new() -> Self {
         Self {
-            visited: buck2_hash::BuckMutSet::default(),
+            visited: BuckMutSet::default(),
             queue: Vec::new(),
         }
     }
@@ -269,8 +278,8 @@ impl TraversalState {
 pub fn traverse_partial_action_graph<'a>(
     root_artifacts: impl IntoIterator<Item = &'a ArtifactGroup>,
     state: &buck2_hash::BuckMutMap<DeferredHolderKey, OwnedDeferredHolder>,
-) -> buck2_error::Result<(bool, buck2_hash::BuckMutSet<ActionKey>)> {
-    let mut actions = buck2_hash::BuckMutSet::default();
+) -> buck2_error::Result<(bool, BuckMutSet<ActionKey>)> {
+    let mut actions = BuckMutSet::default();
 
     let graph = Graph(state);
     let roots = graph.root_keys(root_artifacts)?;
@@ -292,7 +301,7 @@ pub fn traverse_target_graph(
     root: &ConfiguredTargetNode,
     mut visitor: impl FnMut(&ConfiguredTargetLabel),
 ) {
-    let mut visited = buck2_hash::BuckMutSet::default();
+    let mut visited = BuckMutSet::default();
     let mut queue = Vec::new();
     visited.insert(root.label());
     queue.push(root);
