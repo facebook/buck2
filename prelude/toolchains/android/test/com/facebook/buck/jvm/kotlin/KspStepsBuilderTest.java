@@ -37,9 +37,7 @@ public class KspStepsBuilderTest {
     ImmutableList<String> processorNames =
         ImmutableList.of(
             "KSP:com.facebook.annotationprocessors.inject.ksp.InjectorKspProcessorProvider",
-            METAGEN_PROCESSOR,
-            "KSP:com.facebook.annotationprocessors.gatekeepers.ksp.GatekeeperDeclarationKspProcessor",
-            "KSP:com.facebook.annotationprocessors.qe.ksp.QEKspProcessorProvider");
+            METAGEN_PROCESSOR);
 
     for (String processorName : processorNames) {
       assertTrue(
@@ -56,6 +54,19 @@ public class KspStepsBuilderTest {
             ImmutableList.of(
                 processorWithNames("KSP:com.example.UnrelatedProcessor"),
                 processorWithNames("KSP:com.example.OtherProcessor", METAGEN_PROCESSOR))));
+  }
+
+  @Test
+  public void usesFinalRoundPlaceholder_ignoresRetiredAdapterProcessors() {
+    for (String processorName :
+        ImmutableList.of(
+            "KSP:com.facebook.annotationprocessors.gatekeepers.ksp.GatekeeperDeclarationKspProcessor",
+            "KSP:com.facebook.annotationprocessors.qe.ksp.QEKspProcessorProvider")) {
+      assertFalse(
+          processorName,
+          KspStepsBuilder.usesFinalRoundPlaceholder(
+              ImmutableList.of(processorWithNames(processorName))));
+    }
   }
 
   @Test

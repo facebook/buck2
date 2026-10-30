@@ -11,7 +11,6 @@
 package com.facebook.buck.jvm.kotlin
 
 import com.facebook.buck.jvm.kotlin.ksp.Ksp2NoOpDetector
-import com.facebook.kotlin.ksp.kspadapter.SymbolProcessorBase
 import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessor
@@ -61,14 +60,6 @@ class Ksp2NoOpDetectorTest {
     override fun finish() = finishPaths.forEach(codeGenerator::generate)
   }
 
-  /** Subclasses the stand-in declared under the adapter's real package name. */
-  private inner class AdapterProcessor : SymbolProcessorBase() {
-    override fun process(resolver: Resolver): List<KSAnnotated> {
-      codeGenerator.generate("adapter.kt")
-      return deferred
-    }
-  }
-
   /**
    * Named provider classes rather than lambdas: counts are keyed by provider class name, and all
    * lambdas from one call site share a class. Real providers are distinct classes, one per
@@ -88,8 +79,17 @@ class Ksp2NoOpDetectorTest {
         FakeProcessor(finishPaths = listOf("late.kt"))
   }
 
-  private inner class AdapterProvider : SymbolProcessorProvider {
-    override fun create(environment: SymbolProcessorEnvironment) = AdapterProcessor()
+  /** Writes the final-round placeholder, as a KSP-run protocol trigger does, besides its output. */
+  private inner class PlaceholderProvider(private val paths: List<String>) :
+      SymbolProcessorProvider {
+    override fun create(environment: SymbolProcessorEnvironment) =
+        FakeProcessor(paths + "/out/ksp/java/com/facebook/Dummy.java")
+  }
+
+  /** A trigger that writes only the placeholder. */
+  private inner class IdleTriggerProvider : SymbolProcessorProvider {
+    override fun create(environment: SymbolProcessorEnvironment) =
+        FakeProcessor(listOf("/out/ksp/java/com/facebook/Dummy.java"))
   }
 
   private fun wrap(vararg providers: SymbolProcessorProvider): List<SymbolProcessor> {
@@ -158,30 +158,28 @@ class Ksp2NoOpDetectorTest {
   }
 
   /**
-   * `SymbolProcessorBase` emits a placeholder exactly when a round generated nothing, so an
-   * adapter-wrapped processor could never be observed as idle. Excluded rather than counted
-   * wrongly.
+   * Protocol triggers write `com/facebook/Dummy.java` exactly when a round generated nothing, so
+   * counting it would hide the no-op this detector reports.
    */
   @Test
-  fun `adapter-wrapped processors are not counted at all`() {
-    val (native, adapter) = wrap(ProductiveProvider(listOf("a.kt")), AdapterProvider())
+  fun `the final-round placeholder is not counted`() {
+    val (productive, idle) = wrap(PlaceholderProvider(listOf("a.kt")), IdleTriggerProvider())
 
-    native.process(mock())
-    adapter.process(mock())
+    productive.process(mock())
+    idle.process(mock())
 
-    assertEquals(mapOf(ProductiveProvider::class.java.name to 1), detector.countsByProcessor)
+    assertEquals(1, countOf(PlaceholderProvider::class.java))
+    assertEquals(0, countOf(IdleTriggerProvider::class.java))
   }
 
-  /**
-   * Tripwire half of the adapter-FQN pin: the fixture must keep the real base class's name. The
-   * other half is `AdapterBaseClassFqnTest` in fbandroid, which pins the real class to this same
-   * literal; `Ksp2NoOpDetector` matches processors against it by name.
-   */
+  /** Only the exact placeholder path is skipped: a same-named file elsewhere is real output. */
   @Test
-  fun `adapter fixture keeps the real base class name`() {
-    assertEquals(
-        "com.facebook.kotlin.ksp.kspadapter.SymbolProcessorBase",
-        SymbolProcessorBase::class.java.name,
-    )
+  fun `a Dummy file outside com facebook is counted`() {
+    val processor =
+        wrap(ProductiveProvider(listOf("/out/ksp/java/org/example/Dummy.java"))).single()
+
+    processor.process(mock())
+
+    assertEquals(1, countOf(ProductiveProvider::class.java))
   }
 }

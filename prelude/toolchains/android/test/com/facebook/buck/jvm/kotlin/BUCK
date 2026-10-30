@@ -10,7 +10,6 @@ buck_kotlin_test(
     srcs = glob([
         "*Test.java",
         "*Test.kt",
-        "*Fixture.kt",
     ]),
     deps = [
         "prelude//toolchains/android/src/com/facebook/buck/android:helpers",

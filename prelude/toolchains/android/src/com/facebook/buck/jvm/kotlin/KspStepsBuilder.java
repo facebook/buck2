@@ -38,12 +38,15 @@ import com.google.common.collect.ImmutableSortedSet;
 import java.util.List;
 
 public class KspStepsBuilder {
+  /**
+   * Providers of the processors that may write the final-round placeholder: the triggers of the
+   * shared KSP-run protocol (`//fbandroid/java/com/facebook/kotlin/ksp/runprotocol`). Keyed by
+   * provider name, so a renamed or new trigger provider must be added here.
+   */
   private static final ImmutableSet<String> PROCESSORS_USING_FINAL_ROUND_PLACEHOLDER =
       ImmutableSet.of(
           "KSP:com.facebook.annotationprocessors.inject.ksp.InjectorKspProcessorProvider",
-          "KSP:com.facebook.metagen.processor.kspmetagen.MetagenKspProcessorProvider",
-          "KSP:com.facebook.annotationprocessors.gatekeepers.ksp.GatekeeperDeclarationKspProcessor",
-          "KSP:com.facebook.annotationprocessors.qe.ksp.QEKspProcessorProvider");
+          "KSP:com.facebook.metagen.processor.kspmetagen.MetagenKspProcessorProvider");
 
   /** Initialize all the folders, steps and parameters needed to run KSP plugins for this rule. */
   public static void prepareKspProcessorsIfNeeded(
@@ -190,7 +193,7 @@ public class KspStepsBuilder {
             kspClassesOutput, kspAnnotationGenFolder, CopySourceMode.DIRECTORY_CONTENTS_ONLY));
 
     if (usesFinalRoundPlaceholder(kspAnnotationProcessors)) {
-      // The KSP adapter generates this empty source only to force KSP's final processing round.
+      // A KSP-run protocol trigger writes this empty source only to force KSP's final round.
       // Keep it in KSP's own output for round and incremental bookkeeping, but exclude it from the
       // staged generated sources consumed by Kotlin and javac.
       stagingSteps.add(
