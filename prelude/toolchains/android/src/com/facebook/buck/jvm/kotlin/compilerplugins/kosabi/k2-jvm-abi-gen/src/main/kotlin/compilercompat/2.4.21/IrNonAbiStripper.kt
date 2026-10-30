@@ -393,6 +393,11 @@ internal class NonAbiDeclarationsStrippingIrVisitor(
   }
 
   override fun visitField(declaration: IrField): IrStatement {
+    // Kotlin 2.4 gives a const val with no evaluated initializer (Kosabi clears unresolvable ones)
+    // an IrErrorExpression initializer, which codegen cannot emit; 2.3 left it without one.
+    if (declaration.initializer?.expression is IrErrorExpression) {
+      declaration.initializer = null
+    }
     // For fields with initializers containing function calls,
     // replace the initializer with a default constant value.
     // This handles cases like: const val X = (10 * TimeConstants.MS_PER_SECOND).toInt()

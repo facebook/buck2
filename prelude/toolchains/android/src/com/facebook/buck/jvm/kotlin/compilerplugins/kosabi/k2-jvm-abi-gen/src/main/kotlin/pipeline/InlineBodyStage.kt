@@ -199,10 +199,7 @@ internal class InlineBodyStage : AbiGenStage {
                 .java
                 .getMethod("putParametersInScope", IrFunction::class.java, FirFunction::class.java)
                 .invoke(declarations, irFunction, firFunction)
-            Fir2IrVisitor::class
-                .java
-                .getMethod("convertToIrBlockBody\$fir2ir", FirBlock::class.java)
-                .invoke(storage.fir2IrVisitor, firBody) as IrBlockBody
+            convertToIrBlockBodyMethod().invoke(storage.fir2IrVisitor, firBody) as IrBlockBody
           } finally {
             skipBodies.setBoolean(configuration, skipped)
             declarations.leaveScope(irFunction.symbol)
@@ -214,6 +211,17 @@ internal class InlineBodyStage : AbiGenStage {
 
   private fun Class<*>.declaredField(name: String) =
       getDeclaredField(name).apply { isAccessible = true }
+
+  // An `internal` member, so its JVM name ends in the compiler module's name: `fir2ir` up to Kotlin
+  // 2.3, `org_jetbrains_kotlin_fir2ir` from 2.4.
+  private fun convertToIrBlockBodyMethod() =
+      Fir2IrVisitor::class.java.methods.singleOrNull {
+        it.name.startsWith("convertToIrBlockBody\$") &&
+            it.parameterTypes.contentEquals(arrayOf(FirBlock::class.java))
+      }
+          ?: throw NoSuchMethodException(
+              "${Fir2IrVisitor::class.java.name}.convertToIrBlockBody(${FirBlock::class.java.name})",
+          )
 
   // Recreates the conversion scope that fir2ir had at the function: the file, then each enclosing
   // class from the outermost in.

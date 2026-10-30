@@ -16,6 +16,7 @@ import org.jetbrains.kotlin.backend.common.actualizer.IrActualizedResult
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.backend.jvm.JvmIrCodegenFactory
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
+import org.jetbrains.kotlin.cli.extensionsStorage
 import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles
 import org.jetbrains.kotlin.cli.jvm.compiler.VfsBasedProjectEnvironment
 import org.jetbrains.kotlin.cli.pipeline.jvm.JvmFir2IrPipelinePhase
@@ -24,6 +25,8 @@ import org.jetbrains.kotlin.cli.pipeline.jvm.JvmWriteOutputsPhase
 import org.jetbrains.kotlin.codegen.ClassBuilderFactories
 import org.jetbrains.kotlin.codegen.state.GenerationState
 import org.jetbrains.kotlin.com.intellij.openapi.Disposable
+import org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar
+import org.jetbrains.kotlin.compiler.plugin.ExperimentalCompilerApi
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.JVMConfigurationKeys
 import org.jetbrains.kotlin.diagnostics.impl.BaseDiagnosticsCollector
@@ -77,13 +80,28 @@ fun AllModulesFrontendOutput.convertToIrAndActualizeForJvmCompat(
       )
     }
 
-// Errors go to the configuration's message collector, the one callers pass as messageCollector.
+/**
+ * Errors go to the configuration's message collector, the one callers pass as [messageCollector].
+ *
+ * Creating the project registers every plugin's extensions into the configuration's extension
+ * storage, which FIR sessions read their extension registrars from. A copied configuration shares
+ * that storage with the compilation running Kosabi, so it gets its own storage first; otherwise
+ * every plugin's FIR extensions are registered twice.
+ */
+@OptIn(ExperimentalCompilerApi::class)
 fun createProjectEnvironmentCompat(
     configuration: CompilerConfiguration,
     parentDisposable: Disposable,
     configFiles: EnvironmentConfigFiles,
     messageCollector: MessageCollector,
-) = JvmFrontendPipelinePhase.createProjectEnvironment(configuration, parentDisposable, configFiles)
+): VfsBasedProjectEnvironment {
+  configuration.extensionsStorage = CompilerPluginRegistrar.ExtensionStorage()
+  return JvmFrontendPipelinePhase.createProjectEnvironment(
+      configuration,
+      parentDisposable,
+      configFiles,
+  )
+}
 
 fun generateCodeFromIrCompat(
     irInput: ModuleCompilerIrBackendInputCompat,
