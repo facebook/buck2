@@ -13,6 +13,7 @@ load(
     toolchain_alias_spec = "toolchain_alias",
     versioned_alias_spec = "versioned_alias",
 )
+load("@prelude//:build_variants.bzl", build_variants_spec = "build_variants")
 load("@prelude//:command_alias.bzl", command_alias_spec = "command_alias_rule")
 load("@prelude//:export_file.bzl", export_file_spec = "export_file")
 load("@prelude//:filegroup.bzl", filegroup_spec = "filegroup")
@@ -31,6 +32,7 @@ load("@prelude//zip_file:zip_file.bzl", zip_file_spec = "zip_file")
 # "core" (together with the configuration rules) and "shell".
 specs = {
     "alias": alias_spec,
+    "build_variants": build_variants_spec,
     "command_alias": command_alias_spec,
     "configured_alias": configured_alias_spec,
     "export_file": export_file_spec,

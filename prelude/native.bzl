@@ -11,6 +11,7 @@
 # This is buck2's shim import. Any public symbols here will be available within
 # **all** interpreted files.
 
+load("@prelude//:build_variants.bzl", "build_variants_macro")
 load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//:rules.bzl", __rules__ = "rules")
@@ -254,6 +255,9 @@ def _android_instrumentation_apk_macro_stub(cpu_filters = None, primary_dex_patt
     __rules__["android_instrumentation_apk"](cpu_filters = _get_valid_cpu_filters(cpu_filters), primary_dex_patterns = primary_dex_patterns, **kwargs)
 
 # export_file src defaults to name, despite being string vs source, so adjust it in the macros
+def _build_variants_macro_stub(**kwargs):
+    build_variants_macro(build_variants_rule = __rules__["build_variants"], **kwargs)
+
 def _export_file_macro_stub(name, src = None, **kwargs):
     __rules__["export_file"](name = name, src = name if src == None else src, **kwargs)
 
@@ -437,6 +441,7 @@ __extra_rules__ = {
     "apple_universal_executable": _apple_universal_executable_macro_stub,
     "apple_watchos_bundle": _apple_watchos_bundle_macro_stub,
     "apple_xcuitest": _apple_xcuitest_macro_stub,
+    "build_variants": _build_variants_macro_stub,
     "configured_alias": _configured_alias_macro_stub,
     "cxx_toolchain": _cxx_toolchain_macro_stub,
     "cxx_toolchain_override": _cxx_toolchain_override_macro_stub,
