@@ -454,10 +454,10 @@ impl VisibilityPatternList {
         }
     }
 
-    /// Whether this list matches a package (the directory of a loading file),
-    /// for load visibility. `target_name_glob(...)` patterns are target-oriented
-    /// and never match a bare package, so they are treated as non-matching (they
-    /// also cannot be produced by the `visibility()` builtin, which only accepts
+    /// Whether this list matches the package of a loading file, for load
+    /// visibility. `target_name_glob(...)` patterns are target-oriented and never
+    /// match a bare package, so they are treated as non-matching (they also
+    /// cannot be produced by the `visibility()` builtin, which only accepts
     /// strings).
     pub fn matches_package(&self, package: CellPath) -> bool {
         match self {
@@ -818,10 +818,10 @@ impl Display for WithinViewSpecification {
 
 /// The load visibility of a `.bzl` file: the set of packages whose `BUCK`/`.bzl`
 /// files may `load()` it, as declared by the `visibility()` builtin. Unlike
-/// target visibility this is matched against the *package* (directory) of the
-/// loading file rather than a target label. When a `.bzl` file never calls
-/// `visibility()` there is no `LoadVisibility` at all, which is treated as
-/// public (matching Bazel).
+/// target visibility this is matched against the *package* of the loading file
+/// rather than a target label. When a `.bzl` file never calls `visibility()`
+/// there is no `LoadVisibility` at all, which is treated as public (matching
+/// Bazel).
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Dupe, Allocative, Pagable)]
 pub enum LoadVisibility {
     /// `visibility("private")`: loadable only from the same package (enforced
@@ -847,8 +847,16 @@ impl LoadVisibility {
         LoadVisibility::Private
     }
 
-    /// Whether a file in `package` (its directory) may load the `.bzl` file that
-    /// declared this visibility.
+    /// Whether this is `visibility(["PUBLIC"])` / `visibility("public")`.
+    pub fn is_public(&self) -> bool {
+        matches!(
+            self,
+            LoadVisibility::Patterns(VisibilityPatternList::Public)
+        )
+    }
+
+    /// Whether a file in `package` may load the `.bzl` file that declared this
+    /// visibility.
     pub fn matches_package(&self, package: CellPath) -> bool {
         match self {
             LoadVisibility::Private => false,

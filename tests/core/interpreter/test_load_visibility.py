@@ -29,12 +29,24 @@ class LoadVisibilityTest(BuckTestCase):
         from another package is rejected. The error shows the declared visibility
         as written and the pattern that would allow the load."""
         failure = await expect_failure(
-            buck.targets("//..."),
+            buck.targets("//other:"),
             stderr_regex="not visible to this package",
         )
         self.assertIn('declares `visibility("private")`', failure.stderr)
         self.assertIn(
             'its `visibility()` must include `"root//other:"`', failure.stderr
+        )
+
+    @buck_test(data_dir="denied")
+    async def test_load_visibility_subpackage_denied(self, buck: Buck) -> None:
+        """A subdirectory with its own buildfile is a different package, so it
+        may not load its parent package's private `.bzl`."""
+        failure = await expect_failure(
+            buck.targets("//lib/sub:"),
+            stderr_regex="not visible to this package",
+        )
+        self.assertIn(
+            'its `visibility()` must include `"root//lib/sub:"`', failure.stderr
         )
 
     @buck_test(data_dir="denied")
@@ -106,4 +118,12 @@ class LoadVisibilityTest(BuckTestCase):
         await expect_failure(
             buck.bxl("//app/denied.bxl:check"),
             stderr_regex="not visible to this package",
+        )
+
+    @buck_test(data_dir="bxl")
+    async def test_load_visibility_no_package_denied(self, buck: Buck) -> None:
+        """A `.bxl` outside of any package may only load public `.bzl` files."""
+        await expect_failure(
+            buck.bxl("//nopkg/denied.bxl:check"),
+            stderr_regex="is not in any package",
         )

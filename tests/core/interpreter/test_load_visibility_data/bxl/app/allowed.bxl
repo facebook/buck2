@@ -1,4 +1,4 @@
-# `//app/allowed.bxl` is within `//app/...`, so it may load `vis.bzl`.
+# `//app/allowed.bxl` is in package `//app`, within `//app/...`, so it may load `vis.bzl`.
 load("//lib/vis.bzl", "SYM2")
 
 def _impl(ctx: bxl.Context):

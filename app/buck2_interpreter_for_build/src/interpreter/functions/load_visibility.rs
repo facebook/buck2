@@ -104,6 +104,14 @@ pub(crate) enum LoadVisibilityError {
         /// loaded file's `visibility()`.
         pattern: String,
     },
+    #[error(
+        "`{loader}` cannot load `{loaded}`: `{loaded}` declares `visibility({visibility})`, but `{loader}` is not in any package (there is no buildfile in its directory or any parent directory). Add a buildfile so it belongs to a package that `{loaded}`'s `visibility()` can name."
+    )]
+    NotVisibleNoPackage {
+        loader: CellPath,
+        loaded: CellPath,
+        visibility: String,
+    },
 }
 
 /// The `"private"` special token, meaning "loadable only from the same package".
@@ -177,6 +185,11 @@ pub(crate) fn register_load_visibility(globals: &mut GlobalsBuilder) {
     ///   same package.
     /// * `visibility(["//foo/...", "//bar:"])` — loadable from the given
     ///   packages (and, always, the file's own package).
+    ///
+    /// As in Bazel, the package of a file is the nearest directory at or above
+    /// it that contains a buildfile, so `//foo/sub/defs.bzl` is in package
+    /// `//foo:` unless `foo/sub` has its own buildfile. A file outside of any
+    /// package can only load public `.bzl` files.
     ///
     /// It must be called at most once, at the top level of the `.bzl` file it
     /// applies to (not inside a function). Enforcement of the resulting
