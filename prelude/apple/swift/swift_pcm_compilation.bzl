@@ -113,6 +113,7 @@ def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Provider
             pcm_deps_tset,
             ctx.attrs.swift_cxx_args,
         )
+        additional_cmd.add(uncompiled_pcm_info.modulemap_artifact)
 
         compile_with_argsfile(
             ctx,
@@ -177,7 +178,7 @@ _swift_pcm_compilation = rule(
     },
 )
 
-def _compile_pcm(
+def _compile_clang_headers(
     ctx: AnalysisContext,
     action_name: str,
     module_name: str,
@@ -185,7 +186,8 @@ def _compile_pcm(
     compiled_pcm_deps_providers,
     swift_cxx_args: list[str],
     additional_args: cmd_args,
-) -> SwiftCompiledModuleInfo:
+    header: Artifact | None = None,
+) -> Artifact:
     # `compiled_pcm_deps_providers` will contain `WrappedSdkCompiledModuleInfo` providers
     # from direct SDK deps and transitive deps that export sdk deps.
     sdk_deps_tset = get_compiled_sdk_clang_deps_tset(ctx, compiled_pcm_deps_providers)
@@ -203,7 +205,9 @@ def _compile_pcm(
         sdk_deps_tset,
         pcm_deps_tset,
         swift_cxx_args,
+        is_pch = header != None,
     )
+    additional_cmd.add(header if header != None else uncompiled_pcm_info.modulemap_artifact)
     cmd.add(additional_args)
     compile_with_argsfile(
         ctx,
@@ -214,7 +218,47 @@ def _compile_pcm(
         toolchain = swift_toolchain_info,
         supports_output_file_map = False,
     )
+    return pcm_output
+
+def _compile_pcm(
+    ctx: AnalysisContext,
+    action_name: str,
+    module_name: str,
+    uncompiled_pcm_info: SwiftPCMUncompiledInfo,
+    compiled_pcm_deps_providers,
+    swift_cxx_args: list[str],
+    additional_args: cmd_args,
+) -> SwiftCompiledModuleInfo:
+    pcm_output = _compile_clang_headers(
+        ctx,
+        action_name,
+        module_name,
+        uncompiled_pcm_info,
+        compiled_pcm_deps_providers,
+        swift_cxx_args,
+        additional_args,
+    )
     return _compiled_module_info(module_name, pcm_output, uncompiled_pcm_info)
+
+def compile_internal_bridging_header_pch(
+    ctx: AnalysisContext,
+    module_name: str,
+    header: Artifact,
+    uncompiled_pcm_info: SwiftPCMUncompiledInfo,
+    compiled_pcm_deps_providers,
+    swift_cxx_args: list[str],
+    additional_args: cmd_args,
+) -> Artifact:
+    return _compile_clang_headers(
+        ctx,
+        "swift_internal_bridging_header_pch_compile",
+        module_name,
+        uncompiled_pcm_info,
+        compiled_pcm_deps_providers,
+        swift_cxx_args,
+        additional_args,
+        header = header,
+    )
 
 def compile_framework_pcm(
     ctx: AnalysisContext, module_name: str, uncompiled_pcm_info: SwiftPCMUncompiledInfo, compiled_pcm_deps_providers, swift_cxx_args: list[str]
@@ -255,9 +299,11 @@ def _get_base_pcm_flags(
     sdk_deps_tset: SwiftCompiledModuleTset,
     pcm_deps_tset: SwiftCompiledModuleTset,
     swift_cxx_args: list[str],
+    is_pch: bool = False,
 ) -> (cmd_args, cmd_args, Artifact):
     uses_content_based_paths = False
-    pcm_output = ctx.actions.declare_output(module_name + ".pcm", has_content_based_path = uses_content_based_paths)
+    output_extension = ".pch" if is_pch else ".pcm"
+    pcm_output = ctx.actions.declare_output(module_name + output_extension, has_content_based_path = uses_content_based_paths)
     cmd = cmd_args(
         get_shared_pcm_compilation_args(module_name),
         get_sdk_flags(ctx),
@@ -280,11 +326,11 @@ def _get_base_pcm_flags(
     )
 
     cmd.add(swift_cxx_args)
+    if is_pch:
+        # The driver has no standalone PCH mode. Use its Clang-input mode and
+        # override the frontend action to emit a PCH instead of a PCM.
+        cmd.add("-Xfrontend", "-emit-pch", "-Xcc", "-Xclang", "-Xcc", "-fno-pch-timestamp")
 
-    additional_cmd = cmd_args(
-        "-o",
-        pcm_output.as_output(),
-        uncompiled_pcm_info.modulemap_artifact,
-    )
+    additional_cmd = cmd_args("-o", pcm_output.as_output())
 
     return (cmd, additional_cmd, pcm_output)

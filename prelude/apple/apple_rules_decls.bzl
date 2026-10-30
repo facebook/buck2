@@ -696,6 +696,11 @@ apple_library = prelude_rule(
             "header_mode": attrs.option(attrs.enum(HeaderMode.values()), default = None),
             "headers_as_raw_headers_mode": attrs.option(attrs.enum(HeadersAsRawHeadersMode), default = None),
             "info_plist": attrs.option(attrs.source(), default = None),
+            "internal_bridging_header": attrs.option(
+                attrs.source(),
+                default = None,
+                doc = "A bridging header whose declarations are imported with internal visibility during Swift compilation.",
+            ),
             "lang_compiler_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
             "lang_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
             "link_execution_preference": link_execution_preference_attr(),

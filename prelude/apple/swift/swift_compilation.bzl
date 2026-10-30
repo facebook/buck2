@@ -16,7 +16,7 @@ load(
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//apple:apple_error_handler.bzl", "apple_build_error_handler")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
-load("@prelude//apple:apple_utility.bzl", "get_disable_pch_validation_flags", "get_module_name")
+load("@prelude//apple:apple_utility.bzl", "get_apple_cxx_headers_layout", "get_disable_pch_validation_flags", "get_module_name")
 load("@prelude//apple:modulemap.bzl", "create_modulemap")
 load("@prelude//apple/swift:swift_helpers.bzl", "compile_with_argsfile", "compile_with_argsfile_cmd", "uses_dynamic_replacement", "uses_explicit_modules")
 load(
@@ -42,6 +42,7 @@ load(
     "@prelude//cxx:headers.bzl",
     "CHeader",
     "HeaderMode",
+    "cxx_attr_headers",
     "prepare_headers",
 )
 load(
@@ -92,7 +93,7 @@ load(
 )
 load(":swift_module_map.bzl", "write_swift_module_map_with_deps")
 load(":swift_output_file_map.bzl", "add_dependencies_output", "get_modularization_dependency_graph_output_map")
-load(":swift_pcm_compilation.bzl", "compile_underlying_pcm", "get_compiled_pcm_deps_tset", "get_swift_pcm_anon_targets")
+load(":swift_pcm_compilation.bzl", "compile_internal_bridging_header_pch", "compile_underlying_pcm", "get_compiled_pcm_deps_tset", "get_swift_pcm_anon_targets")
 load(
     ":swift_pcm_compilation_types.bzl",
     "SwiftPCMUncompiledInfo",
@@ -309,58 +310,75 @@ def get_swift_cxx_flags(ctx: AnalysisContext) -> list[str]:
 
     return gather
 
-def _get_compiled_underlying_pcm(
+def _get_pcm_preprocessor_info(
+    ctx: AnalysisContext,
+    headers: list[CHeader],
+    preprocessor_infos: list[CPreprocessorInfo],
+    header_map_name: str,
+) -> CPreprocessorInfo:
+    header_dict = {paths.join(h.namespace, h.name): h.artifact for h in headers}
+    header_map = prepare_headers(
+        ctx.actions,
+        get_cxx_toolchain_info(ctx),
+        header_dict,
+        header_map_name,
+        HeaderMode("header_map_only"),
+        allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs),
+    )
+    header_map_args = cmd_args(header_map.include_path, format = "-I{}") if header_map else cmd_args()
+    return cxx_merge_cpreprocessors(
+        ctx.actions,
+        [CPreprocessor(args = CPreprocessorArgs(args = [header_map_args]))],
+        preprocessor_infos,
+    )
+
+def _get_internal_bridging_header_flags(
     ctx: AnalysisContext,
     module_name: str,
-    module_pp_info: CPreprocessor | None,
-    exported_headers: list[CHeader],
+    public_preprocessor_info: CPreprocessorInfo,
+    uncompiled_pcm_info: SwiftPCMUncompiledInfo | None,
+    public_module: SwiftCompiledModuleInfo | None,
     deps_providers: list,
     swift_cxx_flags: list[str],
     framework_search_paths: cmd_args,
-) -> SwiftCompiledModuleInfo | None:
-    if supports_modulemaps_with_hmaps(ctx):
-        # We need to provide a headermap pointing to the exported headers of
-        # this target. Normally this would be passed through from the cxx
-        # layer, but the underlying module compilation happens before the cxx
-        # header map is generated, so we need to create one specifically for
-        # this module.
-        exported_headers_dict = {paths.join(h.namespace, h.name): h.artifact for h in exported_headers}
-        header_map = prepare_headers(
-            ctx.actions,
-            get_cxx_toolchain_info(ctx),
-            exported_headers_dict,
-            "swift-underlying-headers",
-            HeaderMode("header_map_only"),
-            allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs),
+) -> cmd_args:
+    header = getattr(ctx.attrs, "internal_bridging_header", None)
+    if header == None:
+        return cmd_args()
+
+    exported_dep_labels = {dep.label: None for dep in getattr(ctx.attrs, "exported_deps", [])}
+    private_deps = [dep for dep in ctx.attrs.deps if dep.label not in exported_dep_labels]
+    private_headers = cxx_attr_headers(ctx, get_apple_cxx_headers_layout(ctx))
+    private_header_args = cmd_args()
+    if private_headers or private_deps:
+        private_preprocessor_info = _get_pcm_preprocessor_info(
+            ctx,
+            private_headers,
+            cxx_inherited_preprocessor_infos(private_deps),
+            "swift-internal-bridging-header-headers",
         )
-        header_map_args = cmd_args(header_map.include_path, format = "-I{}")
+        private_header_args.add(cmd_args(private_preprocessor_info.set.project_as_args("args"), prepend = "-Xcc"))
+    public_header_args = cmd_args(public_preprocessor_info.set.project_as_args("args"), prepend = "-Xcc")
+    if not uses_explicit_modules(ctx):
+        return cmd_args("-internal-import-bridging-header", header, private_header_args, public_header_args)
 
-        # We need to collect the preprocessor info from exported_deps for their
-        # header map search paths.
-        preprocessor_info = cxx_merge_cpreprocessors(
-            ctx.actions,
-            [CPreprocessor(args = CPreprocessorArgs(args = [header_map_args]))],
-            cxx_inherited_preprocessor_infos(ctx.attrs.exported_deps),
-        )
-    else:
-        preprocessor_info = None
-
-    underlying_swift_pcm_uncompiled_info = get_swift_pcm_uncompile_info(
-        ctx,
-        preprocessor_info,
-        module_pp_info,
-    )
-    if not underlying_swift_pcm_uncompiled_info:
-        return None
-
-    return compile_underlying_pcm(
+    if uncompiled_pcm_info == None:
+        fail("Explicit internal bridging-header compilation requires SDK module information")
+    additional_args = cmd_args(framework_search_paths, private_header_args)
+    if not supports_modulemaps_with_hmaps(ctx):
+        additional_args.add(public_header_args)
+    if public_module:
+        additional_args.add(public_module.clang_importer_args, clang_module_file_args(public_module))
+    pch = compile_internal_bridging_header_pch(
         ctx,
         module_name,
-        underlying_swift_pcm_uncompiled_info,
+        header,
+        uncompiled_pcm_info,
         deps_providers,
         swift_cxx_flags,
-        framework_search_paths,
+        additional_args,
     )
+    return cmd_args("-disable-bridging-pch", "-internal-import-bridging-header", pch)
 
 def _generate_umbrella_header(ctx: AnalysisContext, module_name: str, exported_headers: list[CHeader], uses_content_based_paths: bool) -> [CHeader, None]:
     """Auto-generate an umbrella header for mixed ObjC/Swift modules.
@@ -426,27 +444,50 @@ def compile_swift(
     # If a target exports ObjC headers and Swift explicit modules are enabled,
     # we need to precompile a PCM of the underlying module and supply it to the Swift compilation.
     swift_cxx_flags = get_swift_cxx_flags(ctx)
-    if uses_explicit_modules(ctx):
-        exported_compiled_underlying_pcm = (
-            _get_compiled_underlying_pcm(
-                ctx,
-                module_name,
-                exported_objc_modulemap_pp_info,
-                exported_headers,
-                deps_providers,
-                swift_cxx_flags,
-                framework_search_paths,
-            )
-            if exported_objc_modulemap_pp_info
-            else None
+    explicit_modules_enabled = uses_explicit_modules(ctx)
+    internal_bridging_header = getattr(ctx.attrs, "internal_bridging_header", None)
+    public_preprocessor_info = None
+    if internal_bridging_header != None or (explicit_modules_enabled and exported_objc_modulemap_pp_info and supports_modulemaps_with_hmaps(ctx)):
+        public_preprocessor_info = _get_pcm_preprocessor_info(
+            ctx,
+            exported_headers,
+            cxx_inherited_preprocessor_infos(getattr(ctx.attrs, "exported_deps", [])),
+            "swift-underlying-headers",
         )
-    else:
-        exported_compiled_underlying_pcm = None
+    uncompiled_pcm_info = None
+    if explicit_modules_enabled and (exported_objc_modulemap_pp_info or internal_bridging_header != None):
+        uncompiled_pcm_info = get_swift_pcm_uncompile_info(
+            ctx,
+            public_preprocessor_info if supports_modulemaps_with_hmaps(ctx) else None,
+            exported_objc_modulemap_pp_info,
+        )
+    exported_compiled_underlying_pcm = None
+    if exported_objc_modulemap_pp_info and uncompiled_pcm_info:
+        exported_compiled_underlying_pcm = compile_underlying_pcm(
+            ctx,
+            module_name,
+            uncompiled_pcm_info,
+            deps_providers,
+            swift_cxx_flags,
+            framework_search_paths,
+        )
 
     # We always track inputs for dependency file tracking, but optionally set
     # the tag on the action depending on the use_depsfiles config.
     inputs_tag = ctx.actions.artifact_tag()
 
+    internal_bridging_header_flags = cmd_args()
+    if internal_bridging_header != None:
+        internal_bridging_header_flags = _get_internal_bridging_header_flags(
+            ctx,
+            module_name,
+            public_preprocessor_info,
+            uncompiled_pcm_info,
+            exported_compiled_underlying_pcm,
+            deps_providers,
+            swift_cxx_flags,
+            framework_search_paths,
+        )
     shared_flags, swift_module_map_artifact = _get_shared_flags(
         ctx = ctx,
         deps_providers = deps_providers,
@@ -458,6 +499,7 @@ def compile_swift(
         inputs_tag = inputs_tag,
         is_macro = is_macro,
     )
+    shared_flags.add(internal_bridging_header_flags)
     shared_flags.add(framework_search_paths)
     objc_swift_interface_info = _create_objc_swift_interface(ctx, shared_flags, module_name)
 
