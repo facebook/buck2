@@ -224,9 +224,10 @@ impl DaemonShutdown {
     /// As we might be processing a `kill()` (or other) request, we cannot wait for the server to actually
     /// shutdown (as it will wait for current requests to finish), so this returns immediately.
     fn start_shutdown(&self, reason: buck2_data::DaemonShutdown, timeout: Option<Duration>) {
-        // It would be better to pass reason to be logged later in a more structured way, but this can't be done via
-        // the existing graceful (not forced) shutdown mechanism (serve_with_incoming_shutdown), so logging here instead.
-        tracing::warn!("triggered shutdown: {}", reason.reason);
+        // The daemon's stderr is `buckd.stderr`, which the client tails into the console and the
+        // invocation record and `rage` collects: it is where a daemon's last words are looked
+        // for, so the reason goes there directly.
+        eprintln!("triggered shutdown: {}", reason.reason);
         crate::active_commands::broadcast_shutdown(&reason);
 
         let timeout = timeout.unwrap_or(DEFAULT_KILL_TIMEOUT);
@@ -511,7 +512,7 @@ impl BuckdServer {
             .await
             .is_err()
         {
-            tracing::warn!("timed out waiting for DICE tasks to finish during shutdown");
+            eprintln!("timed out waiting for DICE tasks to finish during shutdown");
         }
 
         server_result?;
@@ -2203,7 +2204,7 @@ fn spawn_shutdown_watchdog(in_process: bool, deadline: tokio::time::Instant) {
 
         // Clients read `buckd.stderr` to explain why the daemon went away, so make sure the
         // reason is on disk before we go.
-        tracing::warn!("Shutdown deadline exceeded, exiting");
+        eprintln!("Shutdown deadline exceeded, exiting");
         let _ignored = io::stderr().flush();
         buck2_util::pgo::flush_pgo_profile();
 
@@ -2230,7 +2231,7 @@ async fn inactivity_timeout(
         }
     };
 
-    tracing::warn!(
+    eprintln!(
         "inactivity timeout elapsed ({:?}), shutting down server",
         duration
     );

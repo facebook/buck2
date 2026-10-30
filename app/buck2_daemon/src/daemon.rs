@@ -545,12 +545,11 @@ impl DaemonCommand {
 
             select! {
                 res = buckd_server => {
-                    tracing::warn!("server shutdown");
                     res
                 }
                 reason = shutdown_future => {
                     let reason = reason.as_deref().unwrap_or("no reason available");
-                    tracing::warn!("server forced shutdown: {}", reason);
+                    eprintln!("server forced shutdown: {}", reason);
                     Ok(())
                 },
             }
