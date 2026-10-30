@@ -7,6 +7,7 @@
 # above-listed licenses.
 
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
+load("@prelude//cxx:index_store.bzl", "IndexStoreInfo")
 load("@prelude//xplugins:types.bzl", "XPluginsFunctionMappingManifestInfo")
 load(
     ":apple_bundle_types.bzl",
@@ -78,6 +79,9 @@ def apple_package_impl(ctx: AnalysisContext) -> list[Provider]:
     xplugins_function_mapping_manifest_info = ctx.attrs.bundle.get(XPluginsFunctionMappingManifestInfo)
     if xplugins_function_mapping_manifest_info:
         providers.append(xplugins_function_mapping_manifest_info)
+    index_store_info = ctx.attrs.bundle.get(IndexStoreInfo)
+    if index_store_info:
+        providers.append(index_store_info)
     return providers
 
 def _get_ipa_contents(ctx: AnalysisContext) -> Artifact:
