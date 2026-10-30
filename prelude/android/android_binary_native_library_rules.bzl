@@ -46,7 +46,7 @@ load("@prelude//android:voltron.bzl", "ROOT_MODULE", "all_targets_in_root_module
     # @oss-disable[end= ]: "materialize_native_link_diagnostics",
     # @oss-disable[end= ]: "native_link_diagnostic_reports",
 # @oss-disable[end= ]: )
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo", "PicBehavior")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo", "PicBehavior", "ShlibInterfacesMode")
 load(
     "@prelude//cxx:link.bzl",
     "cxx_link_shared_library",
@@ -2481,9 +2481,14 @@ def _get_merged_linkables_for_platform(
         if soname in merge_linker_args:
             link_args += [LinkArgs(flags = merge_linker_args[soname])]
 
+        supports_shlib_interfaces = is_actually_merged or linkable_nodes[group_data.constituents[0]].supports_shlib_interfaces
+        use_shlib_interface = supports_shlib_interfaces and cxx_toolchain.linker_info.shlib_interfaces == ShlibInterfacesMode("stub_from_library")
+        # Gatorade tracks original shared-library artifacts by identity.
+        # @oss-disable[end= ]: use_shlib_interface = use_shlib_interface and not getattr(ctx.attrs, "gatorade_phases", [])
+
         # Emit the Middle Gatorade container from the merge link; {} when off.
         # @oss-disable[end= ]: mg_args = middle_gatorade_merge_args(ctx, output_path, cxx_toolchain)
-        shared_lib = create_shared_lib(
+        shared_lib_result = _create_shared_lib(
             ctx,
             output_path = output_path,
             soname = soname,
@@ -2492,8 +2497,10 @@ def _get_merged_linkables_for_platform(
             shared_lib_deps = [link_group_linkable_nodes[label].shared_lib.soname.ensure_str() for label in shlib_deps],
             label = group_data.constituents[0],
             can_be_asset = can_be_asset,
+            produce_shared_library_interface = use_shlib_interface,
             # @oss-disable[end= ]: **mg_args,
         )
+        shared_lib = shared_lib_result.shared_library
 
         link_group_linkable_nodes[group] = LinkGroupLinkableNode(
             link = LinkInfo(
@@ -2501,7 +2508,7 @@ def _get_merged_linkables_for_platform(
                 pre_flags = exported_linker_flags,
                 linkables = [
                     SharedLibLinkable(
-                        lib = shared_lib.lib.output,
+                        lib = shared_lib_result.shared_library_interface or shared_lib.lib.output,
                     )
                 ],
                 post_flags = exported_linker_post_flags,
@@ -2533,6 +2540,7 @@ def _get_merged_linkables_for_platform(
                 exported_linker_flags = exported_linker_flags,
                 exported_linker_post_flags = exported_linker_post_flags,
                 non_asset_constituents = non_asset_constituents,
+                uses_shlib_interface = use_shlib_interface,
             ),
         )
 
@@ -3024,6 +3032,11 @@ def strip_lib(ctx: AnalysisContext, cxx_toolchain: CxxToolchainInfo, shlib: Arti
         allow_cache_upload = True,
     )
 
+_SharedLibraryResult = record(
+    shared_library = SharedLibrary,
+    shared_library_interface = Artifact | None,
+)
+
 def create_shared_lib(
     ctx: AnalysisContext,
     *,
@@ -3037,6 +3050,33 @@ def create_shared_lib(
     extra_linker_outputs_factory: typing.Callable | None = None,
     extra_linker_outputs_flags_factory: typing.Callable | None = None,
 ) -> SharedLibrary:
+    return _create_shared_lib(
+        ctx,
+        output_path = output_path,
+        soname = soname,
+        link_args = link_args,
+        cxx_toolchain = cxx_toolchain,
+        shared_lib_deps = shared_lib_deps,
+        label = label,
+        can_be_asset = can_be_asset,
+        extra_linker_outputs_factory = extra_linker_outputs_factory,
+        extra_linker_outputs_flags_factory = extra_linker_outputs_flags_factory,
+    ).shared_library
+
+def _create_shared_lib(
+    ctx: AnalysisContext,
+    *,
+    output_path: str,
+    soname: str,
+    link_args: list[LinkArgs],
+    cxx_toolchain: CxxToolchainInfo,
+    shared_lib_deps: list[str],
+    label: Label,
+    can_be_asset: bool,
+    extra_linker_outputs_factory: typing.Callable | None = None,
+    extra_linker_outputs_flags_factory: typing.Callable | None = None,
+    produce_shared_library_interface: bool = False,
+) -> _SharedLibraryResult:
     for link_arg in link_args:
         flags = link_arg.flags or []
         for info in link_arg.infos or []:
@@ -3062,21 +3102,25 @@ def create_shared_lib(
             cxx_toolchain = cxx_toolchain,
             extra_linker_outputs_factory = extra_linker_outputs_factory,
             extra_linker_outputs_flags_factory = extra_linker_outputs_flags_factory,
+            produce_shared_library_interface = produce_shared_library_interface,
             allow_cache_upload = True,
         ),
     )
 
     shlib = link_result.linked_object
-    return create_shlib(
-        lib = shlib,
-        stripped_lib = strip_lib(ctx, cxx_toolchain, shlib.output),
-        shlib_deps = shared_lib_deps,
-        link_args = link_args,
-        can_be_asset = can_be_asset,
-        for_primary_apk = False,
-        soname = soname,
-        label = label,
-        extra_outputs = link_result.extra_outputs,
+    return _SharedLibraryResult(
+        shared_library = create_shlib(
+            lib = shlib,
+            stripped_lib = strip_lib(ctx, cxx_toolchain, shlib.output),
+            shlib_deps = shared_lib_deps,
+            link_args = link_args,
+            can_be_asset = can_be_asset,
+            for_primary_apk = False,
+            soname = soname,
+            label = label,
+            extra_outputs = link_result.extra_outputs,
+        ),
+        shared_library_interface = link_result.shared_library_interface,
     )
 
 def _create_bolt_lib(

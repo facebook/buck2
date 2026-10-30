@@ -101,6 +101,7 @@ LinkableNode = record(
     ignore_force_static_follows_dependents = field(bool),
     # Should this library only be used for build time linkage
     stub = field(bool),
+    supports_shlib_interfaces = field(bool, True),
     # Per-source C/C++ compile commands for this node, used to aggregate an app-level native
     # compile-command database (the [native_build_commands][compile] sub-target). Populated only when
     # compile-command capture is enabled (see cxx_library); empty otherwise and for nodes with no
@@ -206,6 +207,7 @@ def create_linkable_node(
         linker_flags = linker_flags,
         ignore_force_static_follows_dependents = ignore_force_static_follows_dependents,
         stub = stub,
+        supports_shlib_interfaces = getattr(ctx.attrs, "supports_shlib_interfaces", True),
         compile_cmds = compile_cmds,
         _private = _DisallowConstruction(),
     )
