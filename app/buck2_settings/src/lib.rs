@@ -29,6 +29,7 @@ pub mod metadata;
 mod package_visibility;
 pub mod parser;
 mod path;
+pub mod report;
 #[cfg(fbcode_build)]
 mod rollouts;
 mod section;
@@ -47,6 +48,10 @@ pub use metadata::SectionReport;
 pub use metadata::SettingsSection;
 pub use package_visibility::PackageVisibility;
 pub use package_visibility::PackageVisibilityDefaultIntersection;
+pub use parser::ResolvedSettings;
+pub use parser::SettingOrigin;
+pub use parser::SettingsLayerReport;
+pub use report::SettingsReport;
 pub use section::Section;
 pub use settings::BuckSettingChange;
 pub use settings::BuckSettings;

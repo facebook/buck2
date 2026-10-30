@@ -31,6 +31,7 @@ use buck2_event_observer::verbosity::Verbosity;
 use buck2_fs::paths::file_name::FileNameBuf;
 use buck2_fs::working_dir::AbsWorkingDir;
 use buck2_settings::BuckSettings;
+use buck2_settings::ResolvedSettings;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use superconsole::Stdin;
@@ -154,6 +155,12 @@ impl<'a> ClientCommandContext<'a> {
     pub fn buck_settings(&self) -> buck2_error::Result<&BuckSettings> {
         self.immediate_config
             .buck_settings(self.paths()?.project_root())
+    }
+
+    /// Like [`buck_settings`](Self::buck_settings), with where each value came from.
+    pub fn resolved_settings(&self) -> buck2_error::Result<ResolvedSettings> {
+        self.immediate_config
+            .resolved_settings(self.paths()?.project_root())
     }
 
     /// Evaluates repository-scoped advice without loading build configuration.

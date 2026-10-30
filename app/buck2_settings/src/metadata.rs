@@ -11,11 +11,13 @@
 //! What is known about every setting without a value: the declarations that
 //! `#[buck_settings_section]` turns into [`SectionMetadata`].
 
+use serde::Serialize;
 use serde_json::Value;
 
 /// Where a setting's value may come from besides the repository file and
 /// rollouts, which may always set it.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum OverrideSource {
     CommandLine,
     LocalSettings,
@@ -34,7 +36,8 @@ pub(super) enum SettingSource {
 /// Whether a section's values are fixed for the daemon's lifetime, so that a
 /// change restarts it, or belong to one invocation and travel with each
 /// command.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum SectionScope {
     Daemon,
     Invocation,

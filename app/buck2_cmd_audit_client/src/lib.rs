@@ -39,6 +39,7 @@ use crate::package_values::PackageValuesCommand;
 use crate::perf::AuditPerfCommand;
 use crate::prelude::AuditPreludeCommand;
 use crate::providers::AuditProvidersCommand;
+use crate::settings::AuditSettingsCommand;
 use crate::starlark::StarlarkCommand;
 use crate::subtargets::AuditSubtargetsCommand;
 use crate::visibility::AuditVisibilityCommand;
@@ -58,6 +59,7 @@ pub mod package_values;
 pub mod perf;
 pub mod prelude;
 pub mod providers;
+pub mod settings;
 pub mod starlark;
 pub mod subtargets;
 pub mod visibility;
@@ -86,6 +88,7 @@ pub enum AuditCommand {
     PackageValues(PackageValuesCommand),
     #[clap(subcommand, hide = true)]
     Perf(AuditPerfCommand),
+    Settings(AuditSettingsCommand),
 }
 
 /// `buck2 audit` subcommands have a somewhat unique approach to make it really easy to
@@ -123,6 +126,7 @@ impl AuditCommand {
             AuditCommand::Parse(cmd) => cmd,
             AuditCommand::PackageValues(cmd) => cmd,
             AuditCommand::Perf(cmd) => cmd,
+            AuditCommand::Settings(cmd) => cmd,
         }
     }
 }

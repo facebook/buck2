@@ -19,6 +19,7 @@ use buck2_error::BuckErrorContext;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_path::AbsPath;
 use buck2_fs::paths::abs_path::AbsPathBuf;
+use serde::Serialize;
 use serde::de::DeserializeOwned;
 
 use crate::BuckSettings;
@@ -37,29 +38,59 @@ use crate::rollouts::select_rollout_table;
 use crate::settings::ALL_SECTION_METADATA;
 use crate::settings::BuckSettingsData;
 
-/// Source of a setting value.
-#[derive(Debug, PartialEq, Eq, derive_more::Display)]
-enum Provenance {
-    /// Repo root setting file
-    Base(AbsPathBuf),
-    /// Local setting file
+/// Where a setting's value came from. A key no layer set has no origin.
+#[derive(Debug, Clone, PartialEq, Eq, derive_more::Display, Serialize)]
+#[serde(tag = "kind", content = "path", rename_all = "snake_case")]
+pub enum SettingOrigin {
+    /// The repository's `.bucksettings.toml`.
+    #[display("repository settings file `{_0}`")]
+    Repository(AbsPathBuf),
+    /// A `.bucksettings.local.toml`, or the `BUCK2_SETTINGS_OVERRIDE` file.
     #[display("local settings file `{_0}`")]
-    LocalSettings(AbsPathBuf),
-    /// Wrapper-cached rollout settings.
+    Local(AbsPathBuf),
+    /// The wrapper's rollout cache.
     #[display("rollout cache `{_0}`")]
     Rollout(AbsPathBuf),
     #[display("`--setting`")]
     CommandLine,
 }
 
-impl Provenance {
+impl SettingOrigin {
     fn setting_source(&self) -> SettingSource {
         match self {
-            Self::Base(_) => SettingSource::Base,
+            Self::Repository(_) => SettingSource::Base,
             Self::Rollout(_) => SettingSource::Rollout,
-            Self::LocalSettings(_) => SettingSource::Override(OverrideSource::LocalSettings),
+            Self::Local(_) => SettingSource::Override(OverrideSource::LocalSettings),
             Self::CommandLine => SettingSource::Override(OverrideSource::CommandLine),
         }
+    }
+}
+
+/// A settings file or flag the parser considered.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct SettingsLayerReport {
+    pub origin: SettingOrigin,
+    /// Whether the layer contributed: a file that exists and parsed, a flag.
+    /// A rollout cache that fails to parse is reported and skipped.
+    pub applied: bool,
+}
+
+/// Settings together with the layers they came from.
+#[derive(Debug)]
+pub struct ResolvedSettings {
+    pub settings: BuckSettings,
+    /// Lowest priority first.
+    pub layers: Vec<SettingsLayerReport>,
+    origins: BTreeMap<(String, String), Arc<SettingOrigin>>,
+}
+
+impl ResolvedSettings {
+    /// Where the winning value of `section.key` came from; `None` when no
+    /// layer set it.
+    pub fn origin(&self, section: &str, key: &str) -> Option<&SettingOrigin> {
+        self.origins
+            .get(&(section.to_owned(), key.to_owned()))
+            .map(Arc::as_ref)
     }
 }
 
@@ -73,14 +104,14 @@ enum SettingsError {
     #[error("Buck setting `{key}` cannot be overridden from {origin}")]
     InvalidOverride {
         key: String,
-        origin: Arc<Provenance>,
+        origin: Arc<SettingOrigin>,
     },
 }
 
 /// Settings parsed from a single source.
 #[derive(Clone, Debug)]
 struct SettingsLayer {
-    provenance: Arc<Provenance>,
+    provenance: Arc<SettingOrigin>,
     table: toml::Table,
 }
 
@@ -90,15 +121,15 @@ struct LoadedRollout {
 }
 
 impl SettingsLayer {
-    fn new(provenance: Provenance, table: toml::Table) -> Self {
+    fn new(origin: SettingOrigin, table: toml::Table) -> Self {
         Self {
-            provenance: Arc::new(provenance),
+            provenance: Arc::new(origin),
             table,
         }
     }
 
     fn setting_flag(table: toml::Table) -> Self {
-        Self::new(Provenance::CommandLine, table)
+        Self::new(SettingOrigin::CommandLine, table)
     }
 }
 
@@ -110,12 +141,12 @@ enum SourcedValue {
     /// A setting value from one source, replaced by higher-priority sources during merging.
     Leaf {
         value: toml::Value,
-        provenance: Arc<Provenance>,
+        provenance: Arc<SettingOrigin>,
     },
 }
 
 impl SourcedValue {
-    fn new(value: toml::Value, provenance: &Arc<Provenance>) -> Self {
+    fn new(value: toml::Value, provenance: &Arc<SettingOrigin>) -> Self {
         match value {
             toml::Value::Table(table) => Self::Section(MergedSettings(
                 table
@@ -195,6 +226,22 @@ impl MergedSettings {
         self.validate_inner(sections, &mut Vec::new())
     }
 
+    /// The origin of every `section.key` leaf.
+    fn origins(&self) -> BTreeMap<(String, String), Arc<SettingOrigin>> {
+        let mut origins = BTreeMap::new();
+        for (section_name, section) in &self.0 {
+            let SourcedValue::Section(section) = section else {
+                continue;
+            };
+            for (name, value) in &section.0 {
+                if let SourcedValue::Leaf { provenance, .. } = value {
+                    origins.insert((section_name.clone(), name.clone()), Arc::clone(provenance));
+                }
+            }
+        }
+        origins
+    }
+
     fn deserialize<T: DeserializeOwned>(self) -> buck2_error::Result<T> {
         Ok(toml::Value::Table(self.into_table())
             .try_into()
@@ -218,13 +265,17 @@ fn parse_table(path: &AbsPath) -> buck2_error::Result<Option<toml::Table>> {
 }
 
 /// Parses settings files from lowest to highest priority.
+/// The on-disk layers, lowest priority first, and a report of every file
+/// considered, in the same order.
 fn parse_layers(
     repo_root: &AbsPath,
     home_dir: Option<&AbsPath>,
     rollout_layer: Option<SettingsLayer>,
-) -> buck2_error::Result<Vec<SettingsLayer>> {
+) -> buck2_error::Result<(Vec<SettingsLayer>, Vec<SettingsLayerReport>)> {
     let mut base_layers = Vec::new();
+    let mut base_reports = Vec::new();
     let mut local_layers = Vec::new();
+    let mut local_reports = Vec::new();
     for source in DEFAULT_SETTINGS_SOURCES {
         let (path, is_base) = match source {
             SettingsPathSource::RepoRootFile(name) => {
@@ -238,18 +289,51 @@ fn parse_layers(
                 (home_dir.join(name), false)
             }
         };
-        if let Some(table) = parse_table(&path)? {
-            if is_base {
-                base_layers.push(SettingsLayer::new(Provenance::Base(path), table));
-            } else {
-                local_layers.push(SettingsLayer::new(Provenance::LocalSettings(path), table));
-            }
+        let table = parse_table(&path)?;
+        let (origin, layers, reports) = if is_base {
+            (
+                SettingOrigin::Repository(path),
+                &mut base_layers,
+                &mut base_reports,
+            )
+        } else {
+            (
+                SettingOrigin::Local(path),
+                &mut local_layers,
+                &mut local_reports,
+            )
+        };
+        reports.push(SettingsLayerReport {
+            origin: origin.clone(),
+            applied: table.is_some(),
+        });
+        if let Some(table) = table {
+            layers.push(SettingsLayer::new(origin, table));
         }
     }
 
+    if let Some(home_dir) = home_dir
+        && let Some(origin) = rollout_origin(home_dir)
+    {
+        base_reports.push(SettingsLayerReport {
+            origin,
+            applied: rollout_layer.is_some(),
+        });
+    }
     base_layers.extend(rollout_layer);
     base_layers.extend(local_layers);
-    Ok(base_layers)
+    base_reports.extend(local_reports);
+    Ok((base_layers, base_reports))
+}
+
+#[cfg(fbcode_build)]
+fn rollout_origin(home_dir: &AbsPath) -> Option<SettingOrigin> {
+    Some(SettingOrigin::Rollout(rollouts_path(home_dir)))
+}
+
+#[cfg(not(fbcode_build))]
+fn rollout_origin(_home_dir: &AbsPath) -> Option<SettingOrigin> {
+    None
 }
 
 #[cfg(fbcode_build)]
@@ -276,7 +360,7 @@ fn try_load_rollout(_home_dir: Option<&AbsPath>) -> buck2_error::Result<Option<L
 fn rollout_layer(home_dir: Option<&AbsPath>) -> Option<SettingsLayer> {
     match try_load_rollout(home_dir) {
         Ok(Some(LoadedRollout { path, table })) => {
-            Some(SettingsLayer::new(Provenance::Rollout(path), table))
+            Some(SettingsLayer::new(SettingOrigin::Rollout(path), table))
         }
         Ok(None) => None,
         Err(error) => {
@@ -291,7 +375,7 @@ fn rollout_layer(home_dir: Option<&AbsPath>) -> Option<SettingsLayer> {
 
 /// Recursively merges overlay into base. Overlay values take precedence over base values.
 /// TOML tables are merged recursively by key instead of replaced atomically.
-fn merge(base: &mut MergedSettings, overlay: toml::Table, provenance: &Arc<Provenance>) {
+fn merge(base: &mut MergedSettings, overlay: toml::Table, provenance: &Arc<SettingOrigin>) {
     for (k, v) in overlay {
         match (base.0.get_mut(&k), v) {
             (Some(SourcedValue::Section(base_section)), toml::Value::Table(overlay_table)) => {
@@ -312,7 +396,10 @@ fn merge_layers(layers: Vec<SettingsLayer>) -> MergedSettings {
     merged
 }
 
-fn resolve(layers: Vec<SettingsLayer>) -> buck2_error::Result<BuckSettings> {
+fn resolve_layers(
+    layers: Vec<SettingsLayer>,
+    reports: Vec<SettingsLayerReport>,
+) -> buck2_error::Result<ResolvedSettings> {
     let layers = layers
         .into_iter()
         .map(|SettingsLayer { provenance, table }| SettingsLayer {
@@ -322,8 +409,17 @@ fn resolve(layers: Vec<SettingsLayer>) -> buck2_error::Result<BuckSettings> {
         .collect();
     let merged = merge_layers(layers);
     merged.validate(ALL_SECTION_METADATA)?;
+    let origins = merged.origins();
     let data: BuckSettingsData = merged.deserialize()?;
-    Ok(data.into())
+    Ok(ResolvedSettings {
+        settings: data.into(),
+        layers: reports,
+        origins,
+    })
+}
+
+fn resolve(layers: Vec<SettingsLayer>) -> buck2_error::Result<BuckSettings> {
+    Ok(resolve_layers(layers, Vec::new())?.settings)
 }
 
 /// Resolves `tables` as if each were a `--setting` layer. For tests.
@@ -365,6 +461,14 @@ pub fn parse_settings(
     project_fs: &ProjectRoot,
     settings_args: &[toml::Table],
 ) -> buck2_error::Result<BuckSettings> {
+    Ok(resolve_settings(project_fs, settings_args)?.settings)
+}
+
+/// Like [`parse_settings`], keeping where each value came from.
+pub fn resolve_settings(
+    project_fs: &ProjectRoot,
+    settings_args: &[toml::Table],
+) -> buck2_error::Result<ResolvedSettings> {
     let repo_root = project_fs.root().as_abs_path();
     let home_dir = buck2_env!("BUCK2_TEST_SETTINGS_HOME_DIR", applicability = testing)?
         .map(PathBuf::from)
@@ -379,7 +483,7 @@ pub fn parse_settings(
                 .buck_error_context("`BUCK2_SETTINGS_OVERRIDE` must be an absolute path")
         })
         .transpose()?;
-    parse_settings_with_home(
+    resolve_settings_with_home(
         repo_root,
         home_dir.as_deref(),
         override_file.as_deref(),
@@ -387,13 +491,23 @@ pub fn parse_settings(
     )
 }
 
+#[cfg(test)]
 fn parse_settings_with_home(
     repo_root: &AbsPath,
     home_dir: Option<&AbsPath>,
     override_file: Option<&AbsPath>,
     settings_args: &[toml::Table],
 ) -> buck2_error::Result<BuckSettings> {
-    let mut layers = parse_layers(repo_root, home_dir, rollout_layer(home_dir))?;
+    Ok(resolve_settings_with_home(repo_root, home_dir, override_file, settings_args)?.settings)
+}
+
+pub(crate) fn resolve_settings_with_home(
+    repo_root: &AbsPath,
+    home_dir: Option<&AbsPath>,
+    override_file: Option<&AbsPath>,
+    settings_args: &[toml::Table],
+) -> buck2_error::Result<ResolvedSettings> {
+    let (mut layers, mut reports) = parse_layers(repo_root, home_dir, rollout_layer(home_dir))?;
     // Outranks every on-disk layer so a harness can pin settings; only
     // per-command `--setting` flags are more specific.
     if let Some(path) = override_file {
@@ -401,18 +515,23 @@ fn parse_settings_with_home(
         // this file by name, so running without it is the silent wrong answer.
         let table = parse_table(path)?
             .ok_or_else(|| SettingsError::OverrideFileMissing(path.display().to_string()))?;
+        reports.push(SettingsLayerReport {
+            origin: SettingOrigin::Local(path.to_owned()),
+            applied: true,
+        });
         layers.push(SettingsLayer::new(
-            Provenance::LocalSettings(path.to_owned()),
+            SettingOrigin::Local(path.to_owned()),
             table,
         ));
     }
-    layers.extend(
-        settings_args
-            .iter()
-            .cloned()
-            .map(SettingsLayer::setting_flag),
-    );
-    resolve(layers)
+    for table in settings_args {
+        reports.push(SettingsLayerReport {
+            origin: SettingOrigin::CommandLine,
+            applied: true,
+        });
+        layers.push(SettingsLayer::setting_flag(table.clone()));
+    }
+    resolve_layers(layers, reports)
 }
 
 /// Parses TOML that is known to be valid. For tests.
@@ -433,7 +552,7 @@ mod tests {
     use crate::settings::testing::TestSection;
 
     impl MergedSettings {
-        fn provenance(&self, key: SettingKeyRef<'_>) -> Option<&Provenance> {
+        fn provenance(&self, key: SettingKeyRef<'_>) -> Option<&SettingOrigin> {
             let value = match self.0.get(key.section)? {
                 SourcedValue::Section(section) => section.0.get(key.name)?,
                 SourcedValue::Leaf { .. } => return None,
@@ -490,7 +609,7 @@ mod tests {
         for (name, content) in home_files {
             home.write_file(name, content);
         }
-        let mut layers = parse_layers(
+        let (mut layers, _reports) = parse_layers(
             repo.path().root().as_abs_path(),
             Some(home.path().root().as_abs_path()),
             None,
@@ -837,22 +956,43 @@ mod tests {
             .as_abs_path()
             .join(buck2_wrapper_common::SETTINGS_ROLLOUTS_FILENAME);
 
-        let mut layers = parse_layers(
+        let (mut layers, reports) = parse_layers(
             repo.path().root().as_abs_path(),
             Some(home.path().root().as_abs_path()),
             Some(SettingsLayer::new(
-                Provenance::Rollout(rollout_path.clone()),
+                SettingOrigin::Rollout(rollout_path.clone()),
                 table("[test_section]\ntest_value = \"rollout\""),
             )),
         )?;
+        let repository =
+            SettingOrigin::Repository(repo.path().root().as_abs_path().join(DOT_BUCKSETTINGS));
         assert_eq!(
-            layers[0].provenance.as_ref(),
-            &Provenance::Base(repo.path().root().as_abs_path().join(DOT_BUCKSETTINGS))
+            reports[0],
+            SettingsLayerReport {
+                origin: repository.clone(),
+                applied: true,
+            }
         );
+        // The rollout cache is only a layer in Meta-internal builds.
+        if cfg!(fbcode_build) {
+            assert_eq!(
+                reports[1],
+                SettingsLayerReport {
+                    origin: SettingOrigin::Rollout(rollout_path.clone()),
+                    applied: true,
+                }
+            );
+        }
+        assert!(
+            reports.iter().any(|report| {
+                matches!(report.origin, SettingOrigin::Local(_)) && report.applied
+            })
+        );
+        assert_eq!(layers[0].provenance.as_ref(), &repository);
         assert_eq!(layers[0].provenance.setting_source(), SettingSource::Base);
         assert_eq!(
             layers[1].provenance.as_ref(),
-            &Provenance::Rollout(rollout_path)
+            &SettingOrigin::Rollout(rollout_path)
         );
         assert_eq!(
             layers[1].provenance.setting_source(),
@@ -860,7 +1000,7 @@ mod tests {
         );
         assert_eq!(
             layers[2].provenance.as_ref(),
-            &Provenance::LocalSettings(
+            &SettingOrigin::Local(
                 home.path()
                     .root()
                     .as_abs_path()
@@ -869,7 +1009,7 @@ mod tests {
         );
         assert_eq!(
             layers[3].provenance.as_ref(),
-            &Provenance::LocalSettings(
+            &SettingOrigin::Local(
                 repo.path()
                     .root()
                     .as_abs_path()
@@ -886,7 +1026,7 @@ mod tests {
                 section: "test_section",
                 name: "test_flag",
             }),
-            Some(&Provenance::CommandLine)
+            Some(&SettingOrigin::CommandLine)
         );
         assert_eq!(
             merged
@@ -894,7 +1034,7 @@ mod tests {
                     section: "test_section",
                     name: "test_flag",
                 })
-                .map(Provenance::setting_source),
+                .map(SettingOrigin::setting_source),
             Some(SettingSource::Override(OverrideSource::CommandLine))
         );
         assert_eq!(
@@ -903,7 +1043,7 @@ mod tests {
                     section: "test_section",
                     name: "test_value",
                 })
-                .map(Provenance::setting_source),
+                .map(SettingOrigin::setting_source),
             Some(SettingSource::Override(OverrideSource::LocalSettings))
         );
         assert_eq!(
@@ -911,7 +1051,7 @@ mod tests {
                 section: "test_section",
                 name: "test_value",
             }),
-            Some(&Provenance::LocalSettings(
+            Some(&SettingOrigin::Local(
                 home.path()
                     .root()
                     .as_abs_path()
@@ -931,7 +1071,7 @@ mod tests {
             .join(".bucksettings.local.toml");
         let error = resolve_with_metadata::<TestBuckSettingsData>(
             vec![SettingsLayer::new(
-                Provenance::LocalSettings(path.clone()),
+                SettingOrigin::Local(path.clone()),
                 table("[test_section]\ntest_flag = true"),
             )],
             &[TEST_FLAG_METADATA],
@@ -966,7 +1106,7 @@ mod tests {
         let home = ProjectRootTemp::new()?;
         let resolved = resolve_with_metadata::<TestBuckSettingsData>(
             vec![SettingsLayer::new(
-                Provenance::Rollout(
+                SettingOrigin::Rollout(
                     home.path()
                         .root()
                         .as_abs_path()
@@ -1014,7 +1154,9 @@ mod tests {
         let repo = ProjectRootTemp::new()?;
         let base = resolve_with_metadata::<TestBuckSettingsData>(
             vec![SettingsLayer::new(
-                Provenance::Base(repo.path().root().as_abs_path().join(".bucksettings.toml")),
+                SettingOrigin::Repository(
+                    repo.path().root().as_abs_path().join(".bucksettings.toml"),
+                ),
                 table("[test_section]\ntest_flag = true"),
             )],
             &[TEST_FLAG_METADATA],
@@ -1030,7 +1172,7 @@ mod tests {
         let shadowed = resolve_with_metadata::<TestBuckSettingsData>(
             vec![
                 SettingsLayer::new(
-                    Provenance::LocalSettings(
+                    SettingOrigin::Local(
                         local
                             .path()
                             .root()

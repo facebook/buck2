@@ -622,6 +622,10 @@ impl CommandKind {
             CommandKind::Targets(cmd) => command_ctx.exec(cmd, matches, events_ctx),
             CommandKind::Utargets(cmd) => command_ctx.exec(cmd, matches, events_ctx),
             CommandKind::Ctargets(cmd) => command_ctx.exec(cmd, matches, events_ctx),
+            // Settings are resolved on the client; no daemon is involved.
+            CommandKind::Audit(AuditCommand::Settings(cmd)) => {
+                cmd.exec(matches, command_ctx).into()
+            }
             CommandKind::Audit(cmd) => command_ctx.exec(cmd, matches, events_ctx),
             CommandKind::Starlark(cmd) => cmd.exec(matches, command_ctx, events_ctx),
             CommandKind::Run(cmd) => command_ctx.exec(cmd, matches, events_ctx),

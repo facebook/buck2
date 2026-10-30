@@ -39,6 +39,7 @@ use buck2_events::sink::remote::new_remote_event_sink_if_enabled;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_hash::IntentionallyStdHashMap;
+use buck2_settings::SettingsReport;
 use buck2_util::process::async_background_command;
 use buck2_wrapper_common::invocation_id::TraceId;
 use derive_more::Display;
@@ -104,6 +105,10 @@ impl RageCommand {
     async fn exec_impl(self, mut ctx: ClientCommandContext<'_>) -> buck2_error::Result<()> {
         let paths = ctx.paths()?;
         let daemon_dir = paths.daemon_dir()?;
+        // Resolved before anything else borrows `ctx`; cheap, and it needs no daemon.
+        let settings = ctx
+            .resolved_settings()
+            .map(|resolved| SettingsReport::new(&resolved).render(true));
         let stderr_path = daemon_dir.buckd_stderr();
         let re_logs_dir = ctx.paths()?.re_logs_dir();
         let logdir = paths.log_dir();
@@ -158,6 +163,7 @@ impl RageCommand {
         );
 
         let system_info_command = self.section("System info", crate::system_info::get);
+        let settings_command = self.section("Buck settings", || async { settings });
         let daemon_stderr_command = self.section("Daemon stderr", || {
             upload_daemon_stderr(stderr_path, &manifold, &manifold_id)
         });
@@ -207,6 +213,7 @@ impl RageCommand {
 
         let (
             system_info,
+            settings,
             daemon_stderr_dump,
             hg_snapshot_id,
             dice_dump,
@@ -216,6 +223,7 @@ impl RageCommand {
             re_logs,
         ) = tokio::join!(
             system_info_command,
+            settings_command,
             daemon_stderr_command,
             hg_snapshot_id_command,
             dice_dump_command,
@@ -227,6 +235,7 @@ impl RageCommand {
         let sections = vec![
             build_info.to_string(),
             system_info.to_string(),
+            settings.to_string(),
             daemon_stderr_dump.to_string(),
             hg_snapshot_id.to_string(),
             dice_dump.to_string(),

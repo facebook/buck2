@@ -36,6 +36,7 @@ mod perf;
 mod prelude;
 mod providers;
 mod server;
+mod settings;
 mod starlark;
 mod subtargets;
 mod visibility;
@@ -102,6 +103,7 @@ impl AuditCommandExt for AuditCommand {
             AuditCommand::Parse(cmd) => cmd,
             AuditCommand::PackageValues(cmd) => cmd,
             AuditCommand::Perf(cmd) => cmd,
+            AuditCommand::Settings(cmd) => cmd,
         }
     }
 }

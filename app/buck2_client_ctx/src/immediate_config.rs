@@ -36,7 +36,9 @@ use buck2_fs::paths::abs_path::AbsPath;
 use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_fs::working_dir::AbsWorkingDir;
 use buck2_settings::BuckSettings;
+use buck2_settings::ResolvedSettings;
 use buck2_settings::parser::parse_settings;
+use buck2_settings::parser::resolve_settings;
 use prost::Message;
 
 /// Lazy-computed immediate config data. This is produced by reading the root buckconfig (but not
@@ -132,6 +134,18 @@ impl<'a> ImmediateConfigContext<'a> {
         })?;
         self.buck_settings
             .get_or_try_init(|| parse_settings(project_root, setting_arg_layers))
+    }
+
+    /// Like [`buck_settings`](Self::buck_settings), with where each value came
+    /// from. Not cached; for reporting.
+    pub fn resolved_settings(
+        &self,
+        project_root: &ProjectRoot,
+    ) -> buck2_error::Result<ResolvedSettings> {
+        let setting_arg_layers = self.setting_arg_layers.get().ok_or_else(|| {
+            internal_error!("Buck settings read before setting arguments were set")
+        })?;
+        resolve_settings(project_root, setting_arg_layers)
     }
 
     pub fn daemon_startup_config(&self) -> buck2_error::Result<&DaemonStartupConfig> {
