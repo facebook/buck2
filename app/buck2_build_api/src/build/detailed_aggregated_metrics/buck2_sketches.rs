@@ -472,6 +472,8 @@ fn gather_heap_graph_sketch(
 mod tests {
     use std::borrow::Cow;
     use std::sync::Arc;
+    use std::sync::atomic::AtomicUsize;
+    use std::sync::atomic::Ordering;
 
     use allocative::Allocative;
     use async_trait::async_trait;
@@ -553,7 +555,13 @@ mod tests {
         outputs: BoxSliceSet<BuildArtifact>,
         category: Category,
         identifier: Option<String>,
+        /// Counts `inputs()` calls in `COUNTED_INPUTS_CALLS`.
+        count_inputs_calls: bool,
     }
+
+    /// `inputs()` calls on `MockAction`s created with `count_inputs_calls` set.
+    /// Only `test_action_graph_traversal_dynamic_output_aliases` sets it.
+    static COUNTED_INPUTS_CALLS: AtomicUsize = AtomicUsize::new(0);
 
     impl MockAction {
         fn new(
@@ -566,6 +574,7 @@ mod tests {
                 outputs: BoxSliceSet::from(outputs),
                 category: Category::new("test".to_owned()).unwrap(),
                 identifier,
+                count_inputs_calls: false,
             }
         }
     }
@@ -578,6 +587,9 @@ mod tests {
         }
 
         fn inputs(&self) -> buck2_error::Result<Cow<'_, [ArtifactGroup]>> {
+            if self.count_inputs_calls {
+                COUNTED_INPUTS_CALLS.fetch_add(1, Ordering::Relaxed);
+            }
             Ok(Cow::Borrowed(self.inputs.as_slice()))
         }
 
@@ -744,6 +756,99 @@ mod tests {
         assert!(sketched.contains(&action_key1));
         assert!(sketched.contains(&action_key2));
         assert!(sketched.contains(&action_key3));
+    }
+
+    #[test]
+    fn test_action_graph_traversal_dynamic_output_aliases() {
+        // A dynamic_output gives each declared output its own action key, and each of those
+        // keys resolves to the single action that binds the output:
+        //
+        //   alias0 (index 0) --\
+        //                       +--> producer (index 2) <-- consumer3 uses alias0
+        //   alias1 (index 1) --/                        <-- consumer4 uses alias1
+        //
+        //   root (index 5) uses consumer3 and consumer4.
+        let target = create_target("root//:lib");
+        let holder_key = DeferredHolderKey::for_analysis(target.dupe());
+
+        let alias0 = ArtifactGroup::Artifact(create_build_artifact(&holder_key, 0).into());
+        let alias1 = ArtifactGroup::Artifact(create_build_artifact(&holder_key, 1).into());
+
+        let producer_key = ActionKey::new(holder_key.dupe(), ActionIndex::new(2));
+        let producer_action = Arc::new(RegisteredAction::new(
+            producer_key.dupe(),
+            Box::new(MockAction {
+                count_inputs_calls: true,
+                ..MockAction::new(
+                    BuckMutInsertionSet::default(),
+                    BuckMutInsertionSet::from([create_build_artifact(&holder_key, 2)]),
+                    Some("producer".to_owned()),
+                )
+            }),
+            CommandExecutorConfig::testing_local(),
+        ));
+
+        let (consumer_key3, output3, consumer3) = create_action(&holder_key, 3, vec![&alias0]);
+        let (consumer_key4, output4, consumer4) = create_action(&holder_key, 4, vec![&alias1]);
+        let artifact3 = ArtifactGroup::Artifact(output3.into());
+        let artifact4 = ArtifactGroup::Artifact(output4.into());
+        let (root_key, root_output, root) =
+            create_action(&holder_key, 5, vec![&artifact3, &artifact4]);
+        let root_artifact = ArtifactGroup::Artifact(root_output.into());
+
+        // The aliases are inserted before the producer action, so they are recorded as
+        // `Deferred(producer_key)`, as dynamic_output bindings are.
+        let mut recorded_actions = RecordedActions::new(6);
+        recorded_actions.insert_dynamic_output(
+            ActionKey::new(holder_key.dupe(), ActionIndex::new(0)),
+            producer_key.dupe(),
+        );
+        recorded_actions.insert_dynamic_output(
+            ActionKey::new(holder_key.dupe(), ActionIndex::new(1)),
+            producer_key.dupe(),
+        );
+        recorded_actions.insert(producer_key.dupe(), producer_action);
+        recorded_actions.insert(consumer_key3.dupe(), consumer3);
+        recorded_actions.insert(consumer_key4.dupe(), consumer4);
+        recorded_actions.insert(root_key.dupe(), root);
+
+        let analysis_values =
+            RecordedAnalysisValues::testing_new_actions_only(holder_key.dupe(), recorded_actions);
+        let holder = OwnedDeferredHolder::Analysis(
+            AnalysisResult::new(
+                analysis_values,
+                None,
+                BuckFixedSortedMap::default(),
+                0,
+                0,
+                None,
+                Vec::new(),
+                RuleType::Forward,
+            )
+            .expect("test analysis should have valid providers"),
+        );
+        let mut state = BuckMutMap::default();
+        state.insert(holder_key, holder);
+
+        let mut mock_sketcher: MockSketcher<ActionKey> = MockSketcher::new();
+        let complete =
+            super::compute_action_graph_sketch_impl([&root_artifact], &state, &mut mock_sketcher)
+                .unwrap();
+
+        assert!(complete);
+        let sketched: BuckMutSet<_> = mock_sketcher.items.into_iter().collect();
+        assert_eq!(
+            sketched,
+            BuckMutSet::from_iter([producer_key, consumer_key3, consumer_key4, root_key]),
+            "each unique action should be sketched once"
+        );
+        // TODO: The traversal dedups on the key it looked up, not the action that key
+        // resolves to, so the producer's inputs are re-walked once per alias.
+        assert_eq!(
+            COUNTED_INPUTS_CALLS.load(Ordering::Relaxed),
+            2,
+            "producer inputs are currently walked once per alias"
+        );
     }
 
     #[test]
