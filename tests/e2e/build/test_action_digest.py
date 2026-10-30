@@ -30,6 +30,7 @@ _BUILD_DEADLINE_S = 20 * 60
 
 
 async def _build_and_collect_digests(buck: Buck, arm_name: str) -> dict[str, list[str]]:
+    await buck.kill()
     build = buck.build(
         get_mode_from_platform(),
         "fbcode//buck2/tests/targets/rules/rust/hello_world:welcome",
