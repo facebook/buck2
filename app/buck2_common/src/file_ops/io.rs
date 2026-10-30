@@ -8,6 +8,8 @@
  * above-listed licenses.
  */
 
+use std::sync::Arc;
+
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::fs::i_project_rel_path::IProjectRelativePath;
@@ -32,6 +34,7 @@ use dupe::Dupe;
 use dupe::ResultDupedErrExt;
 use pagable::Pagable;
 use pagable::pagable_typetag;
+use tokio::sync::OnceCell;
 
 use crate::dice::data::HasIoProvider;
 use crate::file_ops::baseline::HasFileSystemBaseline;
@@ -193,10 +196,27 @@ pub(super) async fn read_dir_cached(
 ) -> buck2_error::Result<PackedStringSlice<FileName, FileType>> {
     // Commands set the cache up (`initialize_read_dir_cache`); without it every read goes to the
     // provider, which is correct and what unit tests get.
-    let read_dir_cache = ctx.per_transaction_data().data.get::<ReadDirCache>().ok();
-    if let Some(cached) = read_dir_cache.and_then(|cache| cache.0.get(&path)) {
-        return Ok(cached.dupe());
+    let ctx: &DiceComputations<'_> = ctx;
+    let Ok(read_dir_cache) = ctx.per_transaction_data().data.get::<ReadDirCache>() else {
+        return list_dir(ctx, path).await;
     };
+    // Get the Arc<OnceCell>get/map is the fast path to fetch the OnceCell w/o taking the read_dir_cache's shard lock
+    let cell = read_dir_cache
+        .0
+        .get(&path)
+        .map(|cell| cell.dupe())
+        // and entry().or_default() is the slow path that takes the shard_lock and releases it after returning the Arc.
+        .unwrap_or_else(|| read_dir_cache.0.entry(path).or_default().dupe());
+    // Mutually exclusive initialization to prevent multiple requests repeating directory listings.
+    cell.get_or_try_init(|| list_dir(ctx, path))
+        .await
+        .map(Dupe::dupe)
+}
+
+async fn list_dir(
+    ctx: &DiceComputations<'_>,
+    path: IProjectRelativePath,
+) -> buck2_error::Result<PackedStringSlice<FileName, FileType>> {
     let entries = ctx
         .global_data()
         .get_io_provider()
@@ -212,12 +232,7 @@ pub(super) async fn read_dir_cached(
     for e in &entries {
         builder.push(&e.file_name, e.file_type);
     }
-    let entries = builder.sort_and_build();
-    if let Some(cache) = read_dir_cache {
-        cache.0.insert(path, entries.dupe());
-    }
-
-    Ok(entries)
+    Ok(builder.sort_and_build())
 }
 
 #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
@@ -369,7 +384,9 @@ pub(super) async fn exists(
     }
 }
 
-struct ReadDirCache(BuckDashMap<IProjectRelativePath, PackedStringSlice<FileName, FileType>>);
+struct ReadDirCache(
+    BuckDashMap<IProjectRelativePath, Arc<OnceCell<PackedStringSlice<FileName, FileType>>>>,
+);
 
 pub fn initialize_read_dir_cache(data: &mut UserComputationData) {
     data.data.set(ReadDirCache(Default::default()));
