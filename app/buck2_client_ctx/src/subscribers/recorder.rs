@@ -248,6 +248,7 @@ pub struct InvocationRecorder {
     /// Daemon started by this command.
     daemon_was_started: Option<buck2_data::DaemonWasStartedReason>,
     should_restart: bool,
+    settings_hash: Option<String>,
     client_metadata: Vec<buck2_data::ClientMetadata>,
     agent_invocation_info: AgentInvocationInfo,
     command_errors: Vec<ErrorReport>,
@@ -480,6 +481,7 @@ impl InvocationRecorder {
             re_exceeded_quotas: BuckMutSet::default(),
             daemon_connection_failure: false,
             daemon_was_started: None,
+            settings_hash: None,
             should_restart: false,
             client_metadata: Vec::new(),
             agent_invocation_info: AgentInvocationInfo::default(),
@@ -594,6 +596,13 @@ impl InvocationRecorder {
         }
 
         self.agent_invocation_info = ctx.agent_invocation_info().clone();
+
+        // Outside a repository there are no settings to resolve; a settings
+        // file that fails to parse fails the command itself later.
+        self.settings_hash = ctx
+            .buck_settings()
+            .ok()
+            .map(|settings| settings.snapshot().hash);
 
         self.command_name = Some(command_name);
     }
@@ -1220,6 +1229,7 @@ impl InvocationRecorder {
                 .and_then(|s| s.page_out_started),
             daemon_connection_failure: Some(self.daemon_connection_failure),
             daemon_was_started: self.daemon_was_started.map(|t| t as i32),
+            settings_hash: self.settings_hash.take(),
             should_restart: Some(self.should_restart),
             client_metadata: std::mem::take(&mut self.client_metadata),
             agent_direct_call: agent_context

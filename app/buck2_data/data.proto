@@ -446,6 +446,9 @@ message InstantEvent {
 
     // Marks the end of the build phase of a command that builds targets.
     BuildPhaseEnd build_phase_end = 69;
+
+    // A settings value seen by this daemon for the first time.
+    BuckSettingsObserved buck_settings_observed = 70;
   }
 }
 
@@ -564,6 +567,16 @@ message PreviousCommandWithMismatchedConfig {
 
 message ConfigurationCreated {
   ConfigurationWithConstraints cfg = 1;
+}
+
+// The Buck settings a daemon runs under, sent once per daemon per distinct
+// value. Ingress stores these keyed by `hash`; invocation records carry the
+// same hash as `buck_settings_hash`.
+message BuckSettingsObserved {
+  // `buck2settings-` followed by the hex digest of `settings_json`.
+  string hash = 1;
+  // The settings as JSON, in the same form `buck2 status` prints.
+  string settings_json = 2;
 }
 
 message EndOfTestResults {
@@ -3586,6 +3599,10 @@ message InvocationRecord {
   optional DaemonWasStartedReason daemon_was_started = 751;
   // Set if an event occurred that should trigger a command restart.
   optional bool should_restart = 752;
+  // Hash identifying the Buck settings this command ran under; the settings
+  // themselves are stored by ingress under this key, see
+  // `BuckSettingsObserved`. Unset for commands outside a repository.
+  optional string settings_hash = 775;
   // Metadata provided by the client. Unlike TypedMetadata, this won't become
   // its own column in Scuba, all those entries will land in a NormVector.
   repeated ClientMetadata client_metadata = 76;

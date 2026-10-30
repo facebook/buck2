@@ -25,6 +25,7 @@ mod path;
 #[cfg(fbcode_build)]
 mod rollouts;
 pub mod settings;
+pub mod telemetry;
 
 pub use settings::BuckSettingChange;
 pub use settings::BuckSettings;

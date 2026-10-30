@@ -59,6 +59,7 @@ use buck2_common::legacy_configs::file_ops::ConfigPath;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::settings::BuckSettings;
 use buck2_common::settings::InvocationBuckSettings;
+use buck2_common::settings::telemetry::observe_settings;
 use buck2_core::buck2_env;
 use buck2_core::cells::name::CellName;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
@@ -410,6 +411,9 @@ impl<'a> ServerCommandContext<'a> {
                 client_context.invocation_settings.as_deref(),
             )?,
         };
+        if let Some(observed) = observe_settings(&buck_settings) {
+            base_context.events.instant_event(observed);
+        }
 
         Ok(ServerCommandContext {
             base_context,
