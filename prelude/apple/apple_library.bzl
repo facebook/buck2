@@ -15,6 +15,7 @@ load("@prelude//:paths.bzl", "paths")
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//apple:apple_dsym.bzl", "DSYM_SUBTARGET", "get_apple_dsym")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
+load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
 load("@prelude//apple:xcassets_asset_symbols.bzl", "xcassets_asset_symbol_usage_providers_and_subtargets")
 # @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_library_meta_validation.bzl", "apple_library_validate_for_meta_restrictions")
 # @oss-disable[end= ]: load(
@@ -33,6 +34,7 @@ load(
 )
 load(
     "@prelude//apple/swift:swift_compilation.bzl",
+    "SwiftDynamicThunkOutput",
     "SwiftLibraryForDistributionOutput",  # @unused Used as a type
     "compile_swift",
     "get_swift_anonymous_targets",
@@ -41,7 +43,7 @@ load(
     "get_swift_pcm_uncompile_info",
     "get_swiftmodule_linkable",
 )
-load("@prelude//apple/swift:swift_helpers.bzl", "uses_explicit_modules")
+load("@prelude//apple/swift:swift_helpers.bzl", "get_swift_dynamic_thunk_entry_point_name", "uses_explicit_modules")
 load(
     "@prelude//apple/swift:swift_incremental_support.bzl",
     "get_uses_content_based_paths",
@@ -93,11 +95,12 @@ load(
 )
 load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
 load("@prelude//cxx:headers.bzl", "cxx_attr_exported_headers", "cxx_attr_headers_list")
+load("@prelude//cxx:link.bzl", "cxx_link_shared_library")
 load(
     "@prelude//cxx:link_groups.bzl",
     "get_link_group_info",
 )
-load("@prelude//cxx:link_types.bzl", "ExtraLinkerOutputCategory")
+load("@prelude//cxx:link_types.bzl", "ExtraLinkerOutputCategory", "link_options")
 load(
     "@prelude//cxx:linker.bzl",
     "LINKERS",
@@ -111,10 +114,15 @@ load(
 )
 load("@prelude//cxx:target_sdk_version.bzl", "get_unversioned_target_triple")
 load("@prelude//graphql:graphql.bzl", "graphql_providers")
+load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
 load(
     "@prelude//linking:link_info.bzl",
     "ExtraLinkerOutputs",
     "LibOutputStyle",
+    "LinkArgs",
+    "LinkInfo",
+    "LinkedObject",
+    "ObjectsLinkable",
     "to_link_strategy",
 )
 load(
@@ -375,6 +383,113 @@ def _make_mockingbird_library_info_provider(ctx: AnalysisContext) -> list[Mockin
         )
     ]
 
+def _link_swift_dynamic_thunk(ctx: AnalysisContext, params: AppleLibraryAdditionalParams, module_name: str, thunk_object: Artifact) -> LinkedObject:
+    """Links the module's `@_dynamicReplacement` thunk object into a dylib that
+    a running process can `dlopen`.
+
+    Nothing else is linked in: every symbol the thunk references, from the
+    module's replacement keys to the Swift runtime, is already loaded in the
+    process the dylib is for, and binds there with `-undefined dynamic_lookup`.
+    Linking a dependency in would duplicate its code and type metadata."""
+    linker_type = get_cxx_toolchain_info(ctx).linker_info.type
+    link_info = LinkInfo(
+        linkables = [ObjectsLinkable(objects = [thunk_object], linker_type = linker_type, link_whole = True)],
+        post_flags = ["-Wl,-undefined,dynamic_lookup", "-Wl,-adhoc_codesign"],
+    )
+    shared_library_flags = params.shared_library_flags or SharedLibraryFlagOverrides(
+        shared_library_name_linker_flags_format = [],
+        shared_library_flags = LINKERS[LinkerType("darwin")].shared_library_flags,
+    )
+    result = cxx_link_shared_library(
+        ctx,
+        output = module_name + ".dynamic-thunk.dylib",
+        opts = link_options(
+            links = [LinkArgs(infos = [link_info])],
+            link_execution_preference = LinkExecutionPreference("any"),
+            category_suffix = "swift_dynamic_thunk",
+            identifier = module_name + ".dynamic-thunk",
+        ),
+        shared_library_flags = shared_library_flags,
+    )
+    return result.linked_object
+
+def _swift_dynamic_thunk_command_database(
+    ctx: AnalysisContext, module_name: str, thunk: SwiftDynamicThunkOutput, linked: LinkedObject
+) -> (Artifact | None, list[typing.Any]):
+    """A JSON record of how the thunk dylib is built: the command that
+    generated the thunk sources, for each of the module's Swift sources the
+    `swiftc` invocation that compiles its thunk (one whole-module command, as
+    in the Swift compilation database), and the linker invocation, relative
+    to `directory`, the project root. Every output of the build (generated
+    sources, object, dylib) is a marker in the commands and in the copies of
+    the argsfiles written next to the database, for a driver to substitute.
+
+    Every path the commands mention is an input of the spec the tool reads,
+    and the spec travels with the database as an `other_output`, so building
+    the subtarget materializes the generated sources, the argsfiles and every
+    module and SDK they reference, as `[swift-compilation-database]` does."""
+    tool = ctx.attrs._apple_tools[AppleToolsInfo].make_swift_dynamic_thunk_command_database
+    if not tool:
+        return None, []
+    linker = get_cxx_toolchain_info(ctx).linker_info.linker
+    link_command = cmd_args(linker, cmd_args(linked.linker_argsfile, format = "@{}"))
+    entry = [source.thunk for source in thunk.sources if source.original == None]
+    spec = ctx.actions.write_json(
+        module_name + ".dynamic-thunk-command-database-spec.json",
+        {
+            "compile": [
+                {
+                    "argsfile": thunk.compile_argsfile,
+                    "arguments": thunk.compile_command,
+                    "file": source.original,
+                    "output": thunk.object,
+                    "thunk_file": source.thunk,
+                }
+                for source in thunk.sources
+                if source.original != None
+            ],
+            "entry_file": entry[0] if entry else None,
+            "entry_point": get_swift_dynamic_thunk_entry_point_name(ctx),
+            "link": {
+                "argsfile": linked.linker_argsfile,
+                "arguments": link_command,
+                "output": linked.output,
+            },
+            "module_name": module_name,
+            "outputs": {
+                "dylib": linked.output,
+                "entry_source": entry[0] if entry else None,
+                "object": thunk.object,
+            },
+            "thunk_module_name": thunk.module_name,
+            "transform": {"arguments": thunk.transform_command},
+        },
+        with_inputs = True,
+        has_content_based_path = False,
+    )
+    project_root = ctx.actions.write(module_name + ".dynamic-thunk-project-root", cmd_args(ctx.label.project_root), absolute = True, has_content_based_path = False)
+    database = ctx.actions.declare_output(module_name + ".dynamic-thunk-command-database.json", has_content_based_path = False)
+    compile_argsfile = ctx.actions.declare_output(module_name + ".dynamic-thunk-command-database.compile.argsfile", has_content_based_path = False)
+    link_argsfile = ctx.actions.declare_output(module_name + ".dynamic-thunk-command-database.link.argsfile", has_content_based_path = False)
+    ctx.actions.run(
+        cmd_args(
+            tool,
+            "--spec",
+            spec,
+            "--project-root-file",
+            project_root,
+            "--output",
+            database.as_output(),
+            "--compile-argsfile",
+            compile_argsfile.as_output(),
+            "--link-argsfile",
+            link_argsfile.as_output(),
+        ),
+        category = "swift_dynamic_thunk_command_database",
+        identifier = module_name,
+    )
+    return database, [spec, compile_argsfile, link_argsfile]
+
 def apple_library_rule_constructor_params_and_swift_providers(
     ctx: AnalysisContext, params: AppleLibraryAdditionalParams, deps_providers: list = [], is_test_target: bool = False
 ) -> CxxRuleConstructorParams:
@@ -559,6 +674,15 @@ def apple_library_rule_constructor_params_and_swift_providers(
 
         subtargets["swiftmodule"] = [DefaultInfo(default_output = swift_compile.swiftmodule)]
         subtargets["swift-objc-header"] = [DefaultInfo(default_output = swift_compile.exported_swift_header)]
+        if swift_compile.dynamic_thunk:
+            module_name = get_module_name(ctx)
+            thunk_linked = _link_swift_dynamic_thunk(ctx, params, module_name, swift_compile.dynamic_thunk.object)
+            command_database, command_database_inputs = _swift_dynamic_thunk_command_database(ctx, module_name, swift_compile.dynamic_thunk, thunk_linked)
+            if command_database:
+                subtargets["swift-dynamic-dylib-thunk-command-database"] = [DefaultInfo(default_output = command_database, other_outputs = command_database_inputs)]
+
+    # Always provide the subtarget, so that clients don't need to handle conditional existence
+    subtargets.setdefault("swift-dynamic-dylib-thunk-command-database", [DefaultInfo(default_output = None)])
 
     # Always provide the subtarget, so that clients don't need to handle conditional existence
     subtargets["swift.check"] = [DefaultInfo(default_output = swift_compile.typecheck_file if swift_compile else None)]

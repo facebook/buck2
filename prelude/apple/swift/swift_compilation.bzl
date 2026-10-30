@@ -15,10 +15,17 @@ load(
 )
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//apple:apple_error_handler.bzl", "apple_build_error_handler")
-load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
+load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 load("@prelude//apple:apple_utility.bzl", "get_apple_cxx_headers_layout", "get_disable_pch_validation_flags", "get_module_name")
 load("@prelude//apple:modulemap.bzl", "create_modulemap")
-load("@prelude//apple/swift:swift_helpers.bzl", "compile_with_argsfile", "compile_with_argsfile_cmd", "uses_dynamic_replacement", "uses_explicit_modules")
+load(
+    "@prelude//apple/swift:swift_helpers.bzl",
+    "compile_with_argsfile",
+    "compile_with_argsfile_cmd",
+    "get_swift_dynamic_thunk_entry_point_name",
+    "uses_dynamic_replacement",
+    "uses_explicit_modules",
+)
 load(
     "@prelude//apple/swift:swift_types.bzl",
     "EXPLICIT_MODULES_CATEGORY_SUFFIX",
@@ -116,6 +123,24 @@ SwiftCompilationDatabase = record(
     other_outputs = field(ArgLike),
 )
 
+# One file of the `@_dynamicReplacement` thunk module.
+SwiftDynamicThunkSource = record(
+    # The module source the file was generated from; None for the entry file.
+    original = field(Artifact | None),
+    thunk = field(Artifact),
+)
+
+SwiftDynamicThunkOutput = record(
+    object = field(Artifact),
+    module_name = field(str),
+    sources = field(list[SwiftDynamicThunkSource]),
+    # The commands that generated `sources` and compiled `object`, written
+    # with their outputs as plain paths so they can be recorded and re-run.
+    transform_command = field(cmd_args),
+    compile_command = field(cmd_args),
+    compile_argsfile = field(Artifact),
+)
+
 SwiftObjectOutput = record(
     object_files = field(list[Artifact]),
     argsfiles = field(CompileArgsfiles),
@@ -161,6 +186,12 @@ SwiftCompilationOutput = record(
     # describes all transitive Swift module dependencies. Only populated when
     # explicit modules are enabled.
     swift_module_map_artifact = field(Artifact | None, None),
+    # The `@_dynamicReplacement` thunks for every function in the module,
+    # compiled as a separate module that imports this one. Populated when
+    # `_swift_dynamic_replacement_enabled` is set and the toolchain carries the
+    # thunk tool; `apple_library` links the object and records the commands in
+    # `[swift-dynamic-dylib-thunk-command-database]`.
+    dynamic_thunk = field(SwiftDynamicThunkOutput | None, None),
     # An optional artifact with files that support consuming the generated library with later versions of the swift compiler.
     swift_library_for_distribution_output = field(SwiftLibraryForDistributionOutput | None),
     # A list of artifacts that stores the index data
@@ -200,6 +231,24 @@ _DYNAMIC_REPLACEMENT_FLAGS = [
     "-Xfrontend",
     "-enable-dynamic-replacement-chaining",
 ]
+
+# Result builders that protocols' `body` requirements carry, which a thunk has
+# to restate because a replacement does not inherit them: `Protocol=Builder`
+# pairs, comma separated, from `apple.swift_dynamic_thunk_result_builders`.
+# SwiftUI's `View` is always known to the tool.
+def _parse_result_builders(value: str) -> dict[str, str]:
+    builders = {}
+    for pair in value.split(","):
+        pair = pair.strip()
+        if not pair:
+            continue
+        parts = [part.strip() for part in pair.split("=")]
+        if len(parts) != 2 or not parts[0] or not parts[1]:
+            fail("apple.swift_dynamic_thunk_result_builders expects comma separated `Protocol=Builder` pairs, got `{}`".format(pair))
+        builders[parts[0]] = parts[1]
+    return builders
+
+_DYNAMIC_THUNK_RESULT_BUILDERS = _parse_result_builders(read_root_config("apple", "swift_dynamic_thunk_result_builders", ""))
 
 _REQUIRED_SDK_CXX_MODULES = _REQUIRED_SDK_MODULES + ["std"]
 
@@ -576,6 +625,22 @@ def compile_swift(
         category = compile_category,
     )
 
+    dynamic_thunk = None
+    if uses_dynamic_replacement(ctx) and not is_macro:
+        dynamic_thunk = _compile_dynamic_thunk(
+            ctx = ctx,
+            toolchain = toolchain,
+            deps_providers = deps_providers,
+            module_name = module_name,
+            srcs = srcs,
+            output_swiftmodule = output_swiftmodule,
+            underlying_module = exported_compiled_underlying_pcm,
+            public_modulemap_pp_info = exported_objc_modulemap_pp_info,
+            extra_search_paths_flags = extra_search_paths_flags,
+            framework_search_paths = framework_search_paths,
+            inputs_tag = inputs_tag,
+        )
+
     typecheck_file = _compile_typecheck_diagnostics(
         ctx = ctx,
         toolchain = toolchain,
@@ -668,6 +733,7 @@ def compile_swift(
             index_store = index_store,
             swiftdeps = object_output.swiftdeps,
             modularization_dependency_graph = modularization_dependency_graph,
+            dynamic_thunk = dynamic_thunk,
         ),
         objc_swift_interface = objc_swift_interface_info,
         swiftinterface = output_swiftinterface,
@@ -744,6 +810,121 @@ def _compile_dump_ast(ctx: AnalysisContext, toolchain: SwiftToolchainInfo, share
         output_file_map = output_file_map,
         supports_serialized_errors = False,
         incremental_build_allowed = False,
+    )
+
+def _dynamic_thunk_module_name(module_name: str) -> str:
+    return module_name + "_DynamicThunk"
+
+def _compile_dynamic_thunk(
+    ctx: AnalysisContext,
+    toolchain: SwiftToolchainInfo,
+    deps_providers: list,
+    module_name: str,
+    srcs: list[CxxSrcWithFlags],
+    output_swiftmodule: Artifact,
+    underlying_module: SwiftCompiledModuleInfo | None,
+    public_modulemap_pp_info: CPreprocessor | None,
+    extra_search_paths_flags: list[ArgLike],
+    framework_search_paths: cmd_args,
+    inputs_tag: ArtifactTag,
+) -> SwiftDynamicThunkOutput | None:
+    """Compiles `@_dynamicReplacement` thunks for every function in the module.
+
+    The thunk is its own module, `<Module>_DynamicThunk`, built with the same
+    shared flags as the module and importing the module's swiftmodule: its
+    replacement records must refer to the module's replacement keys as
+    undefined symbols, which `dlopen` then binds to the running app's copies.
+    Compiling the module's own sources a second time would define those keys
+    locally and replace nothing anyone calls."""
+    apple_tools = getattr(ctx.attrs, "_apple_tools", None)
+    tool = apple_tools[AppleToolsInfo].make_swift_dynamic_thunk if apple_tools else None
+    if not tool:
+        return None
+
+    uses_content_based_paths = get_uses_content_based_paths(ctx)
+    thunk_module_name = _dynamic_thunk_module_name(module_name)
+    entry_src = ctx.actions.declare_output(thunk_module_name, "__entry.thunk.swift", has_content_based_path = uses_content_based_paths)
+    transform_args = [
+        tool,
+        "--module-name",
+        module_name,
+        "--entry-symbol",
+        get_swift_dynamic_thunk_entry_point_name(ctx),
+    ]
+    for protocol, builder in _DYNAMIC_THUNK_RESULT_BUILDERS.items():
+        transform_args.extend(["--result-builder", protocol + "=" + builder])
+
+    # Each generated file is an output of the action and a plain path in the
+    # recorded command, so the pairs are built once and projected twice.
+    outputs = [("--entry-output", None, entry_src)]
+    for src in srcs:
+        # The short path keeps sources with the same basename apart. The
+        # `.thunk.swift` suffix keeps the generated file's own `#fileID` apart
+        # from the one its `#sourceLocation` directives produce for the
+        # original, which the compiler requires to differ.
+        thunk_src = ctx.actions.declare_output(
+            thunk_module_name,
+            paths.replace_extension(src.file.short_path.replace("/", "_"), ".thunk.swift"),
+            has_content_based_path = uses_content_based_paths,
+        )
+        outputs.append(("--output", src.file, thunk_src))
+    transform = cmd_args(transform_args)
+    transform_command = cmd_args(transform_args)
+    sources = []
+    for flag, original, thunk_src in outputs:
+        source_flags = ["--source", original] if original else []
+        transform.add(source_flags, flag, thunk_src.as_output())
+        transform_command.add(source_flags, flag, thunk_src)
+        sources.append(SwiftDynamicThunkSource(original = original, thunk = thunk_src))
+    thunk_srcs = [CxxSrcWithFlags(file = source.thunk) for source in sources]
+    ctx.actions.run(
+        transform,
+        category = "swift_dynamic_thunk_sources",
+        identifier = module_name,
+        error_handler = apple_build_error_handler,
+    )
+
+    shared_flags, _ = _get_shared_flags(
+        ctx = ctx,
+        deps_providers = deps_providers,
+        parse_as_library = True,
+        public_module = underlying_module,
+        module_name = thunk_module_name,
+        public_modulemap_pp_info = public_modulemap_pp_info,
+        extra_search_paths_flags = extra_search_paths_flags,
+        inputs_tag = inputs_tag,
+        is_macro = False,
+        thunk_of_module = SwiftCompiledModuleInfo(
+            is_framework = False,
+            is_sdk_module = False,
+            is_swiftmodule = True,
+            module_name = module_name,
+            output_artifact = output_swiftmodule,
+        ),
+    )
+    shared_flags.add(framework_search_paths)
+
+    output_object = ctx.actions.declare_output(thunk_module_name + ".o", has_content_based_path = uses_content_based_paths)
+    argsfiles, _ = _compile_with_argsfile(
+        ctx = ctx,
+        category = "swift_dynamic_thunk_compile",
+        shared_flags = shared_flags,
+        srcs = thunk_srcs,
+        additional_flags = cmd_args(["-emit-object", "-o", output_object.as_output(), "-wmo"]),
+        toolchain = toolchain,
+        extension = SWIFT_EXTENSION,
+        incremental_build_allowed = False,
+    )
+    argsfile = argsfiles.relative[SWIFT_EXTENSION]
+    return SwiftDynamicThunkOutput(
+        object = output_object,
+        module_name = thunk_module_name,
+        sources = sources,
+        transform_command = transform_command,
+        # The same invocation as the action, less the wrapper's diagnostics
+        # outputs: the argsfile's hidden inputs carry every module it imports.
+        compile_command = cmd_args(toolchain.compiler, "-emit-object", "-o", output_object, "-wmo", argsfile.cmd_form, [src.file for src in thunk_srcs]),
+        compile_argsfile = argsfile.file,
     )
 
 # We use separate actions for swiftmodule and object file output. This

@@ -35,5 +35,8 @@ def apple_tools_impl(ctx: AnalysisContext) -> list[Provider]:
             bundle_telemetry_logger = ctx.attrs.bundle_telemetry_logger[RunInfo] if ctx.attrs.bundle_telemetry_logger else None,
             swiftmodule_change_analysis = ctx.attrs.swiftmodule_change_analysis[RunInfo] if ctx.attrs.swiftmodule_change_analysis else None,
             make_swift_dynamic_thunk = ctx.attrs.make_swift_dynamic_thunk[RunInfo] if ctx.attrs.make_swift_dynamic_thunk else None,
+            make_swift_dynamic_thunk_command_database = ctx.attrs.make_swift_dynamic_thunk_command_database[RunInfo]
+            if ctx.attrs.make_swift_dynamic_thunk_command_database
+            else None,
         ),
     ]

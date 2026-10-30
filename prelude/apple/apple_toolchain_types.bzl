@@ -81,5 +81,6 @@ AppleToolsInfo = provider(
         # thunks a hot-reload dylib is built from; absent when a toolchain does
         # not provide it.
         "make_swift_dynamic_thunk": provider_field(RunInfo | None, default = None),
+        "make_swift_dynamic_thunk_command_database": provider_field(RunInfo | None, default = None),
     },
 )

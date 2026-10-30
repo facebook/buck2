@@ -719,6 +719,11 @@ apple_library = prelude_rule(
             "swift_compilation_mode": attrs.enum(SwiftCompilationMode.values(), default = "wmo"),
             "swift_compiler_flags": attrs.list(attrs.arg(), default = []),
             "swift_dump_ast_subtarget_enabled": attrs.bool(default = read_bool("apple", "swift_dump_ast_subtarget_enabled", default = False, root_cell = True)),
+            # The C symbol of the dynamic thunk dylib's entry point. Module
+            # independent by default so a loader can `dlsym` it
+            # without knowing which module the thunk is for; each thunk is its
+            # own image, so thunks of several modules may share the name.
+            "swift_dynamic_thunk_entry_point_name": attrs.string(default = "swift_dynamic_thunk_entry"),
             "swift_interface_compilation_enabled": attrs.bool(default = True),
             "swift_macro_deps": attrs.list(attrs.plugin_dep(kind = SwiftMacroPlugin), default = []),
             "swift_version": attrs.enum(SwiftVersion, default = SwiftVersion[0]),
@@ -1585,6 +1590,7 @@ apple_tools = prelude_rule(
         "ipa_package_maker": attrs.exec_dep(providers = [RunInfo]),
         "make_modulemap": attrs.exec_dep(providers = [RunInfo]),
         "make_swift_dynamic_thunk": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
+        "make_swift_dynamic_thunk_command_database": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "make_vfsoverlay": attrs.exec_dep(providers = [RunInfo]),
         "provisioning_manifest": attrs.exec_dep(providers = [RunInfo]),
         "resolve_signing_context": attrs.exec_dep(providers = [RunInfo]),
