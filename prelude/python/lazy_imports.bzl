@@ -9,6 +9,19 @@
 load("@prelude//utils:argfile.bzl", "argfile")
 load(":toolchain.bzl", "PythonToolchainInfo")
 
+def _analyzer_python_version(ctx: AnalysisContext) -> str | None:
+    python_version = ctx.attrs._python_toolchain[PythonToolchainInfo].python_version
+    # The analyzer rejects versions below 3.12; keep its default there.
+    if python_version == None or python_version.version_tuple < (3, 12):
+        return None
+    return "{}.{}".format(python_version.version_tuple[0], python_version.version_tuple[1])
+
+def _add_python_version_arg(ctx: AnalysisContext, cmd: cmd_args) -> None:
+    python_version = _analyzer_python_version(ctx)
+    if python_version != None:
+        cmd.add("--python-version")
+        cmd.add(python_version)
+
 def get_lazy_imports_analyzer(ctx: AnalysisContext) -> RunInfo | None:
     """Resolve the lifeguard analyzer binary, checking the target attr first
     then falling back to the toolchain."""
@@ -43,6 +56,7 @@ def run_lazy_imports_analyzer(ctx: AnalysisContext, resources, output: Artifact,
     cmd.add(output.as_output())  # Second arg: <OUTPUT_PATH>
     cmd.add("--buck_mode")
     cmd.add("buck-build")
+    _add_python_version_arg(ctx, cmd)
 
     main_module = _get_main_module(ctx)
     if main_module != None:
@@ -67,6 +81,7 @@ def run_lazy_imports_library_analyzer(ctx: AnalysisContext, analyzer: RunInfo, o
     cmd.add("analyze-library")
     cmd.add(source_db.default_outputs[0])  # <DB_PATH>
     cmd.add(output.as_output())  # <CACHE_OUTPUT_PATH>
+    _add_python_version_arg(ctx, cmd)
 
     ctx.actions.run(
         cmd,
@@ -91,6 +106,7 @@ def run_lazy_imports_cached_analysis(ctx: AnalysisContext, analyzer: RunInfo, ou
         cache_args.add(cache)
     cmd.add("--cache-manifest")
     cmd.add(argfile(actions = ctx.actions, name = "safer_lazy_imports/cache-manifest.txt", args = cache_args, allow_args = True))
+    _add_python_version_arg(ctx, cmd)
 
     main_module = _get_main_module(ctx)
     if main_module != None:
