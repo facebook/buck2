@@ -103,8 +103,18 @@ async def buck_fixture(  # noqa C901 : "too complex"
     env["BUCK2_TEST_BLOCK_ON_UPLOAD"] = "true"
     # Require the events dispatcher to be set for e2e tests.
     env["ENFORCE_DISPATCHER_SET"] = "true"
-    # Inform buck of the test timeout
-    env["BUCK2_SELF_TEST_TIMEOUT_S"] = "600"
+    # Inform buck of the test timeout so the daemon self-terminates (with its
+    # +30s grace, see self_test_timeout.rs) before TPX hard-kills the test.
+    # TPX publishes the real per-test budget in TPX_TIMEOUT_SEC, which already
+    # reflects timeout labels like `long_running` (10x) and `glacial` (16.5x).
+    # Honor that budget, minus headroom for the grace and final cleanup, so a
+    # labeled test's inner buck2 actually gets its extended runway instead of
+    # being capped at ~630s. Never drop below the historical 600s floor.
+    tpx_timeout_s = os.environ.get("TPX_TIMEOUT_SEC")
+    self_test_timeout_s = 600
+    if tpx_timeout_s and tpx_timeout_s.isdigit():
+        self_test_timeout_s = max(self_test_timeout_s, int(tpx_timeout_s) - 90)
+    env["BUCK2_SELF_TEST_TIMEOUT_S"] = str(self_test_timeout_s)
     # Timeout Watchman requests because we often see it hang and crash.
     env["BUCK2_WATCHMAN_TIMEOUT"] = "30"
     env["BUCK2_RUNTIME_THREADS"] = "8"
