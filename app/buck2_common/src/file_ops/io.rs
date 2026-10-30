@@ -207,9 +207,7 @@ pub(super) async fn read_dir_cached(
         .map(|cell| cell.dupe())
         .unwrap_or_else(|| read_dir_cache.0.entry(path).or_default().dupe());
     // Mutually exclusive initialization to prevent multiple requests repeating directory listings.
-    cell.get_or_try_init(|| list_dir(ctx, path))
-        .await
-        .map(Dupe::dupe)
+    cell.get_or_init(|| list_dir(ctx, path)).await.dupe()
 }
 
 async fn list_dir(
@@ -384,7 +382,10 @@ pub(super) async fn exists(
 }
 
 struct ReadDirCache(
-    BuckDashMap<IProjectRelativePath, Arc<OnceCell<PackedStringSlice<FileName, FileType>>>>,
+    BuckDashMap<
+        IProjectRelativePath,
+        Arc<OnceCell<buck2_error::Result<PackedStringSlice<FileName, FileType>>>>,
+    >,
 );
 
 pub fn initialize_read_dir_cache(data: &mut UserComputationData) {
