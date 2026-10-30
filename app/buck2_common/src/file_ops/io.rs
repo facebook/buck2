@@ -200,12 +200,11 @@ pub(super) async fn read_dir_cached(
     let Ok(read_dir_cache) = ctx.per_transaction_data().data.get::<ReadDirCache>() else {
         return list_dir(ctx, path).await;
     };
-    // Get the Arc<OnceCell>get/map is the fast path to fetch the OnceCell w/o taking the read_dir_cache's shard lock
+    // `get` avoids the shard write lock on a hit; `entry().or_default()` takes it only on a miss.
     let cell = read_dir_cache
         .0
         .get(&path)
         .map(|cell| cell.dupe())
-        // and entry().or_default() is the slow path that takes the shard_lock and releases it after returning the Arc.
         .unwrap_or_else(|| read_dir_cache.0.entry(path).or_default().dupe());
     // Mutually exclusive initialization to prevent multiple requests repeating directory listings.
     cell.get_or_try_init(|| list_dir(ctx, path))
