@@ -544,6 +544,13 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     sub_targets = {}
     providers = []
 
+    for name, preprocessor in (
+        ("private-header-map", own_non_exported_preprocessor_info),
+        ("exported-header-map", own_exported_preprocessor_info),
+    ):
+        for header_map in preprocessor.args.header_maps:
+            sub_targets[name] = [DefaultInfo(default_output = header_map)]
+
     attr_validation_specs = get_attrs_validation_specs(ctx)
     if attr_validation_specs:
         providers.append(ValidationInfo(validations = attr_validation_specs))
