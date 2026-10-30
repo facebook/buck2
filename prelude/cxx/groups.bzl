@@ -196,9 +196,10 @@ def _parse_filter(entry: str) -> GroupFilterInfo:
     pattern = strip_prefix("pattern:", entry)
     if pattern != None:
         build_target_pattern = parse_build_target_pattern(pattern)
+        pattern_matches = build_target_pattern.matches
 
         def matches_target_pattern(_r, t, _labels):
-            return build_target_pattern.matches(t)
+            return pattern_matches(t)
 
         return GroupFilterInfo(
             matches = matches_target_pattern,
@@ -358,7 +359,10 @@ def _find_targets_in_mappings(graph_map, children_of, mappings):
     walks = []
     for i, mapping in enumerate(mappings):
         root = mapping.roots[0] if len(mapping.roots) == 1 else None
-        walks.append((1 << i, mapping.filters, root, mapping.traversal == Traversal("tree")))
+        filters = mapping.filters
+        single = filters[0].matches if len(filters) == 1 else None
+        traverse_on_miss = not filters[0].stop_at_first_non_match if single != None else None
+        walks.append((1 << i, root, mapping.traversal == Traversal("tree"), single, traverse_on_miss, filters))
     results = [[] for _ in mappings]
 
     alive = dict(seeds)
@@ -370,16 +374,25 @@ def _find_targets_in_mappings(graph_map, children_of, mappings):
         labels = graph_map[node].labels
         pass_mask = 0
         for j in range(len(walks)):
-            bit, filters, root, stop_at_match = walks[j]
+            bit, root, stop_at_match, single, traverse_on_miss, filters = walks[j]
             if not mask & bit:
                 continue
-            matched, traverse = _matches_filters(filters, root, node, labels)
-            if matched:
-                results[j].append(node)
-                if stop_at_match:
+            if single != None:
+                if single(root, node, labels):
+                    results[j].append(node)
+                    if stop_at_match:
+                        continue
+                elif not traverse_on_miss:
                     continue
-            if traverse:
-                pass_mask |= bit
+            else:
+                matched, traverse = _matches_filters(filters, root, node, labels)
+                if matched:
+                    results[j].append(node)
+                    if stop_at_match:
+                        continue
+                elif not traverse:
+                    continue
+            pass_mask |= bit
         if pass_mask:
             for child in children_of[node]:
                 alive[child] = alive.get(child, 0) | pass_mask
