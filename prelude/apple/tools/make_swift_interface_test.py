@@ -32,12 +32,16 @@ _BASE = [
 ]
 _SEARCH = [
     "-F/repo/Vendor/Frameworks",
+    "-Fsystem",
+    "/SDK/Frameworks",
     "-Xcc",
     "-F/repo/Vendor/Frameworks",
     "-I/repo/hmap/foo.hmap",
     "-DDEBUG",
     "-D",
     "RELEASE",
+    "-Xlinker",
+    "-headerpad_max_install_names",
 ]
 
 
@@ -71,17 +75,20 @@ class TestMakeSwiftInterface(unittest.TestCase):
             make_swift_interface.main()
         return out.read_text().splitlines()
 
-    def test_joined_search_paths_and_defines_are_dropped(self):
+    def test_joined_search_paths_and_defines_are_forwarded(self):
         forwarded = self.run_tool(_BASE + ["-resource-dir", "/res"] + _SEARCH)
-        self.assertEqual(forwarded.count("-F"), 0)
-        self.assertEqual(forwarded.count("-I"), 0)
-        self.assertEqual(forwarded[forwarded.index("-D") + 1], "RELEASE")
-        self.assertNotIn("DEBUG", forwarded)
-        self.assertNotIn("/repo/hmap/foo.hmap", forwarded)
+        frameworks = [forwarded[i + 1] for i, a in enumerate(forwarded) if a == "-F"]
+        self.assertEqual(frameworks, ["/repo/Vendor/Frameworks", "/SDK/Frameworks"])
+        self.assertEqual(forwarded[forwarded.index("-I") + 1], "/repo/hmap/foo.hmap")
+        defines = [forwarded[i + 1] for i, a in enumerate(forwarded) if a == "-D"]
+        self.assertEqual(defines, ["DEBUG", "RELEASE"])
         self.assertEqual(
             forwarded[forwarded.index("--Xcc") + 1], "-F/repo/Vendor/Frameworks"
         )
+        # An unknown option whose value starts with `-h` is dropped, not taken for `-h`.
+        self.assertNotIn("-headerpad_max_install_names", forwarded)
 
-    def test_missing_resource_dir_trips_an_assert(self):
-        with self.assertRaises(AssertionError):
+    def test_missing_resource_dir_is_a_clear_error(self):
+        with self.assertRaises(SystemExit) as raised:
             self.run_tool(_BASE + _SEARCH)
+        self.assertIn("no -resource-dir in the swiftc flags", str(raised.exception))
