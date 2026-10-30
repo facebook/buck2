@@ -122,6 +122,13 @@ pub struct SettingValue {
     pub resolved: Value,
 }
 
+/// A section's metadata together with one instance's values.
+#[derive(Debug, Clone)]
+pub struct SectionReport {
+    pub metadata: SectionMetadata,
+    pub values: Vec<SettingValue>,
+}
+
 /// A section of Buck settings, declared with `#[buck_settings_section]`.
 pub trait SettingsSection {
     const METADATA: SectionMetadata;

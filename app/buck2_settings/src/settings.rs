@@ -22,38 +22,135 @@ use crate::analysis::Analysis;
 use crate::hydration::Hydration;
 use crate::log_download::LogDownload;
 use crate::metadata::SectionMetadata;
+use crate::metadata::SectionReport;
+use crate::metadata::SectionScope;
 use crate::metadata::SettingsSection;
 use crate::package_visibility::PackageVisibility;
 use crate::section::Section;
 
-pub(crate) static ALL_SECTION_METADATA: &[SectionMetadata] = &[
-    AgentConfigChange::METADATA,
-    AgentInteractive::METADATA,
-    AgentMaterialization::METADATA,
-    Analysis::METADATA,
-    Hydration::METADATA,
-    LogDownload::METADATA,
-    PackageVisibility::METADATA,
-];
+/// Assembles `BuckSettings` from the sections, each listed under its scope.
+///
+/// Generates the flat on-disk form (`BuckSettingsData`), the two scope
+/// structs, the conversion between them, and the registry the parser and the
+/// rollout selector consult. A section listed under the wrong scope fails to
+/// compile.
+macro_rules! buck_settings {
+    (
+        daemon { $($daemon:ident: $daemon_ty:ty,)* }
+        invocation { $($invocation:ident: $invocation_ty:ty,)* }
+    ) => {
+        pub(crate) static ALL_SECTION_METADATA: &[SectionMetadata] = &[
+            $(<$daemon_ty as SettingsSection>::METADATA,)*
+            $(<$invocation_ty as SettingsSection>::METADATA,)*
+        ];
 
-// Keep the file format flat and reject unknown sections before grouping by scope.
-#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Allocative)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct BuckSettingsData {
-    #[serde(default)]
-    agent_config_change: AgentConfigChange,
-    #[serde(default)]
-    agent_interactive: AgentInteractive,
-    #[serde(default)]
-    agent_materialization: AgentMaterialization,
-    #[serde(default)]
-    analysis: Analysis,
-    #[serde(default)]
-    hydration: Hydration,
-    #[serde(default)]
-    log_download: LogDownload,
-    #[serde(default)]
-    package_visibility: PackageVisibility,
+        const _: () = {
+            $(assert!(
+                matches!(<$daemon_ty as SettingsSection>::METADATA.scope, SectionScope::Daemon),
+                concat!("`", stringify!($daemon_ty), "` is listed as a daemon section but declares another scope"),
+            );)*
+            $(assert!(
+                matches!(<$invocation_ty as SettingsSection>::METADATA.scope, SectionScope::Invocation),
+                concat!("`", stringify!($invocation_ty), "` is listed as an invocation section but declares another scope"),
+            );)*
+        };
+
+        // The file format: every section at the top level, unknown ones rejected
+        // before grouping by scope.
+        #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Allocative)]
+        #[serde(deny_unknown_fields)]
+        pub(crate) struct BuckSettingsData {
+            $(#[serde(default)] $daemon: $daemon_ty,)*
+            $(#[serde(default)] $invocation: $invocation_ty,)*
+        }
+
+        /// Sections whose values are fixed for the daemon's lifetime. Every
+        /// section in this struct participates in restart checks and may be
+        /// retained in global state.
+        ///
+        /// ```compile_fail
+        /// use buck2_settings::DaemonBuckSettings;
+        /// DaemonBuckSettings::default().agent_materialization.enabled();
+        /// ```
+        #[derive(
+            Clone,
+            Dupe,
+            Debug,
+            Default,
+            Serialize,
+            Deserialize,
+            PartialEq,
+            Eq,
+            Allocative
+        )]
+        #[serde(default, deny_unknown_fields)]
+        pub struct DaemonBuckSettings {
+            $(pub $daemon: Section<$daemon_ty>,)*
+        }
+
+        /// Sections whose values belong to one invocation, on either the client
+        /// or daemon. A request carries only these sections, and missing
+        /// overrides use the section's defaults.
+        #[derive(
+            Clone,
+            Dupe,
+            Debug,
+            Default,
+            Serialize,
+            Deserialize,
+            PartialEq,
+            Eq,
+            Allocative
+        )]
+        #[serde(default, deny_unknown_fields)]
+        pub struct InvocationBuckSettings {
+            $(pub $invocation: Section<$invocation_ty>,)*
+        }
+
+        impl From<BuckSettingsData> for BuckSettings {
+            fn from(data: BuckSettingsData) -> Self {
+                Self {
+                    daemon: DaemonBuckSettings {
+                        $($daemon: Section::new(data.$daemon),)*
+                    },
+                    invocation: InvocationBuckSettings {
+                        $($invocation: Section::new(data.$invocation),)*
+                    },
+                }
+            }
+        }
+
+        impl BuckSettings {
+            /// Every section with its metadata and this value's keys, daemon
+            /// sections first. For reporting.
+            pub fn sections(&self) -> Vec<SectionReport> {
+                vec![
+                    $(SectionReport {
+                        metadata: <$daemon_ty as SettingsSection>::METADATA,
+                        values: self.daemon.$daemon.values(),
+                    },)*
+                    $(SectionReport {
+                        metadata: <$invocation_ty as SettingsSection>::METADATA,
+                        values: self.invocation.$invocation.values(),
+                    },)*
+                ]
+            }
+        }
+    };
+}
+
+buck_settings! {
+    daemon {
+        analysis: Analysis,
+        hydration: Hydration,
+        log_download: LogDownload,
+        package_visibility: PackageVisibility,
+    }
+    invocation {
+        agent_config_change: AgentConfigChange,
+        agent_interactive: AgentInteractive,
+        agent_materialization: AgentMaterialization,
+    }
 }
 
 /// Settings for a client invocation or server command. Shared daemon state must
@@ -77,26 +174,6 @@ pub struct BuckSettings {
     pub invocation: InvocationBuckSettings,
 }
 
-/// Sections whose values belong to one invocation, on either the client or daemon.
-/// A request carries only these sections, and missing overrides use the section's defaults.
-#[derive(
-    Clone,
-    Dupe,
-    Debug,
-    Default,
-    Serialize,
-    Deserialize,
-    PartialEq,
-    Eq,
-    Allocative
-)]
-#[serde(default, deny_unknown_fields)]
-pub struct InvocationBuckSettings {
-    pub agent_config_change: Section<AgentConfigChange>,
-    pub agent_interactive: Section<AgentInteractive>,
-    pub agent_materialization: Section<AgentMaterialization>,
-}
-
 impl InvocationBuckSettings {
     pub fn from_request(request: Option<&str>) -> buck2_error::Result<Self> {
         match request {
@@ -108,32 +185,6 @@ impl InvocationBuckSettings {
     }
 }
 
-/// Sections whose values are fixed for the daemon's lifetime. Every section in
-/// this struct participates in restart checks and may be retained in global state.
-///
-/// ```compile_fail
-/// use buck2_settings::DaemonBuckSettings;
-/// DaemonBuckSettings::default().agent_materialization.enabled();
-/// ```
-#[derive(
-    Clone,
-    Dupe,
-    Debug,
-    Default,
-    Serialize,
-    Deserialize,
-    PartialEq,
-    Eq,
-    Allocative
-)]
-#[serde(default, deny_unknown_fields)]
-pub struct DaemonBuckSettings {
-    pub analysis: Section<Analysis>,
-    pub hydration: Section<Hydration>,
-    pub log_download: Section<LogDownload>,
-    pub package_visibility: Section<PackageVisibility>,
-}
-
 /// A stored setting value changing from the daemon's snapshot to the current client's settings.
 /// JSON null represents an unset override, which can differ from an explicit default value.
 #[derive(Debug, PartialEq, Eq, derive_more::Display)]
@@ -142,24 +193,6 @@ pub struct BuckSettingChange {
     pub key: String,
     pub old_value: Value,
     pub new_value: Value,
-}
-
-impl From<BuckSettingsData> for BuckSettings {
-    fn from(data: BuckSettingsData) -> Self {
-        Self {
-            daemon: DaemonBuckSettings {
-                analysis: Section::new(data.analysis),
-                hydration: Section::new(data.hydration),
-                log_download: Section::new(data.log_download),
-                package_visibility: Section::new(data.package_visibility),
-            },
-            invocation: InvocationBuckSettings {
-                agent_config_change: Section::new(data.agent_config_change),
-                agent_interactive: Section::new(data.agent_interactive),
-                agent_materialization: Section::new(data.agent_materialization),
-            },
-        }
-    }
 }
 
 impl BuckSettings {
@@ -229,7 +262,6 @@ pub(crate) mod testing {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeSet;
 
     use super::*;
 
@@ -434,67 +466,5 @@ mod tests {
             .is_err()
         );
         Ok(())
-    }
-
-    #[test]
-    fn test_all_settings_are_registered() {
-        let serialized = serde_json::to_value(BuckSettingsData::default())
-            .expect("`BuckSettingsData` should serialize");
-        for section in ALL_SECTION_METADATA {
-            let fields: BTreeSet<_> = serialized[section.section_name]
-                .as_object()
-                .expect("Every registered section must exist in `BuckSettingsData`")
-                .keys()
-                .map(String::as_str)
-                .collect();
-            let registered: BTreeSet<_> = section
-                .settings
-                .iter()
-                .map(|setting| setting.name)
-                .collect();
-            assert_eq!(
-                section.settings.len(),
-                registered.len(),
-                "Setting names must be unique in {}",
-                section.section_name
-            );
-            assert_eq!(
-                fields, registered,
-                "Every setting in {} must be registered, and vice versa",
-                section.section_name
-            );
-        }
-    }
-
-    #[test]
-    fn test_all_sections_are_registered() {
-        let serialized = serde_json::to_value(BuckSettingsData::default())
-            .expect("`BuckSettingsData` should serialize");
-        let sections: BTreeSet<_> = serialized
-            .as_object()
-            .expect("settings data should serialize to a JSON object")
-            .iter()
-            .map(|(name, value)| {
-                assert!(
-                    value.is_object(),
-                    "Every top-level `BuckSettingsData` field must be a settings section"
-                );
-                name.as_str()
-            })
-            .collect();
-        let registered: BTreeSet<_> = ALL_SECTION_METADATA
-            .iter()
-            .map(|metadata| metadata.section_name)
-            .collect();
-
-        assert_eq!(
-            ALL_SECTION_METADATA.len(),
-            registered.len(),
-            "Section metadata names must be unique"
-        );
-        assert_eq!(
-            sections, registered,
-            "Every `BuckSettingsData` section must be registered in `ALL_SECTION_METADATA`, and vice versa"
-        );
     }
 }

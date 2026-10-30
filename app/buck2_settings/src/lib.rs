@@ -43,6 +43,7 @@ pub use buck2_settings_derive::buck_settings_section;
 pub use hydration::Hydration;
 pub use hydration::PageOutOnIdleIsolationDirScope;
 pub use log_download::LogDownload;
+pub use metadata::SectionReport;
 pub use metadata::SettingsSection;
 pub use package_visibility::PackageVisibility;
 pub use package_visibility::PackageVisibilityDefaultIntersection;
