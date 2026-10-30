@@ -200,6 +200,18 @@ def _scrub_binary(
     preference = binary_execution_preference_info.preference if binary_execution_preference_info else LinkExecutionPreference("any")
     return selective_debugging_info.scrub_binary(ctx, binary, preference, adhoc_codesign_tool, focused_targets_labels, identifier = identifier)
 
+# Returns a `dsymutil --allow` file listing the debug map entries of `binary`
+# that `_scrub_binary()` would keep.
+def _generate_dsym_allowlist(
+    ctx,
+    binary: Artifact,
+    binary_execution_preference_info: None | LinkExecutionPreferenceInfo,
+    focused_targets_labels: list[Label],
+) -> Artifact:
+    selective_debugging_info = ctx.attrs.selective_debugging[AppleSelectiveDebuggingInfo]
+    preference = binary_execution_preference_info.preference if binary_execution_preference_info else LinkExecutionPreference("any")
+    return selective_debugging_info.generate_dsym_allowlist(ctx, binary, preference, focused_targets_labels)
+
 def _maybe_scrub_binary(ctx, binary_dep: Dependency) -> AppleBundleBinaryOutput:
     binary = binary_dep[DefaultInfo].default_outputs[0]
     unstripped_binary = binary_dep.get(UnstrippedLinkOutputInfo).artifact if binary_dep.get(UnstrippedLinkOutputInfo) != None else None
@@ -227,9 +239,13 @@ def _maybe_scrub_binary(ctx, binary_dep: Dependency) -> AppleBundleBinaryOutput:
         )
 
         # For debug symbols we take the unstripped unscrubbed binary
-        debug_binaries = [unstripped_binary] if unstripped_binary else [binary]
-        binary = _scrub_binary(ctx, binary, binary_dep.get(LinkExecutionPreferenceInfo), filtered_debug_info.swift_modules_labels)
-        dsym_artifact = _get_binary_dsym(ctx, binary, debug_info_tset, dsym_allowlist = None)
+        debug_binary = unstripped_binary if unstripped_binary else binary
+        dsym_allowlist = None
+        if selective_debugging_info.generate_dsym_allowlist:
+            dsym_allowlist = _generate_dsym_allowlist(ctx, debug_binary, binary_dep.get(LinkExecutionPreferenceInfo), filtered_debug_info.swift_modules_labels)
+        else:
+            binary = _scrub_binary(ctx, binary, binary_dep.get(LinkExecutionPreferenceInfo), filtered_debug_info.swift_modules_labels)
+        dsym_artifact = _get_binary_dsym(ctx, binary, debug_info_tset, dsym_allowlist)
 
         filtered_map = {}
         for selected_target_info in filtered_debug_info.selected_target_infos:
@@ -237,7 +253,7 @@ def _maybe_scrub_binary(ctx, binary_dep: Dependency) -> AppleBundleBinaryOutput:
 
         debuggable_info = AppleDebuggableInfo(
             dsyms = [dsym_artifact],
-            binaries = debug_binaries,
+            binaries = [debug_binary],
             debug_info_tset = filtered_external_debug_info,
             filtered_map = filtered_map,
             selective_metadata = [
@@ -247,7 +263,7 @@ def _maybe_scrub_binary(ctx, binary_dep: Dependency) -> AppleBundleBinaryOutput:
                 ),
             ],
         )
-        return AppleBundleBinaryOutput(binary = binary, unstripped_binary = unstripped_binary, debuggable_info = debuggable_info)
+        return AppleBundleBinaryOutput(binary = binary, unstripped_binary = unstripped_binary, debuggable_info = debuggable_info, dsym_allowlist = dsym_allowlist)
     else:
         binary = _scrub_binary(ctx, binary, binary_dep.get(LinkExecutionPreferenceInfo))
         return AppleBundleBinaryOutput(binary = binary, unstripped_binary = unstripped_binary)
