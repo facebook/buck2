@@ -117,3 +117,20 @@ Full validation result is located at""",
         )
         assert "prelude//:broken" in res.stderr
         assert "flute.json" in res.stderr
+
+    @buck_test()
+    async def test_version_and_schema_problems_are_reported_as_documented(
+        self, buck: Buck
+    ) -> None:
+        """Valid JSON without a `version` is a schema mismatch; valid JSON written for another
+        version is an incompatible version. Neither is 'invalid JSON'."""
+        res = await expect_failure(
+            buck.build(":no_version"),
+            stderr_regex="JSON content doesn't match schema",
+        )
+        assert "should contain valid JSON" not in res.stderr, res.stderr
+        res = await expect_failure(
+            buck.build(":other_version"),
+            stderr_regex="Incompatible version of validation result `2`, expected `1`",
+        )
+        assert "should contain valid JSON" not in res.stderr, res.stderr
