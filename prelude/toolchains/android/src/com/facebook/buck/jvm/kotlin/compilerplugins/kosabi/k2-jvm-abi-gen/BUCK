@@ -6,21 +6,30 @@ oncall("android_devxx")
 
 source_listing()
 
-# compilercompat shims are bucketed by Kotlin minor version: every 2.3.x compiler
-# uses the compilercompat/2.3.0 folder. Key off the version the kotlincd toolchain
-# selects the compiler jar from, so the shims always match the compiler actually run.
-# @oss-disable[end= ]: _KOTLIN_VERSION_PARTS = toolchain_kotlin_version().split(".")
-_KOTLIN_VERSION_PARTS = read_root_config("kotlin", "kotlin_version", "2.3.21").split(".") # @oss-enable
+# compilercompat shims match the compiler actually run: key off the version the kotlincd
+# toolchain selects the compiler jar from. 2.2 and 2.3 share minor-version buckets
+# (compilercompat/2.2.0, compilercompat/2.3.0); newer compilers use full-version buckets.
+# @oss-disable[end= ]: _KOTLIN_FULL_VERSION = toolchain_kotlin_version()
+_KOTLIN_FULL_VERSION = read_root_config("kotlin", "kotlin_version", "2.3.21") # @oss-enable
 
-KOTLIN_VERSION = _KOTLIN_VERSION_PARTS[0] + "." + _KOTLIN_VERSION_PARTS[1] + ".0"
+_KOTLIN_VERSION_PARTS = _KOTLIN_FULL_VERSION.split(".")
+
+KOTLIN_VERSION = (
+    _KOTLIN_FULL_VERSION
+    if (int(_KOTLIN_VERSION_PARTS[0]), int(_KOTLIN_VERSION_PARTS[1])) >= (2, 4)
+    else _KOTLIN_VERSION_PARTS[0] + "." + _KOTLIN_VERSION_PARTS[1] + ".0"
+)
 
 buck_kotlin_library(
     name = "k2-jvm-abi-gen-lib",
     srcs = glob(
         ["**/*.kt"],
-        exclude = ["src/main/kotlin/compilercompat/2.*/*.kt"],
+        exclude = ["src/main/kotlin/compilercompat/*/*.kt"],
     )
-    + glob(["src/main/kotlin/compilercompat/" + KOTLIN_VERSION + "/*.kt"]),
+    + (
+        glob(["src/main/kotlin/compilercompat/" + KOTLIN_VERSION + "/*.kt"])
+        or fail("No k2-jvm-abi-gen compilercompat bucket for Kotlin " + _KOTLIN_FULL_VERSION)
+    ),
     labels = ["codegen_rule"],
     provided_deps = [
         "prelude//toolchains/android/third-party:kotlin-compiler-embeddable",
