@@ -14,6 +14,7 @@ import com.facebook.kotlin.compilerplugins.kosabi.common.FullTypeQualifier
 import com.facebook.kotlin.compilerplugins.kosabi.common.parseClasspathFileClassesAndPackages
 import com.facebook.kotlin.compilerplugins.kosabi.stubsgen.stub.container.StubsContainer
 import com.facebook.kotlin.compilerplugins.kosabi.stubsgen.stub.container.StubsContainerImpl
+import com.facebook.kotlin.compilerplugins.kosabi.stubsgen.util.JavaSourceInfo
 import com.facebook.kotlin.compilerplugins.kosabi.stubsgen.util.calculateQualifierList
 import com.facebook.kotlin.compilerplugins.kosabi.stubsgen.util.declaredTypes
 import com.facebook.kotlin.compilerplugins.kosabi.stubsgen.util.toImportedClass
@@ -50,6 +51,17 @@ class GenerationContext {
   val stubsContainer: StubsContainer
   val importedDeclarations: Set<FullTypeQualifier>
   val importedTypes: Set<FullTypeQualifier>
+
+  /**
+   * Explicit Java imports, creation-only: stub generators may create stubs from them, but they must
+   * never resolve a Kotlin usage or suppress same-package fabrication — a Java-only import would
+   * otherwise claim a Kotlin simple name the Kotlin file never imported. Hence only
+   * [PrimitiveStubsGenerator] and the import-driven half of [InnerClassStubsGenerator] read this.
+   */
+  val javaImportedTypes: Set<FullTypeQualifier>
+
+  /** Java fully-qualified usages; creation-only, like [javaImportedTypes]. */
+  val javaFullQualifierTypes: Set<FullTypeQualifier>
 
   /**
    * [importedTypes] split by the file that wrote the import. A usage must be attributed against its
@@ -103,6 +115,7 @@ class GenerationContext {
       classpath: List<File>,
       knownGeneratedTypes: Set<FullTypeQualifier> = emptySet(),
       lightweight: Boolean = true,
+      javaSources: Collection<JavaSourceInfo> = emptyList(),
   ) {
     this.projectFiles = projectFiles
     this.stubsContainer = StubsContainerImpl()
@@ -113,6 +126,8 @@ class GenerationContext {
       this.pkgsInClasspath = emptySet()
       this.importedDeclarations = emptySet()
       this.importedTypes = emptySet()
+      this.javaImportedTypes = emptySet()
+      this.javaFullQualifierTypes = emptySet()
       this.importedTypesByFile = emptyMap()
       this.companionCallableImports = emptySet()
       this.interfaceTypes = emptyList()
@@ -149,7 +164,14 @@ class GenerationContext {
 
       // declaredTypes is a structural getChildrenOfType recursion (it intentionally excludes
       // local/anonymous classes in function bodies), so it stays out of the single-pass DFS below.
-      this.declaredTypes = projectFiles.flatMap { it.declaredTypes() }.toSet()
+      // Java-declared types join so imports of same-module Java classes are not stubbed.
+      this.declaredTypes =
+          projectFiles.flatMap { it.declaredTypes() }.toSet() +
+              javaSources.flatMap { it.declaredTypes }.toSet()
+      this.javaImportedTypes =
+          javaSources.flatMap { it.imports }.filterNot { it.isTopLevelDeclaration() }.toSet()
+      this.javaFullQualifierTypes =
+          javaSources.flatMap { it.fullQualifierTypes }.filterNot { it.isSdkQualifier() }.toSet()
 
       // Single-pass PSI traversal: one DFS per file collects everything the generators need,
       // replacing 9 separate whole-tree collectDescendantsOfType walks. Semantics are preserved

@@ -39,6 +39,7 @@ class StubsCodegenCompilerPluginRegistrar : CompilerPluginRegistrarCompat() {
             stubsDumpDir = stubsGenDir,
             stubsClassOutputDir = stubsClassOutputDir,
             classPaths = classPaths,
+            skipJavaImports = configuration.get(skipJavaImportsKey).toBoolean(),
         ),
     )
   }

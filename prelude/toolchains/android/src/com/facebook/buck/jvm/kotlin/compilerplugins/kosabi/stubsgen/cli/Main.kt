@@ -18,12 +18,12 @@ import kotlin.system.exitProcess
 private const val USAGE =
     """Usage: stubsgen-cli --sources <path>[,<path>...] [options]
 
-Runs Kosabi stub generation on a set of Kotlin sources using a minimal, parse-only
+Runs Kosabi stub generation on a set of Kotlin and Java sources using a minimal, parse-only
 PSI environment (no kotlinc / FIR / codegen / classpath index).
 
 Required:
-  --sources <path>[,<path>...]   Comma-separated .kt files and/or directories
-                                 (directories are searched recursively for .kt/.kts).
+  --sources <path>[,<path>...]   Comma-separated source files and/or directories
+                                 (directories are searched recursively for .kt/.kts/.java).
 
 At least one output must be given:
   --stubs-out <dir>              Directory for generated .kt stubs.
@@ -33,6 +33,8 @@ Optional:
   --classpath <path>[:<path>...] Path-separator-separated jars/dirs whose already-present
                                  classes should NOT be stubbed. Default: empty.
   --log <path>                   Write the stubsgen log to this file.
+  --skip-java-imports <bool>     Collect Java declarations only, skipping the javac
+                                 import parse (for modules without KSP processors).
 
 Exit codes: 0 success, 1 generation failure, 2 usage error."""
 
@@ -46,6 +48,7 @@ private class CliArgs(
     val stubsDumpDir: File?,
     val stubsClassOutputDir: File?,
     val logPath: String?,
+    val skipJavaImports: Boolean,
 )
 
 private fun parseArgs(args: Array<String>): CliArgs? {
@@ -54,6 +57,7 @@ private fun parseArgs(args: Array<String>): CliArgs? {
   var classesOut: String? = null
   var classpathArg: String? = null
   var logPath: String? = null
+  var skipJavaImports = false
 
   var i = 0
   while (i < args.size) {
@@ -79,6 +83,7 @@ private fun parseArgs(args: Array<String>): CliArgs? {
       "--classes-out" -> classesOut = value
       "--classpath" -> classpathArg = value
       "--log" -> logPath = value
+      "--skip-java-imports" -> skipJavaImports = value.toBoolean()
       else -> {
         System.err.println("Unknown flag: $key")
         return null
@@ -93,7 +98,7 @@ private fun parseArgs(args: Array<String>): CliArgs? {
   }
   val sources = collectSourceFiles(sourcesArg) ?: return null
   if (sources.isEmpty()) {
-    System.err.println("No .kt/.kts sources found under: $sourcesArg")
+    System.err.println("No .kt/.kts/.java sources found under: $sourcesArg")
     return null
   }
 
@@ -114,6 +119,7 @@ private fun parseArgs(args: Array<String>): CliArgs? {
       stubsDumpDir = stubsDumpDir,
       stubsClassOutputDir = stubsClassOutputDir,
       logPath = logPath,
+      skipJavaImports = skipJavaImports,
   )
 }
 
@@ -126,10 +132,10 @@ private fun collectSourceFiles(sourcesArg: String): List<File>? {
     val path = File(entry)
     when {
       path.isDirectory ->
-          collected += path.walkTopDown().filter { it.isFile && it.isKotlinSource() }
-      path.isFile && path.isKotlinSource() -> collected += path
+          collected += path.walkTopDown().filter { it.isFile && it.isSupportedSource() }
+      path.isFile && path.isSupportedSource() -> collected += path
       path.isFile -> {
-        System.err.println("Not a Kotlin source (expected .kt/.kts): $entry")
+        System.err.println("Not a Kotlin or Java source (expected .kt/.kts/.java): $entry")
         return null
       }
       else -> {
@@ -142,7 +148,8 @@ private fun collectSourceFiles(sourcesArg: String): List<File>? {
   return collected.sortedBy { it.absolutePath }
 }
 
-private fun File.isKotlinSource(): Boolean = extension == "kt" || extension == "kts"
+private fun File.isSupportedSource(): Boolean =
+    extension == "kt" || extension == "kts" || extension == "java"
 
 fun main(args: Array<String>) {
   val parsed = parseArgs(args)
@@ -160,6 +167,7 @@ fun main(args: Array<String>) {
             stubsDumpDir = parsed.stubsDumpDir,
             stubsClassOutputDir = parsed.stubsClassOutputDir,
             logPath = parsed.logPath,
+            skipJavaImports = parsed.skipJavaImports,
         )
         EXIT_OK
       } catch (t: Throwable) {

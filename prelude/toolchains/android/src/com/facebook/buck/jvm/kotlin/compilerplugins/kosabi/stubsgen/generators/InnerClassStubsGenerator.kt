@@ -28,7 +28,8 @@ class InnerClassStubsGenerator : StubsGenerator {
         UserTypeUtil.collectMultiSegmentQualifiers(context) +
             ClassReferenceUtil.collectMultiSegmentQualifiers(context)
 
-    val undeclaredImports = context.importedTypes - context.declaredTypes
+    val undeclaredImports =
+        (context.importedTypes + context.javaImportedTypes) - context.declaredTypes
 
     // import: com.A.B
     // usage: B

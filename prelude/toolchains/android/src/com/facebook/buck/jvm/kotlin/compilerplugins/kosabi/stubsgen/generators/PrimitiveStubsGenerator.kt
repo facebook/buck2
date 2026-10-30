@@ -23,7 +23,9 @@ import com.facebook.kotlin.compilerplugins.kosabi.common.stub.model.KStub
 class PrimitiveStubsGenerator(private val postfixToSkip: String?) : StubsGenerator {
 
   override fun generateStubs(context: GenerationContext) {
-    val imports: Set<FullTypeQualifier> = context.importedTypes
+    // Java imports join the creation set: stub-if-missing is file-independent. They stay out of
+    // every resolution pool (see GenerationContext.javaImportedTypes).
+    val imports: Set<FullTypeQualifier> = context.importedTypes + context.javaImportedTypes
 
     // We're creating simple stubs for everything we found not in classpaths
     imports

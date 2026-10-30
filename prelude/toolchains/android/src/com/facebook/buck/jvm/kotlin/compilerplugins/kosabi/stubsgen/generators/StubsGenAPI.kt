@@ -18,6 +18,7 @@ import com.facebook.kotlin.compilerplugins.kosabi.common.stub.model.KStub
 import com.facebook.kotlin.compilerplugins.kosabi.common.stub.model.generateFakeKtFile
 import com.facebook.kotlin.compilerplugins.kosabi.common.stub.render.RenderedKStub
 import com.facebook.kotlin.compilerplugins.kosabi.common.stub.render.render
+import com.facebook.kotlin.compilerplugins.kosabi.stubsgen.util.JavaSourceInfo
 import java.io.File
 import java.nio.file.Files
 import kotlin.collections.forEach
@@ -35,7 +36,13 @@ open class StubsGenAPI(
       knownSources: Collection<KtFile>,
       configuration: CompilerConfiguration,
       project: Project,
+      javaSources: Collection<JavaSourceInfo> = emptyList(),
   ): Collection<KtFile> {
+
+    // Star imports never reach stub creation (JavaSourceInfo keeps them out of `imports`):
+    // like their Kotlin counterparts, they are ignored here and gated at onboarding time
+    // (kosabi.py flags them), so existing targets keep building unchanged.
+    Logger.log("[Source files] ${knownSources.joinToString(", ") { it.name }}")
 
     // Why we have two rounds of `generateStubs` here?
     //
@@ -76,6 +83,7 @@ open class StubsGenAPI(
         classPaths,
         getKnownKspGeneratedTypes(),
         lightweight = false,
+        javaSources,
     )
     val stubs = generateStubs(stubsGenerators + configureExtraGenerators(), context)
     val enableBytecodeStub = stubsClassOutputDir != null

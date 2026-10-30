@@ -18,7 +18,7 @@ import com.facebook.kotlin.compilerplugins.kosabi.common.stub.model.KStub
 class FullQualifiedClassStubsGenerator : StubsGenerator {
 
   override fun generateStubs(context: GenerationContext) {
-    context.fullQualifierTypes
+    (context.fullQualifierTypes + context.javaFullQualifierTypes)
         .filterDifferentOuterClassIn(context.declaredTypes)
         .filterNot { context.externalTypeReferences.contains(it.outerClassOnlyQualifier()) }
         .filter { it.pkg.isNotEmpty() && it.names.isNotEmpty() }

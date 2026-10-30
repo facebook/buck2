@@ -36,6 +36,7 @@ import javax.annotation.Nullable;
 public class KosabiStubgenStep extends KotlincStep {
   private final RelPath stubgenDir;
   private final RelPath stubClassOutputDir;
+  private final boolean skipJavaImports;
 
   private final String pluginPath;
 
@@ -62,7 +63,8 @@ public class KosabiStubgenStep extends KotlincStep {
       RelPath stubgenDir,
       @Nullable RelPath stubClassOutputDir,
       KotlinCDAnalytics kotlinCDAnalytics,
-      LanguageVersion languageVersion) {
+      LanguageVersion languageVersion,
+      boolean skipJavaImports) {
 
     super(
         invokingRule,
@@ -99,6 +101,7 @@ public class KosabiStubgenStep extends KotlincStep {
         "off");
     this.stubgenDir = stubgenDir;
     this.stubClassOutputDir = stubClassOutputDir;
+    this.skipJavaImports = skipJavaImports;
     this.pluginPath = "plugin:com.facebook.kotlin.compilerplugins.kosabi.stubsgen_k2";
   }
 
@@ -124,6 +127,11 @@ public class KosabiStubgenStep extends KotlincStep {
     if (stubClassOutputDir != null) {
       builder.add("-P");
       builder.add(pluginPath + ":stubs-class-dir=" + stubClassOutputDir.toString());
+    }
+
+    if (skipJavaImports) {
+      builder.add("-P");
+      builder.add(pluginPath + ":skip-java-imports=true");
     }
   }
 }

@@ -11,6 +11,7 @@
 package com.facebook.buck.jvm.kotlin;
 
 import static com.facebook.buck.jvm.java.JavaPaths.SRC_ZIP;
+import static com.facebook.buck.jvm.kotlin.AnnotationProcessorUtils.getAnnotationProcessors;
 
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
@@ -20,7 +21,9 @@ import com.facebook.buck.jvm.core.BuildTargetValue;
 import com.facebook.buck.jvm.core.BuildTargetValueExtraParams;
 import com.facebook.buck.jvm.java.CompilerParameters;
 import com.facebook.buck.jvm.java.JarParameters;
+import com.facebook.buck.jvm.java.JavacPluginParams;
 import com.facebook.buck.jvm.java.RemoveClassesPatternsMatcher;
+import com.facebook.buck.jvm.java.ResolvedJavacPluginProperties;
 import com.facebook.buck.jvm.kotlin.cd.analytics.KotlinCDAnalytics;
 import com.facebook.buck.jvm.kotlin.kotlinc.Kotlinc;
 import com.facebook.buck.step.isolatedsteps.IsolatedStep;
@@ -97,6 +100,14 @@ public class KosabiStubgenStepsBuilder {
       steps.addAll(MakeCleanDirectoryIsolatedStep.of(stubgenOutputDir));
       steps.addAll(MakeCleanDirectoryIsolatedStep.of(stubsOutputZipDir));
 
+      // Java imports feed KSP resolution only; without KSP processors stubgen skips the javac
+      // parse and collects Java declarations alone. Same predicate as KspStepsBuilder.
+      JavacPluginParams annotationProcessorParams =
+          extraParams.getResolvedJavacOptions().getJavaAnnotationProcessorParams();
+      ImmutableList<ResolvedJavacPluginProperties> kspAnnotationProcessors =
+          KspStepsBuilder.getKspAnnotationProcessors(
+              getAnnotationProcessors(annotationProcessorParams));
+
       steps.add(
           new KosabiStubgenStep(
               invokingRule,
@@ -125,7 +136,8 @@ public class KosabiStubgenStepsBuilder {
               stubgenOutputDir,
               stubgenClassOutputDir,
               kotlinCDAnalytics,
-              languageVersion));
+              languageVersion,
+              kspAnnotationProcessors.isEmpty()));
 
       steps.add(
           new ZipIsolatedStep(

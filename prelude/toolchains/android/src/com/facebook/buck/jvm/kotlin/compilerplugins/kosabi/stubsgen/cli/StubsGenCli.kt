@@ -15,6 +15,8 @@ package com.facebook.kotlin.compilerplugins.kosabi.stubsgen.cli
 import com.facebook.kotlin.compilerplugins.kosabi.stubsgen.generators.StubsGenAPI // @oss-enable
 import com.facebook.kotlin.compilerplugins.kosabi.common.Logger
 // @oss-disable: import com.facebook.kotlin.compilerplugins.kosabi.stubsgen.generators.meta_only.StubsGenApiImpl
+import com.facebook.kotlin.compilerplugins.kosabi.stubsgen.util.parseJavaDeclarations
+import com.facebook.kotlin.compilerplugins.kosabi.stubsgen.util.parseJavaSources
 import java.io.File
 import org.jetbrains.kotlin.config.CompilerConfiguration
 
@@ -26,6 +28,7 @@ object StubsGenCli {
       stubsDumpDir: File?,
       stubsClassOutputDir: File?,
       logPath: String? = null,
+      skipJavaImports: Boolean = false,
   ) {
     // Save/restore the process-global logger path so it doesn't leak across same-JVM callers
     // (e.g. StandaloneCliCompareTest); the CLI path is unaffected since the process exits.
@@ -33,7 +36,10 @@ object StubsGenCli {
     Logger.userDefinedPath = logPath
     try {
       StubsGenParseOnlyEnvironment().use { env ->
-        val ktFiles = env.parse(sourceFiles)
+        val (javaFiles, kotlinFiles) = sourceFiles.partition { it.extension == "java" }
+        val ktFiles = env.parse(kotlinFiles)
+        val javaSources =
+            if (skipJavaImports) parseJavaDeclarations(javaFiles) else parseJavaSources(javaFiles)
         // configuration is unused by generateStubs; empty is fine.
         StubsGenAPI( // @oss-enable
         // @oss-disable: StubsGenApiImpl(
@@ -42,7 +48,7 @@ object StubsGenCli {
             classPaths = classpath,
             // @oss-disable: knownSources = ktFiles,
         )
-            .generateStubs(ktFiles, CompilerConfiguration(), env.project)
+            .generateStubs(ktFiles, CompilerConfiguration(), env.project, javaSources)
       }
     } finally {
       Logger.userDefinedPath = prevLogPath
