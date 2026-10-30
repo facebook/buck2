@@ -148,7 +148,10 @@ def _should_scrub_with_spec_file(
 
 
 class DebugFilePath(NamedTuple):
-    """The path of an `N_OSO` entry and where it is stored in the string table."""
+    """
+    The path of an `N_OSO` entry, the file offset of its string and the
+    string's length in bytes, without the NUL.
+    """
 
     offset: int
     size: int
