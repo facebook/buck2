@@ -77,10 +77,7 @@ where
 
         if err.is_retryable() {
             if let Some(b) = backoff.peek() {
-                // This message is a bit inaccurate, but at this point it's hardcoded in error
-                // matching, no point in trying to change it. The error is not necessarily a "HTTP
-                // Error".
-                tracing::warn!(
+                tracing::debug!(
                     "Retrying a HTTP error after {} seconds: {:#}",
                     b.as_secs(),
                     // Print as a buck2_error to make sure we get the source

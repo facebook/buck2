@@ -187,10 +187,7 @@ class DownloadFileTest(BuckTestCase):
             stderr_regex="Timed out while making request to",
         )
 
-        result = await buck.build(
-            "//:download", *configs(f"{url}/times_out_twice", sha1=sha1)
-        )
-        assert "Retrying a HTTP error after" in result.stderr
+        await buck.build("//:download", *configs(f"{url}/times_out_twice", sha1=sha1))
 
         await runner.cleanup()
 

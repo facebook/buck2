@@ -385,7 +385,7 @@ where
         // give Watchman time to warm up.
         let mut client = None;
         if let Err(e) = self.reconnect(&mut client).await {
-            tracing::warn!("Connecting to Watchman failed (will re-attempt): {:#}", e);
+            tracing::debug!("Connecting to Watchman failed (will re-attempt): {:#}", e);
         };
 
         loop {

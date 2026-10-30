@@ -763,7 +763,7 @@ impl WorkerClient {
             match client.execute(request.clone()).await {
                 Ok(response) => return Ok(response.into_inner()),
                 Err(status) if status.code() == tonic::Code::Unavailable => {
-                    tracing::warn!("Worker connection unavailable, retrying: {:?}", status);
+                    tracing::debug!("Worker connection unavailable, retrying: {:?}", status);
                     last_err = Some(status);
                 }
                 Err(status) => return Err(status.into()),

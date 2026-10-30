@@ -273,7 +273,7 @@ impl RemoteExecutionClient {
                         return Err(e);
                     }
 
-                    tracing::warn!(
+                    tracing::debug!(
                         "Failed to connect to RE, retrying after sleeping {} seconds: {:#?}",
                         i,
                         e

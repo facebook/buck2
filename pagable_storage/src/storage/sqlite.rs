@@ -732,10 +732,6 @@ impl SqliteBackedPagableStorage {
                     Err((_, error)) if is_busy(&error) && waits < BUSY_READ_RETRIES => {
                         waits += 1;
                         self.busy_read_retries.fetch_add(1, Ordering::Relaxed);
-                        tracing::warn!(
-                            "sqlite read of key {key:?} waited {BUSY_TIMEOUT:?} for the shard's \
-                             lock (SQLITE_BUSY); retry {waits} of {BUSY_READ_RETRIES}"
-                        );
                     }
                     Err((what, error)) => {
                         return Err(sqlite_read_error(key, what, error, waits + 1));

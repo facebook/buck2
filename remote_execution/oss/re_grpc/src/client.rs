@@ -688,7 +688,7 @@ where
             Ok(v) => return Ok(v),
             Err(e) if is_retryable(&e) && attempt < MAX_ATTEMPTS => {
                 let sleep_for = delay_with_jitter(delay);
-                tracing::warn!(
+                tracing::debug!(
                     "Transient error (attempt {}/{}), retrying in {:?}: {:#}",
                     attempt,
                     MAX_ATTEMPTS,
