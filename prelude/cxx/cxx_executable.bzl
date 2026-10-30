@@ -433,7 +433,6 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         link_group_mappings = {}
         link_group_deps = []
     link_group_preferred_linkage = get_link_group_preferred_linkage(link_groups.values())
-    link_groups_enabled = link_group_info != None
 
     # Create the linkable graph with the binary's deps and any link group deps.
     linkable_graph = create_linkable_graph(
@@ -740,7 +739,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         + impl_params.generated_build_info_invalidation_inputs
     )
     generated_build_info_shared_library = None
-    if generated_build_info_is_shared_library(ctx, link_groups_enabled = link_groups_enabled):
+    if generated_build_info_is_shared_library(ctx):
         binary_linker_flags += ["--build-info=none"]
         generated_build_info_shared_library = generate_build_info_shared_library(
             ctx,
@@ -837,7 +836,6 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
             has_hip_device_debug = has_hip_device_debug,
         ),
         build_info_json = (generated_build_info_shared_library.json if generated_build_info_shared_library else None),
-        link_groups_enabled = link_groups_enabled,
     )
     binary = link_result.exe
     runtime_files = link_result.runtime_files
@@ -855,7 +853,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
             populate_rule_specific_attributes_func = impl_params.cxx_populate_xcode_attributes_func,
             srcs = impl_params.srcs + impl_params.additional.srcs,
             argsfiles = compile_cmd_output.argsfiles.xcode,
-            product_name = get_cxx_executable_product_name(ctx, has_hip_device_debug, link_groups_enabled = link_groups_enabled),
+            product_name = get_cxx_executable_product_name(ctx, has_hip_device_debug),
         )
         sub_targets[XCODE_DATA_SUB_TARGET] = xcode_data_default_info
 
@@ -1210,14 +1208,13 @@ def _link_into_executable(
     binary_linker_flags: list[typing.Any],
     opts: LinkOptions,
     build_info_json: Artifact | None = None,
-    link_groups_enabled: bool = False,
 ) -> _CxxLinkExecutableResult:
     if executable_name and binary_extension and executable_name.endswith(binary_extension):
         # don't append .exe if it already is .exe
         output_name = executable_name
     else:
         output_name = "{}{}".format(
-            executable_name if executable_name else get_cxx_executable_product_name(ctx, opts.has_hip_device_debug, link_groups_enabled = link_groups_enabled),
+            executable_name if executable_name else get_cxx_executable_product_name(ctx, opts.has_hip_device_debug),
             "." + binary_extension if binary_extension else "",
         )
     output = ctx.actions.declare_output(output_name, has_content_based_path = False)
@@ -1247,7 +1244,6 @@ def _link_into_executable(
             links = [LinkArgs(flags = executable_args.extra_link_args)] + opts.links,
         ),
         build_info_json = build_info_json,
-        link_groups_enabled = link_groups_enabled,
     )
 
     return _CxxLinkExecutableResult(
@@ -1262,7 +1258,7 @@ def _link_into_executable(
         extra_outputs = link_result.extra_outputs if link_result.extra_outputs else {},
     )
 
-def get_cxx_post_link_suffix(ctx: AnalysisContext, has_hip_device_debug: bool = False, link_groups_enabled: bool = False) -> str:
+def get_cxx_post_link_suffix(ctx: AnalysisContext, has_hip_device_debug: bool = False) -> str:
     """
     The suffix the linker's output must carry so that each post-link stage of
     `cxx_link_into` can strip the part it owns, leaving the canonical name.
@@ -1271,7 +1267,7 @@ def get_cxx_post_link_suffix(ctx: AnalysisContext, has_hip_device_debug: bool = 
     belongs to the stage that runs first.
     """
     suffix = ""
-    if cxx_stamp_build_info(ctx, link_groups_enabled = link_groups_enabled):
+    if cxx_stamp_build_info(ctx):
         suffix += PRE_STAMPED_SUFFIX
     if get_elf_sections(ctx):
         suffix += PRE_ADD_ELF_SECTIONS_SUFFIX
@@ -1281,8 +1277,8 @@ def get_cxx_post_link_suffix(ctx: AnalysisContext, has_hip_device_debug: bool = 
         suffix += PRE_BOLT_SUFFIX
     return suffix
 
-def get_cxx_executable_product_name(ctx: AnalysisContext, has_hip_device_debug: bool = False, link_groups_enabled: bool = False) -> str:
-    return ctx.label.name + get_cxx_post_link_suffix(ctx, has_hip_device_debug, link_groups_enabled = link_groups_enabled)
+def get_cxx_executable_product_name(ctx: AnalysisContext, has_hip_device_debug: bool = False) -> str:
+    return ctx.label.name + get_cxx_post_link_suffix(ctx, has_hip_device_debug)
 
 def _is_build_info_linker_flag(flag) -> bool:
     return flag.startswith("--build-info")
