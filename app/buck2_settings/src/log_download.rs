@@ -8,78 +8,23 @@
  * above-listed licenses.
  */
 
-use std::sync::Arc;
+use buck2_settings_derive::buck_settings_section;
 
-use allocative::Allocative;
-use dupe::Dupe;
-use serde::Deserialize;
-use serde::Serialize;
-
-use crate::metadata::OverrideSource;
-use crate::metadata::SectionMetadata;
-use crate::metadata::SettingKey;
-use crate::metadata::SettingKeyMetadata;
-
-const URL: SettingKey<&'static str> = SettingKey {
-    metadata: SettingKeyMetadata {
-        name: "log_url",
-        overridable_in: &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
-    },
-    internal_default: None,
-    oss_default: None,
-};
-
-const USE_MANIFOLD: SettingKey<bool> = SettingKey {
-    metadata: SettingKeyMetadata {
-        name: "log_use_manifold",
-        overridable_in: &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
-    },
-    // None is a migration placeholder to support buckconfig fallback
-    internal_default: None,
-    oss_default: Some(false),
-};
-
-#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Allocative)]
-#[serde(deny_unknown_fields)]
-pub(super) struct LogDownloadSectionData {
+/// Where the daemon's event logs go.
+#[buck_settings_section(name = "log_download", version = 0, scope = daemon)]
+pub struct LogDownload {
+    /// Whether event logs are kept in Manifold. Unset in Meta-internal builds
+    /// leaves the decision to the `buck2.log_use_manifold` buckconfig.
+    #[setting(oss_default = false, overridable_in(CommandLine, LocalSettings))]
     log_use_manifold: Option<bool>,
+    /// Where event logs are uploaded when not kept in Manifold. Unset leaves
+    /// the decision to the `buck2.log_url` buckconfig.
+    #[setting(overridable_in(CommandLine, LocalSettings))]
     log_url: Option<String>,
-}
-
-#[derive(
-    Clone,
-    Dupe,
-    Debug,
-    Default,
-    Serialize,
-    Deserialize,
-    PartialEq,
-    Eq,
-    Allocative
-)]
-#[serde(transparent)]
-pub struct LogDownloadSection(pub(super) Arc<LogDownloadSectionData>);
-
-impl LogDownloadSection {
-    /// Bump when the section's settings schema or semantics change.
-    pub(crate) const METADATA: SectionMetadata = SectionMetadata {
-        section_name: "log_download",
-        section_version: 0,
-        settings: &[USE_MANIFOLD.metadata, URL.metadata],
-    };
-
-    pub fn log_use_manifold(&self) -> Option<bool> {
-        USE_MANIFOLD.resolve(self.0.log_use_manifold)
-    }
-
-    pub fn log_url(&self) -> Option<&str> {
-        self.0.log_url.as_deref().or_else(|| URL.default_value())
-    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::BuckSettings;
     use crate::metadata::SettingKeyRef;
     use crate::metadata::find_setting_metadata;
@@ -112,41 +57,24 @@ mod tests {
     fn test_log_url() -> buck2_error::Result<()> {
         let settings =
             resolve_setting_flags(vec![table("[log_download]\nlog_url = \"test.com\"")])?;
-        assert_eq!(settings.daemon.log_download.log_url(), Some("test.com"));
+        assert_eq!(
+            settings.daemon.log_download.log_url().as_deref(),
+            Some("test.com")
+        );
         Ok(())
     }
 
     #[test]
     fn test_find_setting_metadata() {
+        let find = |section, name| {
+            find_setting_metadata(ALL_SECTION_METADATA, SettingKeyRef { section, name })
+                .map(|metadata| metadata.name)
+        };
         assert_eq!(
-            find_setting_metadata(
-                ALL_SECTION_METADATA,
-                SettingKeyRef {
-                    section: "log_download",
-                    name: "log_use_manifold",
-                },
-            ),
-            Some(&USE_MANIFOLD.metadata)
+            find("log_download", "log_use_manifold"),
+            Some("log_use_manifold")
         );
-        assert_eq!(
-            find_setting_metadata(
-                ALL_SECTION_METADATA,
-                SettingKeyRef {
-                    section: "log_download",
-                    name: "log_use_maniflod",
-                },
-            ),
-            None
-        );
-        assert_eq!(
-            find_setting_metadata(
-                ALL_SECTION_METADATA,
-                SettingKeyRef {
-                    section: "buck2",
-                    name: "log_url",
-                },
-            ),
-            None
-        );
+        assert_eq!(find("log_download", "log_use_maniflod"), None);
+        assert_eq!(find("buck2", "log_url"), None);
     }
 }

@@ -8,54 +8,12 @@
  * above-listed licenses.
  */
 
-use allocative::Allocative;
-use dupe::Dupe;
-use serde::Deserialize;
-use serde::Serialize;
+use buck2_settings_derive::buck_settings_section;
 
-use crate::metadata::OverrideSource;
-use crate::metadata::SectionMetadata;
-use crate::metadata::SettingKey;
-use crate::metadata::SettingKeyMetadata;
-
-const ENABLED: SettingKey<bool> = SettingKey {
-    metadata: SettingKeyMetadata {
-        name: "enabled",
-        overridable_in: &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
-    },
-    internal_default: Some(false),
-    oss_default: Some(false),
-};
-
-/// Skip final build output materialization for direct agent calls that do not request outputs.
-#[derive(
-    Clone,
-    Copy,
-    Dupe,
-    Debug,
-    Default,
-    Serialize,
-    Deserialize,
-    PartialEq,
-    Eq,
-    Allocative
-)]
-#[serde(default, deny_unknown_fields)]
-pub struct AgentMaterializationSettings {
+/// Skip final build output materialization for direct agent calls that do not
+/// request outputs.
+#[buck_settings_section(name = "agent_materialization", version = 0, scope = invocation)]
+pub struct AgentMaterialization {
+    #[setting(default = false, overridable_in(CommandLine, LocalSettings))]
     enabled: Option<bool>,
-}
-
-impl AgentMaterializationSettings {
-    /// Bump when the section's settings schema or semantics change.
-    pub(crate) const METADATA: SectionMetadata = SectionMetadata {
-        section_name: "agent_materialization",
-        section_version: 0,
-        settings: &[ENABLED.metadata],
-    };
-
-    pub fn enabled(&self) -> bool {
-        ENABLED
-            .resolve(self.enabled)
-            .expect("Agent materialization policy has a default")
-    }
 }

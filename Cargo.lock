@@ -3475,6 +3475,7 @@ dependencies = [
  "buck2_error",
  "buck2_fs",
  "buck2_hash",
+ "buck2_settings_derive",
  "buck2_wrapper_common",
  "derive_more 2.1.1",
  "dice",
@@ -3484,6 +3485,15 @@ dependencies = [
  "serde",
  "serde_json",
  "toml",
+]
+
+[[package]]
+name = "buck2_settings_derive"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 3.0.9",
 ]
 
 [[package]]

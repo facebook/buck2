@@ -87,11 +87,14 @@ fn validate_rollout_layer(layer: &toml::Table) -> buck2_error::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::metadata::SectionScope;
 
     const SECTION: &str = "test_section";
     const SECTION_METADATA: SectionMetadata = SectionMetadata {
         section_name: SECTION,
         section_version: 0,
+        scope: SectionScope::Daemon,
+        doc: "",
         settings: &[],
     };
 

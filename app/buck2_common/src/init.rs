@@ -660,10 +660,12 @@ impl DaemonStartupConfig {
                 Ok(LogDownloadMethod::Manifold)
             } else {
                 let log_url = log_download.log_url().or_else(|| {
-                    config.get(BuckconfigKeyRef {
-                        section: "buck2",
-                        property: "log_url",
-                    })
+                    config
+                        .get(BuckconfigKeyRef {
+                            section: "buck2",
+                            property: "log_url",
+                        })
+                        .map(str::to_owned)
                 });
                 if let Some(log_url) = log_url {
                     if log_url.is_empty() {
@@ -672,7 +674,7 @@ impl DaemonStartupConfig {
                             "log_url is empty, but log_use_manifold is false"
                         ))
                     } else {
-                        Ok(LogDownloadMethod::Curl(log_url.to_owned()))
+                        Ok(LogDownloadMethod::Curl(log_url))
                     }
                 } else {
                     Ok(LogDownloadMethod::None)

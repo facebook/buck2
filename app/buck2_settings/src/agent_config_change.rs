@@ -8,24 +8,7 @@
  * above-listed licenses.
  */
 
-use allocative::Allocative;
-use dupe::Dupe;
-use serde::Deserialize;
-use serde::Serialize;
-
-use crate::metadata::OverrideSource;
-use crate::metadata::SectionMetadata;
-use crate::metadata::SettingKey;
-use crate::metadata::SettingKeyMetadata;
-
-const ENABLED: SettingKey<bool> = SettingKey {
-    metadata: SettingKeyMetadata {
-        name: "enabled",
-        overridable_in: &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
-    },
-    internal_default: Some(false),
-    oss_default: Some(false),
-};
+use buck2_settings_derive::buck_settings_section;
 
 /// Block direct agent calls whose buckconfig would invalidate the daemon's state.
 ///
@@ -34,37 +17,11 @@ const ENABLED: SettingKey<bool> = SettingKey {
 /// the existing rollouts of the other guards from applying. The guard also ignores the
 /// `agent_interactive.enabled` master switch, so this section alone controls it and its GK can
 /// be A/B tested on its own.
-#[derive(
-    Clone,
-    Copy,
-    Dupe,
-    Debug,
-    Default,
-    Serialize,
-    Deserialize,
-    PartialEq,
-    Eq,
-    Allocative
-)]
-#[serde(default, deny_unknown_fields)]
-pub struct AgentConfigChangeSettings {
-    enabled: Option<bool>,
-}
-
-impl AgentConfigChangeSettings {
-    /// Bump when the section's settings schema or semantics change.
-    pub(crate) const METADATA: SectionMetadata = SectionMetadata {
-        section_name: "agent_config_change",
-        section_version: 0,
-        settings: &[ENABLED.metadata],
-    };
-
+#[buck_settings_section(name = "agent_config_change", version = 0, scope = invocation)]
+pub struct AgentConfigChange {
     /// The guard's only switch.
-    pub fn enabled(&self) -> bool {
-        ENABLED
-            .resolve(self.enabled)
-            .expect("Agent config change guard has a default")
-    }
+    #[setting(default = false, overridable_in(CommandLine, LocalSettings))]
+    enabled: Option<bool>,
 }
 
 #[cfg(test)]

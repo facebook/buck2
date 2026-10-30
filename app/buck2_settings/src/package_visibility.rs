@@ -8,17 +8,11 @@
  * above-listed licenses.
  */
 
-use std::sync::Arc;
-
 use allocative::Allocative;
-use dupe::Dupe;
+use buck2_settings_derive::buck_settings_section;
 use pagable::Pagable;
 use serde::Deserialize;
 use serde::Serialize;
-
-use crate::metadata::SectionMetadata;
-use crate::metadata::SettingKey;
-use crate::metadata::SettingKeyMetadata;
 
 /// Controls whether ordinary `package(visibility=...)` declarations
 /// contribute to the visibility intersection by default.
@@ -49,48 +43,15 @@ pub enum PackageVisibilityDefaultIntersection {
     Enforce,
 }
 
-const DEFAULT_INTERSECTION: SettingKey<PackageVisibilityDefaultIntersection> = SettingKey {
-    metadata: SettingKeyMetadata {
-        name: "default_intersection",
-        // Enforcement control: overrides must not be able to weaken it.
-        overridable_in: &[],
-    },
-    internal_default: Some(PackageVisibilityDefaultIntersection::Off),
-    oss_default: Some(PackageVisibilityDefaultIntersection::Off),
-};
-
-#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Allocative)]
-#[serde(deny_unknown_fields)]
-pub(super) struct PackageVisibilitySectionData {
-    default_intersection: Option<PackageVisibilityDefaultIntersection>,
-}
-
 /// Settings controlling PACKAGE visibility intersection.
-#[derive(
-    Clone,
-    Dupe,
-    Debug,
-    Default,
-    Serialize,
-    Deserialize,
-    PartialEq,
-    Eq,
-    Allocative
-)]
-#[serde(transparent)]
-pub struct PackageVisibilitySection(pub(super) Arc<PackageVisibilitySectionData>);
-
-impl PackageVisibilitySection {
-    /// Bump when the section's settings schema or semantics change.
-    pub(crate) const METADATA: SectionMetadata = SectionMetadata {
-        section_name: "package_visibility",
-        section_version: 0,
-        settings: &[DEFAULT_INTERSECTION.metadata],
-    };
-
-    pub fn default_intersection(&self) -> PackageVisibilityDefaultIntersection {
-        DEFAULT_INTERSECTION
-            .resolve(self.0.default_intersection)
-            .unwrap_or_default()
-    }
+#[buck_settings_section(name = "package_visibility", version = 0, scope = daemon)]
+pub struct PackageVisibility {
+    /// Whether ordinary `package(visibility=...)` declarations contribute to
+    /// the visibility intersection: `off`, `audit` or `enforce`.
+    // Enforcement control: overrides must not be able to weaken it.
+    #[setting(
+        default = PackageVisibilityDefaultIntersection::Off,
+        overridable_in()
+    )]
+    default_intersection: Option<PackageVisibilityDefaultIntersection>,
 }

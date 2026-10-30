@@ -322,7 +322,8 @@ mod tests {
                 .buck_settings(&project_root)?
                 .daemon
                 .log_download
-                .log_url(),
+                .log_url()
+                .as_deref(),
             Some("https://command-line/")
         );
         assert!(

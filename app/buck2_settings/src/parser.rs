@@ -427,6 +427,7 @@ mod tests {
     use super::*;
     use crate::args::SettingOverride;
     use crate::args::parse_setting_flag_arg;
+    use crate::metadata::SectionScope;
     use crate::metadata::SettingKeyMetadata;
     use crate::settings::testing::TestBuckSettingsData;
     use crate::settings::testing::TestSection;
@@ -444,20 +445,21 @@ mod tests {
         }
     }
 
-    const TEST_FLAG_METADATA: SettingKeyMetadata = SettingKeyMetadata {
-        name: "test_flag",
-        overridable_in: &[OverrideSource::CommandLine],
-    };
+    const TEST_FLAG_METADATA: SettingKeyMetadata =
+        SettingKeyMetadata::for_test("test_flag", &[OverrideSource::CommandLine]);
+
+    const TEST_FLAG_NOT_OVERRIDABLE: &[SettingKeyMetadata] =
+        &[SettingKeyMetadata::for_test("test_flag", &[])];
 
     const TEST_SETTINGS_METADATA: &[SettingKeyMetadata] = &[
-        SettingKeyMetadata {
-            name: "test_flag",
-            overridable_in: &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
-        },
-        SettingKeyMetadata {
-            name: "test_value",
-            overridable_in: &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
-        },
+        SettingKeyMetadata::for_test(
+            "test_flag",
+            &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
+        ),
+        SettingKeyMetadata::for_test(
+            "test_value",
+            &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
+        ),
     ];
 
     fn resolve_with_metadata<T: DeserializeOwned>(
@@ -468,6 +470,8 @@ mod tests {
         merged.validate(&[SectionMetadata {
             section_name: "test_section",
             section_version: 0,
+            scope: SectionScope::Daemon,
+            doc: "",
             settings: metadata,
         }])?;
         merged.deserialize()
@@ -581,7 +585,7 @@ mod tests {
 
             let settings = parse_settings_with_home(repo_root, Some(home_dir), None, &[])?;
             assert_eq!(
-                settings.daemon.log_download.log_url(),
+                settings.daemon.log_download.log_url().as_deref(),
                 Some("https://rollout/")
             );
 
@@ -591,7 +595,7 @@ mod tests {
             );
             let settings = parse_settings_with_home(repo_root, Some(home_dir), None, &[])?;
             assert_eq!(
-                settings.daemon.log_download.log_url(),
+                settings.daemon.log_download.log_url().as_deref(),
                 Some("https://home-local/")
             );
 
@@ -601,7 +605,7 @@ mod tests {
             );
             let settings = parse_settings_with_home(repo_root, Some(home_dir), None, &[])?;
             assert_eq!(
-                settings.daemon.log_download.log_url(),
+                settings.daemon.log_download.log_url().as_deref(),
                 Some("https://repo-local/")
             );
 
@@ -618,7 +622,7 @@ mod tests {
             let settings =
                 parse_settings_with_home(repo_root, Some(home_dir), Some(&override_file), &[])?;
             assert_eq!(
-                settings.daemon.log_download.log_url(),
+                settings.daemon.log_download.log_url().as_deref(),
                 Some("https://override/")
             );
 
@@ -630,7 +634,7 @@ mod tests {
                 &settings_args,
             )?;
             assert_eq!(
-                settings.daemon.log_download.log_url(),
+                settings.daemon.log_download.log_url().as_deref(),
                 Some("https://command-line/")
             );
 
@@ -664,7 +668,7 @@ mod tests {
             for (label, content) in cases {
                 let settings = settings_with_rollout(Some(&content))?;
                 assert_eq!(
-                    settings.daemon.log_download.log_url(),
+                    settings.daemon.log_download.log_url().as_deref(),
                     Some(REPO_URL),
                     "{label} must not affect other settings"
                 );
@@ -689,7 +693,10 @@ mod tests {
                 None,
                 &[],
             )?;
-            assert_eq!(settings.daemon.log_download.log_url(), Some(REPO_URL));
+            assert_eq!(
+                settings.daemon.log_download.log_url().as_deref(),
+                Some(REPO_URL)
+            );
             Ok(())
         }
 
@@ -763,7 +770,7 @@ mod tests {
             None,
             &[],
         )?;
-        assert_eq!(settings.daemon.log_download.log_url(), None);
+        assert_eq!(settings.daemon.log_download.log_url().as_deref(), None);
         Ok(())
     }
 
@@ -945,10 +952,7 @@ mod tests {
             vec![SettingsLayer::setting_flag(table(
                 "[test_section]\ntest_flag = true",
             ))],
-            &[SettingKeyMetadata {
-                name: TEST_FLAG_METADATA.name,
-                overridable_in: &[],
-            }],
+            TEST_FLAG_NOT_OVERRIDABLE,
         )
         .unwrap_err();
         assert_eq!(
@@ -970,10 +974,7 @@ mod tests {
                 ),
                 table("[test_section]\ntest_flag = true"),
             )],
-            &[SettingKeyMetadata {
-                name: TEST_FLAG_METADATA.name,
-                overridable_in: &[],
-            }],
+            TEST_FLAG_NOT_OVERRIDABLE,
         )?;
         assert_eq!(resolved.test_section.unwrap().test_flag, Some(true));
         Ok(())

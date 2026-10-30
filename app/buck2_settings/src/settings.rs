@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-use std::sync::Arc;
-
 use allocative::Allocative;
 use buck2_error::BuckErrorContext;
 use dupe::Dupe;
@@ -17,28 +15,25 @@ use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::agent_config_change::AgentConfigChangeSettings;
-use crate::agent_interactive::AgentInteractiveSettings;
-use crate::agent_materialization::AgentMaterializationSettings;
-pub use crate::analysis::AnalysisSection;
-use crate::analysis::AnalysisSectionData;
-pub use crate::hydration::HydrationSection;
-use crate::hydration::HydrationSectionData;
-pub use crate::log_download::LogDownloadSection;
-use crate::log_download::LogDownloadSectionData;
+use crate::agent_config_change::AgentConfigChange;
+use crate::agent_interactive::AgentInteractive;
+use crate::agent_materialization::AgentMaterialization;
+use crate::analysis::Analysis;
+use crate::hydration::Hydration;
+use crate::log_download::LogDownload;
 use crate::metadata::SectionMetadata;
-pub use crate::package_visibility::PackageVisibilityDefaultIntersection;
-pub use crate::package_visibility::PackageVisibilitySection;
-use crate::package_visibility::PackageVisibilitySectionData;
+use crate::metadata::SettingsSection;
+use crate::package_visibility::PackageVisibility;
+use crate::section::Section;
 
 pub(crate) static ALL_SECTION_METADATA: &[SectionMetadata] = &[
-    AgentConfigChangeSettings::METADATA,
-    AgentInteractiveSettings::METADATA,
-    AgentMaterializationSettings::METADATA,
-    AnalysisSection::METADATA,
-    HydrationSection::METADATA,
-    LogDownloadSection::METADATA,
-    PackageVisibilitySection::METADATA,
+    AgentConfigChange::METADATA,
+    AgentInteractive::METADATA,
+    AgentMaterialization::METADATA,
+    Analysis::METADATA,
+    Hydration::METADATA,
+    LogDownload::METADATA,
+    PackageVisibility::METADATA,
 ];
 
 // Keep the file format flat and reject unknown sections before grouping by scope.
@@ -46,19 +41,19 @@ pub(crate) static ALL_SECTION_METADATA: &[SectionMetadata] = &[
 #[serde(deny_unknown_fields)]
 pub(crate) struct BuckSettingsData {
     #[serde(default)]
-    agent_config_change: AgentConfigChangeSettings,
+    agent_config_change: AgentConfigChange,
     #[serde(default)]
-    agent_interactive: AgentInteractiveSettings,
+    agent_interactive: AgentInteractive,
     #[serde(default)]
-    agent_materialization: AgentMaterializationSettings,
+    agent_materialization: AgentMaterialization,
     #[serde(default)]
-    analysis: AnalysisSectionData,
+    analysis: Analysis,
     #[serde(default)]
-    hydration: HydrationSectionData,
+    hydration: Hydration,
     #[serde(default)]
-    log_download: LogDownloadSectionData,
+    log_download: LogDownload,
     #[serde(default)]
-    package_visibility: PackageVisibilitySectionData,
+    package_visibility: PackageVisibility,
 }
 
 /// Settings for a client invocation or server command. Shared daemon state must
@@ -97,9 +92,9 @@ pub struct BuckSettings {
 )]
 #[serde(default, deny_unknown_fields)]
 pub struct InvocationBuckSettings {
-    pub agent_config_change: AgentConfigChangeSettings,
-    pub agent_interactive: AgentInteractiveSettings,
-    pub agent_materialization: AgentMaterializationSettings,
+    pub agent_config_change: Section<AgentConfigChange>,
+    pub agent_interactive: Section<AgentInteractive>,
+    pub agent_materialization: Section<AgentMaterialization>,
 }
 
 impl InvocationBuckSettings {
@@ -133,10 +128,10 @@ impl InvocationBuckSettings {
 )]
 #[serde(default, deny_unknown_fields)]
 pub struct DaemonBuckSettings {
-    pub analysis: AnalysisSection,
-    pub hydration: HydrationSection,
-    pub log_download: LogDownloadSection,
-    pub package_visibility: PackageVisibilitySection,
+    pub analysis: Section<Analysis>,
+    pub hydration: Section<Hydration>,
+    pub log_download: Section<LogDownload>,
+    pub package_visibility: Section<PackageVisibility>,
 }
 
 /// A stored setting value changing from the daemon's snapshot to the current client's settings.
@@ -153,15 +148,15 @@ impl From<BuckSettingsData> for BuckSettings {
     fn from(data: BuckSettingsData) -> Self {
         Self {
             daemon: DaemonBuckSettings {
-                analysis: AnalysisSection(Arc::new(data.analysis)),
-                hydration: HydrationSection(Arc::new(data.hydration)),
-                log_download: LogDownloadSection(Arc::new(data.log_download)),
-                package_visibility: PackageVisibilitySection(Arc::new(data.package_visibility)),
+                analysis: Section::new(data.analysis),
+                hydration: Section::new(data.hydration),
+                log_download: Section::new(data.log_download),
+                package_visibility: Section::new(data.package_visibility),
             },
             invocation: InvocationBuckSettings {
-                agent_config_change: data.agent_config_change,
-                agent_interactive: data.agent_interactive,
-                agent_materialization: data.agent_materialization,
+                agent_config_change: Section::new(data.agent_config_change),
+                agent_interactive: Section::new(data.agent_interactive),
+                agent_materialization: Section::new(data.agent_materialization),
             },
         }
     }
@@ -330,7 +325,7 @@ mod tests {
         assert!(settings.invocation.agent_materialization.enabled());
         assert!(!settings.daemon.analysis.record_requested_anon_targets());
         assert_eq!(
-            settings.daemon.log_download.log_url(),
+            settings.daemon.log_download.log_url().as_deref(),
             Some("https://example.com/")
         );
         let serialized = serde_json::to_value(&settings)?;

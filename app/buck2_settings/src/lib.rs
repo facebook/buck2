@@ -14,26 +14,40 @@
 //! every key is declared in this crate with its type, defaults, scope, and
 //! override policy, and nothing here is readable from Starlark.
 
-pub mod agent_config_change;
+// The declaration macro refers to this crate by name, including from here.
+extern crate self as buck2_settings;
+
+mod agent_config_change;
 pub mod agent_interactive;
-pub mod agent_materialization;
+mod agent_materialization;
 mod analysis;
 pub mod args;
 pub mod dice;
 mod hydration;
 mod log_download;
-mod metadata;
+pub mod metadata;
 mod package_visibility;
 pub mod parser;
 mod path;
 #[cfg(fbcode_build)]
 mod rollouts;
+mod section;
 pub mod settings;
 pub mod telemetry;
 
+pub use agent_config_change::AgentConfigChange;
+pub use agent_interactive::AgentInteractive;
+pub use agent_materialization::AgentMaterialization;
+pub use analysis::Analysis;
+pub use buck2_settings_derive::buck_settings_section;
+pub use hydration::Hydration;
+pub use hydration::PageOutOnIdleIsolationDirScope;
+pub use log_download::LogDownload;
+pub use metadata::SettingsSection;
+pub use package_visibility::PackageVisibility;
+pub use package_visibility::PackageVisibilityDefaultIntersection;
+pub use section::Section;
 pub use settings::BuckSettingChange;
 pub use settings::BuckSettings;
 pub use settings::DaemonBuckSettings;
 pub use settings::InvocationBuckSettings;
-pub use settings::PackageVisibilityDefaultIntersection;
-pub use settings::PackageVisibilitySection;
