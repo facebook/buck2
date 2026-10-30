@@ -107,6 +107,7 @@ fun generateCodeFromIrCompat(
     irInput: ModuleCompilerIrBackendInputCompat,
     environment: ModuleCompilerEnvironmentCompat,
 ): GenerationState {
+  replaceErrorTypesForMetadata(irInput.irModuleFragment)
   val generationState = GenerationState(
       environment.projectEnvironment.project,
       irInput.irModuleFragment.descriptor,
