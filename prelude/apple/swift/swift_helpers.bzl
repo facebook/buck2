@@ -290,3 +290,9 @@ def compile_with_argsfile(
 def uses_explicit_modules(ctx: AnalysisContext) -> bool:
     swift_toolchain = get_swift_toolchain_info(ctx)
     return ctx.attrs.uses_explicit_modules and is_sdk_modules_provided(swift_toolchain)
+
+def uses_dynamic_replacement(ctx: AnalysisContext) -> bool:
+    """Whether the module is compiled so its functions can be replaced at run
+    time. Only `apple_library` declares the attribute; other Swift rules never
+    opt in."""
+    return getattr(ctx.attrs, "_swift_dynamic_replacement_enabled", False)

@@ -94,6 +94,7 @@ load(
     "get_incremental_split_actions_attrs",
     "get_incremental_swiftmodule_action_attrs",
     "get_skip_swift_incremental_outputs_attrs",
+    "get_swift_dynamic_replacement_enabled",
     "get_swift_incremental_file_hashing_attrs",
     "get_swift_incremental_logging_attrs",
     "get_swift_incremental_remote_outputs_attrs",
@@ -721,6 +722,15 @@ apple_library = prelude_rule(
             "_apple_xctoolchain": get_apple_xctoolchain_attr(),
             "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
             "_enable_library_evolution": get_enable_library_evolution(),
+            # Compiles the module so that every function, initializer, computed
+            # property and subscript can be replaced at run time with
+            # `@_dynamicReplacement`, and lets the library produce such
+            # replacements. Every call pays an indirection, so this is for
+            # development builds only and no target can set it: it follows the
+            # `swift_dynamic_replacement` constraint, and when that is
+            # unspecified the `apple.swift_dynamic_replacement_override_enabled`
+            # buckconfig.
+            "_swift_dynamic_replacement_enabled": get_swift_dynamic_replacement_enabled(),
             "_swift_enable_testing": attrs.bool(
                 default = select({
                     "DEFAULT": False,

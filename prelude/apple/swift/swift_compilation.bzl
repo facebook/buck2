@@ -18,7 +18,7 @@ load("@prelude//apple:apple_error_handler.bzl", "apple_build_error_handler")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple:apple_utility.bzl", "get_disable_pch_validation_flags", "get_module_name")
 load("@prelude//apple:modulemap.bzl", "create_modulemap")
-load("@prelude//apple/swift:swift_helpers.bzl", "compile_with_argsfile", "compile_with_argsfile_cmd", "uses_explicit_modules")
+load("@prelude//apple/swift:swift_helpers.bzl", "compile_with_argsfile", "compile_with_argsfile_cmd", "uses_dynamic_replacement", "uses_explicit_modules")
 load(
     "@prelude//apple/swift:swift_types.bzl",
     "EXPLICIT_MODULES_CATEGORY_SUFFIX",
@@ -184,6 +184,21 @@ SwiftDebugInfo = record(
 )
 
 _REQUIRED_SDK_MODULES = ["Swift", "SwiftOnoneSupport", "Darwin", "_Concurrency", "_StringProcessing"]
+
+# Makes every function in the module replaceable at run time with
+# `@_dynamicReplacement`, lets another module import its private declarations
+# with `@_private(sourceFile:)`, and lets later replacements chain on earlier
+# ones. These go into the shared flags so the swiftmodule, which is emitted by
+# a separate action in WMO mode, records the declarations as `dynamic` and
+# serializes the private ones.
+_DYNAMIC_REPLACEMENT_FLAGS = [
+    "-Xfrontend",
+    "-enable-implicit-dynamic",
+    "-Xfrontend",
+    "-enable-private-imports",
+    "-Xfrontend",
+    "-enable-dynamic-replacement-chaining",
+]
 
 _REQUIRED_SDK_CXX_MODULES = _REQUIRED_SDK_MODULES + ["std"]
 
@@ -1281,6 +1296,9 @@ def _get_shared_flags(
 
     if ctx.attrs._swift_enable_testing:
         cmd.add("-enable-testing")
+
+    if uses_dynamic_replacement(ctx) and not is_macro:
+        cmd.add(_DYNAMIC_REPLACEMENT_FLAGS)
 
     if getattr(ctx.attrs, "application_extension", False):
         cmd.add("-application-extension")
