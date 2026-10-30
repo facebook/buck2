@@ -818,7 +818,14 @@ fn lex_provider_pattern(
                 }
                 .into()
             } else if !pattern.is_empty() {
-                let (pattern, providers) = split_providers_name(pattern, full_pattern)?;
+                // Without a `:` this may be a package or a target; a `#` in it is a plain
+                // (invalid) path character, not a buck1 flavor. That matters for
+                // `attrs.one_of(attrs.dep(), attrs.source())`, which probes file names like
+                // `data#1.json` as labels first.
+                let (pattern, providers) = match split1_opt_ascii(pattern, AsciiChar::new('[')) {
+                    Some(_) => split_providers_name(pattern, full_pattern)?,
+                    None => (pattern, ProvidersName::Default),
+                };
                 PatternDataOrAmbiguous::Ambiguous {
                     pattern,
                     strip_package_trailing_slash,

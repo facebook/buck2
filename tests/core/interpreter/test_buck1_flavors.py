@@ -34,7 +34,12 @@ class Buck1FlavorsTest(BuckTestCase):
             buck.uquery("root//subtarget:subtarget_flavor"),
             stderr_regex=r"buck1 flavor `#shared` on `//lib:lib#shared` is deprecated.*write the subtarget as `\[shared\]`",
         )
-        # A string that is not a label still coerces as a file.
+
+    @buck_test()
+    @env("BUCK2_HARD_ERROR", "true")
+    async def test_hash_in_file_name_is_not_a_flavor(self, buck: Buck) -> None:
+        # `attrs.one_of(attrs.dep(), attrs.source())` probes `data#1.json` as a label first;
+        # without a `:` it is not a flavored label, so no soft error is reported.
         await buck.build("root//file:hash_in_file_name")
 
     @buck_test()
