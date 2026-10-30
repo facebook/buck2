@@ -247,7 +247,7 @@ class InlineBodyKeepability(
                   isAllowedType(it.resolvedType)
                 }) &&
             (element !is FirResolvedQualifier ||
-                element.symbol?.classId?.let(::isAllowedClass) != false) &&
+                element.qualifierSymbol?.classId?.let(::isAllowedClass) != false) &&
             (element !is FirResolvable || isAllowedReference(element))
 
     private fun isAllowedReference(resolvable: FirResolvable): Boolean {
