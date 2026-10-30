@@ -16,6 +16,7 @@
 
 package com.facebook
 
+import com.facebook.kotlin.compilercompat.compatValueParameters
 import org.jetbrains.kotlin.GeneratedDeclarationKey
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
@@ -37,7 +38,7 @@ internal data class MethodSignature(
 
 internal fun IrSimpleFunction.methodSignature() = MethodSignature(
     name.asString(),
-    valueParameters.map { it.type.classFqName?.asString() ?: it.type.toString() },
+    compatValueParameters.map { it.type.classFqName?.asString() ?: it.type.toString() },
 )
 
 // Toolchain-provided packages dep tracking may skip. The trailing dots are load-bearing: `javax.*`

@@ -19,12 +19,15 @@ package com.facebook
 
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.cli.jvm.compiler.VfsBasedProjectEnvironment
+import org.jetbrains.kotlin.cli.jvm.compiler.createContextForIncrementalCompilation
 import org.jetbrains.kotlin.cli.jvm.compiler.createLibraryListForJvm
+import org.jetbrains.kotlin.com.intellij.openapi.project.Project
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.JVMConfigurationKeys
 import org.jetbrains.kotlin.config.languageVersionSettings
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporterFactory
 import org.jetbrains.kotlin.diagnostics.impl.BaseDiagnosticsCollector
+import org.jetbrains.kotlin.extensions.CompilerConfigurationExtension
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.FirFile
 import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
@@ -43,6 +46,8 @@ import org.jetbrains.kotlin.fir.visitors.FirDefaultVisitorVoid
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
 import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.resolve.multiplatform.hmppModuleName
+import org.jetbrains.kotlin.resolve.multiplatform.isCommonSource
 
 /** Frontend analysis output wrapper. Renamed to AllModulesFrontendOutput in Kotlin 2.3. */
 typealias FrontendOutputCompat = FirResult
@@ -154,4 +159,36 @@ fun prepareJvmSessionsCompat(
   )
 
   return listOf(session to ktFiles)
+}
+
+var KtFile.isCommonSourceCompat: Boolean?
+  get() = isCommonSource
+  set(value) {
+    isCommonSource = value
+  }
+
+var KtFile.hmppModuleNameCompat: String?
+  get() = hmppModuleName
+  set(value) {
+    hmppModuleName = value
+  }
+
+fun CompilerConfigurationExtension.updateFileRegistryCompat(project: Project) {
+  updateFileRegistry()
+}
+
+/**
+ * The project libraries scope, minus the incremental compilation output when there is one, and the
+ * incremental compilation context.
+ */
+fun prepareLibrariesScopeAndIncrementalContextCompat(
+    projectEnvironment: VfsBasedProjectEnvironment,
+    configuration: CompilerConfiguration,
+    sourceScope: AbstractProjectFileSearchScope,
+): Pair<AbstractProjectFileSearchScope, IncrementalCompilationContext?> {
+  val context =
+      createContextForIncrementalCompilation(projectEnvironment, configuration, sourceScope)
+  var librariesScope = projectEnvironment.getSearchScopeForProjectLibraries()
+  context?.precompiledBinariesFileScope?.let { librariesScope -= it }
+  return librariesScope to context
 }

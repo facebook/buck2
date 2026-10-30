@@ -13,13 +13,14 @@
 
 package com.facebook
 
+import com.facebook.kotlin.compilercompat.compatValueParameters
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
 import org.jetbrains.kotlin.ir.IrElement
-import org.jetbrains.kotlin.ir.builders.irCallConstructor
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrDeclarationOrigin
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
+import org.jetbrains.kotlin.ir.declarations.IrParameterKind
 import org.jetbrains.kotlin.ir.declarations.IrProperty
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.declarations.IrValueParameter
@@ -138,7 +139,7 @@ internal class ComposerParamInjector(private val pluginContext: IrPluginContext)
       // IrSimpleFunction. Without this check the synthetic params are injected twice, producing
       // (..., Composer, int, Composer, int) -- a descriptor no consumer can link against. Only
       // fires when @Composable is on the getter rather than the property, which is why it is rare.
-      if (function.valueParameters.any { it.name.asString() == "\$composer" }) return false
+      if (function.compatValueParameters.any { it.name.asString() == "\$composer" }) return false
       return true
     }
 
@@ -148,13 +149,14 @@ internal class ComposerParamInjector(private val pluginContext: IrPluginContext)
      * Parameters are appended after all existing value parameters.
      */
     private fun injectParams(function: IrSimpleFunction) {
-      val existingValueParams = function.valueParameters
+      val existingValueParams = function.compatValueParameters
 
       // Count "this" params: dispatch receiver + extension receiver.
       // These contribute to $changed slot allocation but are not value parameters.
       val thisParamCount =
           (if (function.dispatchReceiverParameter != null) 1 else 0) +
-              (if (function.extensionReceiverParameter != null) 1 else 0)
+              (if (function.parameters.any { it.kind == IrParameterKind.ExtensionReceiver }) 1
+              else 0)
 
       val realValueParamCount = existingValueParams.size
       val totalSlottedParams = realValueParamCount + thisParamCount
@@ -173,84 +175,43 @@ internal class ComposerParamInjector(private val pluginContext: IrPluginContext)
       val defaultCount =
           if (hasDefaults && hasBody) ceilDiv(realValueParamCount, BITS_PER_DEFAULT_INT) else 0
 
-      // Build the new parameter list: existing + $composer + $changed[N] + $default[N]
-      val newParams = mutableListOf<IrValueParameter>()
-      newParams.addAll(existingValueParams)
-
-      var paramIndex = existingValueParams.size
-
-      // Add $composer: Composer?
-      newParams.add(
-          pluginContext.irFactory
-              .createValueParameter(
-                  startOffset = -1,
-                  endOffset = -1,
-                  origin = IrDeclarationOrigin.DEFINED,
-                  name = Name.identifier("\$composer"),
-                  type = composerIrType,
-                  isAssignable = false,
-                  symbol = org.jetbrains.kotlin.ir.symbols.impl.IrValueParameterSymbolImpl(),
-                  index = paramIndex,
-                  varargElementType = null,
-                  isCrossinline = false,
-                  isNoinline = false,
-                  isHidden = false,
-              )
-              .also { it.parent = function },
-      )
-      paramIndex++
-
-      // Add $changed, $changed1, $changed2, ...
+      // Appended after the existing parameters: $composer, $changed[N], $default[N].
+      val injectedParams = mutableListOf<IrValueParameter>()
+      injectedParams.add(createInjectedParam(function, "\$composer", composerIrType))
       for (i in 0 until changedCount) {
         val name = if (i == 0) "\$changed" else "\$changed$i"
-        newParams.add(
-            pluginContext.irFactory
-                .createValueParameter(
-                    startOffset = -1,
-                    endOffset = -1,
-                    origin = IrDeclarationOrigin.DEFINED,
-                    name = Name.identifier(name),
-                    type = pluginContext.irBuiltIns.intType,
-                    isAssignable = false,
-                    symbol = org.jetbrains.kotlin.ir.symbols.impl.IrValueParameterSymbolImpl(),
-                    index = paramIndex,
-                    varargElementType = null,
-                    isCrossinline = false,
-                    isNoinline = false,
-                    isHidden = false,
-                )
-                .also { it.parent = function },
-        )
-        paramIndex++
+        injectedParams.add(createInjectedParam(function, name, pluginContext.irBuiltIns.intType))
       }
-
-      // Add $default, $default1, $default2, ...
       for (i in 0 until defaultCount) {
         val name = if (i == 0) "\$default" else "\$default$i"
-        newParams.add(
-            pluginContext.irFactory
-                .createValueParameter(
-                    startOffset = -1,
-                    endOffset = -1,
-                    origin = IrDeclarationOrigin.DEFINED,
-                    name = Name.identifier(name),
-                    type = pluginContext.irBuiltIns.intType,
-                    isAssignable = false,
-                    symbol = org.jetbrains.kotlin.ir.symbols.impl.IrValueParameterSymbolImpl(),
-                    index = paramIndex,
-                    varargElementType = null,
-                    isCrossinline = false,
-                    isNoinline = false,
-                    isHidden = false,
-                )
-                .also { it.parent = function },
-        )
-        paramIndex++
+        injectedParams.add(createInjectedParam(function, name, pluginContext.irBuiltIns.intType))
       }
 
-      function.valueParameters = newParams
+      function.parameters = function.parameters + injectedParams
       stampAccessorJvmName(function)
     }
+
+    private fun createInjectedParam(
+        function: IrSimpleFunction,
+        name: String,
+        type: IrType,
+    ): IrValueParameter =
+        pluginContext.irFactory
+            .createValueParameter(
+                startOffset = -1,
+                endOffset = -1,
+                origin = IrDeclarationOrigin.DEFINED,
+                kind = IrParameterKind.Regular,
+                name = Name.identifier(name),
+                type = type,
+                isAssignable = false,
+                symbol = org.jetbrains.kotlin.ir.symbols.impl.IrValueParameterSymbolImpl(),
+                varargElementType = null,
+                isCrossinline = false,
+                isNoinline = false,
+                isHidden = false,
+            )
+            .also { it.parent = function }
 
     // A @Composable PROPERTY ACCESSOR must keep the plain JVM name of the accessor.
     //
@@ -277,11 +238,9 @@ internal class ComposerParamInjector(private val pluginContext: IrPluginContext)
           else JvmAbi.getterName(propertyName)
       val annotation =
           pluginContext.irBuiltIns.createIrBuilder(function.symbol).run {
-            irCallConstructor(constructor, emptyList()).apply {
-              putValueArgument(
-                  0,
-                  IrConstImpl.string(-1, -1, pluginContext.irBuiltIns.stringType, accessorName),
-              )
+            irAnnotationCompat(constructor, emptyList()).apply {
+              arguments[0] =
+                  IrConstImpl.string(-1, -1, pluginContext.irBuiltIns.stringType, accessorName)
             }
           }
       function.annotations = function.annotations + annotation
@@ -307,7 +266,7 @@ internal class ComposerParamInjector(private val pluginContext: IrPluginContext)
     }
   }
 
-  private fun IrSimpleFunction.hasInjectedComposerParam(): Boolean = valueParameters.any {
+  private fun IrSimpleFunction.hasInjectedComposerParam(): Boolean = compatValueParameters.any {
     it.name.asString() == "\$composer"
   }
 }

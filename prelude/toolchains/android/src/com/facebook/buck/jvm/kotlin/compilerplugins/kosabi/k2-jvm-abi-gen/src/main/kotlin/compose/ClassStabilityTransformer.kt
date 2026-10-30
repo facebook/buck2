@@ -18,7 +18,6 @@ import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.ir.IrElement
-import org.jetbrains.kotlin.ir.builders.irCallConstructor
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrDeclaration
 import org.jetbrains.kotlin.ir.declarations.IrDeclarationOrigin
@@ -233,11 +232,9 @@ internal class ClassStabilityTransformer(private val pluginContext: IrPluginCont
     val constructor = annotationClass.constructors.singleOrNull() ?: return
     val annotation =
         pluginContext.irBuiltIns.createIrBuilder(irClass.symbol).run {
-          irCallConstructor(constructor, emptyList()).apply {
-            putValueArgument(
-                0,
-                IrConstImpl.int(-1, -1, pluginContext.irBuiltIns.intType, parametersValue),
-            )
+          irAnnotationCompat(constructor, emptyList()).apply {
+            arguments[0] =
+                IrConstImpl.int(-1, -1, pluginContext.irBuiltIns.intType, parametersValue)
           }
         }
     // Register via metadataDeclarationRegistrar so HAS_ANNOTATIONS is set in Kotlin metadata.
@@ -334,7 +331,7 @@ internal class ClassStabilityTransformer(private val pluginContext: IrPluginCont
 
   private fun externalClassKnownStable(irClass: IrClass): Boolean {
     val annotation = irClass.getAnnotation(STABILITY_INFERRED_FQ_NAME) ?: return false
-    val parameters = (annotation.getValueArgument(0) as? IrConst)?.value as? Int ?: return false
+    val parameters = (annotation.arguments[0] as? IrConst)?.value as? Int ?: return false
     val typeParamCount = irClass.typeParameters.size
     if (typeParamCount >= 32) return false
     return (parameters and (1 shl typeParamCount)) != 0

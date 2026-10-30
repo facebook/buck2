@@ -13,6 +13,7 @@
 
 package com.facebook
 
+import com.facebook.kotlin.compilercompat.compatValueParameters
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.declarations.IrClass
@@ -20,6 +21,7 @@ import org.jetbrains.kotlin.ir.declarations.IrConstructor
 import org.jetbrains.kotlin.ir.declarations.IrField
 import org.jetbrains.kotlin.ir.declarations.IrFunction
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
+import org.jetbrains.kotlin.ir.declarations.IrParameterKind
 import org.jetbrains.kotlin.ir.declarations.IrProperty
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.types.IrSimpleType
@@ -140,7 +142,7 @@ internal class ComposableTypeRewriter(private val pluginContext: IrPluginContext
     /** Rewrite composable function types in a function's value parameters and return type. */
     private fun rewriteFunctionSignatureTypes(function: IrFunction) {
       // Rewrite parameter types.
-      for (param in function.valueParameters) {
+      for (param in function.compatValueParameters) {
         val rewritten = rewriteTypeIfComposable(param.type)
         if (rewritten !== param.type) {
           param.type = rewritten
@@ -154,12 +156,14 @@ internal class ComposableTypeRewriter(private val pluginContext: IrPluginContext
       }
 
       // Rewrite extension receiver type.
-      function.extensionReceiverParameter?.let { ext ->
-        val rewritten = rewriteTypeIfComposable(ext.type)
-        if (rewritten !== ext.type) {
-          ext.type = rewritten
-        }
-      }
+      function.parameters
+          .firstOrNull { it.kind == IrParameterKind.ExtensionReceiver }
+          ?.let { ext ->
+            val rewritten = rewriteTypeIfComposable(ext.type)
+            if (rewritten !== ext.type) {
+              ext.type = rewritten
+            }
+          }
     }
 
     /**

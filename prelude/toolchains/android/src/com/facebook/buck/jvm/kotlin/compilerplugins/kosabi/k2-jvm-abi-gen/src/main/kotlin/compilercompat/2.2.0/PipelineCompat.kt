@@ -20,6 +20,7 @@
 package com.facebook
 
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
+import org.jetbrains.kotlin.backend.jvm.JvmIrDeserializerImpl
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles
 import org.jetbrains.kotlin.cli.jvm.compiler.legacy.pipeline.ModuleCompilerEnvironment
@@ -65,3 +66,6 @@ fun generateCodeFromIrCompat(
     irInput: ModuleCompilerIrBackendInputCompat,
     environment: ModuleCompilerEnvironmentCompat,
 ) = generateCodeFromIr(irInput, environment)
+
+fun createJvmFir2IrExtensionsCompat(configuration: CompilerConfiguration) =
+    JvmFir2IrExtensions(configuration, JvmIrDeserializerImpl())

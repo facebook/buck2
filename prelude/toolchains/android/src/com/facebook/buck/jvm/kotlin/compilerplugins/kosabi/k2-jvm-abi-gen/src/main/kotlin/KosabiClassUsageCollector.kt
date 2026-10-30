@@ -383,7 +383,10 @@ class KosabiClassUsageCollector {
     }
 
     override fun visitResolvedQualifier(resolvedQualifier: FirResolvedQualifier) {
-      val classId = resolvedQualifier.classId
+      val classId =
+          resolvedQualifier.relativeClassFqName?.let {
+            ClassId(resolvedQualifier.packageFqName, it, isLocal = false)
+          }
       if (classId != null) {
         @OptIn(SymbolInternals::class)
         val symbol = session.symbolProvider.getClassLikeSymbolByClassId(classId)

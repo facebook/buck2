@@ -660,7 +660,7 @@ internal class FirMetadataSanitizerStage(private val repairLog: AbiGenRepairLog)
                 (firClass.declarations as MutableList<FirDeclaration>).add(copiedMethod)
                 try {
                   firClass.moduleData.session.providedDeclarationsForMetadataService
-                      .registerDeclaration(copiedMethod)
+                      .registerDeclarationCompat(copiedMethod, firClass)
                 } catch (e: Exception) {
                   repairLog.recordFailedRepair(
                       "${firClass.symbol.classId.asString()}.$methodName",
