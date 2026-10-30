@@ -1,0 +1,15 @@
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("build_infra")
+
+source_listing()
+
+prelude = native  # Avoid warnings and auto-formatters
+
+# Runs `lean --deps-json` and writes its stdout to the output file. Buck
+# actions have no stdout redirection, and a shell is not on every host.
+prelude.python_bootstrap_binary(
+    name = "stdout_to_file",
+    main = "stdout_to_file.py",
+    visibility = ["PUBLIC"],
+)

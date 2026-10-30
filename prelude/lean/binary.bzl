@@ -14,8 +14,11 @@ toolchain. One of the modules must define `main`.
 """
 
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//cxx:link.bzl", "cxx_link_into")
 load("@prelude//cxx:link_types.bzl", "CxxLinkResultType", "link_options")
+load("@prelude//decls:common.bzl", "buck")
+load("@prelude//decls:re_test_common.bzl", "re_test_common")
 load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
 load(
     "@prelude//linking:link_info.bzl",
@@ -23,11 +26,23 @@ load(
     "LinkStrategy",
     "get_link_args_for_strategy",
 )
+load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
+load("@prelude//tests:re_utils.bzl", "get_re_executors_from_props")
 load(":library.bzl", "compile_lean_library", "lean_library_attrs")
+load(":providers.bzl", "LeanToolchainInfo")
+
+def _executable_name(ctx: AnalysisContext, cxx: CxxToolchainInfo) -> str:
+    """The output name: the target name, with the extension of the cxx
+    toolchain, or `.exe` on Windows when the toolchain sets none."""
+    extension = cxx.linker_info.binary_extension
+    if not extension and ctx.attrs._target_os_type[OsLookup].os == Os("windows"):
+        extension = "exe"
+    return ctx.label.name + ("." + extension if extension else "")
 
 def _link_executable(ctx: AnalysisContext) -> Artifact:
     library = compile_lean_library(ctx, link_whole = False)
     cxx = get_cxx_toolchain_info(ctx)
+    toolchain = ctx.attrs.lean_toolchain[LeanToolchainInfo]
     link_args = get_link_args_for_strategy(
         ctx.actions,
         ctx.label,
@@ -39,11 +54,11 @@ def _link_executable(ctx: AnalysisContext) -> Artifact:
     )
     result = cxx_link_into(
         ctx = ctx,
-        output = ctx.actions.declare_output(ctx.label.name, has_content_based_path = False),
+        output = ctx.actions.declare_output(_executable_name(ctx, cxx), has_content_based_path = False),
         result_type = CxxLinkResultType("executable"),
         opts = link_options(
             links = [
-                LinkArgs(flags = cmd_args(cxx.linker_info.binary_linker_flags, ctx.attrs.linker_flags)),
+                LinkArgs(flags = cmd_args(cxx.linker_info.binary_linker_flags, toolchain.linker_flags, ctx.attrs.linker_flags)),
                 link_args,
             ],
             link_execution_preference = LinkExecutionPreference("any"),
@@ -62,6 +77,7 @@ def _lean_binary_impl(ctx: AnalysisContext) -> list[Provider]:
 def _lean_test_impl(ctx: AnalysisContext) -> list[Provider]:
     exe = _link_executable(ctx)
     command = [cmd_args(exe)] + ctx.attrs.args
+    re_executors = get_re_executors_from_props(ctx)
     return [
         DefaultInfo(default_output = exe),
         RunInfo(args = cmd_args(command)),
@@ -71,6 +87,10 @@ def _lean_test_impl(ctx: AnalysisContext) -> list[Provider]:
             env = ctx.attrs.env,
             labels = ctx.attrs.labels,
             contacts = ctx.attrs.contacts,
+            default_executor = re_executors.default_executor,
+            executor_overrides = re_executors.executor_overrides,
+            run_from_project_root = re_executors.run_from_project_root,
+            use_project_relative_paths = re_executors.use_project_relative_paths,
         ),
     ]
 
@@ -81,6 +101,7 @@ _binary_attrs = lean_library_attrs | {
     "deffile": attrs.option(attrs.source(), default = None),
     "linker_flags": attrs.list(attrs.arg(), default = [], doc = "Extra linker flags."),
     "strip_stapsdt": attrs.bool(default = False),
+    "_target_os_type": buck.target_os_type_arg(),
 }
 
 lean_binary = rule(
@@ -95,5 +116,6 @@ lean_test = rule(
         "args": attrs.list(attrs.arg(), default = [], doc = "Arguments for the test binary."),
         "contacts": attrs.list(attrs.string(), default = []),
         "env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}, doc = "Environment of the test binary."),
-    },
+    }
+    | re_test_common.test_args(),
 )

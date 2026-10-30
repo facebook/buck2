@@ -25,6 +25,8 @@ load("@prelude//cxx:archive.bzl", "archive_flags")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//cxx:preprocessor.bzl", "cxx_merge_cpreprocessors")
+load("@prelude//cxx:target_sdk_version.bzl", "get_target_sdk_version_flags")
+load("@prelude//decls:common.bzl", "buck")
 load("@prelude//linking:link_groups.bzl", "merge_link_group_lib_info")
 load(
     "@prelude//linking:link_info.bzl",
@@ -44,6 +46,7 @@ load(
 )
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries")
 load("@prelude//linking:types.bzl", "Linkage")
+load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
 load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:graph_utils.bzl", "post_order_traversal")
 load("@prelude//utils:utils.bzl", "filter_and_map_idx")
@@ -78,7 +81,9 @@ def _compile_impl(
     dep_values: list[ResolvedDynamicValue],
     lean: RunInfo,
     lean_flags: list[typing.Any],
+    lean_path_separator: str,
     c_compile: cmd_args,
+    object_extension: str,
     archive_cmd: cmd_args,
     archiver_supports_argfiles: bool,
     archive: OutputArtifact,
@@ -175,7 +180,7 @@ def _compile_impl(
                 lean_flags,
                 hidden = [part.as_output() for part in parts] + [s.project_as_args("artifacts") for s in import_sets],
             ),
-            env = {"LEAN_PATH": cmd_args([root] + dep_roots.values(), delimiter = ":")},
+            env = {"LEAN_PATH": cmd_args([root] + dep_roots.values(), delimiter = lean_path_separator)},
             category = "lean",
             identifier = name,
         )
@@ -191,7 +196,7 @@ def _compile_impl(
             ),
         )
 
-        obj = actions.declare_output("obj", path + ".o", has_content_based_path = False)
+        obj = actions.declare_output("obj", path + "." + object_extension, has_content_based_path = False)
         actions.run(
             cmd_args(c_compile, "-c", c_file, "-o", obj.as_output()),
             category = "lean_cc",
@@ -234,6 +239,8 @@ _compile = dynamic_actions(
         "lean": dynattrs.value(RunInfo),
         "lean_dir": dynattrs.output(),
         "lean_flags": dynattrs.value(list[typing.Any]),
+        "lean_path_separator": dynattrs.value(str),
+        "object_extension": dynattrs.value(str),
         "src_files": dynattrs.value(list[Artifact]),
         "src_names": dynattrs.value(list[str]),
     },
@@ -246,6 +253,9 @@ def _c_compile_cmd(ctx: AnalysisContext, cxx: CxxToolchainInfo, toolchain: LeanT
         c_compiler.compiler,
         c_compiler.preprocessor_flags,
         c_compiler.compiler_flags,
+        # The Apple toolchains name the target with `-target`, as the cxx
+        # rules do; without it, a cross build from Linux gets Linux objects.
+        get_target_sdk_version_flags(ctx),
         pre.set.project_as_args("args"),
         pre.set.project_as_args("include_dirs"),
         toolchain.c_compiler_flags,
@@ -281,14 +291,12 @@ def compile_lean_library(ctx: AnalysisContext, link_whole: bool) -> struct:
     src_files = ctx.attrs.srcs
     src_names = [lean_module_name(src, ctx.label.package, ctx.attrs.root) for src in src_files]
 
+    # `lean --deps-json` writes to stdout; the tool puts it into the file.
     deps_json = ctx.actions.declare_output("deps.json", has_content_based_path = False)
     ctx.actions.run(
         cmd_args(
-            "/bin/sh",
-            "-c",
-            'out="$1"; shift; exec "$@" > "$out"',
-            "--",
-            deps_json.as_output(),
+            ctx.attrs._stdout_to_file[RunInfo],
+            cmd_args(deps_json.as_output(), format = "--out={}"),
             toolchain.lean,
             "--deps-json",
             src_files,
@@ -296,8 +304,12 @@ def compile_lean_library(ctx: AnalysisContext, link_whole: bool) -> struct:
         category = "lean_deps",
     )
 
+    # `lean` runs on the execution platform and reads `LEAN_PATH` with the
+    # path separator of that OS.
+    lean_path_separator = ";" if ctx.attrs._exec_os_type[OsLookup].os == Os("windows") else ":"
+
     lean_deps = toolchain.stdlib + ctx.attrs.deps
-    archive = ctx.actions.declare_output("lib{}.a".format(ctx.label.name), has_content_based_path = False)
+    archive = ctx.actions.declare_output("lib{}.{}".format(ctx.label.name, cxx.linker_info.static_library_extension), has_content_based_path = False)
     lean_dir = ctx.actions.declare_output("lean", dir = True, has_content_based_path = False)
     modules = ctx.actions.dynamic_output_new(
         _compile(
@@ -308,7 +320,9 @@ def compile_lean_library(ctx: AnalysisContext, link_whole: bool) -> struct:
             dep_values = [dep[LeanLibraryInfo].modules for dep in lean_deps],
             lean = toolchain.lean,
             lean_flags = toolchain.lean_flags + ctx.attrs.lean_flags,
+            lean_path_separator = lean_path_separator,
             c_compile = _c_compile_cmd(ctx, cxx, toolchain),
+            object_extension = cxx.linker_info.object_file_extension,
             archive_cmd = _archive_cmd(cxx),
             archiver_supports_argfiles = bool(cxx.linker_info.archiver_supports_argfiles),
             archive = archive.as_output(),
@@ -390,6 +404,8 @@ lean_library_attrs = {
     ),
     "srcs": attrs.list(attrs.source(), default = [], doc = "The `.lean` files."),
     "_cxx_toolchain": attrs.toolchain_dep(default = "toolchains//:cxx", providers = [CxxToolchainInfo]),
+    "_exec_os_type": buck.exec_os_type_arg(),
+    "_stdout_to_file": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//lean/tools:stdout_to_file")),
 }
 
 lean_library = rule(

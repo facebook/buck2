@@ -53,6 +53,8 @@ LeanToolchainInfo = provider(
         "lean": provider_field(RunInfo),
         # Flags for every `lean` invocation.
         "lean_flags": provider_field(list[typing.Any], default = []),
+        # Flags for every link of a `lean_binary` or `lean_test`.
+        "linker_flags": provider_field(list[typing.Any], default = []),
         # Native libraries that the generated C needs at link time, for example
         # the Lean runtime.
         "runtime": provider_field(list[Dependency], default = []),

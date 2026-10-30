@@ -15,6 +15,7 @@ def _lean_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
         LeanToolchainInfo(
             lean = ctx.attrs.lean[RunInfo],
             lean_flags = ctx.attrs.lean_flags,
+            linker_flags = ctx.attrs.linker_flags,
             c_compiler_flags = ctx.attrs.c_compiler_flags,
             c_preprocessor_infos = [dep[CPreprocessorInfo] for dep in ctx.attrs.c_headers],
             stdlib = ctx.attrs.stdlib,
@@ -33,6 +34,9 @@ lean_toolchain = rule(
         ),
         "lean": attrs.exec_dep(providers = [RunInfo], doc = "The `lean` compiler."),
         "lean_flags": attrs.list(attrs.arg(), default = [], doc = "Flags for every `lean` invocation."),
+        "linker_flags": attrs.list(
+            attrs.arg(), default = [], doc = "Flags for every link of a `lean_binary` or `lean_test`, for example the stack size on Windows."
+        ),
         "runtime": attrs.list(attrs.dep(), default = [], doc = "Native libraries that generated C links against."),
         "stdlib": attrs.list(
             attrs.dep(providers = [LeanLibraryInfo]),
