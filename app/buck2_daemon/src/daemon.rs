@@ -743,7 +743,6 @@ impl DaemonCommand {
                     "failed_to_exit_bpfjailer",
                     buck2_error::internal_error!("Failed to exit BPFJailer jail: {}", e)
                 );
-                tracing::warn!("Failed to exit BPFJailer jail: {}", e)
             }
         }
     }

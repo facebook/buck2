@@ -565,12 +565,7 @@ async fn dispatch_event_to_scribe(
                 event.into(),
             ))
             .await;
-    } else {
-        tracing::warn!(
-            "Couldn't send rage results to scribe, rage ID `{}`",
-            trace_id
-        )
-    };
+    }
     Ok(())
 }
 

@@ -126,8 +126,6 @@ impl EdenIoProvider {
                 );
                 return Ok(None);
             }
-        } else {
-            tracing::warn!("You are using a development version of Eden, enabling Eden I/O");
         }
 
         manager.capture_identity().await;

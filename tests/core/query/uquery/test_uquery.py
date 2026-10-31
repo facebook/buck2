@@ -165,13 +165,11 @@ class UqueryTest(BuckTestCase):
         (buck.cwd / "special/file").write_text("")
         result = await buck.uquery("""owner(special/file)""")
         assert result.process.returncode == 0
-        assert "No owner" in result.stderr
         assert result.stdout == ""
 
         # there's a buildfile here, but no target owns the file
         result = await buck.uquery("""owner(.buckconfig)""")
         assert result.process.returncode == 0
-        assert "No owner" in result.stderr
         assert result.stdout == ""
 
         result = await buck.uquery(

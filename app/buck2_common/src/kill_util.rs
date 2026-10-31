@@ -37,7 +37,6 @@ mod unix {
 
     use nix::sys::signal::Signal;
     use tracing::info;
-    use tracing::warn;
 
     pub(crate) async fn try_terminate_process_gracefully(
         pid: i32,
@@ -53,10 +52,6 @@ mod unix {
                 return Err(e);
             }
         }
-        warn!(
-            "Failed to gracefully terminate process `{}`, sending SIGKILL.",
-            pid,
-        );
         match send_signal_and_wait_for_shutdown(Signal::SIGKILL, pid, None).await {
             ControlFlow::Continue(_) => {
                 unreachable!("Not expected when there is no timeout specified.")

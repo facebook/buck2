@@ -361,9 +361,7 @@ async fn dispatch_event_to_scribe(
                 event.into(),
             ))
             .await;
-    } else {
-        tracing::warn!("Couldn't send log upload result to scribe")
-    };
+    }
 }
 
 fn create_scribe_sink(ctx: &ClientCommandContext) -> buck2_error::Result<Option<RemoteEventSink>> {

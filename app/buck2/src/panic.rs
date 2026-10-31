@@ -211,7 +211,7 @@ mod imp {
                 // The client has no event stream of its own: the record picks the report up
                 // directly, and a user-facing one goes to stderr right here.
                 #[cfg(client_only)]
-                let warn = {
+                let sent = {
                     if let Some(soft_error) = event.soft_error_category.clone() {
                         buck2_client_ctx::subscribers::recorder::note_client_soft_error(soft_error);
                     }
@@ -221,22 +221,13 @@ mod imp {
                     }
                     false
                 };
+                // A user-facing report with no command behind it has nobody to show it to.
                 #[cfg(not(client_only))]
-                let (warn, sent) = {
-                    let sent = if context.is_command_scoped() {
-                        buck2_server::active_commands::dispatch_soft_error_for_context(
-                            context, &event,
-                        )
-                    } else {
-                        buck2_server::active_commands::broadcast_instant_event(&event)
-                    };
-                    (!sent && options.user_facing, sent)
+                let sent = if context.is_command_scoped() {
+                    buck2_server::active_commands::dispatch_soft_error_for_context(context, &event)
+                } else {
+                    buck2_server::active_commands::broadcast_instant_event(&event)
                 };
-                #[cfg(client_only)]
-                let sent = false;
-                if warn {
-                    tracing::warn!("Warning \"{}\": {:#}", category, err);
-                }
                 sent
             }
         };

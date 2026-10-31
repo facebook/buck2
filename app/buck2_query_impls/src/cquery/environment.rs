@@ -36,7 +36,6 @@ use buck2_query::query::syntax::simple::functions::docs::QueryEnvironmentDescrip
 use buck2_query::query::traversal::async_depth_first_postorder_traversal;
 use buck2_query::query::traversal::async_depth_limited_traversal;
 use dice::DiceComputations;
-use tracing::warn;
 
 use crate::uquery::environment::QueryLiterals;
 use crate::uquery::environment::UqueryDelegate;
@@ -208,9 +207,6 @@ impl QueryEnvironment for CqueryEnvironment<'_> {
 
         for path in paths.iter() {
             let owners = self.owner_correct(path)?;
-            if owners.is_empty() {
-                warn!("No owner was found for {}", path);
-            }
             result.extend(owners);
         }
         Ok(result)

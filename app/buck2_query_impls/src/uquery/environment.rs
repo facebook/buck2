@@ -62,7 +62,6 @@ use futures::StreamExt;
 use futures::stream::FuturesUnordered;
 use itertools::Itertools;
 use ref_cast::RefCast;
-use tracing::warn;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Tier0)]
@@ -353,7 +352,6 @@ impl QueryEnvironment for UqueryEnvironment<'_> {
         for path in paths.iter() {
             // need to explicitly track this rather than checking for changes to result set since the owner might
             // already be in the set.
-            let mut found_owner = false;
             match self.delegate.get_enclosing_packages(path).await {
                 Ok(packages) => {
                     let package_futs = packages
@@ -386,7 +384,6 @@ impl QueryEnvironment for UqueryEnvironment<'_> {
 
                     for nodes in buck2_util::future::join_all(package_futs).await.into_iter() {
                         for node in nodes?.into_iter() {
-                            found_owner = true;
                             result.insert(node);
                         }
                     }
@@ -396,9 +393,6 @@ impl QueryEnvironment for UqueryEnvironment<'_> {
                     // just wants to know the target owning the file if it exists.
                 }
             };
-            if !found_owner {
-                warn!("No owner was found for {}", path);
-            }
         }
         Ok(result)
     }

@@ -1286,16 +1286,9 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         let timestamp = Timestamp::now();
                         *last_access_time = timestamp;
 
-                        // NOTE (T142264535): We mostly expect that artifacts are always declared
-                        // before they are materialized, but there's one case where that doesn't
-                        // happen. In particular, when incremental actions execute, they will trigger
-                        // materialization of outputs from a previous run. The artifact isn't really
-                        // "active" (it's not an output that we'll use), but we do warn here (when we
-                        // probably shouldn't).
-                        //
-                        // if !active {
-                        //     tracing::warn!(path = %path, "Expected artifact to be marked active by declare")
-                        // }
+                        // NOTE (T142264535): Artifacts are normally declared before they are
+                        // materialized, but incremental actions materialize outputs of a previous
+                        // run without declaring them, so `active` is not checked here.
                         if buffer.insert(path.to_buf()) {
                             tracing::debug!(
                                 "nothing to materialize, adding to access times buffer"

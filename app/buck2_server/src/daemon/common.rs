@@ -9,7 +9,6 @@
  */
 
 use std::sync::Arc;
-use std::sync::OnceLock;
 
 use buck2_build_api::actions::execute::dice_data::CommandExecutorResponse;
 use buck2_build_api::actions::execute::dice_data::HasCommandExecutor;
@@ -217,11 +216,6 @@ impl HasCommandExecutor for CommandExecutorFactory {
         };
 
         if !buck2_core::is_open_source() && !cfg!(fbcode_build) {
-            static WARN: OnceLock<()> = OnceLock::new();
-            WARN.get_or_init(|| {
-                tracing::warn!("Cargo build detected: disabling remote execution and caching!")
-            });
-
             if self.strategy.ban_local() {
                 return Err(ExecutorCompatibilityError::LocalIncompatible(self.strategy).into());
             }

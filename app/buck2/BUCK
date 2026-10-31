@@ -43,7 +43,6 @@ rust_library(
         "fbsource//third-party/rust:backtrace",
         "fbsource//third-party/rust:clap",
         "fbsource//third-party/rust:tokio",
-        "fbsource//third-party/rust:tracing",
         "//buck2/app/buck2_client:buck2_client",
         "//buck2/app/buck2_client_ctx:buck2_client_ctx",
         "//buck2/app/buck2_cmd_audit_client:buck2_cmd_audit_client",

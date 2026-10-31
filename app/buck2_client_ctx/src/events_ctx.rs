@@ -727,11 +727,7 @@ impl EventsCtx {
             let name = subscriber.name().to_owned();
             let res = subscriber.finalize().await;
             let elapsed = Instant::now() - start;
-            if elapsed > Duration::from_millis(1000) {
-                tracing::warn!("Finalizing \'{}\' took {:?}", name, elapsed);
-            } else {
-                tracing::info!("Finalizing \'{}\' took {:?}", name, elapsed);
-            };
+            tracing::info!("Finalizing \'{}\' took {:?}", name, elapsed);
 
             if let Err(e) = res {
                 errors.push(format!(

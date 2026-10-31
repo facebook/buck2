@@ -841,9 +841,7 @@ async fn test_targets(
                     futures::pin_mut!(alive);
                     match futures::future::select(drive, alive).await {
                         futures::future::Either::Left(..) => {}
-                        futures::future::Either::Right(..) => {
-                            tracing::warn!("Test run was cancelled");
-                        }
+                        futures::future::Either::Right(..) => {}
                     }
                 }
 

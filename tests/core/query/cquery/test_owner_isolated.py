@@ -96,7 +96,6 @@ class OwnerIsolatedTest(BuckTestCase):
             )
             assert result.process.returncode == 0
             assert result.stdout == ""
-            assert "No owner" in result.stderr
 
     @buck_test(data_dir="simple", allow_soft_errors=True)
     async def test_cquery_owner_file_created(self, buck: Buck) -> None:

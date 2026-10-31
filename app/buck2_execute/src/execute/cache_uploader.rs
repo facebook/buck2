@@ -16,7 +16,6 @@ use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use remote_execution::TActionResult2;
 use remote_execution::TCode;
 use tracing::info;
-use tracing::warn;
 
 use crate::digest_config::DigestConfig;
 use crate::execute::action_digest_and_blobs::ActionDigestAndBlobs;
@@ -227,7 +226,7 @@ impl CacheUploadOutcome {
             | Self::FailedUploadOutputs { .. }
             | Self::FailedWriteActionResult { .. }
             | Self::FailedOther { .. } => {
-                warn!("Cache upload for `{}` failed: {}", digest_str, self.error());
+                info!("Cache upload for `{}` failed: {}", digest_str, self.error());
             }
             Self::ExecutorUploadDisabled { .. }
             | Self::HadDepFileBundle
