@@ -1858,7 +1858,8 @@ async fn test_strict_leases_keep_final_outputs_and_what_is_read_after_the_comman
 }
 
 #[tokio::test]
-async fn test_strict_leases_keep_a_root_nothing_could_put_back() -> buck2_error::Result<()> {
+async fn test_strict_leases_remove_a_released_root_nothing_could_put_back()
+-> buck2_error::Result<()> {
     ignore_stack_overflow_checks_for_future(async {
         let temp = ProjectRootTemp::new()?;
         let fs = temp.path();
@@ -1868,9 +1869,39 @@ async fn test_strict_leases_keep_a_root_nothing_could_put_back() -> buck2_error:
         let value = file("nothing could put this back");
 
         drop(write_and_report(&dm, fs, &p, "nothing could put this back", &value).await?);
-        sleep(A_BIT).await;
-        assert!(dm.has_artifact_at(p.clone()).await?);
-        assert!(fs.resolve(&p).exists());
+        // The root goes all the same: a reader without a lease must not find it, and a request
+        // for the content fails at the read instead.
+        eventually(async || Ok(!dm.has_artifact_at(p.clone()).await?)).await?;
+        assert!(!fs.resolve(&p).exists());
+        abort(dm);
+        Ok(())
+    })
+    .await
+}
+
+#[tokio::test]
+async fn test_strict_leases_remove_a_released_root_nothing_holds() -> buck2_error::Result<()> {
+    ignore_stack_overflow_checks_for_future(async {
+        let temp = ProjectRootTemp::new()?;
+        let fs = temp.path();
+        let (dm, _io) = make_strict(fs, true);
+        let p = path("buck-out/v2/gen/out");
+        let content = "held by its command alone";
+        let value = file(content);
+
+        let lease = write_and_report(&dm, fs, &p, content, &value).await?;
+        // The last handle to the content goes before the lease, as an action's metadata file's
+        // does; the stash drops the blob with it.
+        drop(value);
+        let digest = FileDigest::from_content(
+            content.as_bytes(),
+            DigestConfig::testing_default().cas_digest_config(),
+        );
+        assert!(file_digest_interner().peek(&digest).is_none());
+        // The root goes with its lease as any freed root does.
+        drop(lease);
+        eventually(async || Ok(!dm.has_artifact_at(p.clone()).await?)).await?;
+        assert!(!fs.resolve(&p).exists());
         abort(dm);
         Ok(())
     })

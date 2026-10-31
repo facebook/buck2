@@ -286,7 +286,6 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
             tokio::spawn(remove_freed_roots(
                 io.dupe(),
                 blocking_executor.dupe(),
-                store,
                 weak,
                 rx,
             ));
@@ -1976,7 +1975,6 @@ pub(crate) struct Processor {
 struct Freed {
     path: ProjectRelativePathBuf,
     last_access_time: Timestamp,
-    entry: DiskEntry,
 }
 
 /// Directories under buck-out whose roots are read after the command that made them, by the
@@ -1984,13 +1982,14 @@ struct Freed {
 const READ_AFTER_THE_COMMAND: &[&str] = &["test", "external_cells"];
 
 /// Under `strict_leases`: removes each root it is handed from disk, so that nothing reads it
-/// without a lease. Only what can be put back goes: every file of the root must be in the stash
-/// or known to the CAS, which is the invariant every report and download keeps, and a root whose
-/// files are not stays and is reported.
+/// without a lease. Whether the content could be put back is not checked: that depends on who
+/// holds its digest, which has nothing to do with its leases, so a check here would be a
+/// snapshot, and a root kept on its account is one an unleased reader gets away with. A request
+/// for the content after this goes to the stash or the CAS and fails at the read when neither
+/// has it.
 async fn remove_freed_roots<T: IoHandler>(
     io: Arc<T>,
     blocking_executor: Arc<dyn BlockingExecutor>,
-    store: &'static BlobStore,
     sender: WeakSender,
     mut freed: mpsc::UnboundedReceiver<Freed>,
 ) {
@@ -1998,39 +1997,25 @@ async fn remove_freed_roots<T: IoHandler>(
         let Some(sender) = sender.upgrade() else {
             return;
         };
-        remove_freed_root(&io, &blocking_executor, store, &sender, root).await;
+        remove_freed_root(&io, &blocking_executor, &sender, root).await;
     }
 }
 
 async fn remove_freed_root<T: IoHandler>(
     io: &Arc<T>,
     blocking_executor: &Arc<dyn BlockingExecutor>,
-    store: &BlobStore,
     sender: &Sender,
     freed: Freed,
 ) {
     let Freed {
         path,
         last_access_time,
-        entry,
     } = freed;
     let buck_out = io.buck_out_path();
     if READ_AFTER_THE_COMMAND.iter().any(|dir| {
         path.starts_with(buck_out.join(ProjectRelativePathBuf::unchecked_new(dir.to_string())))
     }) {
         return;
-    }
-    let config = io.digest_config().cas_digest_config();
-    for digest in entry.tracked_digests(config) {
-        if digest.stash().is_none() && store.cas_expiry(digest.data()).is_none() {
-            buck2_core::soft_error_or_panic!(
-                "disk_state_materializer_unrecoverable_root",
-                internal_error!(
-                    "`{path}` holds `{digest}`, which neither the stash nor the CAS is known to have"
-                )
-            );
-            return;
-        }
     }
     // Taken as the cleaner takes a stale root: refused when anything has used, held or waited
     // for it since it was freed.
@@ -2214,7 +2199,6 @@ impl Processor {
                     // The remover gone takes the mode with it.
                     let _ignored = strict.send(Freed {
                         last_access_time: tracked.last_access_time,
-                        entry: tracked.entry.dupe(),
                         path,
                     });
                 }
