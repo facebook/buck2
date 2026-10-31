@@ -193,25 +193,6 @@ impl ToleratedRead {
     }
 }
 
-/// Reports a read through a symlink and lets the caller go ahead with it the way it did before
-/// the check existed; under `BUCK2_HARD_ERROR` the report is the error, as for any soft error.
-///
-/// Reads through symlinks are refused eventually; until the soft errors show where they happen,
-/// they are counted instead. Everything that calls this is a candidate for refusal.
-pub(super) fn read_through_symlink(
-    ctx: &DiceComputations<'_>,
-    path: IProjectRelativePath,
-    check: PathCheck,
-    kind: ReadKind,
-) -> buck2_error::Result<()> {
-    let error = PathCheckError::new(ctx, path, check, kind).into();
-    match check {
-        PathCheck::ParentSymlink { .. } => soft_error!("path_check_symlink_in_parent", error),
-        _ => soft_error!("path_check_symlink_at_path", error),
-    }
-    Ok(())
-}
-
 /// What the check of `path` finds once `at`, the path or a prefix of it that the check found
 /// ignored, is looked at anyway. The ignore set is not consulted below `at`, and nothing found
 /// there depends on the file watcher, which reports no changes to ignored paths.

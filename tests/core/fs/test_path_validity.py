@@ -10,7 +10,9 @@
 
 
 import os
+import tempfile
 import unittest
+from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
@@ -47,6 +49,41 @@ class PathValidityTest(BuckTestCase):
     async def test_target_pattern_symlink(self, buck: Buck) -> None:
         os.symlink("realdir", buck.cwd / "linkdir")
         await expect_failure(buck.targets("//linkdir:"))
+
+    # Reads through a symlink out of the repo and through one into it are counted
+    # apart: a report is printed for the kind the filter names and not the other.
+    @buck_test(allow_soft_errors=True)
+    async def test_target_pattern_external_symlink(self, buck: Buck) -> None:
+        outside = Path(tempfile.mkdtemp())
+        (outside / "TARGETS.fixture").write_text('stub(name = "ext")\n')
+        os.symlink(outside, buck.cwd / "extlink", target_is_directory=True)
+        os.symlink("realdir", buck.cwd / "linkdir", target_is_directory=True)
+        res = await buck.targets(
+            "//extlink:",
+            "//linkdir:",
+            env={
+                "BUCK2_SHOW_SOFT_ERRORS": "only=path_check_external_symlink_in_parent,path_check_external_symlink_at_path"
+            },
+        )
+        self.assertIn("root//extlink:ext", res.stdout)
+        self.assertIn("symlink `extlink`", res.stderr)
+        self.assertNotIn("`linkdir`", res.stderr)
+
+    @buck_test(allow_soft_errors=True)
+    async def test_target_pattern_in_repo_symlink(self, buck: Buck) -> None:
+        outside = Path(tempfile.mkdtemp())
+        (outside / "TARGETS.fixture").write_text('stub(name = "ext")\n')
+        os.symlink(outside, buck.cwd / "extlink", target_is_directory=True)
+        os.symlink("realdir", buck.cwd / "linkdir", target_is_directory=True)
+        res = await buck.targets(
+            "//extlink:",
+            "//linkdir:",
+            env={
+                "BUCK2_SHOW_SOFT_ERRORS": "only=path_check_symlink_in_parent,path_check_symlink_at_path"
+            },
+        )
+        self.assertIn("symlink `linkdir`", res.stderr)
+        self.assertNotIn("`extlink`", res.stderr)
 
     @buck_test()
     async def test_target_pattern_ignored(self, buck: Buck) -> None:

@@ -14,6 +14,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::fs::i_project_rel_path::IProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use buck2_fs::paths::file_name::FileName;
@@ -41,13 +42,14 @@ use crate::dice::data::HasIoProvider;
 use crate::file_ops::baseline::HasFileSystemBaseline;
 use crate::file_ops::metadata::FileType;
 use crate::file_ops::metadata::RawPathMetadata;
+use crate::file_ops::metadata::RawSymlink;
 use crate::file_ops::path_check::PathCheck;
+use crate::file_ops::path_check::PathCheckError;
 use crate::file_ops::path_check::PathCheckKey;
 use crate::file_ops::path_check::ReadKind;
 use crate::file_ops::path_check::check_ignored_path;
 use crate::file_ops::path_check::check_path;
 use crate::file_ops::path_check::read_ignored_path;
-use crate::file_ops::path_check::read_through_symlink;
 use crate::ignores::ignore_set::HasIgnoreSet;
 use crate::ignores::ignore_set::IgnoreSet;
 use crate::io::trace;
@@ -119,7 +121,7 @@ impl Key for IoReadDirKey {
         match check_path(ctx, self.0).await? {
             PathCheck::Present(FileType::Directory) => {}
             check @ (PathCheck::Present(FileType::Symlink) | PathCheck::ParentSymlink { .. }) => {
-                read_through_symlink(ctx, self.0, check, ReadKind::Directory)?
+                read_through_symlink(ctx, self.0, check, ReadKind::Directory).await?
             }
             check => return Ok(DirListing::Refused(check)),
         }
@@ -235,6 +237,45 @@ async fn list_dir(
     Ok(builder.sort_and_build())
 }
 
+/// Lets a read through a symlink go ahead, the way it did before the check existed, and reports
+/// it; under `BUCK2_HARD_ERROR` the report is the error, as for any soft error.
+///
+/// A later release refuses these reads. Until then the soft errors show where they happen, and
+/// everything that calls this is a candidate for refusal. A symlink out of the repo, such as one
+/// into `/mnt/gvfs`, is counted apart from one into the repo: the two are cleaned up differently,
+/// and the first would otherwise drown out the second. The extra logview samples are keyed by the
+/// symlink, which makes them the list of what to clean up.
+async fn read_through_symlink(
+    ctx: &mut DiceComputations<'_>,
+    path: IProjectRelativePath,
+    check: PathCheck,
+    kind: ReadKind,
+) -> buck2_error::Result<()> {
+    let link = match check {
+        PathCheck::ParentSymlink { at } => at,
+        _ => path,
+    };
+    let external = matches!(
+        ctx.compute(&IoPathMetadataKey(link)).await?.dupe()?,
+        Some(RawPathMetadata::Symlink {
+            to: RawSymlink::External(_),
+            ..
+        })
+    );
+    let category = match (check, external) {
+        (PathCheck::ParentSymlink { .. }, false) => "path_check_symlink_in_parent",
+        (PathCheck::ParentSymlink { .. }, true) => "path_check_external_symlink_in_parent",
+        (_, false) => "path_check_symlink_at_path",
+        (_, true) => "path_check_external_symlink_at_path",
+    };
+    soft_error!(
+        category,
+        PathCheckError::new(ctx, path, check, kind).into(),
+        low_cardinality_key_for_additional_logview_samples: Some(Box::new(link.as_str().to_owned())),
+    );
+    Ok(())
+}
+
 #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
 #[pagable_typetag(dice::DiceKeyDyn)]
 struct IoPathMetadataKey(IProjectRelativePath);
@@ -344,7 +385,7 @@ pub(super) async fn read_file(
             read_present_file(ctx, path).await
         }
         check @ (PathCheck::Present(FileType::Symlink) | PathCheck::ParentSymlink { .. }) => {
-            read_through_symlink(ctx, path, check, ReadKind::File)?;
+            read_through_symlink(ctx, path, check, ReadKind::File).await?;
             read_present_file(ctx, path).await
         }
         check => Ok(Err(check)),
@@ -389,7 +430,7 @@ pub(super) async fn exists(
     match check_path(ctx, path).await? {
         PathCheck::Present(_) => Ok(true),
         check @ PathCheck::ParentSymlink { .. } => {
-            read_through_symlink(ctx, path, check, ReadKind::File)?;
+            read_through_symlink(ctx, path, check, ReadKind::File).await?;
             let Some((parent, name)) = path.split_last() else {
                 return Ok(true);
             };
