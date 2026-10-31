@@ -32,6 +32,7 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::io_counters::IoCounterKey;
 use buck2_core::soft_error;
+use buck2_core::warn_user;
 use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
 use buck2_error::ErrorTag;
@@ -106,12 +107,16 @@ impl EdenIoProvider {
 
         if let Some(eden_version) = &eden_version {
             if eden_version.as_str() < min_eden_version {
-                tracing::warn!(
-                    "Disabling Eden I/O: \
+                warn_user!(
+                    "eden_io_version_too_old",
+                    buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::Environment,
+                        "Disabling Eden I/O: \
                     your Eden version ({}) is too old to support Eden I/O (minimum required: {}). \
                     Update Eden then restart Buck2 to use Eden I/O.",
-                    eden_version,
-                    min_eden_version
+                        eden_version,
+                        min_eden_version
+                    )
                 );
                 return Ok(None);
             }

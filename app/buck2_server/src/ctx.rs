@@ -72,6 +72,7 @@ use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::rollout_percentage::RolloutFraction;
 use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_core::soft_error;
+use buck2_core::warn_user;
 use buck2_directory::directory::dashmap_directory_interner::DashMapDirectoryInterner;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::dispatch::with_dispatcher_async;
@@ -143,7 +144,6 @@ use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use host_sharing::HostSharingBroker;
 use host_sharing::HostSharingStrategy;
-use tracing::warn;
 
 use crate::active_commands::ActiveCommandDropGuard;
 use crate::agent_config_guard::check_agent_config_change;
@@ -715,14 +715,22 @@ impl ServerCommandContext<'_> {
                         Ok(ConfigType::File) => "--config-file",
                         Err(_) => "",
                     };
-                    warn!(
-                        "Found config overrides while using --reuse-current-config flag. Ignoring overrides [{}] and using current config instead",
-                        truncate_container(
-                            self.config_overrides.iter().map(|o| {
-                                format!("{} {}", config_type_str(o.config_type), o.config_override)
-                            }),
-                            200
-                        ),
+                    warn_user!(
+                        "reuse_current_config_overrides_ignored",
+                        buck2_error::buck2_error!(
+                            buck2_error::ErrorTag::Input,
+                            "Found config overrides while using --reuse-current-config flag. Ignoring overrides [{}] and using current config instead",
+                            truncate_container(
+                                self.config_overrides.iter().map(|o| {
+                                    format!(
+                                        "{} {}",
+                                        config_type_str(o.config_type),
+                                        o.config_override
+                                    )
+                                }),
+                                200
+                            )
+                        )
                     );
                 }
                 // If `--reuse-current-config` is set, use the external config data from the
@@ -737,8 +745,12 @@ impl ServerCommandContext<'_> {
             } else {
                 // If there is no previous command but the flag was set, then the flag is ignored,
                 // the command behaves as if there isn't the reuse config flag.
-                warn!(
-                    "--reuse-current-config flag was set, but there was no previous invocation detected. Ignoring --reuse-current-config flag"
+                warn_user!(
+                    "reuse_current_config_without_previous_command",
+                    buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::Input,
+                        "--reuse-current-config flag was set, but there was no previous invocation detected. Ignoring --reuse-current-config flag"
+                    )
                 );
                 Ok(new_configs)
             }

@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use buck2_core::warn_user;
 use rand::distr::Alphanumeric;
 use rand::distr::SampleString;
 
@@ -37,9 +38,13 @@ pub fn check_working_dir() -> buck2_error::Result<()> {
     }
 
     if err.kind() != io::ErrorKind::NotFound {
-        tracing::warn!(
-            "Buck2 is unable to read its current working directory: {}. Consider restarting",
-            err
+        warn_user!(
+            "working_dir_unreadable",
+            buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Environment,
+                "Buck2 is unable to read its current working directory: {}. Consider restarting",
+                err
+            )
         );
     }
 

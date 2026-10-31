@@ -29,6 +29,7 @@ use buck2_common::invocation_paths::InvocationPaths;
 use buck2_core::buck2_env;
 use buck2_core::soft_error;
 use buck2_core::soft_error_or_panic;
+use buck2_core::warn_user_or_panic;
 use buck2_data::ErrorReport;
 use buck2_data::FileWatcherProvider;
 use buck2_data::FileWatcherStart;
@@ -1481,11 +1482,13 @@ impl InvocationRecorder {
                 buck2_error::Ok(())
             })();
 
-            if let Err(e) = &res {
-                tracing::warn!(
-                    "Failed to write InvocationRecord to `{}`: {:#}",
-                    path.as_path().display(),
-                    e
+            if let Err(e) = res {
+                warn_user_or_panic!(
+                    "invocation_record_write_failed",
+                    e.context(format!(
+                        "Failed to write InvocationRecord to `{}`",
+                        path.as_path().display()
+                    ))
                 );
             }
         }

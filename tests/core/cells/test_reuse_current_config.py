@@ -15,7 +15,7 @@ from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
 class ReuseCurrentConfigTest(BuckTestCase):
-    @buck_test()
+    @buck_test(allow_soft_errors=True)
     async def test_reuse_current_config_with_config_overrides_and_previous_invocation(
         self,
         buck: Buck,
@@ -46,7 +46,7 @@ class ReuseCurrentConfigTest(BuckTestCase):
         assert result_file.get_json().get("test.key2") is None
         assert "using current config instead" in result_file.stderr
 
-    @buck_test()
+    @buck_test(allow_soft_errors=True)
     async def test_reuse_current_config_with_config_overrides_and_no_previous_invocation(
         self,
         buck: Buck,
@@ -61,7 +61,7 @@ class ReuseCurrentConfigTest(BuckTestCase):
         assert result_file.get_json().get("test.key") == "override"
         assert "Ignoring --reuse-current-config flag" in result_file.stderr
 
-    @buck_test()
+    @buck_test(allow_soft_errors=True)
     async def test_reuse_current_config_with_no_previous_invocation(
         self, buck: Buck
     ) -> None:

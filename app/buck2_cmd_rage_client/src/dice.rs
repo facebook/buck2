@@ -18,6 +18,7 @@ use buck2_client_ctx::daemon::client::connect::BootstrapBuckdClient;
 use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_common::manifold::Bucket;
 use buck2_common::manifold::ManifoldClient;
+use buck2_core::warn_user_or_panic;
 use buck2_error::BuckErrorContext;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
@@ -158,7 +159,7 @@ impl Drop for DiceDump {
                 )
             })
         {
-            tracing::warn!("{:#}", e);
+            warn_user_or_panic!("rage_dice_dump_not_removed", e);
         };
     }
 }

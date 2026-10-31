@@ -17,6 +17,7 @@ pub(crate) fn check_user_allowed() -> buck2_error::Result<()> {
     use std::ptr;
 
     use buck2_core::ci::is_ci;
+    use buck2_core::warn_user;
     use buck2_error::BuckErrorContext;
     use buck2_wrapper_common::win::winapi_handle::WinapiHandle;
     use windows_sys::Win32::Foundation::HANDLE;
@@ -59,8 +60,12 @@ pub(crate) fn check_user_allowed() -> buck2_error::Result<()> {
         // subsequent invocation might come from a non-admin shell. It almost
         // certainly will not.
         if !is_ci()? {
-            tracing::warn!(
-                "You're running buck2 from an admin shell. Invocations from non-admin shells will likely fail going forward. To remediate, run `buck2 clean` in this admin shell, then switch to a non-admin shell."
+            warn_user!(
+                "windows_admin_shell",
+                buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::Environment,
+                    "You're running buck2 from an admin shell. Invocations from non-admin shells will likely fail going forward. To remediate, run `buck2 clean` in this admin shell, then switch to a non-admin shell."
+                )
             );
         }
     }
