@@ -167,28 +167,29 @@ enum ConfigurationInfoError {
 /// Helper function to validate and build a constraints map from dictionary entries.
 fn build_constraints_map_from_dict<'v>(
     dict_entries: UnpackDictEntries<
-        ValueOf<'v, &'v StarlarkTargetLabel>,
-        ValueOf<'v, &'v ConstraintValueInfo<'v>>,
+        ValueTyped<'v, StarlarkTargetLabel>,
+        ValueTyped<'v, ConstraintValueInfo<'v>>,
     >,
 ) -> starlark::Result<BuckMutInsertionMap<Value<'v>, Value<'v>>> {
     let mut new_constraints = BuckMutInsertionMap::new();
 
     for (constraint_setting, constraint_value) in dict_entries.entries {
         let constraint_setting_hashed = constraint_setting
-            .value
+            .to_value()
             .get_hashed()
             .expect("should be hashable, we picked it from dict");
-        let constraint_setting_from_constraint_value = constraint_value.typed.setting().label();
-        if *constraint_setting.typed != *constraint_setting_from_constraint_value {
+        let constraint_setting_from_constraint_value = constraint_value.setting().label();
+        if *constraint_setting != *constraint_setting_from_constraint_value {
             return Err(buck2_error::Error::from(
                 ConfigurationInfoError::ConstraintsKeyValueMismatch(
-                    constraint_setting.value.to_string(),
+                    constraint_setting.to_string(),
                     constraint_value.to_string(),
                 ),
             )
             .into());
         }
-        let prev = new_constraints.insert_hashed(constraint_setting_hashed, constraint_value.value);
+        let prev =
+            new_constraints.insert_hashed(constraint_setting_hashed, constraint_value.to_value());
         assert!(prev.is_none());
     }
 
@@ -200,8 +201,8 @@ fn configuration_info_creator(globals: &mut GlobalsBuilder) {
     #[starlark(as_type = ConfigurationInfo<'static>)]
     fn ConfigurationInfo<'v>(
         #[starlark(require = named)] constraints: UnpackDictEntries<
-            ValueOf<'v, &'v StarlarkTargetLabel>,
-            ValueOf<'v, &'v ConstraintValueInfo<'v>>,
+            ValueTyped<'v, StarlarkTargetLabel>,
+            ValueTyped<'v, ConstraintValueInfo<'v>>,
         >,
         #[starlark(require = named)] values: ValueOf<
             'v,
@@ -341,10 +342,10 @@ fn configuration_info_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn insert<'v>(
         this: &ConfigurationInfo<'v>,
-        #[starlark(require = pos)] value: ValueOf<'v, &'v ConstraintValueInfo<'v>>,
+        #[starlark(require = pos)] value: ValueTyped<'v, ConstraintValueInfo<'v>>,
         heap: Heap<'v>,
     ) -> starlark::Result<NoneOr<ValueTyped<'v, ConstraintValueInfo<'v>>>> {
-        let constraint_value = value.typed;
+        let constraint_value = value.as_ref();
         let setting_info = constraint_value.setting();
         let label = setting_info.label();
 

@@ -27,10 +27,11 @@ use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::values::Freeze;
 use starlark::values::StarlarkPagable;
+use starlark::values::StringValue;
 use starlark::values::Trace;
 use starlark::values::Value;
-use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
+use starlark::values::ValueTyped;
 use starlark::values::dict::DictRef;
 use starlark::values::dict::DictType;
 use starlark::values::dict::UnpackDictEntries;
@@ -84,21 +85,16 @@ fn dep_only_incompatible_info_creator(globals: &mut GlobalsBuilder) {
     #[starlark(as_type = DepOnlyIncompatibleInfo<'static>)]
     fn DepOnlyIncompatibleInfo<'v>(
         #[starlark(require = named)] custom_soft_errors: UnpackDictEntries<
-            ValueOf<'v, &'v str>,
-            ValueOf<'v, &'v DepOnlyIncompatibleRollout<'v>>,
+            StringValue<'v>,
+            ValueTyped<'v, DepOnlyIncompatibleRollout<'v>>,
         >,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<DepOnlyIncompatibleInfo<'v>> {
         let mut result = BuckMutInsertionMap::with_capacity(custom_soft_errors.entries.len());
         for (category, value) in custom_soft_errors.entries {
-            let category_str = category.to_value().unpack_str().ok_or_else(|| {
-                starlark::Error::from(buck2_error::internal_error!(
-                    "Expected string via type checking"
-                ))
-                .into_internal_error()
-            })?;
+            let category_str = category.as_str();
             validate_logview_category(category_str)?;
-            result.insert(category_str, value.value);
+            result.insert(category_str, value.to_value());
         }
         Ok(DepOnlyIncompatibleInfo {
             custom_soft_errors: ValueOfUnchecked::new(eval.heap().alloc(result)),

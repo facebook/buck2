@@ -290,7 +290,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         #[starlark(require = named, default = false)] allow_offline_output_cache: bool,
         #[starlark(require = named, default = false)] force_full_hybrid_if_capable: bool,
         #[starlark(require = named)] exe: Option<
-            Either<ValueOf<'v, &'v WorkerRunInfo<'v>>, ValueOf<'v, &'v RunInfo<'v>>>,
+            Either<ValueTyped<'v, WorkerRunInfo<'v>>, ValueTyped<'v, RunInfo<'v>>>,
         >,
         #[starlark(require = named, default = false)] unique_input_inodes: bool,
         #[starlark(require = named, default = NoneOr::None)] error_handler: NoneOr<
@@ -435,16 +435,16 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         // TODO(nga): we should not accept output artifacts in worker.
         let (starlark_exe, starlark_worker, starlark_remote_worker) = match exe {
             Some(Either::Left(worker_run)) => {
-                let worker = worker_run.typed.worker();
-                let remote_worker = worker_run.typed.remote_worker();
-                let worker_exe = worker_run.typed.exe();
+                let worker = worker_run.worker();
+                let remote_worker = worker_run.remote_worker();
+                let worker_exe = worker_run.exe();
                 worker_exe.as_ref().visit_artifacts(&mut artifact_visitor)?;
                 let starlark_exe = StarlarkCmdArgs::try_from_value(worker_exe.to_value())?;
                 starlark_exe.visit_artifacts(&mut artifact_visitor)?;
                 (starlark_exe, worker, remote_worker)
             }
             Some(Either::Right(exe)) => {
-                let starlark_exe = StarlarkCmdArgs::try_from_value(*exe)?;
+                let starlark_exe = StarlarkCmdArgs::try_from_value(exe.to_value())?;
                 starlark_exe.visit_artifacts(&mut artifact_visitor)?;
                 (starlark_exe, None, None)
             }

@@ -128,7 +128,6 @@ use starlark::values::StringValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
-use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
 use starlark::values::dict::AllocDict;
@@ -412,22 +411,22 @@ impl<'v> Freeze<'v> for StarlarkRunActionValues<'v> {
 }
 
 impl<'v> FrozenStarlarkRunActionValues<'v> {
-    pub(crate) fn worker(&self) -> buck2_error::Result<Option<ValueOf<'v, &'v WorkerInfo<'v>>>> {
+    pub(crate) fn worker(&self) -> buck2_error::Result<Option<ValueTyped<'v, WorkerInfo<'v>>>> {
         let Some(worker) = self.worker else {
             return Ok(None);
         };
-        ValueOf::unpack_value_err(worker.to_value())
+        ValueTyped::new_err(worker.to_value())
             .map_err(buck2_error::Error::from)
             .map(Some)
     }
 
     pub(crate) fn remote_worker(
         &self,
-    ) -> buck2_error::Result<Option<ValueOf<'v, &'v WorkerInfo<'v>>>> {
+    ) -> buck2_error::Result<Option<ValueTyped<'v, WorkerInfo<'v>>>> {
         let Some(remote_worker) = self.remote_worker else {
             return Ok(None);
         };
-        ValueOf::unpack_value_err(remote_worker.to_value())
+        ValueTyped::new_err(remote_worker.to_value())
             .map_err(buck2_error::Error::from)
             .map(Some)
     }
@@ -598,7 +597,7 @@ impl RunAction {
                 res
             }
         };
-        let worker: Option<&WorkerInfo> = values.worker()?.map(|v| v.typed);
+        let worker: Option<&WorkerInfo> = values.worker()?.map(|v| v.as_ref());
 
         let worker = worker.map(|worker| UnpackedWorkerValues {
             exe: worker.exe_command_line(),
@@ -610,7 +609,7 @@ impl RunAction {
                 .supports_bazel_remote_persistent_worker_protocol(),
         });
 
-        let remote_worker: Option<&WorkerInfo> = values.remote_worker()?.map(|v| v.typed);
+        let remote_worker: Option<&WorkerInfo> = values.remote_worker()?.map(|v| v.as_ref());
 
         let remote_worker = remote_worker.map(|remote_worker| UnpackedWorkerValues {
             exe: remote_worker.exe_command_line(),

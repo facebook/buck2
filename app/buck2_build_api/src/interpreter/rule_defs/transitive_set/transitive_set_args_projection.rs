@@ -32,8 +32,8 @@ use starlark::values::StringValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
-use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
+use starlark::values::ValueTyped;
 use starlark::values::list::ListRef;
 use starlark::values::starlark_value;
 use starlark::values::type_repr::StarlarkTypeRepr;
@@ -299,28 +299,28 @@ impl<'v> CommandLineArgLike<'v> for TransitiveSetArgsProjection<'v> {
 #[starlark_module]
 fn transitive_set_args_projection_methods(builder: &mut MethodsBuilder) {
     fn traverse<'v>(
-        this: ValueOf<'v, &'v TransitiveSetArgsProjection<'v>>,
+        this: ValueTyped<'v, TransitiveSetArgsProjection<'v>>,
         heap: Heap<'v>,
     ) -> starlark::Result<Value<'v>> {
         Ok(heap.alloc(TransitiveSetProjectionTraversal {
-            transitive_set: this.typed.transitive_set,
-            projection: this.typed.projection,
-            ordering: this.typed.ordering,
+            transitive_set: this.transitive_set,
+            projection: this.projection,
+            ordering: this.ordering,
         }))
     }
 
     #[starlark(attribute)]
     fn projection_name<'v>(
-        this: ValueOf<'v, &'v TransitiveSetArgsProjection<'v>>,
+        this: ValueTyped<'v, TransitiveSetArgsProjection<'v>>,
         heap: Heap<'v>,
     ) -> starlark::Result<StringValue<'v>> {
-        Ok(heap.alloc_str(this.typed.projection_name()?))
+        Ok(heap.alloc_str(this.projection_name()?))
     }
 
     #[starlark(attribute)]
     fn transitive_set<'v>(
-        this: ValueOf<'v, &'v TransitiveSetArgsProjection<'v>>,
+        this: ValueTyped<'v, TransitiveSetArgsProjection<'v>>,
     ) -> starlark::Result<ValueOfUnchecked<'v, TransitiveSet<'static>>> {
-        Ok(this.typed.transitive_set)
+        Ok(this.transitive_set)
     }
 }
