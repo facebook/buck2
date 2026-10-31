@@ -18,6 +18,10 @@ from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 from buck2.tests.e2e_util.helper.golden import golden, sanitize_stderr
 
 
+# The report of an ignored read is a quiet soft error; this puts it on stderr.
+SHOW_IGNORED_READS = {"BUCK2_SHOW_SOFT_ERRORS": "only=path_check_ignored_read"}
+
+
 class PathValidityTest(BuckTestCase):
     # These tests assert that buck2 refuses to read source files when a path element
     # along the way is "invalid" in some sense: wrong-case, a symlink, ignored, or
@@ -56,6 +60,50 @@ class PathValidityTest(BuckTestCase):
             output=sanitize_stderr(res.stderr),
             rel_path="golden/target_pattern_ignored.golden.stderr",
         )
+
+    @buck_test(allow_soft_errors=True)
+    async def test_source_ignored(self, buck: Buck) -> None:
+        # Ignored source files named explicitly are read, with a soft error saying
+        # why the read will be refused.
+        (buck.cwd / "ignored_src").write_text("HELLO\n")
+        (buck.cwd / "defs.bzl").write_text(
+            "def _impl(ctx):\n"
+            '    return [DefaultInfo(default_output = ctx.actions.copy_file("out", ctx.attrs.src))]\n'
+            "cp = rule(impl = _impl, attrs = {'src': attrs.source()})\n"
+        )
+        (buck.cwd / "TARGETS.fixture").write_text(
+            'load(":defs.bzl", "cp")\ncp(name = "cp", src = "ignored_src")\n'
+        )
+        res = await buck.build("//:cp", env=SHOW_IGNORED_READS)
+        self.assertIn(
+            "`ignored_src` matches the `project.ignore` pattern `ignored*`", res.stderr
+        )
+        self.assertIn("reading ignored files will become an error", res.stderr)
+
+    @buck_test(allow_soft_errors=True)
+    async def test_source_ignored_behind_symlink(self, buck: Buck) -> None:
+        # One report, naming the symlink, for an ignored source reached through it.
+        (buck.cwd / "real").mkdir()
+        (buck.cwd / "real" / "f").write_text("HELLO\n")
+        (buck.cwd / "ignored_dir").mkdir()
+        os.symlink(
+            os.path.join("..", "real"),
+            buck.cwd / "ignored_dir" / "link",
+            target_is_directory=True,
+        )
+        (buck.cwd / "defs.bzl").write_text(
+            "def _impl(ctx):\n"
+            '    return [DefaultInfo(default_output = ctx.actions.copy_file("out", ctx.attrs.src))]\n'
+            "cp = rule(impl = _impl, attrs = {'src': attrs.source()})\n"
+        )
+        (buck.cwd / "TARGETS.fixture").write_text(
+            'load(":defs.bzl", "cp")\ncp(name = "cp", src = "ignored_dir/link/f")\n'
+        )
+        res = await buck.build("//:cp", env=SHOW_IGNORED_READS)
+        self.assertEqual(
+            res.stderr.count("matches the `project.ignore` pattern"), 1, res.stderr
+        )
+        self.assertIn("`ignored_dir/link` is under `ignored_dir`", res.stderr)
 
     @buck_test()
     async def test_target_pattern_cell_traverse(self, buck: Buck) -> None:

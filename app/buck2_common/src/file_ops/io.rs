@@ -15,6 +15,7 @@ use async_trait::async_trait;
 use buck2_core::fs::i_project_rel_path::IProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_fs::paths::file_name::FileName;
 use buck2_hash::BuckDashMap;
 use buck2_hash::BuckMutSet;
@@ -43,7 +44,9 @@ use crate::file_ops::metadata::RawPathMetadata;
 use crate::file_ops::path_check::PathCheck;
 use crate::file_ops::path_check::PathCheckKey;
 use crate::file_ops::path_check::ReadKind;
+use crate::file_ops::path_check::check_ignored_path;
 use crate::file_ops::path_check::check_path;
+use crate::file_ops::path_check::read_ignored_path;
 use crate::file_ops::path_check::read_through_symlink;
 use crate::ignores::ignore_set::HasIgnoreSet;
 use crate::ignores::ignore_set::IgnoreSet;
@@ -245,7 +248,21 @@ impl Key for IoPathMetadataKey {
         _cancellations: &CancellationContext,
     ) -> Self::Value {
         ctx.get_file_system_baseline().await?;
-        let at = match check_path(ctx, self.0).await? {
+        let check = match check_path(ctx, self.0).await? {
+            PathCheck::Ignored { at } => {
+                let check = check_ignored_path(ctx, self.0, at).await?;
+                // A directory is refused when it is listed, and a path behind a symlink is
+                // reported once, by the symlink's own key.
+                if let PathCheck::Present(file_type) = check
+                    && file_type != FileType::Directory
+                {
+                    read_ignored_path(ctx, self.0, at)?;
+                }
+                check
+            }
+            check => check,
+        };
+        let at = match check {
             PathCheck::Present(FileType::Directory) => return Ok(Some(RawPathMetadata::Directory)),
             PathCheck::Present(_) => {
                 let meta = ctx
@@ -258,9 +275,10 @@ impl Key for IoPathMetadataKey {
                     })?;
                 return Ok(meta.map(|meta| meta.map(|p| IProjectRelativePath::intern_directly(&p))));
             }
-            PathCheck::Missing { .. }
-            | PathCheck::Ignored { .. }
-            | PathCheck::ParentNotDirectory { .. } => return Ok(None),
+            PathCheck::Missing { .. } | PathCheck::ParentNotDirectory { .. } => return Ok(None),
+            PathCheck::Ignored { .. } => {
+                return Err(internal_error!("ignored paths are looked at above"));
+            }
             PathCheck::ParentSymlink { at } => at,
         };
         // Behind a symlink: report the symlink, with the rest of the path appended to its target,

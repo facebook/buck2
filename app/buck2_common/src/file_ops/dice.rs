@@ -137,7 +137,7 @@ impl DiceFileComputations {
         }
     }
 
-    /// Does not check if the path is ignored
+    /// TODO(jakobdegen): once the repo is clean, undo D128645602, which reads ignored paths anyway.
     pub async fn read_path_metadata_if_exists(
         ctx: &mut DiceComputations<'_>,
         path: CellPath,
@@ -157,7 +157,7 @@ impl DiceFileComputations {
         }
     }
 
-    /// Does not check if the path is ignored
+    /// TODO(jakobdegen): once the repo is clean, undo D128645602, which reads ignored paths anyway.
     pub async fn read_path_metadata(
         ctx: &mut DiceComputations<'_>,
         path: CellPath,

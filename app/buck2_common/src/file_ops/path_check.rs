@@ -12,6 +12,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::fs::i_project_rel_path::IProjectRelativePath;
 use buck2_core::soft_error;
+use buck2_error::BuckErrorContext;
 use derive_more::Display;
 use dice::CancellationContext;
 use dice::DiceComputations;
@@ -158,6 +159,40 @@ impl PathCheckError {
     }
 }
 
+/// A read the check refuses, let through with a soft error until it becomes an error. The report
+/// says why the read is refused, what reading it anyway costs, and how to stop.
+#[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
+#[error("{}", self.describe())]
+enum ToleratedRead {
+    /// `at`, the path or a prefix of it, matches `pattern`.
+    Ignored {
+        path: IProjectRelativePath,
+        at: IProjectRelativePath,
+        pattern: Option<String>,
+    },
+}
+
+impl ToleratedRead {
+    fn describe(&self) -> String {
+        match self {
+            ToleratedRead::Ignored { path, at, pattern } => {
+                let pattern = pattern.as_deref().unwrap_or("?");
+                let subject = if path == at {
+                    format!("`{path}` matches")
+                } else {
+                    format!("`{path}` is under `{at}`, which matches")
+                };
+                format!(
+                    "{subject} the `project.ignore` pattern `{pattern}`. buck2 does not see \
+                     changes to ignored files, so builds that read it can be stale, and reading \
+                     ignored files will become an error. Stop reading it, or narrow the pattern"
+                )
+            }
+        }
+    }
+}
+
 /// Reports a read through a symlink and lets the caller go ahead with it the way it did before
 /// the check existed; under `BUCK2_HARD_ERROR` the report is the error, as for any soft error.
 ///
@@ -174,6 +209,66 @@ pub(super) fn read_through_symlink(
         PathCheck::ParentSymlink { .. } => soft_error!("path_check_symlink_in_parent", error),
         _ => soft_error!("path_check_symlink_at_path", error),
     }
+    Ok(())
+}
+
+/// What the check of `path` finds once `at`, the path or a prefix of it that the check found
+/// ignored, is looked at anyway. The ignore set is not consulted below `at`, and nothing found
+/// there depends on the file watcher, which reports no changes to ignored paths.
+pub(super) async fn check_ignored_path(
+    ctx: &mut DiceComputations<'_>,
+    path: IProjectRelativePath,
+    at: IProjectRelativePath,
+) -> buck2_error::Result<PathCheck> {
+    let mut below = path
+        .strip_prefix(at)
+        .internal_error("the check reported a prefix")?
+        .iter();
+    let mut prefix = at;
+    loop {
+        let file_type = match prefix.split_last() {
+            Some((parent, name)) => match read_dir_cached(ctx, parent).await?.lookup(name) {
+                Some(file_type) => file_type,
+                None => return Ok(PathCheck::Missing { at: prefix }),
+            },
+            None => FileType::Directory,
+        };
+        let Some(name) = below.next() else {
+            return Ok(PathCheck::Present(file_type));
+        };
+        match file_type {
+            FileType::Directory => {}
+            FileType::Symlink => return Ok(PathCheck::ParentSymlink { at: prefix }),
+            file_type => {
+                return Ok(PathCheck::ParentNotDirectory {
+                    at: prefix,
+                    file_type,
+                });
+            }
+        }
+        prefix = prefix.join(name.as_forward_rel_path());
+    }
+}
+
+/// Reports a read of an ignored path and lets the caller go ahead with it; under `BUCK2_HARD_ERROR`
+/// the report is the error, as for any soft error. Everything that calls this is a candidate for
+/// refusal.
+pub(super) fn read_ignored_path(
+    ctx: &DiceComputations<'_>,
+    path: IProjectRelativePath,
+    at: IProjectRelativePath,
+) -> buck2_error::Result<()> {
+    let pattern = ctx
+        .global_data()
+        .get_ignore_set()
+        .matches_candidate(&at)
+        .map(ToOwned::to_owned);
+    let sample_key = pattern.clone().unwrap_or_default();
+    soft_error!(
+        "path_check_ignored_read",
+        ToleratedRead::Ignored { path, at, pattern }.into(),
+        low_cardinality_key_for_additional_logview_samples: Some(Box::new(sample_key)),
+    );
     Ok(())
 }
 
@@ -732,7 +827,6 @@ mod tests {
             Some(RawPathMetadata::File(_))
         );
         assert_eq!(metadata(&ctx, "root//a/B/f").await, None);
-        assert_eq!(metadata(&ctx, "root//ign/f").await, None);
         assert_eq!(metadata(&ctx, "root//a/b/f/x").await, None);
         assert_eq!(metadata(&ctx, "root//nope").await, None);
 
@@ -760,6 +854,72 @@ mod tests {
                 assert_eq!(external.remaining_path().as_str(), "x/y");
             }
         );
+        Ok(())
+    }
+
+    /// The warning leads with why the read is refused: the pattern, and for a path under an
+    /// ignored directory, which directory.
+    #[test]
+    fn tolerated_read_ignored_says_why() {
+        let pattern = Some("**/*.orig".to_owned());
+        assert_eq!(
+            ToleratedRead::Ignored {
+                path: p("a/f.orig"),
+                at: p("a/f.orig"),
+                pattern: pattern.clone(),
+            }
+            .to_string(),
+            "`a/f.orig` matches the `project.ignore` pattern `**/*.orig`. buck2 does not see \
+             changes to ignored files, so builds that read it can be stale, and reading ignored \
+             files will become an error. Stop reading it, or narrow the pattern"
+        );
+        assert!(
+            ToleratedRead::Ignored {
+                path: p("a/x.orig/f"),
+                at: p("a/x.orig"),
+                pattern,
+            }
+            .to_string()
+            .starts_with(
+                "`a/x.orig/f` is under `a/x.orig`, which matches the `project.ignore` pattern \
+                 `**/*.orig`."
+            )
+        );
+    }
+
+    /// Ignored paths are read anyway, and what is below the ignored prefix is checked like any
+    /// other path.
+    #[tokio::test]
+    async fn metadata_of_ignored_paths() -> buck2_error::Result<()> {
+        let f = Fixture::new("ign,**/*.orig").await?;
+        f.fs.write_file("ign/d/f", "");
+        f.fs.write_file("a/f.orig", "");
+        f.symlink("ign/l", "d");
+        let ctx = f.transaction(FileChangeTracker::new()).await?;
+
+        assert_matches!(
+            metadata(&ctx, "root//a/f.orig").await,
+            Some(RawPathMetadata::File(_))
+        );
+        assert_eq!(
+            metadata(&ctx, "root//ign").await,
+            Some(RawPathMetadata::Directory)
+        );
+        assert_matches!(
+            metadata(&ctx, "root//ign/d/f").await,
+            Some(RawPathMetadata::File(_))
+        );
+        assert_matches!(
+            metadata(&ctx, "root//ign/l/f").await,
+            Some(RawPathMetadata::Symlink { at, to: RawSymlink::Relative(target, _) }) => {
+                assert_eq!(at, cp("root//ign/l"));
+                assert_eq!(target, cp("root//ign/d/f"));
+            }
+        );
+        assert_eq!(metadata(&ctx, "root//a/g.orig").await, None);
+        assert_eq!(metadata(&ctx, "root//ign/d/g").await, None);
+        assert_eq!(metadata(&ctx, "root//ign/D/f").await, None);
+        assert_eq!(metadata(&ctx, "root//ign/d/f/x").await, None);
         Ok(())
     }
 
