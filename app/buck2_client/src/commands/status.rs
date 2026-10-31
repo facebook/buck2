@@ -21,6 +21,7 @@ use buck2_client_ctx::subscribers::stdout_stderr_forwarder::StdoutStderrForwarde
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
 use buck2_common::daemon_dir::DaemonDir;
+use buck2_core::soft_error;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_error::internal_error;
 use humantime::format_duration;
@@ -144,10 +145,13 @@ pub(crate) fn process_status(status: StatusResponse) -> buck2_error::Result<serd
             // Saturating: this is display-only, and the daemon shouldn't be trusted to
             // report a well-formed value.
             if uptime.seconds < 0 || !(0..=999_999_999).contains(&uptime.nanos) {
-                tracing::warn!(
-                    "Daemon reported out-of-range uptime: {}s {}ns",
-                    uptime.seconds,
-                    uptime.nanos
+                soft_error!(
+                    "daemon_status_invalid_uptime",
+                    internal_error!(
+                        "Daemon reported out-of-range uptime: {}s {}ns",
+                        uptime.seconds,
+                        uptime.nanos
+                    )
                 );
             }
             let uptime = Duration::new(

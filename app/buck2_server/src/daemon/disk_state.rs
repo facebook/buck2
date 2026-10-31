@@ -209,10 +209,14 @@ pub(crate) async fn maybe_initialize_dep_file_sqlite_db(
         })?
         .unwrap_or(false);
     if requested && !options.sqlite_materializer_state {
-        tracing::warn!(
-            "Ignoring `buck2.sqlite_dep_file_state`: it needs `buck2.sqlite_materializer_state`, \
+        soft_error!(
+            "sqlite_dep_file_state_needs_materializer_state",
+            buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "Ignoring `buck2.sqlite_dep_file_state`: it needs `buck2.sqlite_materializer_state`, \
              which is disabled. The persisted dep-file cache re-validates outputs against the \
              materializer state db after a restart. Startup continues with the cache disabled."
+            )
         );
     }
     let enabled = requested && options.sqlite_materializer_state;

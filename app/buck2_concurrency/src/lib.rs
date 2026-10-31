@@ -28,6 +28,7 @@ use async_trait::async_trait;
 use buck2_cli_proto::client_context::ExitWhen;
 use buck2_cli_proto::client_context::PreemptibleWhen;
 use buck2_core::soft_error;
+use buck2_core::soft_error_or_panic;
 use buck2_data::CommandPreempted;
 use buck2_data::DiceBlockConcurrentCommandEnd;
 use buck2_data::DiceBlockConcurrentCommandStart;
@@ -2132,10 +2133,7 @@ impl CommandLease {
             .take()
             .expect("a command lease can only be released once");
         if let Err(error) = self.coordinator.release_and_wait(command).await {
-            tracing::warn!(
-                ?error,
-                "failed to release command from concurrency coordinator"
-            );
+            soft_error_or_panic!("command_lease_release_failed", error);
         }
     }
 }

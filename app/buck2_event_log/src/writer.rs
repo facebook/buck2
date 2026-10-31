@@ -18,6 +18,7 @@ use std::task::Poll;
 
 use async_compression::tokio::write::GzipEncoder;
 use async_compression::tokio::write::ZstdEncoder;
+use buck2_core::soft_error_or_panic;
 use counting_reader::CountingReader;
 use pin_project::pin_project;
 use tokio::io::AsyncWrite;
@@ -140,7 +141,11 @@ impl NamedEventLogWriter {
 
     pub(crate) async fn shutdown(&mut self) {
         if let Err(e) = self.file.shutdown().await {
-            tracing::warn!("Failed to flush log file at `{}`: {:#}", self.path.path, e);
+            soft_error_or_panic!(
+                "event_log_flush_failed",
+                buck2_error::Error::from(e)
+                    .context(format!("Failed to flush log file at `{}`", self.path.path))
+            );
         }
     }
 

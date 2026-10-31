@@ -196,7 +196,7 @@ pub fn maybe_locked_write(
         // instead fails `cleanup_path` on the same barrier before anything
         // is removed.
         _ => {
-            tracing::warn!(
+            tracing::debug!(
                 path = %path,
                 "Write destination obstructed or unreadable; repairing"
             );

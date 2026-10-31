@@ -11,6 +11,7 @@
 use std::str::FromStr;
 use std::sync::Arc;
 
+use buck2_core::soft_error_or_panic;
 use buck2_error::BuckErrorContext;
 use buck2_hash::BuckFixedSortedMap;
 use buck2_util::env_vars::substitute_env_vars;
@@ -23,7 +24,7 @@ use crate::legacy_configs::key::BuckconfigKeyRef;
 use crate::legacy_configs::view::LegacyBuckConfigView;
 
 /// Read the `[buck2_metadata]` section from a `LegacyBuckConfig` and resolve any `$VAR`
-/// references. Entries whose env vars are not set are skipped with a warning.
+/// references. Entries whose env vars are not set are skipped and reported.
 pub fn parse_buckconfig_metadata(config: &LegacyBuckConfig) -> BuckFixedSortedMap<String, String> {
     let Some(section) = config.get_section("buck2_metadata") else {
         return BuckFixedSortedMap::default();
@@ -33,7 +34,10 @@ pub fn parse_buckconfig_metadata(config: &LegacyBuckConfig) -> BuckFixedSortedMa
         .filter_map(|(key, value)| match substitute_env_vars(value.as_str()) {
             Ok(resolved) => Some((key.to_owned(), resolved)),
             Err(e) => {
-                tracing::warn!("Skipping [buck2_metadata] key `{}`: {:#}", key, e);
+                soft_error_or_panic!(
+                    "buckconfig_metadata_env_var_unset",
+                    e.context(format!("Skipping [buck2_metadata] key `{}`", key))
+                );
                 None
             }
         })

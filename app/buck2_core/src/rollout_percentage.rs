@@ -53,7 +53,10 @@ impl RolloutPercentage {
                         (hash.as_bytes()[0] as f64 / 256_f64) < pct
                     }
                     None => {
-                        tracing::warn!("Unable to obtain hostname");
+                        crate::soft_error_or_panic!(
+                            "hostname_unavailable",
+                            buck2_error::internal_error!("Unable to obtain hostname")
+                        );
                         pct == 1f64 // 1.0 is an exact value in floats, we *can* compare that one.
                     }
                 }

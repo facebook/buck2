@@ -26,6 +26,7 @@ use buck2_core::cells::CellResolver;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
 use buck2_error::internal_error;
@@ -156,10 +157,12 @@ impl<'a> ImmediateConfigContext<'a> {
                 let paranoid = match is_paranoid_enabled(&data.paranoid_info_path) {
                     Ok(paranoid) => paranoid,
                     Err(e) => {
-                        tracing::warn!(
-                            "Failed to determine whether paranoid is enabled in `{}`: {:#}",
-                            data.paranoid_info_path,
-                            e
+                        soft_error!(
+                            "paranoid_info_unreadable",
+                            e.context(format!(
+                                "Failed to determine whether paranoid is enabled in `{}`",
+                                data.paranoid_info_path
+                            ))
                         );
                         false
                     }

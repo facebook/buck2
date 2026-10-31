@@ -33,7 +33,6 @@ dupe.workspace = true
 futures.workspace = true
 pin-project.workspace = true
 tonic.workspace = true
-tracing.workspace = true
 
 [lints]
 workspace = true

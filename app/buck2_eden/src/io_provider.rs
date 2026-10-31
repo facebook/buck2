@@ -89,7 +89,13 @@ impl EdenIoProvider {
         {
             (Digest::Blake3Keyed, "20230612-191714")
         } else {
-            tracing::warn!("Disabling Eden I/O: Digest config does not allow supported digests");
+            soft_error!(
+                "eden_io_unsupported_digest_config",
+                buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::Input,
+                    "Disabling Eden I/O: Digest config does not allow supported digests"
+                )
+            );
             return Ok(None);
         };
 

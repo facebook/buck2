@@ -18,6 +18,7 @@ use buck2_common::client_utils::get_channel_uds;
 use buck2_common::client_utils::retrying;
 use buck2_common::liveliness_observer::LivelinessGuard;
 use buck2_common::liveliness_observer::LivelinessObserver;
+use buck2_core::soft_error_or_panic;
 use buck2_error::ErrorTag;
 use buck2_error::buck2_error;
 use buck2_events::dispatch::EventDispatcher;
@@ -537,24 +538,22 @@ impl WorkerResponseReader {
                 );
                 match waiters.remove(&response.id) {
                     Some(waiter) => {
-                        let id = response.id;
-                        if waiter.1.send(response).is_err() {
-                            tracing::warn!(
-                                id = id,
-                                "Error passing streaming worker response to waiter"
-                            );
-                        }
+                        // The waiter is gone when its action was cancelled.
+                        let _cancelled = waiter.1.send(response);
                     }
                     None => {
-                        tracing::warn!(
-                            id = response.id,
-                            "Missing waiter for streaming worker response",
+                        soft_error_or_panic!(
+                            "worker_response_without_waiter",
+                            buck2_error::internal_error!(
+                                "Missing waiter for streaming worker response {}",
+                                response.id
+                            )
                         );
                     }
                 };
             }
             Err(e) => {
-                tracing::warn!(error = e.to_string(), "Response error in worker stream");
+                tracing::debug!(error = e.to_string(), "Response error in worker stream");
                 if tracing::enabled!(target: "buck2_worker_diagnostic", tracing::Level::INFO) {
                     // Independent sampled observations: abandoned receivers remain registered,
                     // and the map/receivers can race either count. These are not active-job counts.

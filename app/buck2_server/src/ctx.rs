@@ -605,7 +605,7 @@ impl<'a> ServerCommandContext<'a> {
         let command_end_snapshot = self.heartbeat_guard_handle.take().unwrap().finalize().await;
 
         if let Err(e) = self.re_connection_handle.release_temporary_memory() {
-            tracing::warn!("Failed to release RE client temporary memory: {e}");
+            soft_error!("re_temporary_memory_release_failed", e);
         }
 
         // Emits this command's DICE paging telemetry and, if eligible, schedules an

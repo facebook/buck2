@@ -15,6 +15,7 @@ use std::marker::PhantomData;
 use std::str;
 
 use buck2_core::buck2_env;
+use buck2_core::soft_error_or_panic;
 use buck2_events::dispatch::EventDispatcher;
 use dupe::Dupe;
 
@@ -60,10 +61,12 @@ impl Write for StderrOutputGuard<'_> {
 
 impl Drop for StderrOutputGuard<'_> {
     fn drop(&mut self) {
-        // This would only happen if we had output that isn't utf-8 and got flushed. For now we live with ignoring
-        // this.
+        // This would only happen if we had output that isn't utf-8 and got flushed.
         if let Err(e) = self.inner.flush() {
-            tracing::error!("Discarded StderrOutputWriter output: {:#}", e);
+            soft_error_or_panic!(
+                "stderr_output_discarded",
+                buck2_error::Error::from(e).context("Discarded StderrOutputWriter output")
+            );
         }
     }
 }

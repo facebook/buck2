@@ -2280,7 +2280,10 @@ pub(crate) mod eden_health {
                 let semaphore = match semaphore::buck2_default() {
                     Ok(semaphore) => semaphore,
                     Err(e) => {
-                        tracing::error!("check cannot be set up: {:#}", e);
+                        soft_error_or_panic!(
+                            "eden_health_check_setup_failed",
+                            e.context("EdenFS health check cannot be set up")
+                        );
                         return;
                     }
                 };
@@ -2313,10 +2316,6 @@ pub(crate) mod eden_health {
                                 last_identity = Some(identity);
                             }
                             Err(e) if e.is_caused_by_hanging_mount() => {
-                                tracing::error!(
-                                    "check hit an EdenFS error caused by a hanging mount: {:#}",
-                                    e
-                                );
                                 soft_error_or_panic!(
                                     "eden_thrift_health_check_failed",
                                     buck2_error!(
@@ -2339,7 +2338,6 @@ pub(crate) mod eden_health {
                     // Can occur for a number of reasons, including IO into the Eden mount failing.
                     // This _could_ signal a hanging mount, so we'll report a possible hang.
                     Err(e) => {
-                        tracing::error!("check failed to create an EdenFS client: {:#}", e);
                         soft_error_or_panic!(
                             "eden_thrift_client_creation_failed",
                             buck2_error!(

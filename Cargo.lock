@@ -2480,7 +2480,6 @@ dependencies = [
  "shlex",
  "superconsole",
  "termwiz",
- "tracing",
  "variant_name",
 ]
 
@@ -3436,7 +3435,6 @@ dependencies = [
  "futures 0.3.34",
  "pin-project",
  "tonic",
- "tracing",
 ]
 
 [[package]]

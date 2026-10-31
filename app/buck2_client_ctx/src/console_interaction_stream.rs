@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use buck2_core::soft_error_or_panic;
 use crossterm::event::Event;
 use crossterm::event::EventStream;
 use crossterm::event::KeyCode;
@@ -32,7 +33,7 @@ impl<'a> ConsoleInteractionStream<'a> {
                 return None;
             }
             Err(e) => {
-                tracing::warn!("Failed to enable interactive terminal: {:#}", e);
+                soft_error_or_panic!("interactive_terminal_enable_failed", e);
                 return None;
             }
         };
@@ -48,7 +49,7 @@ impl<'a> ConsoleInteractionStream<'a> {
 impl Drop for ConsoleInteractionStream<'_> {
     fn drop(&mut self) {
         if let Err(e) = self.term.disable() {
-            tracing::warn!("Failed to disable interactive terminal: {:#}", e);
+            soft_error_or_panic!("interactive_terminal_disable_failed", e);
         }
     }
 }

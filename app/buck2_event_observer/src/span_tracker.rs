@@ -10,6 +10,7 @@
 
 use std::sync::Arc;
 
+use buck2_core::soft_error_or_panic;
 use buck2_error::internal_error;
 use buck2_events::BuckEvent;
 use buck2_events::span::SpanId;
@@ -201,7 +202,14 @@ impl<T: SpanTrackable> Roots<T> {
                     *c -= 1;
                 }
                 v => {
-                    tracing::error!("Decrementing {} but it is was {:?}", dice_key_type, v);
+                    soft_error_or_panic!(
+                        "span_tracker_dice_count_underflow",
+                        buck2_error::internal_error!(
+                            "Decrementing {} but it was {:?}",
+                            dice_key_type,
+                            v
+                        )
+                    );
                 }
             }
         }

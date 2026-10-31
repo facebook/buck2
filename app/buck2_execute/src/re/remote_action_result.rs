@@ -12,6 +12,7 @@ use std::time::Duration;
 use std::time::SystemTime;
 
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_core::soft_error_or_panic;
 use buck2_error::BuckErrorContext;
 use buck2_miniperf_proto::MiniperfCounter;
 use remote_execution::ActionResultResponse;
@@ -206,7 +207,10 @@ fn timing_from_re_metadata(meta: &TExecutedActionMetadata) -> ReMetadataTiming {
     let execution_stats = match convert_perf_counts(meta) {
         Ok(v) => Some(v),
         Err(e) => {
-            tracing::warn!("Invalid instruction counts received from RE: {:#}", e);
+            soft_error_or_panic!(
+                "re_invalid_instruction_counts",
+                e.context("Invalid instruction counts received from RE")
+            );
             None
         }
     };

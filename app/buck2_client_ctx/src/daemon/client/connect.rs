@@ -34,6 +34,7 @@ use buck2_common::daemon_dir::DaemonDir;
 use buck2_common::init::DaemonStartupConfig;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_core::buck2_env;
+use buck2_core::soft_error_or_panic;
 use buck2_data::DaemonWasStartedReason;
 use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
@@ -190,11 +191,16 @@ impl DaemonConstraintsRequest {
         }
 
         let server_daemon_startup_config = daemon.daemon_startup_config.as_ref().and_then(|c| {
-            let server = DaemonStartupConfig::deserialize(c);
-            if let Err(e) = server.as_ref() {
-                tracing::warn!("Daemon returned invalid DaemonStartupConfig: {:#}", e);
+            match DaemonStartupConfig::deserialize(c) {
+                Ok(server) => Some(server),
+                Err(e) => {
+                    soft_error_or_panic!(
+                        "daemon_startup_config_invalid",
+                        e.context("Daemon returned invalid DaemonStartupConfig")
+                    );
+                    None
+                }
             }
-            server.ok()
         });
 
         let Some(server_config) = server_daemon_startup_config else {

@@ -735,7 +735,7 @@ pub(crate) async fn evict_backed_measured(dice: &Arc<Dice>) -> u64 {
     let start = Instant::now();
     let evicted = dice.evict_backed().await;
     if let Err(e) = memory::purge_jemalloc() {
-        tracing::warn!("purging the allocator after evicting backed values failed: {e:#}");
+        soft_error_or_panic!("jemalloc_purge_failed", e);
     }
     let (resident_after, allocated_after, _) = page_out_memory_snapshot(dice);
     tracing::info!(

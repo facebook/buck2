@@ -925,6 +925,9 @@ class DepFilesTest(BuckTestCase):
         assert ACTION_EXECUTION_KIND_LOCAL in kinds, kinds
 
     @buck_test(
+        # Setting `sqlite_dep_file_state` without `sqlite_materializer_state` is reported as
+        # a soft error, which is what this test sets up.
+        allow_soft_errors=True,
         setup_eden=False,
         data_dir="dep_files",
         skip_for_os=["windows"],

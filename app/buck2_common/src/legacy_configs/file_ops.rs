@@ -14,6 +14,7 @@ use allocative::Allocative;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
 use buck2_error::ErrorTag;
@@ -148,7 +149,14 @@ impl ConfigParserFileOps for DefaultConfigParserFileOps {
                 return Ok(Vec::new());
             }
             Err(e) if e.io_error_kind() == Some(std::io::ErrorKind::NotADirectory) => {
-                tracing::warn!("Expected a directory of buckconfig files at: `{}`", path);
+                soft_error!(
+                    "config_dir_not_a_directory",
+                    buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::Input,
+                        "Expected a directory of buckconfig files at: `{}`",
+                        path
+                    )
+                );
                 return Ok(Vec::new());
             }
             Err(e) => return Err(classify_config_dir_io_error(e)),
@@ -174,10 +182,14 @@ impl ConfigParserFileOps for DefaultConfigParserFileOps {
             } else if file_type.is_dir() {
                 entries.push(ConfigDirEntry { name, is_dir: true });
             } else {
-                tracing::warn!(
-                    "Expected a directory of buckconfig files at `{}`, but this entry was not a file or directory: `{}`",
-                    path,
-                    name,
+                soft_error!(
+                    "config_dir_entry_not_file_or_directory",
+                    buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::Input,
+                        "Expected a directory of buckconfig files at `{}`, but this entry was not a file or directory: `{}`",
+                        path,
+                        name
+                    )
                 );
             }
         }
