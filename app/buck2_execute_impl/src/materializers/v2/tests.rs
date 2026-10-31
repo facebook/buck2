@@ -1458,7 +1458,7 @@ async fn test_produced_content_is_tracked_and_enters_the_store() -> buck2_error:
         let p = path("buck-out/v2/gen/written");
         let request = || WriteRequest {
             path: p.clone(),
-            content: b"written".to_vec(),
+            content: b"made under hold_or_take".to_vec(),
             is_executable: true,
             path_kind: BuckOutPathKind::Configuration,
         };
@@ -1472,10 +1472,13 @@ async fn test_produced_content_is_tracked_and_enters_the_store() -> buck2_error:
         .await?;
         assert_eq!(
             (value.dupe(), produced),
-            (file_exec("written"), Produced::Made)
+            (file_exec("made under hold_or_take"), Produced::Made)
         );
         assert_eq!(io.take_log(), vec![]);
-        assert_eq!(std::fs::read_to_string(temp.path().resolve(&p))?, "written");
+        assert_eq!(
+            std::fs::read_to_string(temp.path().resolve(&p))?,
+            "made under hold_or_take"
+        );
         assert!(dm.has_artifact_at(p.clone()).await?);
         let DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) = value.entry() else {
             panic!("a write's value is a file");
@@ -1504,7 +1507,7 @@ async fn test_produced_content_is_tracked_and_enters_the_store() -> buck2_error:
             "the file was not replaced"
         );
         // Asked for as a reader, it is found tracked as wanted.
-        materialize_ok(&dm, vec![(p.clone(), file_exec("written"))]).await?;
+        materialize_ok(&dm, vec![(p.clone(), file_exec("made under hold_or_take"))]).await?;
         assert_eq!(io.take_log(), vec![]);
         abort(dm);
         Ok(())
@@ -1520,15 +1523,20 @@ async fn test_content_a_previous_daemon_left_is_found_and_enters_the_store()
     ignore_stack_overflow_checks_for_future(async {
         let temp = ProjectRootTemp::new()?;
         let p = path("buck-out/v2/gen/written");
-        let (dm, io) = restarted_with(temp.path(), vec![(p.clone(), file("written"))]).await?;
-        temp.path().write_file(&p, "written", false)?;
+        let (dm, io) = restarted_with(
+            temp.path(),
+            vec![(p.clone(), file("left by a previous daemon"))],
+        )
+        .await?;
+        temp.path()
+            .write_file(&p, "left by a previous daemon", false)?;
         let blocking = DummyBlockingExecutor {
             fs: temp.path().dupe(),
         };
         #[cfg(unix)]
         let inode = inode_of(&temp.path().resolve(&p))?;
         // Held as a value would hold it; the store keeps content only while something does.
-        let value = file("written");
+        let value = file("left by a previous daemon");
         let produced = produce_locally(dm.as_dyn(), &blocking, p.clone(), value.dupe(), || {
             unreachable!("the path holds the content")
         })
@@ -1543,7 +1551,7 @@ async fn test_content_a_previous_daemon_left_is_found_and_enters_the_store()
         );
         let out = temp.path().resolve(path("buck-out/v2/gen/out"));
         assert!(
-            in_store(&dm, b"written", &out).await?,
+            in_store(&dm, b"left by a previous daemon", &out).await?,
             "the store took the content from the path"
         );
         abort(dm);
