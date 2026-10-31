@@ -42,8 +42,6 @@ use crate::values::OwnedFrozenRef;
 use crate::values::StarlarkValue;
 use crate::values::StringValue;
 use crate::values::Trace;
-use crate::values::UnpackValue;
-use crate::values::ValueOf;
 use crate::values::ValueOfUnchecked;
 use crate::values::ValueTyped;
 use crate::values::layout::avalue::AValue;
@@ -252,18 +250,6 @@ impl<'v> Heap<'v> {
     /// Allocate a value and return [`ValueOfUnchecked`] of it.
     pub fn alloc_typed_unchecked<T: AllocValue<'v>>(self, x: T) -> ValueOfUnchecked<'v, T> {
         ValueOfUnchecked::new(self.alloc(x))
-    }
-
-    /// Allocate a value and return [`ValueOf`] of it.
-    pub fn alloc_value_of<T>(self, x: T) -> ValueOf<'v, &'v T>
-    where
-        T: AllocValue<'v>,
-        &'v T: UnpackValue<'v>,
-    {
-        let value = self.alloc(x);
-        ValueOf::unpack_value(value)
-            .unwrap()
-            .expect("just allocate value must be unpackable to the type of value")
     }
 
     pub(crate) unsafe fn visit_arena(
