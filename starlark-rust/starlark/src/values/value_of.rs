@@ -66,6 +66,7 @@ impl<'v, T: UnpackValue<'v>> StarlarkTypeRepr for ValueOf<'v, T> {
 
 impl<'v, T: UnpackValue<'v>> UnpackValue<'v> for ValueOf<'v, T> {
     type Error = T::Error;
+    const UNCHECKED: bool = T::UNCHECKED;
 
     fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
         let Some(typed) = T::unpack_value_impl(value)? else {

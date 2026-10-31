@@ -77,10 +77,13 @@ fn derive_unpack_value_impl(input: syn::DeriveInput) -> syn::Result<proc_macro2:
         };
     }
 
+    let variant_types: Vec<&syn::Type> = input.enum_variants.iter().map(|(_, t)| t).collect();
+
     let trait_impl: syn::ItemImpl = syn::parse_quote_spanned! { span =>
         #[allow(clippy::all)]
         impl #impl_generics starlark::values::UnpackValue<'v> for #ident #type_generics #where_clause {
             type Error = #error;
+            const UNCHECKED: bool = false #( || <#variant_types as starlark::values::UnpackValue<'v>>::UNCHECKED )*;
 
             // A variant's error type may be `Infallible`, in which case wrapping the
             // error in `Either` below is intentionally unreachable.

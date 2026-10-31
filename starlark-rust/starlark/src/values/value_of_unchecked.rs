@@ -141,6 +141,7 @@ impl<'v, T: StarlarkTypeRepr> Freeze<'v> for ValueOfUnchecked<'v, T> {
 
 impl<'v, T: StarlarkTypeRepr> UnpackValue<'v> for ValueOfUnchecked<'v, T> {
     type Error = Infallible;
+    const UNCHECKED: bool = true;
 
     #[inline]
     fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {

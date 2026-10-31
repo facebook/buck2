@@ -43,6 +43,7 @@ impl<T: StarlarkTypeRepr> StarlarkTypeRepr for UnpackAndDiscard<T> {
 
 impl<'v, T: UnpackValue<'v>> UnpackValue<'v> for UnpackAndDiscard<T> {
     type Error = T::Error;
+    const UNCHECKED: bool = T::UNCHECKED;
 
     fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
         match T::unpack_value_impl(value) {

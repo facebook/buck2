@@ -28,6 +28,75 @@ use crate::typing::Ty;
 use crate::values::Value;
 use crate::values::type_repr::StarlarkTypeRepr;
 
+/// Debug-build check that an unpack agreed with the matcher for its declared type: the value was
+/// accepted, meaning unpacked or rejected only by a conversion error, iff it is of the type.
+///
+/// This is the contract of [`UnpackValue`]; the typechecker and the generated documentation take
+/// it on faith, and nothing else verifies it. A disagreement is a bug in the `UnpackValue` or
+/// `StarlarkTypeRepr` impl rather than in the Starlark program, hence a panic.
+#[cfg(debug_assertions)]
+fn check_type_agreement<'v, T: UnpackValue<'v>>(
+    value: Value<'v>,
+    accepted: bool,
+    param_name: Option<&str>,
+) {
+    use std::collections::HashMap;
+    use std::sync::Arc;
+    use std::sync::Mutex;
+    use std::sync::OnceLock;
+
+    use dupe::Dupe;
+
+    use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
+    use crate::values::typing::type_compiled::matcher::TypeMatcher;
+    use crate::values::typing::type_compiled::matcher::TypeMatcherBox;
+    use crate::values::typing::type_compiled::matcher::TypeMatcherBoxAlloc;
+
+    // One matcher per Rust type. The key is the type name because `UnpackValue` types carry
+    // `'v`, so they have no `TypeId`.
+    static MATCHERS: OnceLock<Mutex<HashMap<&'static str, Arc<TypeMatcherBox>>>> = OnceLock::new();
+
+    let rust_type = std::any::type_name::<T>();
+    let matchers = MATCHERS.get_or_init(Default::default);
+    let matcher = matchers
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .get(rust_type)
+        .map(Dupe::dupe);
+    let matcher = match matcher {
+        Some(matcher) => matcher,
+        None => {
+            // Built outside the lock: a type repr may do arbitrary work.
+            let matcher = Arc::new(TypeMatcherBoxAlloc.ty(&T::starlark_type_repr()));
+            matchers
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .entry(rust_type)
+                .or_insert(matcher)
+                .dupe()
+        }
+    };
+    let matches = matcher.matches(value);
+    if T::UNCHECKED && accepted {
+        // Accepting a value outside the type is what unchecked means.
+        return;
+    }
+    if matches != accepted {
+        let param = match param_name {
+            Some(name) => format!("parameter `{name}`"),
+            None => "value".to_owned(),
+        };
+        panic!(
+            "Unpack of {param} disagrees with its declared type: Rust type `{rust_type}` declares \
+             Starlark type `{ty}`, which {matches} `{value}`, but the unpack {accepted} it",
+            ty = T::starlark_type_repr(),
+            matches = if matches { "accepts" } else { "rejects" },
+            value = value.to_string_for_type_error(),
+            accepted = if accepted { "accepted" } else { "rejected" },
+        );
+    }
+}
+
 /// Error that can be returned by [`UnpackValue`].
 pub trait UnpackValueError: Debug + Send + Sync + 'static {
     /// Convert into a crate error.
@@ -152,6 +221,11 @@ pub trait UnpackValue<'v>: Sized + StarlarkTypeRepr {
     /// Typically [`starlark::Error`](crate::Error), [`anyhow::Error`], or [`Infallible`].
     type Error: UnpackValueError;
 
+    /// Whether this binding also accepts values outside the type [`StarlarkTypeRepr`] declares
+    /// for it. Only [`ValueOfUnchecked`](crate::values::ValueOfUnchecked) and bindings built on
+    /// it do; every other impl returns `None` for exactly the values outside its type.
+    const UNCHECKED: bool = false;
+
     /// Given a [`Value`], try and unpack it into the given type,
     /// which may involve some element of conversion.
     ///
@@ -203,7 +277,10 @@ pub trait UnpackValue<'v>: Sized + StarlarkTypeRepr {
             )
         }
 
-        Self::unpack_value(value)?.ok_or_else(|| error(value, Self::starlark_type_repr))
+        let unpacked = Self::unpack_value(value);
+        #[cfg(debug_assertions)]
+        check_type_agreement::<Self>(value, !matches!(unpacked, Ok(None)), None);
+        unpacked?.ok_or_else(|| error(value, Self::starlark_type_repr))
     }
 
     /// Unpack value, but instead of `None` return error about incorrect argument type.
@@ -221,7 +298,10 @@ pub trait UnpackValue<'v>: Sized + StarlarkTypeRepr {
             )
         }
 
-        Self::unpack_value(value)?.ok_or_else(|| error(value, Self::starlark_type_repr))
+        let unpacked = Self::unpack_value(value);
+        #[cfg(debug_assertions)]
+        check_type_agreement::<Self>(value, !matches!(unpacked, Ok(None)), None);
+        unpacked?.ok_or_else(|| error(value, Self::starlark_type_repr))
     }
 
     /// Unpack value, but instead of `None` return error about incorrect named argument type.
@@ -243,7 +323,10 @@ pub trait UnpackValue<'v>: Sized + StarlarkTypeRepr {
             )
         }
 
-        Self::unpack_value(value)
+        let unpacked = Self::unpack_value(value);
+        #[cfg(debug_assertions)]
+        check_type_agreement::<Self>(value, !matches!(unpacked, Ok(None)), Some(param_name));
+        unpacked
             .into_anyhow_result()
             .with_context(|| {
                 format!(
@@ -268,6 +351,7 @@ impl<'v, TLeft: UnpackValue<'v>, TRight: UnpackValue<'v>> UnpackValue<'v>
     for Either<TLeft, TRight>
 {
     type Error = Either<TLeft::Error, TRight::Error>;
+    const UNCHECKED: bool = TLeft::UNCHECKED || TRight::UNCHECKED;
 
     // Only implemented for types that implement [`UnpackValue`]. Nonsensical for other types.
     fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
@@ -277,5 +361,128 @@ impl<'v, TLeft: UnpackValue<'v>, TRight: UnpackValue<'v>> UnpackValue<'v>
                 .map_err(Either::Right)?
                 .map(Self::Right)),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::convert::Infallible;
+
+    use starlark_derive::starlark_module;
+
+    use crate as starlark;
+    use crate::assert::Assert;
+    use crate::environment::GlobalsBuilder;
+    use crate::typing::Ty;
+    use crate::values::UnpackValue;
+    use crate::values::Value;
+    use crate::values::ValueTyped;
+    use crate::values::none::NoneType;
+    use crate::values::record::record_type::FrozenRecordType;
+    use crate::values::type_repr::StarlarkTypeRepr;
+
+    /// Declares `str` but also accepts anything else.
+    struct LooseStr;
+
+    impl StarlarkTypeRepr for LooseStr {
+        type Canonical = <String as StarlarkTypeRepr>::Canonical;
+
+        fn starlark_type_repr() -> Ty {
+            String::starlark_type_repr()
+        }
+    }
+
+    impl<'v> UnpackValue<'v> for LooseStr {
+        type Error = Infallible;
+
+        fn unpack_value_impl(_value: Value<'v>) -> Result<Option<Self>, Self::Error> {
+            Ok(Some(LooseStr))
+        }
+    }
+
+    /// Declares `str` but rejects the empty string.
+    struct StrictStr;
+
+    impl StarlarkTypeRepr for StrictStr {
+        type Canonical = <String as StarlarkTypeRepr>::Canonical;
+
+        fn starlark_type_repr() -> Ty {
+            String::starlark_type_repr()
+        }
+    }
+
+    impl<'v> UnpackValue<'v> for StrictStr {
+        type Error = Infallible;
+
+        fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
+            Ok(match value.unpack_str() {
+                Some(s) if !s.is_empty() => Some(StrictStr),
+                _ => None,
+            })
+        }
+    }
+
+    #[starlark_module]
+    fn module(globals: &mut GlobalsBuilder) {
+        fn takes_loose_str(x: LooseStr) -> anyhow::Result<NoneType> {
+            let _ = x;
+            Ok(NoneType)
+        }
+
+        fn takes_strict_str(x: StrictStr) -> anyhow::Result<NoneType> {
+            let _ = x;
+            Ok(NoneType)
+        }
+
+        /// A parameter bound to the frozen representation of a type that also has an unfrozen
+        /// one.
+        fn takes_frozen_record_type<'v>(
+            x: ValueTyped<'v, FrozenRecordType<'v>>,
+        ) -> anyhow::Result<NoneType> {
+            let _ = x;
+            Ok(NoneType)
+        }
+    }
+
+    fn assert() -> Assert<'static> {
+        let mut a = Assert::new();
+        a.globals_add(module);
+        a
+    }
+
+    #[test]
+    #[allow(clippy::assertions_on_constants)]
+    fn test_agreeing_unpacks_pass() {
+        assert!(
+            cfg!(debug_assertions),
+            "the agreement check is a debug build check"
+        );
+        let a = assert();
+        a.pass("takes_loose_str('x')");
+        a.pass("takes_strict_str('x')");
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "declares Starlark type `str`, which rejects `int (repr: 1)`, but the unpack accepted it"
+    )]
+    fn test_looser_than_declared_type() {
+        assert().pass("takes_loose_str(1)");
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "declares Starlark type `str`, which accepts `string (repr: \"\")`, but the unpack rejected it"
+    )]
+    fn test_stricter_than_declared_type() {
+        assert().fail("takes_strict_str('')", "");
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "which accepts `function (repr: record(a=field(int)))`, but the unpack rejected it"
+    )]
+    fn test_representation_specific_binding() {
+        assert().fail("takes_frozen_record_type(record(a=int))", "");
     }
 }
