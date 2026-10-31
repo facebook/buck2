@@ -337,10 +337,16 @@ impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> StarlarkTypeRepr
     }
 }
 
+#[derive(thiserror::Error, Debug)]
+#[error("Callable of type `{actual}` does not match the expected signature `{expected}`")]
+struct CallableSignatureMismatch {
+    expected: Ty,
+    actual: Ty,
+}
+
 impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> UnpackValue<'v>
     for StarlarkCallableChecked<'v, P, R>
 {
-    /// Only internal error is possible.
     type Error = crate::Error;
 
     fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
@@ -352,9 +358,15 @@ impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> UnpackValue<'v>
         // We need generic statics to cache this.
         let ty = Ty::callable(P::params(), R::starlark_type_repr());
 
-        match Ty::of_value(value).check_intersects(&ty)? {
+        let actual = Ty::of_value(value);
+        match actual.check_intersects(&ty)? {
             true => Ok(Some(StarlarkCallableChecked(value, PhantomData))),
-            false => Ok(None),
+            // The runtime type `typing.Callable` accepts any callable, so a signature mismatch
+            // is a conversion failure, not a type mismatch.
+            false => Err(crate::Error::new_value(CallableSignatureMismatch {
+                expected: ty,
+                actual,
+            })),
         }
     }
 }
@@ -551,7 +563,7 @@ def test():
 
 test()
         "#,
-            "Type of parameter `_f` doesn't match",
+            "does not match the expected signature `typing.Callable[[], None]`",
         );
     }
 }

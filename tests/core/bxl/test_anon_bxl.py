@@ -24,7 +24,7 @@ class AnonBxlTest(BuckTestCase):
     async def test_define_wrong_type_anon_bxl(self, buck: Buck) -> None:
         await expect_failure(
             buck.bxl("//wrong_type_anon_bxl.bxl:wrong_type"),
-            stderr_regex="Type of parameter `impl` doesn't match,",
+            stderr_regex="Callable of type .* does not match the expected signature",
         )
 
     @buck_test()
