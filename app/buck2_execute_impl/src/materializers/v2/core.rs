@@ -564,6 +564,15 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
         }
     }
 
+    /// Records content this daemon produced at the guard's root, an action's output or a
+    /// publish: the stash takes it first, since it is nowhere else, then it is reported as an
+    /// intermediate output. A download is reported through `report` alone: the CAS has it.
+    async fn report_produced(&self, guard: &RootGuard, root: Root) -> buck2_error::Result<()> {
+        self.stash(&root).await;
+        self.report(guard, root.entry, ArtifactClassification::IntermediateOnly)
+            .await
+    }
+
     /// The roots behind a write lease this materializer handed out.
     fn roots_of<'a>(&self, lease: &'a WriteLease) -> buck2_error::Result<&'a Roots> {
         lease
@@ -653,9 +662,7 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
                         root.path
                     )
                 })?;
-                self.stash(&root).await;
-                self.report(guard, root.entry, ArtifactClassification::IntermediateOnly)
-                    .await?;
+                self.report_produced(guard, root).await?;
             }
         }
         Ok(())
@@ -900,14 +907,8 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
                 fs_util::rename(&src_abs, &dest_abs).categorize_internal()
             })
             .await?;
-        let root = Root { path: dest, entry };
-        self.stash(&root).await;
-        self.report(
-            held.guard(),
-            root.entry,
-            ArtifactClassification::IntermediateOnly,
-        )
-        .await?;
+        self.report_produced(held.guard(), Root { path: dest, entry })
+            .await?;
         Ok(ReadLease::new(Roots(vec![held.into_guard()])))
     }
 
