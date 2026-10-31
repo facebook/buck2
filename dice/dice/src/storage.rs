@@ -394,25 +394,31 @@ impl DiceStorage {
 
             // Join every worker even after a failure - abandoning one mid-chunk
             // would leave it writing and evicting concurrently with the flush
-            // below - and keep only the first error.
-            let mut chunk_error: Option<anyhow::Error> = None;
+            // below - and keep every error: they may have different root causes.
+            let mut chunk_errors: Vec<anyhow::Error> = Vec::new();
             for handle in handles {
                 let result = match handle.await {
                     Ok(result) => result,
                     Err(join_error) => Err(join_error.into()),
                 };
                 if let Err(e) = result {
-                    // The first failure is the one returned; the rest may have
-                    // different root causes, so they are logged, not dropped.
-                    if chunk_error.is_none() {
-                        chunk_error = Some(e);
-                    } else {
-                        tracing::warn!("additional page-out worker failure: {e:#}");
-                    }
+                    chunk_errors.push(e);
                 }
             }
-            if let Some(e) = chunk_error {
-                worker_error = Some(e);
+            if !chunk_errors.is_empty() {
+                worker_error = Some(if chunk_errors.len() == 1 {
+                    chunk_errors.pop().unwrap()
+                } else {
+                    anyhow::anyhow!(
+                        "{} page-out workers failed: {}",
+                        chunk_errors.len(),
+                        chunk_errors
+                            .iter()
+                            .map(|e| format!("{e:#}"))
+                            .collect::<Vec<_>>()
+                            .join("; ")
+                    )
+                });
                 break;
             }
         }
@@ -455,13 +461,14 @@ impl DiceStorage {
         // command-end path reports it without a filesystem walk.
         self.refresh_db_size_bytes().await;
         if let Some(e) = worker_error {
-            // The worker error is the root cause and gets returned; the flush
-            // failure still decides whether the evicted keys' data committed,
-            // so it is logged, not dropped.
-            if let Err(flush_error) = flushed {
-                tracing::error!("flush after page-out worker failure also failed: {flush_error:#}");
-            }
-            return Err(e);
+            // The worker error is the root cause; the flush failure still decides
+            // whether the evicted keys' data committed, so it rides along.
+            return Err(match flushed {
+                Ok(()) => e,
+                Err(flush_error) => e.context(format!(
+                    "flush after page-out worker failure also failed: {flush_error:#}"
+                )),
+            });
         }
         flushed?;
         Ok(())
@@ -776,10 +783,12 @@ async fn bind_in_parallel(
         }));
     }
     for task in tasks {
-        // A panic in a chunk is reported by the join; the arcs it did not
-        // bind stay unbound, which only costs a later page-out a rewrite.
-        if let Err(e) = task.await {
-            tracing::error!("binding paged-out arcs failed: {e}");
+        // A chunk only fails by panicking, and a panic in the binding of
+        // paged-out arcs is a bug in the page-out, not something to continue from.
+        if let Err(e) = task.await
+            && e.is_panic()
+        {
+            std::panic::resume_unwind(e.into_panic());
         }
     }
 }
