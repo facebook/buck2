@@ -23,7 +23,7 @@ use buck2_interpreter::downstream_crate_starlark_defs::REGISTER_BUCK2_ANON_TARGE
 use buck2_interpreter::execution_group::ExecutionGroupArg;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter_for_build::rule::FrozenArtifactPromiseMappings;
-use buck2_interpreter_for_build::rule::FrozenStarlarkRuleCallable;
+use buck2_interpreter_for_build::rule::StarlarkRuleCallableUnpack;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::codemap::FileSpan;
@@ -255,7 +255,7 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
     fn anon_target<'v>(
         this: &AnalysisActions<'v>,
         // TODO(nga): this should be either positional or named, not both.
-        rule: ValueTyped<'v, FrozenStarlarkRuleCallable<'v>>,
+        rule: StarlarkRuleCallableUnpack<'v>,
         attrs: UnpackDictEntries<&'v str, Value<'v>>,
         #[starlark(require = named, default = NoneOr::None)] exec_group: NoneOr<ExecutionGroupArg>,
         eval: &mut Evaluator<'v, '_, '_>,
@@ -263,6 +263,7 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
         let exec_group = exec_group
             .into_option()
             .map(|ExecutionGroupArg { group }| group);
+        let rule = rule.frozen()?;
         let anon_target_promise = eval.heap().alloc_typed(StarlarkPromise::new_unresolved());
         let mut this = this.state()?;
         let this = &mut *this;
@@ -285,7 +286,7 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
         this: &AnalysisActions<'v>,
         // TODO(nga): this should be either positional or named, not both.
         rules: UnpackListOrTuple<(
-            ValueTyped<'v, FrozenStarlarkRuleCallable<'v>>,
+            StarlarkRuleCallableUnpack<'v>,
             UnpackDictEntries<&'v str, Value<'v>>,
         )>,
         #[starlark(require = named, default = NoneOr::None)] exec_group: NoneOr<ExecutionGroupArg>,
@@ -306,6 +307,7 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
             .items
             .into_iter()
             .map(|(rule, attributes)| {
+                let rule = rule.frozen()?;
                 let key =
                     registry.anon_target_key(rule, attributes, owner_key, exec_group.as_ref())?;
                 let anon_target_promise =

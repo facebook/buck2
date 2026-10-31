@@ -66,6 +66,7 @@ use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
 use starlark::values::Trace;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
@@ -74,6 +75,7 @@ use starlark::values::list::ListType;
 use starlark::values::list::UnpackList;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::starlark_value;
+use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::typing::StarlarkCallable;
 use starlark::values::typing::StarlarkCallableChecked;
 
@@ -849,6 +851,35 @@ fn downcast_frozen_rule<'v>(
     rule: Value<'v>,
 ) -> buck2_error::Result<ValueTyped<'v, FrozenStarlarkRuleCallable<'v>>> {
     ValueTyped::new(rule).internal_error("Expecting FrozenRuleCallable")
+}
+
+/// A rule in either of its representations; the binding for a native parameter of type `Rule`.
+#[derive(UnpackValue)]
+pub enum StarlarkRuleCallableUnpack<'v> {
+    Unfrozen(ValueTyped<'v, StarlarkRuleCallable<'v>>),
+    Frozen(ValueTyped<'v, FrozenStarlarkRuleCallable<'v>>),
+}
+
+impl<'v> StarlarkTypeRepr for StarlarkRuleCallableUnpack<'v> {
+    type Canonical = <FrozenStarlarkRuleCallable<'v> as StarlarkTypeRepr>::Canonical;
+
+    fn starlark_type_repr() -> Ty {
+        FrozenStarlarkRuleCallable::starlark_type_repr()
+    }
+}
+
+impl<'v> StarlarkRuleCallableUnpack<'v> {
+    /// The rule once its module is loaded, which is what instantiating it requires. A rule can
+    /// only be defined while its module loads, and nothing that instantiates rules runs then, so
+    /// the unfrozen representation never reaches such a function.
+    pub fn frozen(self) -> buck2_error::Result<ValueTyped<'v, FrozenStarlarkRuleCallable<'v>>> {
+        match self {
+            StarlarkRuleCallableUnpack::Frozen(rule) => Ok(rule),
+            StarlarkRuleCallableUnpack::Unfrozen(_) => Err(buck2_error::internal_error!(
+                "Rule used before the module defining it was loaded"
+            )),
+        }
+    }
 }
 
 /// The `AttributeSpec` of a frozen `rule()` / `anon_rule()` / `bxl.anon_rule()` value.
