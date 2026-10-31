@@ -219,7 +219,7 @@ impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> UnpackValue<'v>
 
     #[inline]
     fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
-        if value.vtable().starlark_value.HAS_invoke {
+        if value.vtable().starlark_value.ty.HAS_invoke {
             Ok(Some(StarlarkCallable::unchecked_new(value)))
         } else {
             Ok(None)

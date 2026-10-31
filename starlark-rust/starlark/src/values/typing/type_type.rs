@@ -40,7 +40,7 @@ impl<'v> UnpackValue<'v> for TypeType {
     type Error = Infallible;
 
     fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
-        if TyStarlarkValue::is_type_from_vtable(&value.vtable().starlark_value) {
+        if TyStarlarkValue::is_type_from_vtable(&value.vtable().starlark_value.ty) {
             Ok(Some(TypeType(())))
         } else {
             Ok(None)

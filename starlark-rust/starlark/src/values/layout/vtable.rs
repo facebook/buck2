@@ -322,16 +322,16 @@ impl AValueVTable {
 
     #[inline]
     pub(crate) fn type_value(&'static self) -> StringValue<'static> {
-        (self.starlark_value.get_type_value_static)()
+        (self.starlark_value.ty.get_type_value_static)()
     }
 
     pub(crate) fn type_starlark_repr(&'static self) -> Ty {
-        (self.starlark_value.get_type_starlark_repr)()
+        (self.starlark_value.ty.get_type_starlark_repr)()
     }
 
     #[inline]
     pub(crate) fn methods(&'static self) -> Option<&'static Methods> {
-        (self.starlark_value.get_methods)()
+        (self.starlark_value.ty.get_methods)()
     }
 
     pub(crate) fn drop_in_place(&'static self, value: StarlarkValueRawPtr) {

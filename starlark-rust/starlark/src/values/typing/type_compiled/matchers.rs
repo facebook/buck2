@@ -261,7 +261,7 @@ pub(crate) struct IsCallable;
 #[type_matcher]
 impl TypeMatcher for IsCallable {
     fn matches(&self, value: Value) -> bool {
-        value.vtable().starlark_value.HAS_invoke
+        value.vtable().starlark_value.ty.HAS_invoke
     }
 }
 
@@ -272,7 +272,7 @@ pub(crate) struct IsType;
 #[type_matcher]
 impl TypeMatcher for IsType {
     fn matches(&self, value: Value) -> bool {
-        TyStarlarkValue::is_type_from_vtable(&value.vtable().starlark_value)
+        TyStarlarkValue::is_type_from_vtable(&value.vtable().starlark_value.ty)
     }
 }
 
@@ -283,7 +283,7 @@ pub(crate) struct IsIterable;
 #[type_matcher]
 impl TypeMatcher for IsIterable {
     fn matches(&self, value: Value) -> bool {
-        TyStarlarkValue::is_iterable(&value.vtable().starlark_value)
+        TyStarlarkValue::is_iterable(&value.vtable().starlark_value.ty)
     }
 }
 

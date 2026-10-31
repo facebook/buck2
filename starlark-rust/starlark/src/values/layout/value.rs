@@ -690,7 +690,7 @@ impl<'v> Value<'v> {
         // Note `int` is not `ptr_eq` because `int` can be equal to `float`.
 
         // If a value does not override equality, it is `ptr_eq`.
-        !self.get_ref().vtable().starlark_value.HAS_equals
+        !self.get_ref().vtable().starlark_value.ty.HAS_equals
             // Strings of length <= 1 are statically allocated.
             || matches!(self.unpack_str(), Some(s) if s.len() <= 1)
             // Empty tuple is statically allocated.
@@ -752,7 +752,7 @@ impl<'v> Value<'v> {
     }
 
     fn check_callable(self) -> crate::Result<()> {
-        if !self.vtable().starlark_value.HAS_invoke {
+        if !self.vtable().starlark_value.ty.HAS_invoke {
             return Err(value_error!(
                 "Value is not callable: {}",
                 self.to_string_for_type_error()

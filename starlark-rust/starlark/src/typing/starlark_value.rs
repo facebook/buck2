@@ -47,8 +47,8 @@ use crate::values::none::NoneType;
 use crate::values::set::value::FrozenSet;
 use crate::values::starlark_type_id::StarlarkTypeId;
 use crate::values::string::str_type::StarlarkStr;
-use crate::values::traits::StarlarkValueVTable;
-use crate::values::traits::StarlarkValueVTableGet;
+use crate::values::traits::StarlarkTypeVTable;
+use crate::values::traits::StarlarkTypeVTableGet;
 use crate::values::tuple::value::Tuple;
 use crate::values::types::bigint::StarlarkBigInt;
 use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
@@ -65,15 +65,14 @@ enum TyStarlarkValueError {
 #[doc(hidden)]
 pub struct TyStarlarkValueVTable {
     type_name: &'static str,
-    // TODO(nga): put these into generated `StarlarkValueVTable`.
-    vtable: StarlarkValueVTable,
+    vtable: StarlarkTypeVTable,
     starlark_type_id: StarlarkTypeId,
     /// `starlark_type_id` is `TypeId` of `T::Canonical`.
     /// This is `TypeId` of `T::Canonical::Canonical`.
     starlark_type_id_check: StarlarkTypeId,
 }
 
-// `StarlarkValueVTable` contains function pointers which don't implement `Ord`,
+// `StarlarkTypeVTable` contains function pointers which don't implement `Ord`,
 // so we derive identity from `starlark_type_id`.
 impl PartialEq for TyStarlarkValueVTable {
     fn eq(&self, other: &Self) -> bool {
@@ -136,7 +135,7 @@ impl<'v, T: StarlarkValue<'v>> TyStarlarkValueVTableGet<'v, T> {
     #[doc(hidden)]
     pub const VTABLE: TyStarlarkValueVTable = TyStarlarkValueVTable {
         type_name: T::TYPE,
-        vtable: StarlarkValueVTableGet::<T>::VTABLE,
+        vtable: StarlarkTypeVTableGet::<T>::VTABLE,
         starlark_type_id: StarlarkTypeId::of_canonical::<T>(),
         starlark_type_id_check: StarlarkTypeId::of_canonical::<T::Canonical>(),
     };
@@ -482,13 +481,13 @@ impl TyStarlarkValue {
     }
 
     #[inline]
-    pub(crate) fn is_iterable(vtable: &StarlarkValueVTable) -> bool {
+    pub(crate) fn is_iterable(vtable: &StarlarkTypeVTable) -> bool {
         vtable.HAS_iterate || vtable.HAS_iterate_collect
     }
 
     /// Instance of this type can be evaluated as a type.
     #[inline]
-    pub(crate) fn is_type_from_vtable(vtable: &StarlarkValueVTable) -> bool {
+    pub(crate) fn is_type_from_vtable(vtable: &StarlarkTypeVTable) -> bool {
         vtable.HAS_eval_type
     }
 

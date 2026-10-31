@@ -258,23 +258,34 @@ impl Gen {
     }
 
     fn gen_starlark_value_vtable(&self) -> syn::Result<TokenStream> {
-        let mut fields: Vec<syn::Field> = Vec::new();
-        let mut inits: Vec<syn::FieldValue> = Vec::new();
-        let mut init_uninitializeds: Vec<syn::FieldValue> = Vec::new();
+        // Entries with a receiver dispatch on a value. The rest, and the `HAS_*` flags, describe
+        // the type; they are what the typechecker reads, and they get a struct of their own.
+        let mut value_fields: Vec<syn::Field> = Vec::new();
+        let mut value_inits: Vec<syn::FieldValue> = Vec::new();
+        let mut value_uninits: Vec<syn::FieldValue> = Vec::new();
+        let mut ty_fields: Vec<syn::Field> = Vec::new();
+        let mut ty_inits: Vec<syn::FieldValue> = Vec::new();
+        let mut ty_uninits: Vec<syn::FieldValue> = Vec::new();
         let mut starlark_value = self.starlark_value.clone();
         let mut extra_items: Vec<syn::TraitItem> = Vec::new();
         for item in &mut starlark_value.items {
             match item {
                 TraitItem::Fn(m) => {
+                    let has_receiver = matches!(m.sig.inputs.first(), Some(FnArg::Receiver(_)));
                     if let Some(entry) = self.process_starlark_value_vtable_fn(m)? {
                         let VTableEntry {
                             field,
                             init,
                             init_for_uninitialized,
                         } = entry;
+                        let (fields, inits, uninits) = if has_receiver {
+                            (&mut value_fields, &mut value_inits, &mut value_uninits)
+                        } else {
+                            (&mut ty_fields, &mut ty_inits, &mut ty_uninits)
+                        };
                         fields.push(field);
                         inits.push(init);
-                        init_uninitializeds.push(init_for_uninitialized);
+                        uninits.push(init_for_uninitialized);
                     }
 
                     // Generate `HAS_foo: bool` vtable entry for each `foo` function.
@@ -287,13 +298,13 @@ impl Gen {
                         const #has_name: bool = false;
                     });
 
-                    fields.push(Self::parse_named_field(quote_spanned! { m.sig.span()=>
+                    ty_fields.push(Self::parse_named_field(quote_spanned! { m.sig.span()=>
                         pub(crate) #has_name: bool
                     })?);
-                    inits.push(syn::parse_quote_spanned! { m.sig.span() =>
+                    ty_inits.push(syn::parse_quote_spanned! { m.sig.span() =>
                         #has_name: T::#has_name
                     });
-                    init_uninitializeds.push(syn::parse_quote_spanned! { m.sig.span() =>
+                    ty_uninits.push(syn::parse_quote_spanned! { m.sig.span() =>
                         #has_name: false
                     });
                 }
@@ -311,16 +322,46 @@ impl Gen {
 
             #starlark_value
 
+            /// The entries of a `StarlarkValue` vtable that describe the type rather than a
+            /// value: the `HAS_*` capability flags and the functions without a receiver. The
+            /// typechecker reads these and nothing else.
+            #[allow(non_upper_case_globals, non_snake_case, dead_code)]
+            pub(crate) struct StarlarkTypeVTable {
+                #(#ty_fields),*
+            }
+
+            #[allow(clippy::all)]
+            #[allow(unused_variables)]
+            impl StarlarkTypeVTable {
+                pub(crate) const UNINITIALIZED_SENTINEL: StarlarkTypeVTable = StarlarkTypeVTable {
+                    #(#ty_uninits),*
+                };
+            }
+
+            pub(crate) struct StarlarkTypeVTableGet<'v, T: StarlarkValue<'v>>(std::marker::PhantomData<&'v T>);
+
+            #[allow(clippy::all)]
+            #[allow(unused_variables)]
+            impl<'v, T: StarlarkValue<'v>> StarlarkTypeVTableGet<'v, T> {
+                pub(crate) const VTABLE: StarlarkTypeVTable = StarlarkTypeVTable {
+                    #(#ty_inits),*
+                };
+            }
+
+            /// The vtable of a `StarlarkValue` implementation: the type-level entries in `ty`,
+            /// and one entry per method with a receiver.
             #[allow(non_upper_case_globals, non_snake_case, dead_code)]
             pub(crate) struct StarlarkValueVTable {
-                #(#fields),*
+                pub(crate) ty: StarlarkTypeVTable,
+                #(#value_fields),*
             }
 
             #[allow(clippy::all)]
             #[allow(unused_variables)]
             impl StarlarkValueVTable {
                 pub(crate) const UNINITIALIZED_SENTINEL: StarlarkValueVTable = StarlarkValueVTable {
-                    #(#init_uninitializeds),*
+                    ty: StarlarkTypeVTable::UNINITIALIZED_SENTINEL,
+                    #(#value_uninits),*
                 };
             }
 
@@ -330,7 +371,8 @@ impl Gen {
             #[allow(unused_variables)]
             impl<'v, T: StarlarkValue<'v>> StarlarkValueVTableGet<'v, T> {
                 pub(crate) const VTABLE: StarlarkValueVTable = StarlarkValueVTable {
-                    #(#inits),*
+                    ty: StarlarkTypeVTableGet::<'v, T>::VTABLE,
+                    #(#value_inits),*
                 };
             }
         })
