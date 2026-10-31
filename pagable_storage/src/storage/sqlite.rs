@@ -112,20 +112,16 @@ fn write_buffer_rows() -> usize {
     })
 }
 
-/// A set-but-unusable value falls back loudly: a typo silently measuring the
-/// default would produce a wrong conclusion. `default` 0 = off unless set.
+/// A set-but-unusable value is a panic: these are measurement probes, and a
+/// typo silently measuring the default would produce a wrong conclusion.
+/// `default` 0 = off unless set.
 fn parse_positive_env(var: &str, default: usize) -> usize {
     let Some(raw) = env::var_os(var) else {
         return default;
     };
     match raw.to_str().and_then(|v| v.parse::<usize>().ok()) {
         Some(v) if v > 0 => v,
-        _ => {
-            tracing::warn!(
-                "ignoring {var}={raw:?}: not a positive integer; using default {default}"
-            );
-            default
-        }
+        _ => panic!("{var}={raw:?} is not a positive integer"),
     }
 }
 
