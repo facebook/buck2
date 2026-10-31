@@ -113,3 +113,13 @@ class CycleDetectionTest(BuckTestCase):
             ),
         )
         check_cycle_error(failure, "more_recompute_cases_cfg_graph")
+
+    @buck_test()
+    async def test_detect_dynamic_action_self_cycle(self, buck: Buck) -> None:
+        failure = await expect_cycle(buck.build("//dynamic_cycle:self"))
+        check_cycle_error(failure, "dynamic_action_self_cycle")
+
+    @buck_test()
+    async def test_detect_dynamic_action_cycle_through_lambda(self, buck: Buck) -> None:
+        failure = await expect_cycle(buck.build("//dynamic_cycle:through_lambda"))
+        check_cycle_error(failure, "dynamic_action_cycle_through_lambda")
